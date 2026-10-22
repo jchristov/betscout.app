@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "description": "Descriptor of all configured sports and leagues for periodic & historical ingestion.",
+  "updated_at": "2026-10-22T19:00:13Z",
+  "sources": [
+    {
+      "sport": "soccer",
+      "league": "eng.1",
+      "name": "Premier League",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 1787,
+      "priced_records": 1787,
+      "first_kickoff": "2022-01-01T12:30Z",
+      "last_ingested_kickoff": "2026-10-19T19:00Z",
+      "last_ingested_ymd": "20261019"
+    },
+    {
+      "sport": "soccer",
+      "league": "esp.1",
+      "name": "La Liga",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 1802,
+      "priced_records": 1799,
+      "first_kickoff": "2022-01-02T13:00Z",
+      "last_ingested_kickoff": "2026-10-21T18:00Z",
+      "last_ingested_ymd": "20261021"
+    },
+    {
+      "sport": "soccer",
+      "league": "ger.1",
+      "name": "Bundesliga",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 1431,
+      "priced_records": 1431,
+      "first_kickoff": "2022-01-07T19:30Z",
+      "last_ingested_kickoff": "2026-10-18T15:30Z",
+      "last_ingested_ymd": "20261018"
+    },
+    {
+      "sport": "soccer",
+      "league": "ita.1",
+      "name": "Serie A",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 1781,
+      "priced_records": 1766,
+      "first_kickoff": "2022-01-06T11:30Z",
+      "last_ingested_kickoff": "2026-10-19T18:45Z",
+      "last_ingested_ymd": "20261019"
+    },
+    {
+      "sport": "soccer",
+      "league": "fra.1",
+      "name": "Ligue 1",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 1552,
+      "priced_records": 1552,
+      "first_kickoff": "2022-01-07T20:00Z",
+      "last_ingested_kickoff": "2026-10-18T18:45Z",
+      "last_ingested_ymd": "20261018"
+    },
+    {
+      "sport": "soccer",
+      "league": "aut.1",
+      "name": "Austrian Bundesliga",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 921,
+      "priced_records": 921,
+      "first_kickoff": "2022-02-11T18:30Z",
+      "last_ingested_kickoff": "2026-10-18T15:00Z",
+      "last_ingested_ymd": "20261018"
+    },
+    {
+      "sport": "soccer",
+      "league": "ned.1",
+      "name": "Eredivisie",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 547,
+      "priced_records": 547,
+      "first_kickoff": "2025-01-10T19:00Z",
+      "last_ingested_kickoff": "2026-10-18T18:00Z",
+      "last_ingested_ymd": "20261018"
+    },
+    {
+      "sport": "soccer",
+      "league": "por.1",
+      "name": "Primeira Liga",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 540,
+      "priced_records": 540,
+      "first_kickoff": "2025-01-03T20:15Z",
+      "last_ingested_kickoff": "2026-10-19T19:15Z",
+      "last_ingested_ymd": "20261019"
+    },
+    {
+      "sport": "soccer",
+      "league": "uefa.champions",
+      "name": "UEFA Champions League",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 324,
+      "priced_records": 324,
+      "first_kickoff": "2025-01-21T17:45Z",
+      "last_ingested_kickoff": "2026-10-21T19:00Z",
+      "last_ingested_ymd": "20261021"
+    },
+    {
+      "sport": "soccer",
+      "league": "uefa.europa",
+      "name": "UEFA Europa League",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 329,
+      "priced_records": 314,
+      "first_kickoff": "2022-09-15T16:45Z",
+      "last_ingested_kickoff": "2026-10-22T16:45Z",
+      "last_ingested_ymd": "20261022"
+    },
+    {
+      "sport": "soccer",
+      "league": "uefa.europa.conf",
+      "name": "UEFA Conference League",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 225,
+      "priced_records": 224,
+      "first_kickoff": "2025-02-13T17:45Z",
+      "last_ingested_kickoff": "2026-10-22T16:45Z",
+      "last_ingested_ymd": "20261022"
+    },
+    {
+      "sport": "tennis",
+      "league": "atp",
+      "name": "ATP Tour",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 18379,
+      "priced_records": 0,
+      "first_kickoff": "2021-09-25T20:00Z",
+      "last_ingested_kickoff": "2026-10-22T17:05Z",
+      "last_ingested_ymd": "20261022"
+    },
+    {
+      "sport": "tennis",
+      "league": "wta",
+      "name": "WTA Tour",
+      "enabled": true,
+      "default_years": [
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_records": 24762,
+      "priced_records": 0,
+      "first_kickoff": "2022-01-02T00:40Z",
+      "last_ingested_kickoff": "2026-10-22T11:05Z",
+      "last_ingested_ymd": "20261022"
+    },
+    {
+      "sport": "basketball",
+      "league": "nba",
+      "name": "NBA",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 507,
+      "priced_records": 499,
+      "first_kickoff": "2026-03-01T18:00Z",
+      "last_ingested_kickoff": "2026-10-22T02:30Z",
+      "last_ingested_ymd": "20261022"
+    },
+    {
+      "sport": "hockey",
+      "league": "nhl",
+      "name": "NHL",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 664,
+      "priced_records": 602,
+      "first_kickoff": "2026-03-01T18:00Z",
+      "last_ingested_kickoff": "2026-10-21T23:30Z",
+      "last_ingested_ymd": "20261021"
+    },
+    {
+      "sport": "football",
+      "league": "nfl",
+      "name": "NFL",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 478,
+      "priced_records": 219,
+      "first_kickoff": "2025-01-04T21:30Z",
+      "last_ingested_kickoff": "2026-10-20T00:15Z",
+      "last_ingested_ymd": "20261020"
+    },
+    {
+      "sport": "baseball",
+      "league": "mlb",
+      "name": "MLB",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 156,
+      "priced_records": 156,
+      "first_kickoff": "2026-09-17T16:35Z",
+      "last_ingested_kickoff": "2026-10-20T00:00Z",
+      "last_ingested_ymd": "20261020"
+    },
+    {
+      "sport": "soccer",
+      "league": "fifa.world",
+      "name": "FIFA World Cup",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 105,
+      "priced_records": 104,
+      "first_kickoff": "2022-11-20T16:00Z",
+      "last_ingested_kickoff": "2026-07-19T19:00Z",
+      "last_ingested_ymd": "20260719"
+    },
+    {
+      "sport": "soccer",
+      "league": "uefa.nations",
+      "name": "UEFA Nations League",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 102,
+      "priced_records": 99,
+      "first_kickoff": "2022-06-01T16:00Z",
+      "last_ingested_kickoff": "2026-10-06T18:45Z",
+      "last_ingested_ymd": "20261006"
+    },
+    {
+      "sport": "soccer",
+      "league": "eng.2",
+      "name": "English Championship",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 109,
+      "priced_records": 109,
+      "first_kickoff": "2026-08-23T11:00Z",
+      "last_ingested_kickoff": "2026-10-20T18:45Z",
+      "last_ingested_ymd": "20261020"
+    }
+  ]
+}

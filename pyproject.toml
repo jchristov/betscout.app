@@ -1,0 +1,20 @@
+[project]
+name = "sportdata-model"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Yuliyan Hristov", email = "yuliyan.hristov@rbinternational.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.4",
+    "pytest>=9.1.1",
+    "scikit-learn>=1.9.1",
+]
+
+[project.scripts]
+sportdata-model = "sportdata_model:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"

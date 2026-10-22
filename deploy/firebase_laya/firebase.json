@@ -1,0 +1,17 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "laya-sports",
+      "runtime": "python312",
+      "ignore": [
+        "venv",
+        ".venv",
+        "__pycache__",
+        ".pytest_cache",
+        "*.pyc",
+        "laya_sports_ckpt/checkpoint_latest"
+      ]
+    }
+  ]
+}

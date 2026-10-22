@@ -1,0 +1,8 @@
+firebase-functions>=0.4.0
+functions-framework>=3.8.0
+google-cloud-storage>=2.18.0
+laya>=0.4.0
+numpy>=1.26.0
+torch>=2.4.0
+safetensors>=0.4.4
+transformers>=4.45.0

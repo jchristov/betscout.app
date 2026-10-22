@@ -1,0 +1,13 @@
+"""Historical market-inconsistency tests on soccer prices (no forward data)."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from sportdata_model.inconsistency import run  # noqa: E402
+
+DB = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
+
+if __name__ == "__main__":
+    run(DB)

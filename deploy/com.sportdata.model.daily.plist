@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sportdata.model.daily</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/sportdata/model</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/uv</string>
+        <string>run</string>
+        <string>sportdata-model</string>
+        <string>--days</string>
+        <string>5</string>
+        <string>--min-odds</string>
+        <string>1.10</string>
+        <string>--decision-backend</string>
+        <string>laya</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <array>
+        <!-- Pass 1 (08:00 local): Settle overnight trades, sync watermarks, log early picks -->
+        <dict>
+            <key>Hour</key>
+            <integer>8</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <!-- Pass 2 (18:15 local): Pre-kickoff T-60m Starting XI Confirmation Gate & CLV refresh -->
+        <dict>
+            <key>Hour</key>
+            <integer>18</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/sportdata/model/data/daily_pipeline.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/sportdata/model/data/daily_pipeline.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HF_HUB_OFFLINE</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
