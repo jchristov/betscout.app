@@ -118,10 +118,16 @@ def format_telegram_digest(
         for idx, b in enumerate(best_bets[:max_picks], start=1):
             sp_emoji = SPORT_EMOJIS.get(b.get("sport_cat", "soccer"), "🎯")
             loc_time = b.get("date_local") or _format_local_time(b["date"], tz_name)
+            esc_line = (
+                f"\n   🎲 Exact Score: <b>{html.escape(b['exact_score_pick'])}</b>"
+                if b.get("exact_score_pick") and b["exact_score_pick"] != "—"
+                else ""
+            )
             lines.append(
                 f"{idx}. {sp_emoji} <b>{html.escape(b['match'])}</b>\n"
                 f"   🕒 <code>{html.escape(loc_time)}</code> · {sp_emoji} {html.escape(b['sport_league'])}\n"
                 f"   🎯 Pick: <b>{html.escape(b['pick'])}</b> · 💰 Odds: <b>{html.escape(b['odds_display'])}</b>"
+                f"{esc_line}"
             )
 
     lines.append("")

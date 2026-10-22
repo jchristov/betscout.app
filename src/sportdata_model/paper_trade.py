@@ -20,6 +20,7 @@ from .decision_signal import score_match_news
 from .elo import Elo
 from .enrich import _extract_soccer_details, _extract_two_way_details, infer_surface
 from .espn import BASE, LEAGUE_LABELS, OTHER_LEAGUES, SOCCER_LEAGUES, TENNIS_LEAGUES, League
+from .exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
 from .ingest import _competitor, _outcome, _score, _soccer_odds, _team_name, _two_way_team_odds
 from .quant_edges import BIG5_LEAGUES, CONFIRM_FROM, build_soccer_feature_rows
 
@@ -410,6 +411,15 @@ def scan_upcoming_tennis(
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
                         ev_pct = round((win_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
+                        t_side = "H" if p_h >= 0.5 else "A"
+                        best_of_sets = 5 if any(gs in t_name.lower() for gs in ("australian open", "roland garros", "french open", "wimbledon", "us open")) and lg == "atp" else 3
+                        set_pred = predict_tennis_set_scores(
+                            win_prob=win_prob,
+                            side=t_side,
+                            game_win_pct_diff=sgn * d_game_pct,
+                            form_6m_diff=form_diff_pick,
+                            best_of=best_of_sets,
+                        )
                         upcoming_picks.append({
                             "tour": lg.upper(),
                             "tournament": t_name,
@@ -419,7 +429,7 @@ def scan_upcoming_tennis(
                             "player_1": h,
                             "player_2": a,
                             "pick": pick_player,
-                            "side": "H" if p_h >= 0.5 else "A",
+                            "side": t_side,
                             "tier": "banker_70pct" if win_prob >= 0.70 else "solid_65pct",
                             "win_prob": round(win_prob, 4),
                             "min_fair_odds": round(1.0 / win_prob, 3),
@@ -427,6 +437,7 @@ def scan_upcoming_tennis(
                             "best_odds": book_odds,
                             "open_odds": open_book_odds,
                             "ev_pct": ev_pct,
+                            "set_score_prediction": set_pred,
                             "factors": {
                                 "game_elo_diff": round(sgn * d_elo_games * 400.0, 1),
                                 "surf_elo_diff": round(sgn * d_elo_surf * 400.0, 1),
@@ -1076,6 +1087,17 @@ def scan_upcoming_and_log_paper_trades(
                     q_kelly_pct = min(max(0.25 * kelly_full * 100.0, 0.0), 2.0)
 
                     syn_dc = (1.0 / (1.0 / best_h + 1.0 / best_d)) if side == "H" else (1.0 / (1.0 / best_d + 1.0 / best_a))
+                    exact_sc_pred = predict_soccer_exact_scores(
+                        ph=ph,
+                        pd=pd,
+                        pa=pa,
+                        side=side,
+                        line_total=pri.get("line_total"),
+                        p_model=p_mod,
+                        sot_z=float(tanh_f[2]),
+                        dom_rebound_z=float(tanh_f[5]),
+                        recent_draws_z=float(tanh_f[6]),
+                    )
                     cand = {
                         "league": lg.key,
                         "event_id": eid,
@@ -1095,6 +1117,7 @@ def scan_upcoming_and_log_paper_trades(
                         "primary_odds": round(o_pri, 3),
                         "close_odds": round(o_close, 3),
                         "synthetic_dc_odds": round(syn_dc, 3),
+                        "exact_score_prediction": exact_sc_pred,
                         "factors_tanh_z": {k: round(float(v), 3) for k, v in zip(FACTOR_NAMES, tanh_f)},
                     }
                     if best_candidate is None or cand["score"] > best_candidate["score"]:

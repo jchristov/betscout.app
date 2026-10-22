@@ -111,6 +111,12 @@ def build_best_bets_summary(
         lg_label = LEAGUE_LABELS.get(p["league"], p["league"].upper())
         pick_team = p["home"] if p["side"] == "H" else p["away"]
         live_tag = f" [LIVE {p['live_score']}]" if p.get("is_live") and p.get("live_score") else (" [LIVE]" if p.get("is_live") else "")
+        esc_p = p.get("exact_score_prediction") or {}
+        esc_str = (
+            f"{esc_p['top_exact_score']} ({esc_p['top_exact_prob']*100:.1f}%) · Cluster {esc_p['cluster_3_scores']} ({esc_p['cluster_3_prob']*100:.1f}%, Fair {esc_p['cluster_3_fair_odds']:.2f})"
+            if esc_p.get("top_exact_score")
+            else "—"
+        )
         best_bets.append({
             "date": p["kickoff"],
             "date_local": _format_local_time(p["kickoff"]),
@@ -118,6 +124,7 @@ def build_best_bets_summary(
             "sport_league": f"Football · {lg_label} ({p['league']}){live_tag}",
             "match": f"{p['home']} vs {p['away']}",
             "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
+            "exact_score_pick": esc_str,
             "odds": round(odds_val, 3),
             "odds_display": f"{odds_val:.2f}",
         })
@@ -133,6 +140,12 @@ def build_best_bets_summary(
             continue
         ev_str = f", EV {tp['ev_pct']:+.1f}%" if tp.get("ev_pct") is not None else ""
         odds_disp = f"{live_book:.2f} (Fair {tp['min_fair_odds']:.2f}{ev_str})" if live_book else f"≥ {odds_val:.2f} (Target {tp['target_ev3_odds']:.2f})"
+        sp_pred = tp.get("set_score_prediction") or {}
+        set_str = (
+            f"Sets {sp_pred['straight_sets_score']} ({sp_pred['straight_sets_prob']*100:.1f}%, Fair {sp_pred['straight_sets_fair_odds']:.2f}) / {sp_pred['decider_sets_score']} ({sp_pred['decider_sets_prob']*100:.1f}%)"
+            if sp_pred.get("straight_sets_score")
+            else "—"
+        )
         best_bets.append({
             "date": tp["kickoff"],
             "date_local": _format_local_time(tp["kickoff"]),
@@ -140,6 +153,7 @@ def build_best_bets_summary(
             "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
             "match": f"{tp['player_1']} vs {tp['player_2']}",
             "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
+            "exact_score_pick": set_str,
             "odds": round(odds_val, 3),
             "odds_display": odds_disp,
         })
@@ -158,6 +172,7 @@ def build_best_bets_summary(
             "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
             "match": f"{op['home']} vs {op['away']}",
             "pick": f"{op['pick']} ({op['side']}) (Win {op['p_model']*100:.1f}%)",
+            "exact_score_pick": "—",
             "odds": round(odds_val, 3),
             "odds_display": f"{odds_val:.2f}",
         })
@@ -280,7 +295,21 @@ def generate_dashboard_html(
             else ""
         )
         sh_match = html.escape(json.dumps(f"{p['home']} vs {p['away']} ({lg_label})"))
-        sh_pick = html.escape(json.dumps(f"{pick_team} ({p['side']}) [{p['tier']}]"))
+        esc_p = p.get("exact_score_prediction") or {}
+        esc_strip_html = ""
+        if esc_p.get("top_exact_score"):
+            esc_strip_html = (
+                f'<div class="odds-strip" style="margin-top:-6px; background:#09101b; border:1px dashed var(--border);">'
+                f'<div><span>Expected Goals (λ/μ)</span><b>{esc_p.get("lambda_home", 0):.2f} – {esc_p.get("mu_away", 0):.2f}</b></div>'
+                f'<div><span>Top Exact Score</span><b class="num-pos">{html.escape(esc_p["top_exact_score"])} ({esc_p["top_exact_prob"]*100:.1f}%)</b></div>'
+                f'<div><span>2-Score Dutch</span><b>{html.escape(esc_p["cluster_2_scores"])} ({esc_p["cluster_2_prob"]*100:.1f}%)</b></div>'
+                f'<div><span>3-Score Cluster</span><b class="num-pos">{html.escape(esc_p["cluster_3_scores"])} ({esc_p["cluster_3_prob"]*100:.1f}%, @{esc_p["cluster_3_fair_odds"]:.2f})</b></div>'
+                f'</div>'
+            )
+        sh_pick_str = f"{pick_team} ({p['side']}) [{p['tier']}]"
+        if esc_p.get("top_exact_score"):
+            sh_pick_str += f" · Exact: {esc_p['top_exact_score']} ({esc_p['top_exact_prob']*100:.1f}%) | Cluster: {esc_p['cluster_3_scores']} ({esc_p['cluster_3_prob']*100:.1f}%)"
+        sh_pick = html.escape(json.dumps(sh_pick_str))
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
         sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"])))
         soccer_cards.append(
@@ -303,6 +332,7 @@ def generate_dashboard_html(
                 <div><span>Mkt Implied</span><b>{p['p_mkt']*100:.1f}%</b></div>
                 <div><span>Calib Model P</span><b>{p_mod_pct:.1f}%</b></div>
               </div>
+              {esc_strip_html}
               <div class="factors">{_factor_bars(p.get('factors_tanh_z') or {})}</div>
               <div class="gates">
                 <span><b>System-1 News ({html.escape(str(ns.get('backend','none')))}):</b> {_fmt_signed(news_val, '+.3f')}</span>
@@ -325,6 +355,13 @@ def generate_dashboard_html(
         t_odds_attr = float(live_book if live_book else tp["min_fair_odds"])
         g_elo = float(f.get("game_elo_diff", 0.0))
         s_elo = float(f.get("surf_elo_diff", 0.0))
+        sp_pred = tp.get("set_score_prediction") or {}
+        set_cell = (
+            f'<b class="num-pos">{html.escape(sp_pred["straight_sets_score"])}</b> ({sp_pred["straight_sets_prob"]*100:.1f}%, Fair {sp_pred["straight_sets_fair_odds"]:.2f})<br>'
+            f'<span class="muted">{html.escape(sp_pred["decider_sets_score"])}: {sp_pred["decider_sets_prob"]*100:.1f}%</span>'
+            if sp_pred.get("straight_sets_score")
+            else "—"
+        )
         tennis_rows.append(
             f"""
             <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
@@ -334,6 +371,7 @@ def generate_dashboard_html(
               <td>{html.escape(tp['player_1'])} vs {html.escape(tp['player_2'])}</td>
               <td><b>{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></td>
               <td><b>{tp['win_prob']*100:.1f}%</b></td>
+              <td>{set_cell}</td>
               <td>{tp['min_fair_odds']:.2f}</td>
               <td>{book_cell}</td>
               <td>{_fmt_signed(g_elo, '+.0f')} / {_fmt_signed(s_elo, '+.0f')}</td>
@@ -367,17 +405,20 @@ def generate_dashboard_html(
     best_bets_rows = []
     for b in all_best_bets_for_html:
         b_match_js = html.escape(json.dumps(b["match"]))
-        b_pick_js = html.escape(json.dumps(b["pick"]))
+        b_pick_with_sc = b["pick"] + (f" · [{b['exact_score_pick']}]" if b.get("exact_score_pick") and b["exact_score_pick"] != "—" else "")
+        b_pick_js = html.escape(json.dumps(b_pick_with_sc))
         b_odds_js = html.escape(json.dumps(b["odds_display"]))
         b_time_js = html.escape(json.dumps(b["date_local"]))
         b_cat_js = html.escape(json.dumps(b["sport_cat"]))
+        esc_col = html.escape(b.get("exact_score_pick") or "—")
         best_bets_rows.append(
             f"""
-            <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b['pick'])}" data-odds-display="{html.escape(b['odds_display'])}">
+            <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
               <td>{_time_span(b['date'], bold=True)}</td>
               <td><span class="pill">{html.escape(b['sport_league'])}</span></td>
               <td>{html.escape(b['match'])}</td>
               <td><b class="num-pos">{html.escape(b['pick'])}</b></td>
+              <td><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
               <td><b>{html.escape(b['odds_display'])}</b> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
             </tr>
             """
@@ -640,16 +681,16 @@ def generate_dashboard_html(
   </div>
 
   <div data-sport-section="tennis">
-    <h2>Upcoming High-Confidence ATP &amp; WTA Tennis Picks (Surface-Elo + Game-Dominance Model)</h2>
+    <h2>Upcoming High-Confidence ATP &amp; WTA Tennis Picks (Surface-Elo + Game-Dominance + Exact Set-Score Model)</h2>
     <table>
       <thead>
         <tr>
           <th>Tour / Surface</th><th>Tournament</th><th>Kickoff</th><th>Matchup</th>
-          <th>Model Pick</th><th>Win Prob</th><th>Min Fair Odds</th><th>Book / +3% EV Target Odds</th><th>Game / Surf Elo Diff</th>
+          <th>Model Pick</th><th>Win Prob</th><th>Exact Set Score (2:0 / 2:1)</th><th>Min Fair Odds</th><th>Book / +3% EV Target Odds</th><th>Game / Surf Elo Diff</th>
         </tr>
       </thead>
       <tbody>
-        {''.join(tennis_rows) if tennis_rows else '<tr><td colspan="9" class="muted">No upcoming tennis picks above threshold.</td></tr>'}
+        {''.join(tennis_rows) if tennis_rows else '<tr><td colspan="10" class="muted">No upcoming tennis picks above threshold.</td></tr>'}
       </tbody>
     </table>
   </div>
@@ -713,11 +754,12 @@ def generate_dashboard_html(
         <th>Sport / League</th>
         <th>Match</th>
         <th>Pick</th>
+        <th>Exact Score / Set-Score Projection</th>
         <th>Odds</th>
       </tr>
     </thead>
     <tbody>
-      {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="5" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
+      {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="6" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
     </tbody>
   </table>
 

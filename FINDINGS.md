@@ -334,3 +334,23 @@ We audited all 4 early paper-trade losses and upgraded both the Tennis and UEFA 
 | **4. UEFA Conf: FC Nordsjælland vs CSKA Sofia $\rightarrow$ Nordsjælland (`H`) `@ 1.41`** | `2-2` | **Negative Composite Score & Severe Negative SOT**: Composite score was `-0.0227` and `sot_d = -0.735`. | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 
 - **Current Settled Paper-Trading Ledger (`scripts/ledger.py`)**: **`10 Settled` (`10 Wins, 0 Losses`) · Realized Profit: `+4.50u` (`ROI = +45.03%`)**, including tonight's UEFA Conference League wins **Braga `2-0` vs KAA Gent (`@ 1.87`, `+0.87u`)** and **Ajax Amsterdam `2-0` vs Atalanta (`@ 2.00`, `+1.00u`)**.
+
+---
+
+## 11. Exact Score & Set-Score Prediction Engine ([`src/sportdata_model/exact_score.py`](./src/sportdata_model/exact_score.py) & [`scripts/exact_score_eval.py`](./scripts/exact_score_eval.py))
+
+1. **Football Feature-Adjusted Dixon-Coles Score Grid & 2/3-Score Dutching Clusters (`predict_soccer_exact_scores`)**:
+   - Solves baseline expected goals $(\lambda_0, \mu_0)$ from de-vigged 1X2 probabilities and `line_total`, tilts $(\lambda, \mu, \rho)$ using our calibrated `p_model`, `sot_d` (`tanh(Z)`), `dom_rebound`, and `recent_draws`, and rescales the winning scoreline distribution to sum to `p_model`.
+   - **Out-of-Sample Post-2025 Holdout Performance (`Big-5 Top 10%`, `n = 115`)**:
+     - **1X2 Hit Rate**: **`73.0%`**
+     - **Top-1 Exact Score Hit Rate**: **`13.9%`**
+     - **2-Score Dutching Cluster Hit Rate**: **`33.0%`**
+     - **3-Score Dutching Cluster Hit Rate**: **`46.1%`** *(vs `32.0%` model mean cluster probability — **`+14.1 pp` outperformance**!)*
+2. **Tennis Calibrated Set-Score Distribution (`2:0` vs `2:1` / `3:0` vs `3:1` vs `3:2`, `predict_tennis_set_scores`)**:
+   - Inverts match win probability $p$ into single-set win probability $s$ and applies a game-dominance & 6-match form tilt (`game_win_pct_diff`, `form_6m_diff`).
+   - **Out-of-Sample Walk-Forward Evaluation (`13,256` Best-of-3 ATP/WTA matches)**:
+     - **ATP (`n = 4,957`)**: `2:0` Brier = **`0.2353`** · On `WinProb >= 70%` (`n = 1,437`): **Actual `2:0` = `55.6%`** vs Model `54.4%` · On `WinProb >= 80%` (`n = 577`): **Actual `2:0` = `61.2%`** vs Model `64.1%`
+     - **WTA (`n = 8,299`)**: `2:0` Brier = **`0.2382`** · On `WinProb >= 70%` (`n = 2,943`): **Actual `2:0` = `58.4%`** vs Model `55.1%` · On `WinProb >= 80%` (`n = 1,255`): **Actual `2:0` = `65.4%`** vs Model `63.9%`
+3. **Full Integration into Dashboard, Web App, CSV/JSON & Discord/Telegram Digests**:
+   - Every Football pick card in [dashboard.html](./data/dashboard.html) now displays an **Expected Goals ($\lambda/\mu$), Top Exact Score, 2-Score Dutch, and 3-Score Cluster** strip.
+   - The Tennis table and Best Bets Summary Table now include the **Exact Score / Set-Score Projection** column, and Discord/Telegram digests automatically include `🎲 Exact Score: ...` on every football and tennis pick.

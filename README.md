@@ -51,7 +51,10 @@ uv run python scripts/discord_post.py --dry-run
 uv run python scripts/discord_post.py --max-picks 12       # Reads DISCORD_WEBHOOK_URL from model/.env
 uv run python scripts/telegram_post.py --dry-run
 
-# 12. Run all unit tests
+# 12. Evaluate Football Exact Score / Dutching Clusters & Tennis Set-Score (2:0 / 2:1) Models
+uv run python scripts/exact_score_eval.py
+
+# 13. Run all unit tests
 uv run pytest -q
 ```
 

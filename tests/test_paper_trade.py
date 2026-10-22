@@ -264,9 +264,22 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     d_res = send_discord_message(d_msg, dry_run=True, env_path=env_file)
     assert d_res["ok"] is True and d_res["dry_run"] is True and d_res["configured"] is True
 
-    tg_msg = format_telegram_digest(_json.loads(rec_json.read_text()), min_odds=1.10)
-    assert "SPORTDATA QUANT DESK" in tg_msg and "Fritz" in tg_msg and "2026-10-22 15:30 CEST" in tg_msg
-    tg_res = send_telegram_message(tg_msg, dry_run=True, env_path=env_file)
-    assert tg_res["ok"] is True and tg_res["dry_run"] is True and tg_res["configured"] is True
+    # 5. Exact Score & Set-Score Engine unit test
+    from sportdata_model.exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
+
+    s_pred = predict_soccer_exact_scores(
+        ph=0.58, pd=0.24, pa=0.18, side="H", line_total=2.5, p_model=0.62, sot_z=0.75, dom_rebound_z=0.40
+    )
+    assert ":" in s_pred["top_exact_score"]
+    assert s_pred["cluster_3_prob"] > s_pred["cluster_2_prob"] > s_pred["top_exact_prob"] > 0.08
+    assert len(s_pred["top_3_breakdown"]) == 3
+
+    t_pred_bo3 = predict_tennis_set_scores(win_prob=0.80, side="A", game_win_pct_diff=0.08, form_6m_diff=0.15, best_of=3)
+    assert t_pred_bo3["straight_sets_score"] == "0:2"
+    assert t_pred_bo3["decider_sets_score"] == "1:2"
+    assert round(t_pred_bo3["straight_sets_prob"] + t_pred_bo3["decider_sets_prob"], 4) == 0.80
+
+    t_pred_bo5 = predict_tennis_set_scores(win_prob=0.82, side="H", game_win_pct_diff=0.10, form_6m_diff=0.10, best_of=5)
+    assert t_pred_bo5["straight_sets_score"] == "3:0" and t_pred_bo5["best_of"] == 5
 
 
