@@ -143,6 +143,18 @@ def _fetch_live_json(url: str, timeout: int = 20, ttl_sec: float = 120.0) -> dic
         return {}
 
 
+def _open_db(db_path: Path, timeout: float = 30.0) -> sqlite3.Connection:
+    """Open SQLite connection with WAL mode and a 30s busy_timeout so concurrent WebApp SSE / Poller / CLI
+    threads never hit `sqlite3.OperationalError: database is locked`."""
+    conn = sqlite3.connect(db_path, timeout=timeout)
+    try:
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.execute("PRAGMA journal_mode = WAL")
+    except Exception:
+        pass
+    return conn
+
+
 DEF_POSITIONS = {"CD", "CD-L", "CD-R", "CB", "LB", "RB", "D", "SW", "LWB", "RWB"}
 
 
@@ -159,7 +171,7 @@ def _build_team_player_attack_history(
     completed matches per team (`rn <= 10`) instead of all 11,500+ historical summaries on disk,
     cutting runtime from ~34s to <0.5s with identical 6-match rolling state!
     """
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     placeholders = ",".join("?" * len(leagues))
     if full_history:
         rows = conn.execute(
@@ -353,7 +365,7 @@ def scan_upcoming_tennis(
     min_prob: float = 0.65,
 ) -> list[dict[str, Any]]:
     """Train the 7-Feature Surface + Game-Dominance Tennis model on all completed matches and score upcoming ATP/WTA fixtures."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     rows = [
         dict(r)
@@ -860,7 +872,7 @@ def build_frozen_model_and_team_state(
     # Rebuild latest team histories over all finished soccer matches up to present
     # Also store club-level fallback `(None, team_name)` so UEFA Champions/Europa/Conference matches
     # inherit full rolling history from domestic leagues!
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     all_rows = conn.execute(
         """
@@ -973,7 +985,7 @@ def _check_exact_score_hit(exact_pred: str | None, settled_score: str | None) ->
 def settle_pending_paper_trades(db_path: Path) -> int:
     """Settle any PENDING paper_trades whose match outcome is now available in `matches` or live on ESPN,
     and backfill `settled_score` and `exact_score_hit` for settled bets."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
@@ -1230,7 +1242,7 @@ def scan_upcoming_other_sports(
     decision_backend: str = "laya",
 ) -> list[dict[str, Any]]:
     """Build 7-Factor Boxscore + Rest/B2B + Rebound Composite & Elo ratings for NBA, NHL, NFL, MLB and score upcoming games."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     rows = [
         dict(r)
@@ -1743,7 +1755,7 @@ def scan_upcoming_and_log_paper_trades(
 ) -> dict[str, Any]:
     """Fetch upcoming soccer fixtures, score with the frozen 7-Factor Composite + Decision Model,
     log qualifying picks to `paper_trades` with CLV tracking, and export `recommendations.json`."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.executescript(PAPER_SCHEMA)
     conn.close()
 
@@ -1977,7 +1989,7 @@ def scan_upcoming_and_log_paper_trades(
                         _upsert_paper_trade(db_path, best_candidate, now_iso)
                     else:
                         # Remove from active PENDING paper_trades if previously logged before injury/lineup news broke
-                        c_del = sqlite3.connect(db_path)
+                        c_del = _open_db(db_path)
                         c_del.execute(
                             "DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (lg.key, eid),
@@ -2085,7 +2097,7 @@ def scan_upcoming_and_log_paper_trades(
     soccer_max_iso = (base_dt + timedelta(days=days_ahead + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     tennis_max_iso = (base_dt + timedelta(days=min(days_ahead, 3) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     other_max_iso = (base_dt + timedelta(days=min(days_ahead, 4) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    c_rev = sqlite3.connect(db_path)
+    c_rev = _open_db(db_path)
     c_rev.row_factory = sqlite3.Row
     for r_pend in c_rev.execute(
         "SELECT league, event_id, kickoff FROM paper_trades WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL) AND kickoff > ?",
@@ -2131,7 +2143,7 @@ def scan_upcoming_and_log_paper_trades(
 
 def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> None:
     """Insert a new paper bet or update `latest_close_odds` and `clv_pct` if already logged."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
     for col_name, col_type in (
@@ -2255,7 +2267,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         latest closing odds, and `clv_pct` in `paper_trades` and `recommendations.json`."""
     if not db_path.exists():
         return []
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     now_dt = datetime.now(timezone.utc)
@@ -2292,7 +2304,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         logged_best = float(r["logged_best_odds"])
         clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
         if gate.get("vetoed"):
-            c_del = sqlite3.connect(db_path)
+            c_del = _open_db(db_path)
             c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()
             c_del.close()
@@ -2306,7 +2318,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                 "attack_share": gate["attack_share"],
             })
         else:
-            c_upd = sqlite3.connect(db_path)
+            c_upd = _open_db(db_path)
             c_upd.execute(
                 "UPDATE paper_trades SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                 (round(float(cur_close), 3), clv_pct, now_iso, lg, eid),
@@ -2391,7 +2403,7 @@ def _evaluate_inplay_soccer_momentum(
 
 def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> None:
     """Persist a 2-leg combo bet into `paper_combos` for prospective tracking and auto-settlement."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.executescript(PAPER_SCHEMA)
     l1, l2 = combo["leg_1"], combo["leg_2"]
     cid = f"{combo.get('combo_type','COMBO')}::{l1.get('match','')}::{l1.get('pick','')}___{l2.get('match','')}::{l2.get('pick','')}"
@@ -2557,7 +2569,7 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
 def settle_pending_paper_combos(db_path: Path) -> int:
     """Grade any PENDING 2-leg combos in `paper_combos` whose legs have completed,
     and reset any future combo that was prematurely marked settled by historical H2H rows."""
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2593,7 +2605,7 @@ def settle_pending_paper_combos(db_path: Path) -> int:
 
 
 def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
-    conn = sqlite3.connect(db_path)
+    conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
