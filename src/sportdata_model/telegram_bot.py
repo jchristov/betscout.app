@@ -51,11 +51,19 @@ def format_telegram_digest(
     db_path: Path | None = None,
     min_odds: float = 1.15,
     sport_filter: str = "all",
+    day_filter: str = "today",
     max_picks: int = 12,
     include_settled: bool = True,
     tz_name: str = DEFAULT_LOCAL_TZ,
 ) -> str:
-    """Build a Telegram HTML-formatted digest of settled paper bets and top upcoming/live picks."""
+    """Build a Telegram HTML-formatted digest of settled paper bets and daily upcoming/live picks.
+    By default (`day_filter='today'`), includes only Today's local picks (or next 30h if late evening)
+    and recent 24h settled bets + today's vetoes so channel posts stay focused on imminent action.
+    Pass `day_filter='all'` to include the full multi-day horizon.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
     if db_path and db_path.exists():
         try:
             settle_pending_paper_trades(db_path)
@@ -63,12 +71,40 @@ def format_telegram_digest(
         except Exception:
             pass
 
+    now_loc = datetime.now(ZoneInfo(tz_name))
+    today_ymd = now_loc.strftime("%Y-%m-%d")
+    tom_ymd = (now_loc + timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_ymd = (now_loc - timedelta(days=1)).strftime("%Y-%m-%d")
+
     ledger = rec.get("paper_ledger") or {}
-    best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport_filter)
+    all_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport_filter)
+
+    norm_day = (day_filter or "today").lower().strip()
+    if norm_day == "today":
+        best_bets = [b for b in all_bets if (b.get("date_local") or _format_local_time(b["date"], tz_name))[:10] == today_ymd]
+        day_label = f"Today ({today_ymd})"
+        if not best_bets:
+            best_bets = [b for b in all_bets if (b.get("date_local") or _format_local_time(b["date"], tz_name))[:10] in (today_ymd, tom_ymd)]
+            day_label = f"Today & Tomorrow ({today_ymd} / {tom_ymd})" if best_bets else "All Upcoming Days"
+            if not best_bets:
+                best_bets = all_bets
+    elif norm_day == "tomorrow":
+        best_bets = [b for b in all_bets if (b.get("date_local") or _format_local_time(b["date"], tz_name))[:10] == tom_ymd]
+        day_label = f"Tomorrow ({tom_ymd})"
+    elif norm_day in ("next48h", "2days"):
+        best_bets = [b for b in all_bets if (b.get("date_local") or _format_local_time(b["date"], tz_name))[:10] in (today_ymd, tom_ymd)]
+        day_label = f"Today + Tomorrow ({today_ymd}..{tom_ymd})"
+    elif norm_day == "all":
+        best_bets = all_bets
+        day_label = "All Upcoming Days"
+    else:
+        best_bets = [b for b in all_bets if (b.get("date_local") or _format_local_time(b["date"], tz_name))[:10] == norm_day]
+        day_label = norm_day
+
     gen_local = _format_local_time(rec.get("generated_at") or "", tz_name)
 
     lines: list[str] = [
-        "📊 <b>SPORTDATA QUANT DESK — DAILY SIGNAL DIGEST</b>",
+        f"📊 <b>SPORTDATA QUANT DESK — DAILY UPDATES &amp; PICKS ({html.escape(day_label)})</b>",
         f"🕒 <i>Generated: {html.escape(gen_local)}</i>",
         "",
     ]
@@ -85,7 +121,15 @@ def format_telegram_digest(
             f"PnL: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)</b>"
         )
         settled_trades = [t for t in (ledger.get("trades") or []) if t.get("status") == "SETTLED"]
-        for tr in settled_trades[-6:]:
+        if norm_day != "all":
+            recent_settled = [
+                t for t in settled_trades
+                if _format_local_time(t.get("kickoff") or "", tz_name)[:10] in (today_ymd, yesterday_ymd)
+            ]
+            settled_to_show = recent_settled[-6:] if recent_settled else settled_trades[-4:]
+        else:
+            settled_to_show = settled_trades[-6:]
+        for tr in settled_to_show:
             pnl_v = float(tr.get("pnl_best") or 0.0)
             badge = "✅ WIN" if pnl_v > 0 else "❌ LOSS"
             sp_emoji = SPORT_EMOJIS.get(_league_to_sport_cat(tr["league"]), "🎯")
@@ -98,13 +142,17 @@ def format_telegram_digest(
             )
         lines.append("")
 
-    # Vetoed injury alerts (high value for followers)
+    # Vetoed injury alerts (filtered to daily window when norm_day != 'all')
     vetoed = [
         p for p in (rec.get("qualifying_picks") or [])
         if str(p.get("action", "")).startswith("VETOED")
+        and (
+            norm_day == "all"
+            or _format_local_time(p.get("kickoff") or "", tz_name)[:10] in (today_ymd, tom_ymd)
+        )
     ]
     if vetoed and sport_filter in ("all", "soccer"):
-        lines.append("🚨 <b>System-1 Injury / Lineup Vetoes (DO NOT BET):</b>")
+        lines.append("🚨 <b>Daily System-1 Injury / Lineup Vetoes (DO NOT BET):</b>")
         for v in vetoed[:4]:
             lg_lbl = LEAGUE_LABELS.get(v["league"], v["league"].upper())
             sp_emoji = SPORT_EMOJIS.get(_league_to_sport_cat(v["league"]), "⚽")
@@ -115,7 +163,7 @@ def format_telegram_digest(
         lines.append("")
 
     lines.append(
-        f"🔥 <b>Top Upcoming &amp; Live Picks (Odds &gt; {min_odds:.2f} · Showing {min(len(best_bets), max_picks)} of {len(best_bets)}):</b>"
+        f"🔥 <b>Daily Picks ({html.escape(day_label)} · Odds &gt; {min_odds:.2f} · Showing {min(len(best_bets), max_picks)} of {len(best_bets)}):</b>"
     )
     if not best_bets:
         lines.append("  <i>No qualifying picks above threshold in current window.</i>")
@@ -141,6 +189,12 @@ def format_telegram_digest(
         rec.get("other_sport_picks") or [],
         max_doubles=3,
     )
+    if norm_day != "all":
+        doubles = [
+            d for d in doubles
+            if _format_local_time(d["leg_1"].get("kickoff") or "", tz_name)[:10] in (today_ymd, tom_ymd)
+            and _format_local_time(d["leg_2"].get("kickoff") or "", tz_name)[:10] in (today_ymd, tom_ymd)
+        ]
     if doubles and sport_filter == "all":
         lines.append("")
         lines.append("🔗 <b>Recommended Uncorrelated 2-Leg Doubles (Parlays):</b>")
@@ -165,16 +219,18 @@ def format_discord_digest(
     db_path: Path | None = None,
     min_odds: float = 1.15,
     sport_filter: str = "all",
+    day_filter: str = "today",
     max_picks: int = 12,
     include_settled: bool = True,
     tz_name: str = DEFAULT_LOCAL_TZ,
 ) -> str:
-    """Build a Discord Markdown digest of settled paper bets, System-1 vetoes, and top upcoming/live picks."""
+    """Build a Discord Markdown digest of settled paper bets, System-1 vetoes, and daily upcoming/live picks."""
     html_msg = format_telegram_digest(
         rec=rec,
         db_path=db_path,
         min_odds=min_odds,
         sport_filter=sport_filter,
+        day_filter=day_filter,
         max_picks=max_picks,
         include_settled=include_settled,
         tz_name=tz_name,

@@ -291,6 +291,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     db_path=db_path,
                     min_odds=float(body.get("min_odds") or 1.15),
                     sport_filter=str(body.get("sport") or "all"),
+                    day_filter=str(body.get("day") or "today"),
                     max_picks=int(body.get("max_picks") or 12),
                 )
                 res = send_discord_message(
@@ -311,6 +312,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     db_path=db_path,
                     min_odds=float(body.get("min_odds") or 1.15),
                     sport_filter=str(body.get("sport") or "all"),
+                    day_filter=str(body.get("day") or "today"),
                     max_picks=int(body.get("max_picks") or 12),
                 )
                 res = send_telegram_message(

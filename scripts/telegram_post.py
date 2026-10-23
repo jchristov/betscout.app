@@ -35,6 +35,12 @@ def main() -> None:
         default="all",
         help="Filter digest by sport (default: all)",
     )
+    parser.add_argument(
+        "--day",
+        type=str,
+        default="today",
+        help="Day filter for picks: 'today' (default), 'tomorrow', 'next48h', 'all', or 'YYYY-MM-DD'",
+    )
     parser.add_argument("--max-picks", type=int, default=12, help="Max upcoming picks in message (default: 12)")
     parser.add_argument("--tz", type=str, default=DEFAULT_LOCAL_TZ, help=f"Timezone for kickoff display (default: {DEFAULT_LOCAL_TZ})")
     parser.add_argument("--bot-token", type=str, default=None, help="Telegram Bot Token (overrides TELEGRAM_BOT_TOKEN)")
@@ -51,6 +57,7 @@ def main() -> None:
         db_path=db_path,
         min_odds=args.min_odds,
         sport_filter=args.sport,
+        day_filter=args.day,
         max_picks=args.max_picks,
         tz_name=args.tz,
     )

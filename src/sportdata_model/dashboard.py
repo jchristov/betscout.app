@@ -318,9 +318,10 @@ def generate_dashboard_html(
         sh_pick = html.escape(json.dumps(sh_pick_str))
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
         sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"])))
+        p_day_loc = _format_local_time(p["kickoff"])[:10]
         soccer_cards.append(
             f"""
-            <div class="card {'card-veto' if is_veto else ''}" data-odds="{p['best_odds']:.3f}" data-sport-cat="soccer" data-search="{html.escape((p['home'] + ' ' + p['away'] + ' ' + lg_label + ' ' + p['league']).lower())}">
+            <div class="card {'card-veto' if is_veto else ''}" data-odds="{p['best_odds']:.3f}" data-sport-cat="soccer" data-day="{html.escape(p_day_loc)}" data-search="{html.escape((p['home'] + ' ' + p['away'] + ' ' + lg_label + ' ' + p['league']).lower())}">
               <div class="card-head">
                 <div>
                   <span class="pill">{html.escape(lg_label)}</span>
@@ -374,9 +375,10 @@ def generate_dashboard_html(
             if sp_pred.get("straight_sets_score")
             else "—"
         )
+        tp_day_loc = _format_local_time(tp["kickoff"])[:10]
         tennis_rows.append(
             f"""
-            <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
+            <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-day="{html.escape(tp_day_loc)}" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
               <td><span class="pill">{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span></td>
               <td>{html.escape(tp['tournament'])}</td>
               <td>{_time_span(tp['kickoff'])}</td>
@@ -401,9 +403,10 @@ def generate_dashboard_html(
             if inj_g.get("backed_out_count") is not None
             else ""
         )
+        op_day_loc = _format_local_time(op["kickoff"])[:10]
         other_rows.append(
             f"""
-            <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
+            <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-day="{html.escape(op_day_loc)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
               <td><span class="pill">{html.escape(op['sport'].upper())}</span> <span class="pill">{html.escape(op['league'])}</span></td>
               <td>{_time_span(op['kickoff'])}</td>
               <td>{html.escape(op['home'])} vs {html.escape(op['away'])}{inj_pill}</td>
@@ -422,9 +425,10 @@ def generate_dashboard_html(
         d_cards = []
         for idx_d, d in enumerate(doubles_list, start=1):
             l1, l2 = d["leg_1"], d["leg_2"]
+            d1_loc = _format_local_time(l1["kickoff"])[:10]
             d_cards.append(
                 f"""
-                <div class="card">
+                <div class="card" data-day="{html.escape(d1_loc)}">
                   <div class="card-head">
                     <div><span class="pill badge-bet">2-LEG DOUBLE #{idx_d}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span></div>
                     <div class="score">Combined Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b>{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
@@ -455,9 +459,10 @@ def generate_dashboard_html(
         b_time_js = html.escape(json.dumps(b["date_local"]))
         b_cat_js = html.escape(json.dumps(b["sport_cat"]))
         esc_col = html.escape(b.get("exact_score_pick") or "—")
+        b_day_loc = (b.get("date_local") or _format_local_time(b["date"]))[:10]
         best_bets_rows.append(
             f"""
-            <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
+            <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
               <td>{_time_span(b['date'], bold=True)}</td>
               <td><span class="pill">{html.escape(b['sport_league'])}</span></td>
               <td>{html.escape(b['match'])}</td>
@@ -510,9 +515,10 @@ def generate_dashboard_html(
                 """
             )
         else:
+            tr_day_loc = _format_local_time(tr["kickoff"])[:10]
             pending_html_rows.append(
                 f"""
-                <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
+                <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-day="{html.escape(tr_day_loc)}" data-search="{search_txt}">
                   <td>{_time_span(tr['kickoff'], bold=True)}</td>
                   <td><span class="pill">{html.escape(lg_name)}</span></td>
                   <td>{html.escape(tr['home'])} vs {html.escape(tr['away'])}</td>
@@ -612,6 +618,52 @@ def generate_dashboard_html(
         f'<button type="button" class="sport-btn {"active" if k == norm_sport else ""}" data-sport-btn="{k}" onclick="applySportFilter(\'{k}\')">{html.escape(label)}</button>'
         for k, label in SPORT_FILTER_LABELS.items()
     )
+
+    from datetime import timedelta
+    now_loc = datetime.now(ZoneInfo(DEFAULT_LOCAL_TZ))
+    today_ymd = now_loc.strftime("%Y-%m-%d")
+    tom_ymd = (now_loc + timedelta(days=1)).strftime("%Y-%m-%d")
+    day_counts: dict[str, int] = {}
+    for b in all_best_bets_for_html:
+        d_str = (b.get("date_local") or _format_local_time(b["date"]))[:10]
+        if len(d_str) == 10 and d_str[4] == "-":
+            day_counts[d_str] = day_counts.get(d_str, 0) + 1
+    sorted_days = sorted(day_counts.keys())
+
+    # Default to Today if Today has picks; else Today + Tomorrow if available; else All Days
+    if day_counts.get(today_ymd, 0) > 0:
+        default_day_filter = today_ymd
+    elif (day_counts.get(today_ymd, 0) + day_counts.get(tom_ymd, 0)) > 0:
+        default_day_filter = "next48h"
+    else:
+        default_day_filter = "all"
+
+    day_btns: list[str] = [
+        f'<button type="button" class="sport-btn {"active" if default_day_filter == "all" else ""}" data-day-btn="all" onclick="applyDayFilter(\'all\')">All Days ({len(all_best_bets_for_html)})</button>'
+    ]
+    two_day_cnt = day_counts.get(today_ymd, 0) + day_counts.get(tom_ymd, 0)
+    if two_day_cnt > 0:
+        day_btns.append(
+            f'<button type="button" class="sport-btn {"active" if default_day_filter == "next48h" else ""}" data-day-btn="next48h" data-day-set="{today_ymd},{tom_ymd}" onclick="applyDayFilter(\'next48h\')">Today + Tomorrow ({two_day_cnt})</button>'
+        )
+    for d_ymd in sorted_days:
+        cnt = day_counts[d_ymd]
+        try:
+            d_obj = datetime.strptime(d_ymd, "%Y-%m-%d")
+            short_lbl = d_obj.strftime("%a %b %d")
+        except Exception:
+            short_lbl = d_ymd
+        if d_ymd == today_ymd:
+            lbl = f"Today · {short_lbl} ({cnt})"
+        elif d_ymd == tom_ymd:
+            lbl = f"Tomorrow · {short_lbl} ({cnt})"
+        else:
+            lbl = f"{short_lbl} ({cnt})"
+        is_act = "active" if default_day_filter == d_ymd else ""
+        day_btns.append(
+            f'<button type="button" class="sport-btn {is_act}" data-day-btn="{html.escape(d_ymd)}" onclick="applyDayFilter(\'{html.escape(d_ymd)}\')">{html.escape(lbl)}</button>'
+        )
+    day_buttons_html = "".join(day_btns)
     clv_kpi_cls = "pos" if mean_clv > 0 else ("neg" if mean_clv < 0 else "")
     losses_cls = ' class="num-neg"' if settled_losses_n > 0 else ""
 
@@ -669,7 +721,7 @@ def generate_dashboard_html(
   table {{ width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; margin-bottom: 24px; }}
   th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }}
   th {{ background: #0f1623; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }}
-  .hidden-by-odds, .hidden-by-sport, .hidden-by-search {{ display: none !important; }}
+  .hidden-by-odds, .hidden-by-sport, .hidden-by-search, .hidden-by-day {{ display: none !important; }}
   .section-head {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 28px 0 12px; }}
   .section-head h2 {{ margin: 0; }}
   .btn-group {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
@@ -749,6 +801,13 @@ def generate_dashboard_html(
     </details>
     <textarea id="tgMessagePreview" rows="11" style="width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:monospace; font-size:12px;"></textarea>
     <div id="tgStatusMsg" class="muted" style="margin-top:6px;"></div>
+  </div>
+
+  <div class="filter-bar">
+    <b>Filter by Day:</b>
+    <div class="sport-btn-group" id="dayFilterGroup">
+      {day_buttons_html}
+    </div>
   </div>
 
   <div class="filter-bar">
@@ -875,6 +934,8 @@ def generate_dashboard_html(
 
   <script>
     let currentSportFilter = {json.dumps(norm_sport)};
+    let currentDayFilter = {json.dumps(default_day_filter)};
+    let currentDaySet = null;
     let currentSearchQuery = '';
     let currentTzMode = 'local';
 
@@ -888,9 +949,31 @@ def generate_dashboard_html(
     }}
 
     function updateVisibleKpi() {{
-      const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search)');
+      const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
       const kpi = document.getElementById('visibleBestBetsKpi');
       if (kpi) kpi.textContent = String(visibleRows.length);
+    }}
+
+    function applyDayFilter(dayKey) {{
+      currentDayFilter = dayKey || 'all';
+      currentDaySet = null;
+      document.querySelectorAll('[data-day-btn]').forEach(btn => {{
+        if (btn.getAttribute('data-day-btn') === currentDayFilter) {{
+          btn.classList.add('active');
+          const ds = btn.getAttribute('data-day-set');
+          if (ds) currentDaySet = new Set(ds.split(','));
+        }} else {{
+          btn.classList.remove('active');
+        }}
+      }});
+      document.querySelectorAll('[data-day]').forEach(el => {{
+        const d = el.getAttribute('data-day') || '';
+        const match = currentDayFilter === 'all'
+          || (currentDaySet ? currentDaySet.has(d) : d === currentDayFilter);
+        if (match) el.classList.remove('hidden-by-day');
+        else el.classList.add('hidden-by-day');
+      }});
+      updateVisibleKpi();
     }}
 
     function applySearchFilter(q) {{
@@ -942,7 +1025,7 @@ def generate_dashboard_html(
     }}
 
     function collectVisibleBestBets() {{
-      const rows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search)');
+      const rows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
       const items = [];
       rows.forEach(r => {{
         items.push({{
@@ -1018,9 +1101,10 @@ def generate_dashboard_html(
 
     function buildBrowserTelegramDigest() {{
       const items = collectVisibleBestBets().slice(0, 20);
+      const dayBadge = currentDayFilter === 'all' ? 'All Upcoming Days' : ('Day Filter: ' + currentDayFilter);
       const lines = [
-        '📊 **SPORTDATA QUANT DESK — BEST BETS DIGEST**',
-        '🕒 *Timezone: {DEFAULT_LOCAL_TZ} · Showing ' + items.length + ' Picks*',
+        '📊 **SPORTDATA QUANT DESK — DAILY PICKS & UPDATES**',
+        '🕒 *Timezone: {DEFAULT_LOCAL_TZ} · ' + dayBadge + ' · Showing ' + items.length + ' Picks*',
         ''
       ];
       items.forEach((it, idx) => {{
@@ -1126,8 +1210,11 @@ def generate_dashboard_html(
           );
         }} else {{
           const closeO = Number(tr.latest_close_odds || o);
+          const trDay = (tr.kickoff_local || tr.kickoff || '').slice(0, 10);
+          const hideDay = (currentDayFilter !== 'all' && !(currentDaySet ? currentDaySet.has(trDay) : trDay === currentDayFilter)) ? ' hidden-by-day' : '';
+          const pendCls = (rowCls + hideDay).trim();
           pendingRows.push(
-            '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
+            '<tr class="' + pendCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-day="' + escHtml(trDay) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
               '<td><span class="pill">' + escHtml(lgName) + '</span></td>' +
               '<td>' + escHtml(tr.home) + ' vs ' + escHtml(tr.away) + '</td>' +
@@ -1450,6 +1537,9 @@ def generate_dashboard_html(
 
     if (currentSportFilter !== 'all') {{
       applySportFilter(currentSportFilter);
+    }}
+    if (currentDayFilter !== 'all') {{
+      applyDayFilter(currentDayFilter);
     }}
   </script>
 </body>

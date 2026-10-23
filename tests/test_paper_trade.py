@@ -259,10 +259,14 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     tg_cfg = get_telegram_env_config(env_path=env_file)
     assert tg_cfg["configured"] is True and tg_cfg["chat_id"] == "@test_quant_channel"
 
-    d_msg = format_discord_digest(_json.loads(rec_json.read_text()), min_odds=1.10)
+    d_msg = format_discord_digest(_json.loads(rec_json.read_text()), min_odds=1.10, day_filter="all")
     assert "**SPORTDATA QUANT DESK" in d_msg and "Fritz" in d_msg and "`2026-10-22 15:30 CEST`" in d_msg
     d_res = send_discord_message(d_msg, dry_run=True, env_path=env_file)
     assert d_res["ok"] is True and d_res["dry_run"] is True and d_res["configured"] is True
+
+    # Verify day_filter='2026-10-22' only includes 2026-10-22 picks (Fritz) and excludes 2026-10-25 (AC Milan)
+    d_msg_day = format_discord_digest(_json.loads(rec_json.read_text()), min_odds=1.10, day_filter="2026-10-22")
+    assert "Fritz" in d_msg_day and "AC Milan" not in d_msg_day
 
     # 5. Exact Score & Set-Score Engine unit test
     from sportdata_model.exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
