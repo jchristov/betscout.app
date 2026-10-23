@@ -499,6 +499,37 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert infer_surface("Wimbledon") == "grass"
     assert len(sum_c2["kelly_cum_pnl"]) == sum_c2["settled_count"]
 
+    # 12. Live In-Play Momentum & Halftime / Second-Half Dominance Rebound Scanner test
+    from sportdata_model.paper_trade import _evaluate_inplay_soccer_momentum
+
+    fake_live_summary = {
+        "boxscore": {
+            "teams": [
+                {
+                    "homeAway": "home",
+                    "statistics": [
+                        {"name": "shotsOnTarget", "displayValue": "6"},
+                        {"name": "totalShots", "displayValue": "14"},
+                        {"name": "wonCorners", "displayValue": "7"},
+                        {"name": "possessionPct", "displayValue": "64.2"},
+                    ],
+                },
+                {
+                    "homeAway": "away",
+                    "statistics": [
+                        {"name": "shotsOnTarget", "displayValue": "1"},
+                        {"name": "totalShots", "displayValue": "4"},
+                        {"name": "wonCorners", "displayValue": "1"},
+                        {"name": "possessionPct", "displayValue": "35.8"},
+                    ],
+                },
+            ]
+        }
+    }
+    mom = _evaluate_inplay_soccer_momentum(fake_live_summary, "H", 0, 0, "HT")
+    assert mom["is_rebound_edge"] is True and mom["signal"] == "DOMINANCE_REBOUND_EDGE" and mom["sot_diff"] == 5
+
+
 
 
 

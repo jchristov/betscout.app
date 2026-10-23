@@ -877,6 +877,12 @@ def generate_dashboard_html(
         elif is_tr_live:
             l_pnl_f = float(tr.get("live_pnl") or 0.0)
             l_sc_disp = tr.get("live_score") or score_str or "0-0 (LIVE)"
+            l_mom = tr.get("live_momentum") or {}
+            mom_badge = ""
+            if l_mom.get("is_rebound_edge"):
+                mom_badge = f' <span class="pill badge-bet" title="SoT: {l_mom.get("sot_for_pick",0)}-{l_mom.get("sot_opp",0)}, Poss: {l_mom.get("poss_pct",50)}%">🔥 REBOUND EDGE (SoT {l_mom.get("sot_diff",0):+d}, {l_mom.get("poss_pct",50):.0f}% Poss)</span>'
+            elif l_mom.get("sot_diff") is not None and tr_sport_cat == "soccer":
+                mom_badge = f' <span class="pill">SoT {l_mom.get("sot_for_pick",0)}-{l_mom.get("sot_opp",0)} ({l_mom.get("poss_pct",50):.0f}% Poss)</span>'
             l_badge = (
                 f'<span class="pill badge-bet">LIVE · LEADING ({l_pnl_f:+.2f}u)</span>'
                 if l_pnl_f > 0
@@ -895,7 +901,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
-                  <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{esc_badge_l}</td>
+                  <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="{l_pnl_f:.3f}">{l_badge}</td>
                 </tr>

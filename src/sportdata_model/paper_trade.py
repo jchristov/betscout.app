@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     is_live INTEGER DEFAULT 0,
     live_score TEXT,
     live_pnl REAL,
+    live_momentum_json TEXT,
     comp_logo TEXT,
     home_logo TEXT,
     away_logo TEXT,
@@ -985,6 +986,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         ("is_live", "INTEGER DEFAULT 0"),
         ("live_score", "TEXT"),
         ("live_pnl", "REAL"),
+        ("live_momentum_json", "TEXT"),
         ("comp_logo", "TEXT"),
         ("home_logo", "TEXT"),
         ("away_logo", "TEXT"),
@@ -1069,9 +1071,14 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                 l_pnl = 0.0
                             else:
                                 l_pnl = -1.0
+                            mom_json = (
+                                json.dumps(_evaluate_inplay_soccer_momentum(sd, side, hs, as_, st_det))
+                                if sp == "soccer"
+                                else None
+                            )
                             conn.execute(
-                                "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                (l_sc, l_pnl, now_iso, lg, eid),
+                                "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (l_sc, l_pnl, mom_json, now_iso, lg, eid),
                             )
                     elif was_pending and row["is_live"]:
                         conn.execute(
@@ -1913,6 +1920,10 @@ def scan_upcoming_and_log_paper_trades(
                 elif is_uefa and sot_z_val >= 0.0 and (sc >= 0.02 or dom_z_val > 0.20):
                     tier = "uefa_edge"
                 best_candidate["tier"] = tier
+                if best_candidate["is_live"]:
+                    best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
+                        summary, best_candidate["side"], hs_live, as_live, live_status_desc
+                    )
                 evaluated_fixtures.append(best_candidate)
 
                 if tier in ("top_8pct", "top_10pct", "top_15pct", "top_25pct", "uefa_edge"):
@@ -2210,9 +2221,11 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
 
 def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     """Inspect pending soccer paper bets kicking off within the next 90 minutes.
-    If official 11-player starting XIs are announced and `evaluate_starting_xi_gate` flags
-    `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`, remove the bet from active PENDING
-    `paper_trades` and return the list of newly vetoed fixtures."""
+    If official 11-player starting XIs are announced:
+      - If `evaluate_starting_xi_gate` flags `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`,
+        remove the bet from active PENDING `paper_trades` and return it in `vetoed_alerts`.
+      - Otherwise, persist the confirmed `starting_xi_gate` (`CONFIRMED_XI` / `CONFIRMED_XI_DEF_ROTATED`),
+        latest closing odds, and `clv_pct` in `paper_trades` and `recommendations.json`."""
     if not db_path.exists():
         return []
     conn = sqlite3.connect(db_path)
@@ -2236,14 +2249,21 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
 
     xi_hist = _build_team_player_attack_history(db_path, db_path.parent / "cache", leagues=EXPANDED_SOCCER_LEAGUES)
     vetoed_alerts: list[dict[str, Any]] = []
+    confirmed_updates: dict[tuple[str, str], dict[str, Any]] = {}
     for r in rows:
         lg, eid = r["league"], r["event_id"]
         backed = r["home"] if r["side"] == "H" else r["away"]
         s_url = f"{BASE}/soccer/{lg}/summary?event={eid}"
-        summary = _fetch_live_json(s_url, ttl_sec=60.0)
+        summary = _fetch_live_json(s_url, ttl_sec=30.0)
         if not summary:
             continue
         gate = evaluate_starting_xi_gate(summary, lg, backed, r["side"], xi_hist)
+        det = _extract_soccer_details(lg, eid, r["kickoff"], summary)
+        close_h, close_a = det[7], det[9]
+        pri = _soccer_odds(summary)
+        cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or float(r["latest_close_odds"])
+        logged_best = float(r["logged_best_odds"])
+        clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
         if gate.get("vetoed"):
             c_del = sqlite3.connect(db_path)
             c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
@@ -2258,7 +2278,88 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                 "status": gate["status"],
                 "attack_share": gate["attack_share"],
             })
+        else:
+            c_upd = sqlite3.connect(db_path)
+            c_upd.execute(
+                "UPDATE paper_trades SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                (round(float(cur_close), 3), clv_pct, now_iso, lg, eid),
+            )
+            c_upd.commit()
+            c_upd.close()
+            confirmed_updates[(lg, str(eid))] = gate
+
+    # Sync updated starting_xi_gate status into recommendations.json if present
+    rec_path = db_path.parent / "recommendations.json"
+    if rec_path.exists() and (confirmed_updates or vetoed_alerts):
+        try:
+            rec = json.loads(rec_path.read_text(encoding="utf-8"))
+            veto_keys = {(v["league"], str(v["event_id"])): v["status"] for v in vetoed_alerts}
+            for p in rec.get("qualifying_picks") or []:
+                pk = (p.get("league"), str(p.get("event_id")))
+                if pk in confirmed_updates:
+                    p["starting_xi_gate"] = confirmed_updates[pk]
+                elif pk in veto_keys:
+                    p["action"] = "VETOED_BY_DEPLETED_XI"
+            rec_path.write_text(json.dumps(rec, indent=2), encoding="utf-8")
+        except Exception:
+            pass
     return vetoed_alerts
+
+
+def _evaluate_inplay_soccer_momentum(
+    summary: dict[str, Any],
+    side: str,
+    hs_live: float | None,
+    as_live: float | None,
+    live_status_desc: str,
+) -> dict[str, Any]:
+    """Evaluate Live In-Play Momentum & Halftime / Second-Half Dominance Rebound for an in-play ('in') soccer match.
+    Checks live boxscore Shots on Target (SoT), Total Shots, Possession %, and Corners from the ESPN summary."""
+    det = _extract_soccer_details("live", "0", "", summary)
+    h_sot = float(det[26] or 0.0)
+    a_sot = float(det[27] or 0.0)
+    h_sh = float(det[28] or 0.0)
+    a_sh = float(det[29] or 0.0)
+    h_co = float(det[30] or 0.0)
+    a_co = float(det[31] or 0.0)
+    h_poss = float(det[32] or 50.0)
+    a_poss = float(det[33] or 50.0)
+
+    sgn = 1.0 if side == "H" else -1.0
+    sot_diff = sgn * (h_sot - a_sot)
+    sh_diff = sgn * (h_sh - a_sh)
+    co_diff = sgn * (h_co - a_co)
+    poss_pick = h_poss if side == "H" else a_poss
+    goal_diff = int((hs_live or 0) - (as_live or 0)) * int(sgn)
+
+    # Dominance Rebound Signal: backed favorite is level (goal_diff == 0) or trailing by 1 (goal_diff == -1)
+    # while dominating live pitch telemetry (SoT diff >= +2 and Shots diff >= +4 or Possession >= 58%)
+    is_rebound_edge = (goal_diff in (0, -1)) and (
+        (sot_diff >= 3.0)
+        or (sot_diff >= 2.0 and (sh_diff >= 4.0 or poss_pick >= 58.0 or co_diff >= 3.0))
+    )
+    is_leading_control = (goal_diff >= 1) and (sot_diff >= 0.0)
+    if is_rebound_edge:
+        signal = "DOMINANCE_REBOUND_EDGE"
+    elif is_leading_control:
+        signal = "LEADING_IN_CONTROL"
+    elif goal_diff < 0 and sot_diff < 0:
+        signal = "TRAILING_OUTPLAYED"
+    else:
+        signal = "IN_PLAY_NEUTRAL"
+
+    return {
+        "signal": signal,
+        "is_rebound_edge": is_rebound_edge,
+        "status_detail": live_status_desc,
+        "goal_diff_for_pick": goal_diff,
+        "sot_for_pick": int(h_sot if side == "H" else a_sot),
+        "sot_opp": int(a_sot if side == "H" else h_sot),
+        "sot_diff": int(sot_diff),
+        "shots_diff": int(sh_diff),
+        "corners_diff": int(co_diff),
+        "poss_pct": round(poss_pick, 1),
+    }
 
 
 def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> None:
@@ -2469,6 +2570,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         ("is_live", "INTEGER DEFAULT 0"),
         ("live_score", "TEXT"),
         ("live_pnl", "REAL"),
+        ("live_momentum_json", "TEXT"),
         ("comp_logo", "TEXT"),
         ("home_logo", "TEXT"),
         ("away_logo", "TEXT"),
@@ -2640,6 +2742,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "is_live": bool(r.get("is_live", 0)),
                 "live_score": r.get("live_score"),
                 "live_pnl": round(float(r["live_pnl"]), 2) if r.get("live_pnl") is not None else None,
+                "live_momentum": json.loads(r["live_momentum_json"]) if r.get("live_momentum_json") else None,
                 "home": r["home"],
                 "away": r["away"],
                 "comp_logo": r.get("comp_logo"),
