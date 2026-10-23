@@ -1,4 +1,4 @@
-"""CLI addon to format and publish high-conviction sports picks & settled paper-trade recaps
+"""CLI addon to format and publish high-conviction sports picks & settled paper-bet recaps
 to a Telegram channel or group (`TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID`).
 
 Usage:

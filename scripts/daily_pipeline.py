@@ -1,7 +1,7 @@
 """Master daily pipeline:
 1. Incrementally sync recent completed soccer & tennis matches into `matches` and `match_details`
 2. Run database quality & anomaly checks (`0 errors` required)
-3. Settle pending paper trades, score upcoming Big-5 soccer & ATP/WTA tennis fixtures, run System-1 news veto & T-60m XI gate
+3. Settle pending paper bets, score upcoming Big-5 soccer & ATP/WTA tennis fixtures, run System-1 news veto & T-60m XI gate
 4. Export `data/recommendations.json` and regenerate `data/dashboard.html`
 
 Usage:
@@ -56,7 +56,7 @@ def run_pipeline(
             print(f"      [ERROR] {err.check} ({err.league}): {err.count} — {err.note}")
         raise RuntimeError("Database quality check failed with errors.")
 
-    print(f"[3/4] Settling paper trades & scanning upcoming fixtures ({days_ahead} days ahead, news={decision_backend})...")
+    print(f"[3/4] Settling paper bets & scanning upcoming fixtures ({days_ahead} days ahead, news={decision_backend})...")
     rep = scan_upcoming_and_log_paper_trades(
         db_path=db_path,
         days_ahead=days_ahead,

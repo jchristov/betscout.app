@@ -1,9 +1,9 @@
-"""View and export Settled and Pending Paper-Trades from `data/matches.sqlite`.
+"""View and export Settled and Pending Paper-Bets from `data/matches.sqlite`.
 
 Usage:
-    uv run python scripts/ledger.py                 # Print Settled & Pending paper trades + summary
-    uv run python scripts/ledger.py --settled-only  # Show only SETTLED paper trades
-    uv run python scripts/ledger.py --export-csv data/settled_trades.csv
+    uv run sportdata-ledger                 # Print Settled & Pending paper bets + summary
+    uv run sportdata-ledger --settled-only  # Show only SETTLED paper bets
+    uv run sportdata-ledger --export-csv data/settled_bets.csv
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ from sportdata_model.paper_trade import get_paper_ledger_summary, settle_pending
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Inspect and export Settled and Pending paper trades.")
-    parser.add_argument("--settled-only", action="store_true", help="Display only SETTLED paper trades")
+    parser = argparse.ArgumentParser(description="Inspect and export Settled and Pending paper bets.")
+    parser.add_argument("--settled-only", action="store_true", help="Display only SETTLED paper bets")
     parser.add_argument(
         "--export-csv",
         type=Path,
-        default=ROOT / "data" / "settled_trades.csv",
-        help="Path to export settled trades CSV (default: data/settled_trades.csv)",
+        default=ROOT / "data" / "settled_bets.csv",
+        help="Path to export settled paper bets CSV (default: data/settled_bets.csv)",
     )
     args = parser.parse_args()
 
@@ -41,13 +41,13 @@ def main() -> None:
 
     roi_pct = (summary["settled_roi_best"] * 100.0) if summary.get("settled_roi_best") is not None else 0.0
     print(
-        f"Paper Ledger Summary: Total={summary['total_logged']} | "
+        f"Paper-Betting Ledger Summary: Total={summary['total_logged']} | "
         f"Settled={summary['settled_count']} (Wins={summary.get('settled_wins', 0)}, Losses={summary.get('settled_losses', 0)}, "
         f"Profit={summary.get('settled_profit_u', 0.0):+.2f}u, ROI={roi_pct:+.2f}%) | "
         f"Pending={summary['pending_count']} | Newly Settled This Run={newly_settled}"
     )
 
-    print("\n=== SETTLED PAPER TRADES ===")
+    print("\n=== SETTLED PAPER BETS ===")
     if settled:
         print(f"{'Date (UTC)':<18}{'League':<24}{'Match':<38}{'Pick':<26}{'Score':<8}{'Odds':>7}{'Result / PnL':>16}")
         print("-" * 137)
@@ -62,7 +62,7 @@ def main() -> None:
                 f"{t['score_str']:<8}{t['logged_best_odds']:>7.2f}{res_str:>16}"
             )
     else:
-        print("  (No settled trades yet)")
+        print("  (No settled paper bets yet)")
 
     if args.export_csv:
         args.export_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -72,10 +72,10 @@ def main() -> None:
             writer.writeheader()
             for t in settled:
                 writer.writerow({c: t.get(c) for c in cols})
-        print(f"\nExported settled trades CSV (with header): {args.export_csv}")
+        print(f"\nExported settled paper bets CSV (with header): {args.export_csv}")
 
     if not args.settled_only and pending:
-        print(f"\n=== PENDING PAPER TRADES (Next {min(len(pending), 15)} of {len(pending)}) ===")
+        print(f"\n=== PENDING PAPER BETS (Next {min(len(pending), 15)} of {len(pending)}) ===")
         print(f"{'Date (UTC)':<18}{'League':<24}{'Match':<38}{'Pick':<26}{'Odds':>7}{'Status':>10}")
         print("-" * 123)
         for t in pending[:15]:

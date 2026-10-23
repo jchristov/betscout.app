@@ -424,7 +424,7 @@ def generate_dashboard_html(
             """
         )
 
-    # Build separate SETTLED and PENDING Paper-Trading Ledger tables
+    # Build separate SETTLED and PENDING Paper-Betting Ledger tables
     ledger_trades = ledger.get("trades") or []
     settled_html_rows = []
     pending_html_rows = []
@@ -590,7 +590,7 @@ def generate_dashboard_html(
 <body>
   <header>
     <div>
-      <div class="muted">SPORTDATA QUANTITATIVE RESEARCH DESK · LIVE WEB APP &amp; PAPER-TRADING LEDGER</div>
+      <div class="muted">SPORTDATA QUANTITATIVE RESEARCH DESK · LIVE WEB APP &amp; PAPER-BETTING LEDGER</div>
       <h1>Multi-Sport Quantitative Edge &amp; System-1 Desk</h1>
       <div class="muted" style="margin-top:4px;">Generated: {_time_span(gen_at)} · Store: {total_matches:,} verified matches · <span id="lastStreamTick">Ready</span></div>
     </div>
@@ -607,7 +607,7 @@ def generate_dashboard_html(
 
   <div id="actionProgressBanner" class="progress-wrap">
     <span class="spinner"></span>
-    <b id="actionProgressText">Syncing paper-trading ledger against ESPN...</b>
+    <b id="actionProgressText">Syncing paper-betting ledger against ESPN...</b>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
     <span id="actionElapsedText" class="muted">0.0s</span>
   </div>
@@ -711,7 +711,7 @@ def generate_dashboard_html(
   </div>
 
   <div class="section-head">
-    <h2 id="settledHeaderTitle">Settled Paper-Trades (Completed Results: <span id="settledCountSpan">{ledger.get('settled_count', 0)}</span> · Wins: <b class="num-pos" id="settledWinsSpan">{ledger.get('settled_wins', 0)}</b> · Losses: <b{losses_cls} id="settledLossesSpan">{settled_losses_n}</b> · Realized Profit: <span id="settledProfitSpan">{_fmt_signed(settled_profit_u, '+.2f', 'u')}</span>)</h2>
+    <h2 id="settledHeaderTitle">Settled Paper-Bets (Completed Results: <span id="settledCountSpan">{ledger.get('settled_count', 0)}</span> · Wins: <b class="num-pos" id="settledWinsSpan">{ledger.get('settled_wins', 0)}</b> · Losses: <b{losses_cls} id="settledLossesSpan">{settled_losses_n}</b> · Realized Profit: <span id="settledProfitSpan">{_fmt_signed(settled_profit_u, '+.2f', 'u')}</span>)</h2>
     <div class="btn-group">
       <button id="syncLedgerTableBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger Now</button>
     </div>
@@ -723,11 +723,11 @@ def generate_dashboard_html(
       </tr>
     </thead>
     <tbody id="settledTradesTbody">
-      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="7" class="muted">No settled paper trades yet. Pending trades automatically move here once their match finishes and you run <code>uv run sportdata-model</code>.</td></tr>'}
+      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="7" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run sportdata-model</code>.</td></tr>'}
     </tbody>
   </table>
 
-  <h2>Pending Paper-Trades Awaiting Kickoff / Completion (Count: <span id="pendingCountSpan">{ledger.get('pending_count', 0)}</span>)</h2>
+  <h2>Pending Paper-Bets Awaiting Kickoff / Completion (Count: <span id="pendingCountSpan">{ledger.get('pending_count', 0)}</span>)</h2>
   <table id="pendingTradesTable">
     <thead>
       <tr>
@@ -735,7 +735,7 @@ def generate_dashboard_html(
       </tr>
     </thead>
     <tbody id="pendingTradesTbody">
-      {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="6" class="muted">No pending paper trades.</td></tr>'}
+      {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="6" class="muted">No pending paper bets.</td></tr>'}
     </tbody>
   </table>
 
@@ -1108,11 +1108,11 @@ def generate_dashboard_html(
       const btn = document.getElementById(rescanLive ? 'rescanLiveBtn' : 'syncLedgerBtn');
       const label = rescanLive
         ? 'Rescanning live matches & odds across all leagues...'
-        : 'Syncing & settling paper-trading ledger against ESPN...';
+        : 'Syncing & settling paper-betting ledger against ESPN...';
       setActionBusy(true, label, btn);
       try {{
         if (!window.location.protocol.startsWith('http')) {{
-          showToast('ℹ️ Running from static file:// — start the WebApp server (`uv run python scripts/webapp.py --port 8090`) and open http://127.0.0.1:8090 for live sync & streaming!');
+          showToast('ℹ️ Running from static file:// — start the WebApp server (`uv run sportdata-webapp --port 8090`) and open http://127.0.0.1:8090 for live sync & streaming!');
           return;
         }}
         const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
@@ -1126,7 +1126,7 @@ def generate_dashboard_html(
           applyLiveStreamPayload(d);
           const msg = rescanLive
             ? '✅ Live matches rescanned & ledger synced (' + (d.paper_ledger?.settled_count || 0) + ' settled, ' + (d.paper_ledger?.pending_count || 0) + ' pending)!'
-            : '✅ Ledger synced against ESPN (' + (d.newly_settled || 0) + ' newly settled trades; ' + (d.paper_ledger?.settled_count || 0) + ' total settled)!';
+            : '✅ Ledger synced against ESPN (' + (d.newly_settled || 0) + ' newly settled bets; ' + (d.paper_ledger?.settled_count || 0) + ' total settled)!';
           showToast(msg);
           if (rescanLive) setTimeout(() => window.location.reload(), 900);
         }} else {{

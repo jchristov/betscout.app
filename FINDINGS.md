@@ -35,7 +35,7 @@ The SQLite database (`data/matches.sqlite`) and config descriptor ([`ingestion_c
 | :--- | ---: | :--- |
 | `matches` | `55,212` | Core match results (`home_score`, `away_score`, `outcome`), primary pre-match 1X2 / 2-way moneyline (`odds_home`, `odds_draw`, `odds_away`, `odds_provider`), Double Chance (`odds_dc_1x`, `odds_dc_x2`, `odds_dc_12`), and Totals (`line_total`, `odds_over`, `odds_under`). |
 | `match_details` | `55,197` | 49-column enriched table built by [`src/sportdata_model/enrich.py`](./src/sportdata_model/enrich.py) and [`src/sportdata_model/universal_ingest.py`](./src/sportdata_model/universal_ingest.py) containing opening vs. closing lines (`open_*`, `close_*`), multi-book best prices and consensus probabilities (`best_*`, `cons_*`, `num_books`), soccer boxscore statistics (`shotsOnTarget`, `totalShots`, `wonCorners`, `possessionPct`, `foulsCommitted`, `yellowCards`, `redCards`, `penaltyKickGoals`, `ht_home`, `ht_away`), and tennis metadata (`surface`, `is_major`, `round_name`, `home_games`, `away_games`). |
-| `paper_trades` | `14` (active) | Prospective paper-trading & CLV ledger managed by [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
+| `paper_trades` | `14` (active) | Prospective paper-betting & CLV ledger managed by [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
 | `matches_canonical` | `55,212` | Unified cross-sport view with explicit capability flags (`has_draw`, `has_score`, `has_1x2`). |
 
 ### Current Data Status by Sport & League (`uv run python scripts/quality.py` — `0 errors`)
@@ -154,38 +154,38 @@ In [`src/sportdata_model/quant_edges.py`](./src/sportdata_model/quant_edges.py),
 All commands run inside `/Users/yuliyan.hristov/Development/github.com/jchristov/sportdata/model`:
 
 ```bash
-# 0. Run the complete 4-stage daily pipeline (Incremental config-driven ingest -> Quality check -> Paper trade + News/XI gates -> HTML Dashboard)
+# 0. Run the complete 4-stage daily pipeline (Incremental config-driven ingest -> Quality check -> Paper bet + News/XI gates -> HTML Dashboard)
 uv run sportdata-model
-# (or with custom options: uv run python scripts/daily_pipeline.py --days 5 --min-odds 1.10)
+# (or with custom options: uv run sportdata-model --days 5 --min-odds 1.10)
 
 # 1. Universal Config-Driven Ingestion CLI (reads/updates ingestion_config.json automatically, skips existing events, normalizes on the fly)
-uv run python scripts/ingest.py                                                # Periodic incremental sync of all enabled sources in ingestion_config.json
-uv run python scripts/ingest.py --leagues uefa.champions,nba,nhl --days 60     # On-demand ingestion for specific/new leagues over last N days
-uv run python scripts/ingest.py --leagues ned.1,por.1 --years 2025,2026        # On-demand multi-season backfill
-uv run python scripts/ingest.py --leagues mlb --from 2026-09-15 --to 2026-10-22 # Exact date range
-uv run python scripts/ingest.py --leagues eng.1 --all-history                  # Full 2022-2026 history
+uv run sportdata-ingest                                                # Periodic incremental sync of all enabled sources in ingestion_config.json
+uv run sportdata-ingest --leagues uefa.champions,nba,nhl --days 60     # On-demand ingestion for specific/new leagues over last N days
+uv run sportdata-ingest --leagues ned.1,por.1 --years 2025,2026        # On-demand multi-season backfill
+uv run sportdata-ingest --leagues mlb --from 2026-09-15 --to 2026-10-22 # Exact date range
+uv run sportdata-ingest --leagues eng.1 --all-history                  # Full 2022-2026 history
 
-# 2. Run the database quality & anomaly checker (0 issues across 55,212 matches)
-uv run python scripts/quality.py
+# 2. Run the database quality & anomaly checker (0 issues across 56,501 matches)
+uv run sportdata-quality
 
 # 3. Rebuild or refresh enriched match_details from cached ESPN JSON payloads
-uv run python scripts/enrich.py           # Fast soccer match_details refresh + summary
-uv run python scripts/enrich.py --full    # Full rebuild of matches + match_details
+uv run sportdata-enrich           # Fast soccer match_details refresh + summary
+uv run sportdata-enrich --full    # Full rebuild of matches + match_details
 
 # 4. Run the multi-factor soccer edge & enriched tennis evaluation
-uv run python scripts/quant_edges.py
+uv run sportdata-edges
 
-# 5. Scan upcoming Soccer, Tennis & NBA/NHL/NFL/MLB fixtures, score 7-Factor Composite + News + Starting XI Gate, log paper trades & export JSON
-uv run python scripts/paper_trade.py --days 5
+# 5. Scan upcoming Soccer, Tennis & NBA/NHL/NFL/MLB fixtures, score 7-Factor Composite + News + Starting XI Gate, log paper bets & export JSON
+uv run sportdata-bet --days 5
 
 # 6. Generate the standalone interactive HTML Quantitative Desk Dashboard & export Best Bets Summary as CSV (with header) and JSON
-uv run python scripts/dashboard.py --min-odds 1.10                       # Exports data/dashboard.html, data/best_bets.csv & data/best_bets.json
-uv run python scripts/dashboard.py --min-odds 1.15 --format csv          # Export CSV only
-uv run python scripts/dashboard.py --export-csv /tmp/my_bets.csv         # Custom output path
+uv run sportdata-dashboard --min-odds 1.10                       # Exports data/dashboard.html, data/best_bets.csv & data/best_bets.json
+uv run sportdata-dashboard --min-odds 1.15 --format csv          # Export CSV only
+uv run sportdata-dashboard --export-csv /tmp/my_bets.csv         # Custom output path
 
-# 7. View Settled & Pending Paper-Trades in the terminal and export data/settled_trades.csv
-uv run python scripts/ledger.py                 # Shows Settled & Pending paper trades + realized PnL
-uv run python scripts/ledger.py --settled-only  # Shows only completed/settled paper trades
+# 7. View Settled & Pending Paper-Bets in the terminal and export data/settled_bets.csv
+uv run sportdata-ledger                 # Shows Settled & Pending paper bets + realized PnL
+uv run sportdata-ledger --settled-only  # Shows only completed/settled paper bets
 
 # 8. Run the automated unit test suite
 uv run pytest -q
@@ -193,22 +193,22 @@ uv run pytest -q
 
 ---
 
-## 6. Executed Next Steps: Paper-Trading, CLV, System-1 News Veto, T-60m XI Gate, Tennis Scanner & HTML Desk
+## 6. Executed Next Steps: Paper-Betting, CLV, System-1 News Veto, T-60m XI Gate, Tennis Scanner & HTML Desk
 
 All roadmap items have been implemented, verified on live ESPN fixtures, and covered by unit tests:
 
 1. **Dedicated Enrichment CLI ([`scripts/enrich.py`](./scripts/enrich.py) & [`src/sportdata_model/enrich.py`](./src/sportdata_model/enrich.py))**:
-   - Provides one-command fast refresh (`uv run python scripts/enrich.py`) or full rebuild (`--full`) of the 49-column `match_details` table and `matches_canonical` view from cached ESPN payloads.
-2. **Automated Pre-Kickoff Paper-Trading & Prospective CLV Ledger ([`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py) & [`scripts/paper_trade.py`](./scripts/paper_trade.py))**:
+   - Provides one-command fast refresh (`uv run sportdata-enrich`) or full rebuild (`--full`) of the 49-column `match_details` table and `matches_canonical` view from cached ESPN payloads.
+2. **Automated Pre-Kickoff Paper-Betting & Prospective CLV Ledger ([`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py) & [`scripts/paper_trade.py`](./scripts/paper_trade.py))**:
    - Freezes the Discovery (`< 2025-07-01`) standardization parameters (`StandardScaler`) and conviction thresholds (`top_8pct: +0.3661`, `top_10pct: +0.3246`, `top_15pct: +0.2565`, `top_25pct: +0.1579`), rolls team boxscore and H2H states forward to the latest completed match, scans upcoming ESPN fixtures, and logs qualifying picks to the `paper_trades` SQLite table.
-   - Preserves initial `logged_best_odds` and `logged_primary_odds`, updates `latest_close_odds` and `clv_pct = (logged_best_odds / latest_close_odds) - 1` on subsequent pre-kickoff runs, and automatically settles completed trades into realized `pnl_best` and `pnl_primary`.
+   - Preserves initial `logged_best_odds` and `logged_primary_odds`, updates `latest_close_odds` and `clv_pct = (logged_best_odds / latest_close_odds) - 1` on subsequent pre-kickoff runs, and automatically settles completed paper bets into realized `pnl_best` and `pnl_primary`.
 3. **Unstructured Match-Preview & Injury News Veto Gate via `ms-decision-1` and Distilled Sports-Tuned Local `Laya` ([`src/sportdata_model/decision_signal.py`](./src/sportdata_model/decision_signal.py) & [`scripts/distill_laya_sports.py`](./scripts/distill_laya_sports.py))**:
    - Extracts team-specific news headlines and previews from each upcoming ESPN match summary (using alias-aware matching, pre-kickoff timestamp validation, and zero unrelated-headline fallback) and evaluates calibrated predicates (`home_positive`, `home_negative`, `away_positive`, `away_negative`) using Azure AI Foundry's **`ms-decision-1`** (`POST /v1/decisions` via `rbi-sl-token token --env uat`) with automatic offline fallback to our distilled sports-tuned **`Laya`** checkpoint ([`data/laya_sports_ckpt`](./data/laya_sports_ckpt)).
    - Automatically logs every `ms-decision-1` teacher query/response pair to [`data/decision_training_pairs.jsonl`](./data/decision_training_pairs.jsonl) (`record_distillation_pair`). Using [`scripts/distill_laya_sports.py`](./scripts/distill_laya_sports.py), we harvested `160` sports headlines (`384` question items) from cached ESPN summaries, labeled them with `ms-decision-1`, and fine-tuned `laya_sports_ckpt` via `laya.train_cli --loss soft-ce --freeze-encoder`. On the `96`-item held-out evaluation split:
      - **Cross-Entropy Loss**: dropped from **`0.5818`** to **`0.4475`** (`-0.1343`)
      - **Expected Calibration Error (ECE)**: dropped from **`0.1791`** to **`0.0873`** (`-0.0918`, **>51% calibration error reduction**)
      - **Brier Score (Top-1)**: dropped from **`0.1408`** to **`0.0826`** (`-0.0582`)
-   - Acts as an **automated System-1 injury/crisis veto gate (`net_edge_for_pick <= -0.50` -> `VETOED_BY_INJURY_NEWS`)**: when the 7-factor statistical model scored **PSG vs Lyon -> Home (`+0.5638`)**, `ms-decision-1` read the ESPN headline *"PSG star Khvicha Kvaratskhelia ruptures ACL; Dembélé, Marquinhos out 'weeks'"*, scored `home_negative = 0.998` (`net_edge = -0.816`), and **automatically vetoed and removed PSG from the active paper-trading ledger** while keeping **Juventus (`@ 1.44`)**, **Bayern Munich (`@ 1.38`, `News +0.260`)**, and **AC Milan (`@ 1.65`, `News +0.750`)**.
+   - Acts as an **automated System-1 injury/crisis veto gate (`net_edge_for_pick <= -0.50` -> `VETOED_BY_INJURY_NEWS`)**: when the 7-factor statistical model scored **PSG vs Lyon -> Home (`+0.5638`)**, `ms-decision-1` read the ESPN headline *"PSG star Khvicha Kvaratskhelia ruptures ACL; Dembélé, Marquinhos out 'weeks'"*, scored `home_negative = 0.998` (`net_edge = -0.816`), and **automatically vetoed and removed PSG from the active paper-betting ledger** while keeping **Juventus (`@ 1.44`)**, **Bayern Munich (`@ 1.38`, `News +0.260`)**, and **AC Milan (`@ 1.65`, `News +0.750`)**.
 4. **Position-Specific Pre-Kickoff Starting XI Confirmation Gate (T-60m) (`evaluate_starting_xi_gate` in [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py))**:
    - Tracks each team's rolling 6-match **Attacking Contribution** (`totalGoals + 0.7 * goalAssists + 0.2 * shotsOnTarget`), **Primary Goalkeeper Continuity** (`position.abbreviation == 'G'`), and **Defensive Spine Continuity** (`position.abbreviation` in `{'CD', 'CD-L', 'CD-R', 'D', 'CB', 'LB', 'RB', 'LD', 'RD', 'SW'}`).
    - Once ESPN posts official starting lineups (`starter: True`, ~60m before kickoff), it verifies that:
@@ -237,14 +237,14 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
    - Reads [`ingestion_config.json`](./ingestion_config.json) by default, automatically registers any new sport/league requested on demand, skips already-completed `event_id`s to prevent duplicate work, refreshes scoreboards within the last 2 UTC days when older than 15 minutes, and runs `adjust_and_normalize_db` + `quality.run` on the fly (`0 errors` across `56,450` matches).
 8. **Standalone HTML Quantitative Desk Dashboard, Soft Minimum-Odds Filter & CSV/JSON Exports ([`src/sportdata_model/dashboard.py`](./src/sportdata_model/dashboard.py), [`scripts/dashboard.py`](./scripts/dashboard.py), [`scripts/ledger.py`](./scripts/ledger.py))**:
    - **Soft Minimum-Odds Filter (`--min-odds 1.10`)**: Filters out unattractive odds `<= 1.10` (`<= 10%` profit) in both the CLI exports and via an interactive live slider in [`data/dashboard.html`](./data/dashboard.html).
-   - **Settled & Pending Paper-Trades Ledger (`scripts/ledger.py` & `data/settled_trades.csv`)**: Automatically settles completed matches across all sports (soccer, tennis, NBA, NHL, NFL, MLB), displaying final scores, `WIN` / `LOSS` badges, `CLV%`, and realized unit profit in [`data/dashboard.html`](./data/dashboard.html), in the terminal (`uv run python scripts/ledger.py`), and in [`data/settled_trades.csv`](./data/settled_trades.csv).
+   - **Settled & Pending Paper-Bets Ledger (`scripts/ledger.py` & `data/settled_bets.csv`)**: Automatically settles completed matches across all sports (soccer, tennis, NBA, NHL, NFL, MLB), displaying final scores, `WIN` / `LOSS` badges, `CLV%`, and realized unit profit in [`data/dashboard.html`](./data/dashboard.html), in the terminal (`uv run sportdata-ledger`), and in [`data/settled_bets.csv`](./data/settled_bets.csv).
    - **Sorted Best Bets Summary Table (`data/best_bets.csv` & `data/best_bets.json`)**: Renders a unified table at the end of [`data/dashboard.html`](./data/dashboard.html) sorted chronologically by **Date (ascending — soonest upcoming events first)** with columns **Date (UTC)**, **Sport / League**, **Match**, **Pick**, and **Odds**, plus one-click browser **"Export CSV (with Header)"** and **"Export JSON"** buttons.
 9. **Master One-Command Daily Pipeline ([`scripts/daily_pipeline.py`](./scripts/daily_pipeline.py) / `uv run sportdata-model`)**:
-   - Executes config-driven incremental ingestion, automated database quality verification (`0 errors`), multi-sport paper-trade settlement and upcoming fixture scoring, CSV/JSON exports (`recommendations.json`, `best_bets.csv`, `best_bets.json`), and HTML dashboard generation in a single command.
+   - Executes config-driven incremental ingestion, automated database quality verification (`0 errors`), multi-sport paper-bet settlement and upcoming fixture scoring, CSV/JSON exports (`recommendations.json`, `best_bets.csv`, `best_bets.json`), and HTML dashboard generation in a single command.
 
-### Current Paper-Trading Ledger & Live Slate Snapshot
+### Current Paper-Betting Ledger & Live Slate Snapshot
 
-- **First Settled Live Paper Trade (`2026-10-22`)**:
+- **First Settled Live Paper Bet (`2026-10-22`)**:
   - `2026-10-22 05:30 UTC` · **WTA Tour (`Hard`)**: **Magda Linette vs Katerina Siniakova** $\rightarrow$ Pick: **Katerina Siniakova (`A`)** `@ 1.45` (`WinProb 71.0%`) $\rightarrow$ **Final Score `0-2` (`4-6, 1-6`) — `SETTLED WIN (+0.45u)`**!
 
 | Sport / League | Kickoff (UTC) | Fixture | Pick | Tier / Action | Score / WinProb | Odds (Syn DC) | Calib `p_model` (`EV%`) | System-1 News |
@@ -318,13 +318,13 @@ We prepared a complete, ready-to-deploy **Firebase Cloud Functions (2nd Gen Pyth
    - **Interactive Web App Server & SSE Live Stream ([`src/sportdata_model/webapp.py`](./src/sportdata_model/webapp.py) & [`scripts/webapp.py`](./scripts/webapp.py))**: Run `uv run python scripts/webapp.py --port 8090` to serve the interactive Quant Desk UI (`/`), real-time Server-Sent Events stream (`GET /api/stream`), one-click ledger sync & live match rescan (`POST /api/sync` with animated spinner + progress bar lock), and social channel publishing (`POST /api/discord`, `POST /api/telegram`).
    - **Discord (Primary, Zscaler-Compatible) & Telegram (Optional) Social Integration ([`src/sportdata_model/telegram_bot.py`](./src/sportdata_model/telegram_bot.py), [`scripts/discord_post.py`](./scripts/discord_post.py), [`.env.example`](./.env.example))**:
      - Reads `DISCORD_WEBHOOK_URL` (and optional `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`) from `model/.env` via `load_dotenv()`.
-     - Formats settled paper-trade recaps (with exact match/set/walkover scores), System-1 injury/lineup veto alerts, and upcoming Best Bets with sport-type symbols (`⚽`, `🎾`, `🏀`, `🏒`, `🏈`, `⚾`) and atomic multi-message block chunking (`_chunk_discord_text` `<= 1,900` chars) so no pick is ever truncated.
+     - Formats settled paper-bet recaps (with exact match/set/walkover scores), System-1 injury/lineup veto alerts, and upcoming Best Bets with sport-type symbols (`⚽`, `🎾`, `🏀`, `🏒`, `🏈`, `⚾`) and atomic multi-message block chunking (`_chunk_discord_text` `<= 1,900` chars) so no pick is ever truncated.
 
 ---
 
-## 10. Post-Mortem of Early Paper-Trade Losses & Model Upgrades
+## 10. Post-Mortem of Early Paper-Bet Losses & Model Upgrades
 
-We audited all 4 early paper-trade losses and upgraded both the Tennis and UEFA Football models in [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py):
+We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Football models in [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py):
 
 | Early Failed Pick | Final Score | Root Cause Discovered | Model Upgrade Applied |
 | :--- | :---: | :--- | :--- |
@@ -333,7 +333,7 @@ We audited all 4 early paper-trade losses and upgraded both the Tennis and UEFA 
 | **3. UEFA Europa: Juventus vs Stade Rennais $\rightarrow$ Juventus (`H`) `@ 1.48`** | `2-2` | **Negative Composite Score & Negative SOT**: Composite score was `-0.1278` and `sot_d = -0.206` (logged in-play at `73'`). | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 | **4. UEFA Conf: FC Nordsjælland vs CSKA Sofia $\rightarrow$ Nordsjælland (`H`) `@ 1.41`** | `2-2` | **Negative Composite Score & Severe Negative SOT**: Composite score was `-0.0227` and `sot_d = -0.735`. | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 
-- **Current Settled Paper-Trading Ledger (`scripts/ledger.py`)**: **`10 Settled` (`10 Wins, 0 Losses`) · Realized Profit: `+4.50u` (`ROI = +45.03%`)**, including tonight's UEFA Conference League wins **Braga `2-0` vs KAA Gent (`@ 1.87`, `+0.87u`)** and **Ajax Amsterdam `2-0` vs Atalanta (`@ 2.00`, `+1.00u`)**.
+- **Current Settled Paper-Betting Ledger (`uv run sportdata-ledger`)**: **`18 Settled` (`16 Wins, 2 Losses`, `88.9%` Win Rate) · Realized Profit: `+5.82u` (`ROI = +32.36%`)**, including UEFA Conference League wins **Braga `2-0` vs KAA Gent (`@ 1.87`, `+0.87u`)**, **Ajax Amsterdam `2-0` vs Atalanta (`@ 2.00`, `+1.00u`)**, and overnight NHL/NFL/WTA wins (**Boston Bruins `6-0`**, **New Jersey Devils `4-1`**, **Dallas Stars `3-2`**, **Chicago Bears `30-24`**, **Detroit Red Wings `2-5`**, **Ann Li `2-1`**).
 
 ---
 

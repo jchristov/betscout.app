@@ -50,7 +50,7 @@ def format_telegram_digest(
     include_settled: bool = True,
     tz_name: str = DEFAULT_LOCAL_TZ,
 ) -> str:
-    """Build a Telegram HTML-formatted digest of settled paper trades and top upcoming/live picks."""
+    """Build a Telegram HTML-formatted digest of settled paper bets and top upcoming/live picks."""
     if db_path and db_path.exists():
         try:
             settle_pending_paper_trades(db_path)
@@ -76,7 +76,7 @@ def format_telegram_digest(
         s_roi = float(ledger.get("settled_roi_best") or 0.0) * 100.0
         prof_icon = "🟢" if s_prof >= 0 else "🔴"
         lines.append(
-            f"{prof_icon} <b>Settled Paper-Trades: {s_cnt} ({s_wins}W - {s_loss}L) | "
+            f"{prof_icon} <b>Settled Paper-Bets: {s_cnt} ({s_wins}W - {s_loss}L) | "
             f"PnL: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)</b>"
         )
         settled_trades = [t for t in (ledger.get("trades") or []) if t.get("status") == "SETTLED"]
@@ -144,7 +144,7 @@ def format_discord_digest(
     include_settled: bool = True,
     tz_name: str = DEFAULT_LOCAL_TZ,
 ) -> str:
-    """Build a Discord Markdown digest of settled paper trades, System-1 vetoes, and top upcoming/live picks."""
+    """Build a Discord Markdown digest of settled paper bets, System-1 vetoes, and top upcoming/live picks."""
     html_msg = format_telegram_digest(
         rec=rec,
         db_path=db_path,

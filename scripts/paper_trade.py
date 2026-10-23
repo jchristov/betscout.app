@@ -1,10 +1,10 @@
-"""CLI runner for pre-kickoff paper-trading, prospective CLV tracking, decision-model news scoring,
+"""CLI runner for pre-kickoff paper-betting, prospective CLV tracking, decision-model news scoring,
 and exporting `data/recommendations.json`.
 
 Usage:
-    uv run python scripts/paper_trade.py
-    uv run python scripts/paper_trade.py --days 6 --decision-backend ms-decision-1
-    uv run python scripts/paper_trade.py --days 6 --decision-backend laya
+    uv run sportdata-bet
+    uv run sportdata-bet --days 6 --decision-backend ms-decision-1
+    uv run sportdata-bet --days 6 --decision-backend laya
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from sportdata_model.paper_trade import scan_upcoming_and_log_paper_trades  # no
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Scan upcoming fixtures, score 7-factor composite + news, log paper trades.")
+    parser = argparse.ArgumentParser(description="Scan upcoming fixtures, score 7-factor composite + news, log paper bets.")
     parser.add_argument("--days", type=int, default=5, help="Number of days ahead to scan (default: 5)")
     parser.add_argument(
         "--decision-backend",
@@ -46,7 +46,7 @@ def main() -> None:
     print(f"Exported JSON feed to: {out_json}\n")
 
     if rep["qualifying_picks"]:
-        print("=== Qualifying Upcoming Paper-Trade Picks ===")
+        print("=== Qualifying Upcoming Paper-Bet Picks ===")
         for p in rep["qualifying_picks"]:
             ns = p.get("news_signal") or {}
             act = p.get("action", "PAPER_BET")

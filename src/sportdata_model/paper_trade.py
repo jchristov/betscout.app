@@ -1,4 +1,4 @@
-"""Automated pre-kickoff paper-trading logger, prospective CLV tracker, live settlement,
+"""Automated pre-kickoff paper-betting logger, prospective CLV tracker, live settlement,
 and JSON signal exporter for the 7-Factor Orthogonal Soccer Composite."""
 
 from __future__ import annotations
@@ -1269,7 +1269,7 @@ def scan_upcoming_and_log_paper_trades(
 
 
 def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> None:
-    """Insert a new paper trade or update `latest_close_odds` and `clv_pct` if already logged."""
+    """Insert a new paper bet or update `latest_close_odds` and `clv_pct` if already logged."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     existing = conn.execute(

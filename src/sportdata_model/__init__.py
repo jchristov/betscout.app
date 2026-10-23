@@ -41,11 +41,67 @@ def load_dotenv(env_path: Path | None = None, override: bool = False) -> dict[st
 load_dotenv()
 
 
-def main() -> None:
+def _run_script(module_name: str) -> None:
     load_dotenv(override=True)
-    scripts_dir = MODEL_ROOT / "scripts"
-    sys.path.insert(0, str(scripts_dir))
-    from daily_pipeline import main as pipeline_main  # noqa: E402
+    scripts_dir = str(MODEL_ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    mod = __import__(module_name)
+    mod.main()
 
-    pipeline_main()
+
+def main() -> None:
+    _run_script("daily_pipeline")
+
+
+def ingest_cli() -> None:
+    _run_script("ingest")
+
+
+def quality_cli() -> None:
+    _run_script("quality")
+
+
+def enrich_cli() -> None:
+    _run_script("enrich")
+
+
+def quant_edges_cli() -> None:
+    _run_script("quant_edges")
+
+
+def paper_bet_cli() -> None:
+    _run_script("paper_trade")
+
+
+def dashboard_cli() -> None:
+    _run_script("dashboard")
+
+
+def ledger_cli() -> None:
+    _run_script("ledger")
+
+
+def webapp_cli() -> None:
+    _run_script("webapp")
+
+
+def discord_cli() -> None:
+    _run_script("discord_post")
+
+
+def telegram_cli() -> None:
+    _run_script("telegram_post")
+
+
+def distill_cli() -> None:
+    _run_script("distill_laya_sports")
+
+
+def compare_models_cli() -> None:
+    _run_script("compare_decision_models")
+
+
+def exact_score_cli() -> None:
+    _run_script("exact_score_eval")
 

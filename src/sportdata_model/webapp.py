@@ -5,7 +5,7 @@ Serves:
   - `GET  /api/data`          -> JSON payload of `recommendations.json` + live `paper_ledger` + `best_bets`
   - `GET  /api/stream`        -> Server-Sent Events (SSE) live stream pushing ledger, live scores & best bets
   - `GET  /api/best-bets.csv` -> Downloadable CSV (with header) of current best bets
-  - `GET  /api/settled.csv`   -> Downloadable CSV (with header) of settled paper trades
+  - `GET  /api/settled.csv`   -> Downloadable CSV (with header) of settled paper bets
   - `POST /api/settle`        -> Trigger immediate live settlement against ESPN & refresh `dashboard.html`
   - `POST /api/sync`          -> Sync & settle ledger + optionally rescan live/upcoming fixtures
   - `POST /api/telegram`      -> Preview or post the formatted Telegram Channel digest (`send_telegram_message`)
@@ -92,7 +92,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
     dash_path = data_dir / "dashboard.html"
     best_csv_path = data_dir / "best_bets.csv"
     best_json_path = data_dir / "best_bets.json"
-    settled_csv_path = data_dir / "settled_trades.csv"
+    settled_csv_path = data_dir / "settled_bets.csv"
 
     class QuantDeskRequestHandler(BaseHTTPRequestHandler):
         def _send_json(self, payload: dict[str, Any] | list[Any], status: int = 200) -> None:
@@ -189,7 +189,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 data = settled_csv_path.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/csv; charset=utf-8")
-                self.send_header("Content-Disposition", 'attachment; filename="settled_trades.csv"')
+                self.send_header("Content-Disposition", 'attachment; filename="settled_bets.csv"')
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)

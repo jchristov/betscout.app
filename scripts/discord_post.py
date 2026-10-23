@@ -1,4 +1,4 @@
-"""CLI addon to format and publish high-conviction sports picks & settled paper-trade recaps
+"""CLI addon to format and publish high-conviction sports picks & settled paper-bet recaps
 to a Discord channel (`DISCORD_WEBHOOK_URL` or `DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID` in `model/.env`).
 
 Usage:

@@ -14,6 +14,19 @@ dependencies = [
 
 [project.scripts]
 sportdata-model = "sportdata_model:main"
+sportdata-ingest = "sportdata_model:ingest_cli"
+sportdata-quality = "sportdata_model:quality_cli"
+sportdata-enrich = "sportdata_model:enrich_cli"
+sportdata-edges = "sportdata_model:quant_edges_cli"
+sportdata-bet = "sportdata_model:paper_bet_cli"
+sportdata-dashboard = "sportdata_model:dashboard_cli"
+sportdata-ledger = "sportdata_model:ledger_cli"
+sportdata-webapp = "sportdata_model:webapp_cli"
+sportdata-discord = "sportdata_model:discord_cli"
+sportdata-telegram = "sportdata_model:telegram_cli"
+sportdata-distill = "sportdata_model:distill_cli"
+sportdata-compare = "sportdata_model:compare_models_cli"
+sportdata-exact-score = "sportdata_model:exact_score_cli"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]
