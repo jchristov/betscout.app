@@ -136,7 +136,7 @@ def _build_team_player_attack_history(
             SELECT league, event_id, home, away
             FROM matches
             WHERE sport = 'soccer' AND outcome IS NOT NULL AND league IN ({placeholders})
-            ORDER BY kickoff
+            ORDER BY kickoff, event_id
             """,
             leagues,
         ).fetchall()
@@ -144,31 +144,41 @@ def _build_team_player_attack_history(
         rows = conn.execute(
             f"""
             WITH team_matches AS (
-                SELECT league, event_id, kickoff, home, away, home AS team
+                SELECT league, event_id, kickoff, home, away, home AS team, 'home' AS tside
                 FROM matches
-                WHERE sport = 'soccer' AND outcome IS NOT NULL AND kickoff >= '2025-07-01' AND league IN ({placeholders})
+                WHERE sport = 'soccer' AND outcome IS NOT NULL AND league IN ({placeholders})
                 UNION ALL
-                SELECT league, event_id, kickoff, home, away, away AS team
+                SELECT league, event_id, kickoff, home, away, away AS team, 'away' AS tside
                 FROM matches
-                WHERE sport = 'soccer' AND outcome IS NOT NULL AND kickoff >= '2025-07-01' AND league IN ({placeholders})
+                WHERE sport = 'soccer' AND outcome IS NOT NULL AND league IN ({placeholders})
             ),
             ranked AS (
-                SELECT league, event_id, kickoff, home, away,
-                       ROW_NUMBER() OVER (PARTITION BY team ORDER BY kickoff DESC) AS rn
+                SELECT league, event_id, kickoff, home, away, tside,
+                       ROW_NUMBER() OVER (PARTITION BY league, team ORDER BY kickoff DESC, event_id DESC) AS rn_lg,
+                       ROW_NUMBER() OVER (PARTITION BY team ORDER BY kickoff DESC, event_id DESC) AS rn_all
                 FROM team_matches
             )
-            SELECT DISTINCT league, event_id, kickoff, home, away
+            SELECT league, event_id, kickoff, home, away,
+                   MAX(CASE WHEN tside = 'home' AND rn_lg <= 6 THEN 1 ELSE 0 END) AS inc_lg_h,
+                   MAX(CASE WHEN tside = 'home' AND rn_all <= 6 THEN 1 ELSE 0 END) AS inc_all_h,
+                   MAX(CASE WHEN tside = 'away' AND rn_lg <= 6 THEN 1 ELSE 0 END) AS inc_lg_a,
+                   MAX(CASE WHEN tside = 'away' AND rn_all <= 6 THEN 1 ELSE 0 END) AS inc_all_a
             FROM ranked
-            WHERE rn <= 6
-            ORDER BY kickoff
+            WHERE rn_lg <= 6 OR rn_all <= 6
+            GROUP BY league, event_id, kickoff, home, away
+            ORDER BY kickoff, event_id
             """,
             leagues + leagues,
         ).fetchall()
-        rows = [(r[0], r[1], r[3], r[4]) for r in rows]
     conn.close()
 
     xi_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
-    for lg, eid, home, away in rows:
+    for row in rows:
+        if full_history:
+            lg, eid, home, away = row
+            inc_lg_h = inc_all_h = inc_lg_a = inc_all_a = 1
+        else:
+            lg, eid, _, home, away, inc_lg_h, inc_all_h, inc_lg_a, inc_all_a = row
         fn = cache_dir / f"sum_{lg}_{eid}.json"
         if not fn.exists():
             continue
@@ -203,8 +213,16 @@ def _build_team_player_attack_history(
                 if val > 0:
                     contrib[pid] = val
             rec_obj = {"_contrib": contrib, "_gk": gk_set, "_df": df_set}
-            xi_hist[(lg, tname)].append(rec_obj)
-            xi_hist[(None, tname)].append(rec_obj)
+            if side == "home":
+                if inc_lg_h:
+                    xi_hist[(lg, tname)].append(rec_obj)
+                if inc_all_h:
+                    xi_hist[(None, tname)].append(rec_obj)
+            else:
+                if inc_lg_a:
+                    xi_hist[(lg, tname)].append(rec_obj)
+                if inc_all_a:
+                    xi_hist[(None, tname)].append(rec_obj)
     return xi_hist
 
 

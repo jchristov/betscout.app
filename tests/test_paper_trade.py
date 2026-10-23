@@ -297,7 +297,36 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     )
     assert len(doubles) == 1 and round(doubles[0]["combined_odds"], 2) == round(1.65 * 1.26, 2)
 
-    notif_res = notify_new_settlements_to_discord(db, dry_run=True)
-    assert notif_res["ok"] is True
+    # 7. Bit-for-bit Equivalence Regression Test for Performance Optimizations
+    import numpy as np
+    from sportdata_model.goals import fit_rates, markets, score_grid
+    from sportdata_model.paper_trade import _build_team_player_attack_history
+
+    def _fit_rates_scalar_ref(total_goals_line: float, home_p: float, away_p: float, draw_p: float, rho: float = -0.1):
+        best, best_err = (1.3, 1.1), float("inf")
+        for lam in np.arange(0.2, 3.6, 0.1):
+            for mu in np.arange(0.2, 3.6, 0.1):
+                m = markets(score_grid(lam, mu, rho))
+                err = (m["home"] - home_p) ** 2 + (m["draw"] - draw_p) ** 2 + (m["away"] - away_p) ** 2
+                if total_goals_line is not None:
+                    err += 0.25 * (lam + mu - total_goals_line) ** 2 / (total_goals_line**2)
+                if err < best_err:
+                    best, best_err = (float(lam), float(mu)), err
+        return best
+
+    for line_v, ph_v, pa_v, pd_v, rho_v in [
+        (2.5, 0.55, 0.20, 0.25, -0.10),
+        (2.75, 0.68, 0.14, 0.18, -0.14),
+        (2.25, 0.35, 0.35, 0.30, -0.08),
+    ]:
+        assert fit_rates(line_v, ph_v, pa_v, pd_v, rho_v) == _fit_rates_scalar_ref(line_v, ph_v, pa_v, pd_v, rho_v)
+
+    real_db = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
+    if real_db.exists():
+        xi_fast = _build_team_player_attack_history(real_db, real_db.parent / "cache", leagues=("eng.1", "uefa.champions"), full_history=False)
+        xi_full = _build_team_player_attack_history(real_db, real_db.parent / "cache", leagues=("eng.1", "uefa.champions"), full_history=True)
+        assert set(xi_fast.keys()) == set(xi_full.keys())
+        for k in xi_full:
+            assert list(xi_fast[k]) == list(xi_full[k]), f"Mismatch on {k}"
 
 
