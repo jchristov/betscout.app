@@ -711,9 +711,63 @@ def generate_dashboard_html(
             if combos_settled_n > 0
             else f" · {ledger.get('combos_pending') or len(d_cards)} Active Tracked in Ledger"
         )
+        combo_table_rows = []
+        for c in (ledger.get("combos") or []):
+            cl1, cl2 = c["leg_1"], c["leg_2"]
+            c_day = _format_local_time(c["kickoff"])[:10]
+            ico_c1 = _sport_icon(_league_to_sport_cat(cl1.get("sport_cat") or cl1.get("league") or ""))
+            ico_c2 = _sport_icon(_league_to_sport_cat(cl2.get("sport_cat") or cl2.get("league") or ""))
+            b1 = ' <span class="pill badge-bet">✅ HIT</span>' if c.get("leg1_hit") == 1 else (' <span class="pill badge-veto">❌ MISS</span>' if c.get("leg1_hit") == 0 else "")
+            b2 = ' <span class="pill badge-bet">✅ HIT</span>' if c.get("leg2_hit") == 1 else (' <span class="pill badge-veto">❌ MISS</span>' if c.get("leg2_hit") == 0 else "")
+            c_pnl_v = float(c.get("pnl") or 0.0)
+            c_res_pill = (
+                f'<span class="pill badge-bet">WON ({c_pnl_v:+.2f}u)</span>'
+                if c.get("status") == "SETTLED" and c_pnl_v > 0
+                else (
+                    f'<span class="pill badge-veto">LOST ({c_pnl_v:+.2f}u)</span>'
+                    if c.get("status") == "SETTLED"
+                    else '<span class="pill tier">PENDING (0.00u)</span>'
+                )
+            )
+            c_search = html.escape(f"{c['combo_label']} {cl1.get('match','')} {cl1.get('pick','')} {cl2.get('match','')} {cl2.get('pick','')}".lower())
+            combo_table_rows.append(
+                f"""
+                <tr data-day="{html.escape(c_day)}" data-search="{c_search}">
+                  <td data-sort="{html.escape(c['combo_label'])}"><span class="pill tier">{html.escape(c['combo_label'])}</span></td>
+                  <td data-sort="{html.escape(c['kickoff'])}">{_time_span(c['kickoff'], bold=True)}</td>
+                  <td data-sort="{html.escape(cl1.get('match',''))}">{ico_c1} <b>{html.escape(cl1.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl1.get('pick',''))}</b> @ {float(cl1.get('odds') or 1.0):.2f}{b1}</td>
+                  <td data-sort="{html.escape(cl2.get('match',''))}">{ico_c2} <b>{html.escape(cl2.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl2.get('pick',''))}</b> @ {float(cl2.get('odds') or 1.0):.2f}{b2}</td>
+                  <td data-sort="{float(c['combined_prob'])*100:.1f}"><b class="num-pos">{float(c['combined_prob'])*100:.1f}%</b></td>
+                  <td data-sort="{float(c['combined_odds']):.2f}"><b>{float(c['combined_odds']):.2f}</b> (Fair {float(c['min_fair_odds']):.2f})</td>
+                  <td data-sort="{c_pnl_v:.2f}">{c_res_pill}</td>
+                </tr>
+                """
+            )
+        combo_ledger_table_html = (
+            f"""
+            <h2>🔗 Prospective 2-Leg Combo / Parlay Ledger (Settled: {combos_settled_n} · Wins: <b class="num-pos">{combos_wins_n}</b> · Profit: {_fmt_signed(combos_prof_v, '+.2f', 'u')})</h2>
+            <table id="combosLedgerTable" class="sortable-table">
+              <thead>
+                <tr>
+                  <th data-sort-type="text" onclick="sortTable(this)">Archetype</th>
+                  <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+                  <th data-sort-type="text" onclick="sortTable(this)">Leg 1</th>
+                  <th data-sort-type="text" onclick="sortTable(this)">Leg 2</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Combined Odds</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
+                </tr>
+              </thead>
+              <tbody>{''.join(combo_table_rows)}</tbody>
+            </table>
+            """
+            if combo_table_rows
+            else ""
+        )
         doubles_cards_html = f"""
         <h2>🔗 Recommended 2-Leg High-Probability Combos &amp; Parlays ({len(d_cards)} Variations{combo_kpi_str})</h2>
         <div class="cards" style="margin-bottom:24px;">{''.join(d_cards)}</div>
+        {combo_ledger_table_html}
         """
 
     # Build unified Best Bets Summary Table at the end, sorted by Date (ascending: soonest upcoming events first!)
@@ -876,14 +930,23 @@ def generate_dashboard_html(
     if len(settled_cum) >= 2 or by_sport_list:
         lw, lh = 520, 130
         pts_live = [0.0] + list(settled_cum)
-        l_min, l_max = min(0.0, min(pts_live)), max(1.0, max(pts_live))
+        pts_kelly = [0.0] + list(ledger.get("kelly_cum_pnl") or settled_cum)
+        l_min = min(0.0, min(pts_live), min(pts_kelly))
+        l_max = max(1.0, max(pts_live), max(pts_kelly))
         l_span = max(l_max - l_min, 1.0)
         l_poly = []
+        k_poly = []
         for idx_p, val_p in enumerate(pts_live):
             lx = 10 + (idx_p / max(1, len(pts_live) - 1)) * (lw - 20)
             ly = lh - 12 - ((val_p - l_min) / l_span) * (lh - 24)
             l_poly.append(f"{lx:.1f},{ly:.1f}")
+        for idx_k, val_k in enumerate(pts_kelly):
+            kx = 10 + (idx_k / max(1, len(pts_kelly) - 1)) * (lw - 20)
+            ky = lh - 12 - ((val_k - l_min) / l_span) * (lh - 24)
+            k_poly.append(f"{kx:.1f},{ky:.1f}")
         ly_zero = lh - 12 - ((0.0 - l_min) / l_span) * (lh - 24)
+        kelly_gr_v = float(ledger.get("kelly_growth_pct") or 0.0)
+        kelly_str = f" · ¼-Kelly Bankroll: {_fmt_signed(kelly_gr_v, '+.2f', '%')}"
         def _sp_label_icon(lbl: str) -> str:
             low = lbl.lower()
             if "tennis" in low:
@@ -956,12 +1019,16 @@ def generate_dashboard_html(
           <div class="card">
             <div class="card-head">
               <div><b>Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
-              <div class="muted">Realized PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{esc_summary_str}</div>
+              <div class="muted">Flat 1u PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{kelly_str}{esc_summary_str}</div>
             </div>
             <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:130px; margin-top:8px;">
               <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
+              <polyline fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4,3" points="{' '.join(k_poly)}"/>
               <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
             </svg>
+            <div class="muted" style="font-size:10.5px; margin-top:2px;">
+              <span style="color:#38bdf8;">━━ Flat 1.0u Curve</span> &nbsp;·&nbsp; <span style="color:#22c55e;">┅┅ ¼-Kelly Compounding Curve</span>
+            </div>
           </div>
           <div class="card">
             <div class="card-head" style="margin-bottom:8px;">

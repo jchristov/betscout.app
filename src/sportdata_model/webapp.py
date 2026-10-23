@@ -180,8 +180,11 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
     db_path = data_dir / "matches.sqlite"
     rec_path = data_dir / "recommendations.json"
     dash_path = data_dir / "dashboard.html"
+    last_digest_ymd: list[str] = [""]
 
     def _loop() -> None:
+        import os
+        from zoneinfo import ZoneInfo
         while True:
             time.sleep(interval_sec)
             if _PIPELINE_STATUS.get("running") or not db_path.exists():
@@ -201,6 +204,19 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     send_discord_message("\n".join(lines))
                 if settled_n > 0 or vetoes:
                     generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
+
+                # Optional Morning Daily Digest Scheduler (set DAILY_DIGEST_HOUR=9 in model/.env; default disabled unless configured)
+                digest_hr_str = (os.environ.get("DAILY_DIGEST_HOUR") or "").strip()
+                if digest_hr_str.isdigit():
+                    now_loc = datetime.now(ZoneInfo(DEFAULT_LOCAL_TZ))
+                    today_str = now_loc.strftime("%Y-%m-%d")
+                    if now_loc.hour == int(digest_hr_str) and last_digest_ymd[0] != today_str:
+                        last_digest_ymd[0] = today_str
+                        scan_upcoming_and_log_paper_trades(db_path=db_path, days_ahead=3, decision_backend="laya", export_json_path=rec_path)
+                        generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
+                        rec_d = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
+                        msg_d = format_discord_digest(rec=rec_d, db_path=db_path, min_odds=1.15, day_filter="today")
+                        send_discord_message(msg_d)
             except Exception:
                 pass
 

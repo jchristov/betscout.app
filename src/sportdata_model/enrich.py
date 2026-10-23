@@ -100,6 +100,14 @@ GRASS_KEYWORDS = (
     "hertogenbosch", "rosmalen", "newport", "berlin", "bad homburg", "nottingham", "birmingham",
     "ilkley", "surbiton",
 )
+INDOOR_HARD_KEYWORDS = (
+    "basel", "swiss indoors", "vienna", "erste bank", "paris", "rolex paris", "bercy", "atp finals",
+    "nitto atp", "rotterdam", "abn amro", "montpellier", "marseille", "dallas", "memphis", "stockholm",
+    "nordic open", "antwerp", "european open", "metz", "moselle", "almaty", "astana", "sofia",
+    "gijon", "florence", "naples", "tel aviv", "cologne", "st. petersburg", "moscow", "kremlin",
+    "linz", "ostrava", "cluj", "transylvania", "lyon", "luxembourg", "angiers", "limoges", "rouen",
+    "next gen", "laver cup", "davis cup finals",
+)
 
 
 def infer_surface(tournament_name: str) -> str:
@@ -108,6 +116,8 @@ def infer_surface(tournament_name: str) -> str:
         return "clay"
     if any(k in low for k in GRASS_KEYWORDS):
         return "grass"
+    if any(k in low for k in INDOOR_HARD_KEYWORDS):
+        return "hard_indoor"
     return "hard"
 
 

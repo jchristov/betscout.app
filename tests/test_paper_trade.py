@@ -487,10 +487,18 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     assert len(send_calls) == 1, f"Expected exactly 1 Discord notification across 4 concurrent threads, got {len(send_calls)}"
 
-    # 11. Diacritic-insensitive SofaScore tennis matching test ("Jiri Lehečka" == "Jiri Lehecka")
+    # 11. Diacritic-insensitive SofaScore tennis matching & Indoor Hard surface split test
+    from sportdata_model.enrich import infer_surface
     from sportdata_model.paper_trade import _strip_accents
     assert _strip_accents("Jiri Lehečka") == "jiri lehecka"
     assert _strip_accents("Tomáš Macháč") == "tomas machac"
+    assert infer_surface("Swiss Indoors Basel") == "hard_indoor"
+    assert infer_surface("Erste Bank Open Vienna") == "hard_indoor"
+    assert infer_surface("Australian Open") == "hard"
+    assert infer_surface("Roland Garros") == "clay"
+    assert infer_surface("Wimbledon") == "grass"
+    assert len(sum_c2["kelly_cum_pnl"]) == sum_c2["settled_count"]
+
 
 
 

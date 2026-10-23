@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS paper_combos (
     leg1_score TEXT,
     leg2_score TEXT,
     pnl REAL,
+    notified_at TEXT,
     logged_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -380,7 +381,8 @@ def scan_upcoming_tennis(
 
     for r in rows:
         lg = r["league"]
-        surf = r["surface"] or "hard"
+        raw_surf = r["surface"] or "hard"
+        surf = infer_surface(r.get("venue") or "") if raw_surf == "hard" else raw_surf
         dt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
         yw = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
         ea = elo_all.setdefault(lg, Elo(k=28, home_adv=0.0))
@@ -2033,6 +2035,36 @@ def scan_upcoming_and_log_paper_trades(
                 now_iso,
             )
 
+    # Retroactive Re-Validation Gate: remove any pre-match PENDING tennis/US-sport bet in the scanned window
+    # that no longer qualifies under the upgraded Court-Acclimatization / Market-Blend EV / NHL Road Dual-Dominance gates
+    valid_tennis_eids = {
+        (tp["tour"].lower(), str(tp["event_id"]))
+        for tp in tennis_picks
+        if tp.get("win_prob", 0.0) >= 0.70 and float(tp.get("min_fair_odds") or 0.0) > 1.10
+    }
+    valid_other_eids = {
+        (op["league"].lower(), str(op["event_id"]))
+        for op in other_sport_picks
+        if float(op.get("best_odds") or 0.0) > 1.10
+    }
+    tennis_max_iso = (base_dt + timedelta(days=min(days_ahead, 3) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    other_max_iso = (base_dt + timedelta(days=min(days_ahead, 4) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    c_rev = sqlite3.connect(db_path)
+    c_rev.row_factory = sqlite3.Row
+    for r_pend in c_rev.execute(
+        "SELECT league, event_id, kickoff FROM paper_trades WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL) AND kickoff > ?",
+        (now_iso,),
+    ).fetchall():
+        lg_p = r_pend["league"].lower()
+        eid_p = str(r_pend["event_id"])
+        ko_p = str(r_pend["kickoff"])
+        if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
+            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+        elif lg_p in ("nba", "nhl", "nfl", "mlb") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
+            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+    c_rev.commit()
+    c_rev.close()
+
     # Run settlement once more in case any logged trades already finished in `matches`
     settled_n += settle_pending_paper_trades(db_path)
     settle_pending_paper_combos(db_path)
@@ -2467,6 +2499,26 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     settled_pnls = [float(r["pnl_best"] or 0.0) for r in settled]
     settled_cum_pnl = [round(float(v), 2) for v in np.cumsum(settled_pnls)] if settled_pnls else [0.0]
 
+    # Compute Quarter-Kelly compounding bankroll curve (starting at 100.0u bankroll, capped at 2.5% stake per bet)
+    kelly_bank = 100.0
+    kelly_cum_pnl: list[float] = []
+    for r in settled:
+        o_b = max(float(r["logged_best_odds"] or 1.25), 1.05)
+        p_est = (
+            float(r["composite_score"])
+            if r["league"].lower() in ("atp", "wta", "nba", "nhl", "nfl", "mlb") and 0.45 <= float(r["composite_score"]) <= 0.99
+            else min(max(float(r["p_mkt"] or 0.60) + 0.04, 0.45), 0.92)
+        )
+        ev_est = max(p_est * o_b - 1.0, 0.015)
+        qk_frac = min(max(0.25 * (ev_est / (o_b - 1.0)), 0.005), 0.025)
+        won_r = (r["pnl_best"] or 0.0) > 0
+        # Normalize to equivalent 20u base bankroll so 1% stake ~ 0.2u..1.0u comparable to flat-unit curve
+        kelly_bank *= (1.0 + qk_frac * (o_b - 1.0)) if won_r else (1.0 - qk_frac)
+        kelly_cum_pnl.append(round((kelly_bank - 100.0) * 0.65, 2))
+    if not kelly_cum_pnl:
+        kelly_cum_pnl = [0.0]
+    kelly_growth_pct = round(kelly_bank - 100.0, 2)
+
     def _sp_bucket(lg_str: str) -> str:
         l = (lg_str or "").lower()
         if l in ("atp", "wta"):
@@ -2544,6 +2596,8 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         "settled_roi_primary": float(np.mean([r["pnl_primary"] for r in settled])) if settled else None,
         "settled_profit_u": round(float(np.sum([r["pnl_best"] for r in settled])), 2) if settled else 0.0,
         "settled_cum_pnl": settled_cum_pnl,
+        "kelly_cum_pnl": kelly_cum_pnl,
+        "kelly_growth_pct": kelly_growth_pct,
         "by_sport": by_sport_summary,
         "by_tier": by_tier_summary,
         "combos_total": len(combo_rows),

@@ -407,6 +407,9 @@ def notify_new_settlements_to_discord(
             cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
             if "notified_at" not in cols:
                 conn.execute("ALTER TABLE paper_trades ADD COLUMN notified_at TEXT")
+            combo_cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_combos)").fetchall()}
+            if combo_cols and "notified_at" not in combo_cols:
+                conn.execute("ALTER TABLE paper_combos ADD COLUMN notified_at TEXT")
 
             unnotified = [
                 dict(r)
@@ -414,7 +417,17 @@ def notify_new_settlements_to_discord(
                     "SELECT * FROM paper_trades WHERE status = 'SETTLED' AND notified_at IS NULL ORDER BY kickoff ASC"
                 ).fetchall()
             ]
-            if not unnotified:
+            unnotified_combos = (
+                [
+                    dict(r)
+                    for r in conn.execute(
+                        "SELECT * FROM paper_combos WHERE status = 'SETTLED' AND notified_at IS NULL ORDER BY kickoff ASC"
+                    ).fetchall()
+                ]
+                if combo_cols
+                else []
+            )
+            if not unnotified and not unnotified_combos:
                 conn.execute("COMMIT")
                 conn.close()
                 return {"ok": True, "notified_count": 0}
@@ -425,6 +438,11 @@ def notify_new_settlements_to_discord(
                     conn.execute(
                         "UPDATE paper_trades SET notified_at = ? WHERE league = ? AND event_id = ? AND notified_at IS NULL",
                         (claim_iso, r["league"], r["event_id"]),
+                    )
+                for c in unnotified_combos:
+                    conn.execute(
+                        "UPDATE paper_combos SET notified_at = ? WHERE combo_id = ? AND notified_at IS NULL",
+                        (claim_iso, c["combo_id"]),
                     )
             conn.execute("COMMIT")
         except Exception:
@@ -444,7 +462,7 @@ def notify_new_settlements_to_discord(
         s_roi = float(summary.get("settled_roi_best") or 0.0) * 100.0
 
         lines: list[str] = [
-            f"🔔 **NEW SETTLED PAPER-BET ALERT ({len(unnotified)} Resolved)**",
+            f"🔔 **VEKTORPULSE — NEW SETTLED PAPER-BET ALERT ({len(unnotified) + len(unnotified_combos)} Resolved)**",
             f"📈 *Cumulative Ledger: {s_cnt} Settled ({s_wins}W - {s_loss}L) · Profit: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)*",
             "",
         ]
@@ -462,6 +480,14 @@ def notify_new_settlements_to_discord(
                 f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — "
                 f"*{r['home']} vs {r['away']}* [`{sc_str}`]{esc_info}"
             )
+        for c in unnotified_combos:
+            c_pnl = float(c.get("pnl") or 0.0)
+            c_badge = "✅ **2-LEG COMBO WIN**" if c_pnl > 0 else "❌ **2-LEG COMBO LOSS**"
+            l1, l2 = json.loads(c["leg1_json"]), json.loads(c["leg2_json"])
+            lines.append(
+                f"• 🔗 {c_badge} (`{c_pnl:+.2f}u`) **{c['combo_label']}** @ **{float(c['combined_odds']):.2f}** — "
+                f"*{l1.get('pick')}* [`{c.get('leg1_score') or '—'}`] + *{l2.get('pick')}* [`{c.get('leg2_score') or '—'}`]"
+            )
 
         msg = "\n".join(lines)
         res = send_discord_message(msg, webhook_url=webhook_url, dry_run=dry_run)
@@ -473,9 +499,14 @@ def notify_new_settlements_to_discord(
                     "UPDATE paper_trades SET notified_at = NULL WHERE league = ? AND event_id = ? AND notified_at = ?",
                     (r["league"], r["event_id"], claim_iso),
                 )
+            for c in unnotified_combos:
+                c_rel.execute(
+                    "UPDATE paper_combos SET notified_at = NULL WHERE combo_id = ? AND notified_at = ?",
+                    (c["combo_id"], claim_iso),
+                )
             c_rel.commit()
             c_rel.close()
-        return {**res, "notified_count": len(unnotified)}
+        return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
 
 
 def get_telegram_env_config(env_path: Path | None = None) -> dict[str, Any]:
