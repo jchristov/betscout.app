@@ -305,11 +305,25 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "1-2 (6-4, 2-6, 4-6)") == 0
 
     doubles = build_recommended_2leg_doubles(
-        [{"league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "action": "PAPER_BET", "best_odds": 1.65, "p_model": 0.64, "kickoff": "2026-10-25T19:45Z"}],
-        [{"tour": "ATP", "player_1": "Herbert", "player_2": "Fritz", "pick": "Fritz", "win_prob": 0.82, "best_odds": 1.26, "kickoff": "2026-10-25T13:30Z"}],
+        [{
+            "league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "action": "PAPER_BET",
+            "best_odds": 1.65, "synthetic_dc_odds": 1.24, "p_model": 0.64, "kickoff": "2026-10-25T19:45Z",
+            "exact_score_prediction": {"lambda_home": 1.0, "mu_away": 1.9, "cluster_3_scores": "0:1 / 0:2 / 1:2", "cluster_3_prob": 0.42, "cluster_3_fair_odds": 2.38},
+        }],
+        [{
+            "tour": "ATP", "player_1": "Herbert", "player_2": "Fritz", "pick": "Fritz", "win_prob": 0.82,
+            "best_odds": 1.26, "kickoff": "2026-10-25T13:30Z",
+            "set_score_prediction": {"straight_sets_score": "0:2", "straight_sets_prob": 0.56, "straight_sets_fair_odds": 1.79},
+            "totals_market": {"expected_games": 20.1, "games_line": 21.5, "recommended": "Under 21.5", "prob": 0.62, "fair_odds": 1.61},
+        }],
         [],
     )
-    assert len(doubles) == 1 and round(doubles[0]["combined_odds"], 2) == round(1.65 * 1.26, 2)
+    assert len(doubles) >= 3
+    assert round(doubles[0]["combined_odds"], 2) == round(1.65 * 1.26, 2)
+    combo_types = {d["combo_type"] for d in doubles}
+    assert "CROSS_SPORT_BANKER" in combo_types
+    assert "DOUBLE_CHANCE_SHIELD" in combo_types
+    assert "GOALS_GAMES_TOTALS" in combo_types
 
     # 7. Bit-for-bit Equivalence Regression Test for Performance Optimizations
     import numpy as np

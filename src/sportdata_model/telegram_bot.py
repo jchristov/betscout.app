@@ -183,30 +183,38 @@ def format_telegram_digest(
                 f"{esc_line}"
             )
 
-    doubles = rec.get("recommended_doubles") or build_recommended_2leg_doubles(
+    doubles = build_recommended_2leg_doubles(
         rec.get("qualifying_picks") or [],
         rec.get("tennis_picks") or [],
         rec.get("other_sport_picks") or [],
-        max_doubles=3,
-    )
+        max_doubles=6,
+    ) or (rec.get("recommended_doubles") or [])
     if norm_day != "all":
+        allowed_days = (
+            {today_ymd, tom_ymd}
+            if norm_day in ("today", "next48h", "2days")
+            else ({tom_ymd} if norm_day == "tomorrow" else {norm_day})
+        )
         doubles = [
             d for d in doubles
-            if _format_local_time(d["leg_1"].get("kickoff") or "", tz_name)[:10] in (today_ymd, tom_ymd)
-            and _format_local_time(d["leg_2"].get("kickoff") or "", tz_name)[:10] in (today_ymd, tom_ymd)
+            if _format_local_time(d["leg_1"].get("kickoff") or "", tz_name)[:10] in allowed_days
+            and _format_local_time(d["leg_2"].get("kickoff") or "", tz_name)[:10] in allowed_days
         ]
     if doubles and sport_filter == "all":
         lines.append("")
-        lines.append("🔗 <b>Recommended Uncorrelated 2-Leg Doubles (Parlays):</b>")
-        for idx_d, d in enumerate(doubles[:3], start=1):
+        lines.append("🔗 <b>Recommended 2-Leg High-Probability Combos (Parlays):</b>")
+        for idx_d, d in enumerate(doubles[:5], start=1):
             l1, l2 = d["leg_1"], d["leg_2"]
+            c_lbl = d.get("combo_label") or "Cross-Sport Banker"
             e1 = SPORT_EMOJIS.get(_league_to_sport_cat(l1["league"]), "🎯")
             e2 = SPORT_EMOJIS.get(_league_to_sport_cat(l2["league"]), "🎯")
+            m1_str = f" [{l1['market']}]" if l1.get("market") else ""
+            m2_str = f" [{l2['market']}]" if l2.get("market") else ""
             lines.append(
-                f"  <b>Double #{idx_d}</b> — Combined Odds: <b>{d['combined_odds']:.2f}</b> "
+                f"  <b>Combo #{idx_d} ({html.escape(c_lbl)})</b> — Odds: <b>{d['combined_odds']:.2f}</b> "
                 f"(WinProb {d['combined_prob']*100:.1f}%, Fair {d['min_fair_odds']:.2f})\n"
-                f"   1️⃣ {e1} {html.escape(l1['match'])} &rarr; <b>{html.escape(l1['pick'])}</b> @ {l1['odds']:.2f}\n"
-                f"   2️⃣ {e2} {html.escape(l2['match'])} &rarr; <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f}"
+                f"   1️⃣ {e1} {html.escape(l1['match'])}{html.escape(m1_str)} &rarr; <b>{html.escape(l1['pick'])}</b> @ {l1['odds']:.2f} ({l1['prob']*100:.0f}%)\n"
+                f"   2️⃣ {e2} {html.escape(l2['match'])}{html.escape(m2_str)} &rarr; <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f} ({l2['prob']*100:.0f}%)"
             )
 
     has_unconfirmed_time = any(b.get("time_valid") is False or "*" in str(b.get("date_local") or "") for b in best_bets[:max_picks])

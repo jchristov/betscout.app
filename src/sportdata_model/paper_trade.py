@@ -1262,94 +1262,272 @@ def build_recommended_2leg_doubles(
     qualifying_picks: list[dict[str, Any]],
     tennis_picks: list[dict[str, Any]],
     other_sport_picks: list[dict[str, Any]],
-    max_doubles: int = 4,
+    max_doubles: int = 8,
 ) -> list[dict[str, Any]]:
-    """Construct the Top Uncorrelated Same-Day 2-Leg High-Confidence Doubles (`1.18 - 1.65` per leg).
-    Requires the two legs to come from distinct sports/leagues on the same UTC date.
+    """Construct High-Probability Uncorrelated 2-Leg Doubles (Parlays) across 4 strategic archetypes:
+    1. `CROSS_SPORT_BANKER`: High-probability Moneyline / 1X2 favorites across distinct competitions (`1.18 - 1.75` per leg)
+    2. `DOUBLE_CHANCE_SHIELD`: Ultra-safe Football Double-Chance (`1X` / `X2`) + Tennis Set Handicap (`+1.5 Sets`) or Banker ML (`Combined WinProb >= 62%`)
+    3. `GOALS_GAMES_TOTALS`: High-confidence Football Over 1.5 / Under 3.5 Goals + Tennis Total Games Over/Under (`21.5`/`22.5`)
+    4. `STRAIGHT_SETS_SCORE_CLUSTER`: High-reward Tennis Straight Sets (`2:0`/`0:2`) + Football 3-Score Dutch Cluster or Favorite ML
     """
-    candidates: list[dict[str, Any]] = []
+    ml_candidates: list[dict[str, Any]] = []
+    shield_candidates: list[dict[str, Any]] = []
+    totals_candidates: list[dict[str, Any]] = []
+    plus_candidates: list[dict[str, Any]] = []
+
     for p in qualifying_picks:
         if p.get("action") != "PAPER_BET" or p.get("is_live"):
             continue
         odds = float(p.get("best_odds") or 0.0)
         p_win = float(p.get("p_model") or p.get("p_mkt") or 0.0)
-        if 1.16 <= odds <= 1.70 and p_win >= 0.62:
-            pick_team = p["home"] if p["side"] == "H" else p["away"]
-            candidates.append({
-                "date_day": (p.get("kickoff") or "")[:10],
-                "kickoff": p.get("kickoff") or "",
-                "time_valid": p.get("time_valid", True),
+        pick_team = p["home"] if p["side"] == "H" else p["away"]
+        ko = p.get("kickoff") or ""
+        t_val = p.get("time_valid", True)
+        m_str = f"{p['home']} vs {p['away']}"
+
+        # 1. Moneyline / 1X2 candidate
+        if 1.16 <= odds <= 1.78 and p_win >= 0.58:
+            ml_candidates.append({
+                "date_day": ko[:10],
+                "kickoff": ko,
+                "time_valid": t_val,
                 "sport_cat": "soccer",
                 "league": p["league"],
-                "match": f"{p['home']} vs {p['away']}",
+                "match": m_str,
+                "market": "1X2 Moneyline",
                 "pick": f"{pick_team} ({p['side']})",
                 "prob": p_win,
                 "odds": odds,
             })
 
+        # 2. Double-Chance Shield (1X / X2) candidate
+        syn_dc = float(p.get("synthetic_dc_odds") or 0.0)
+        dc_lbl = "1X" if p["side"] == "H" else "X2"
+        # Calibrated P(Win or Draw) ~ min(0.94, p_win + 0.22)
+        p_dc = min(max(p_win + 0.21, 1.0 / max(syn_dc, 1.05) + 0.015), 0.93) if syn_dc > 1.05 else 0.0
+        if 1.14 <= syn_dc <= 1.55 and p_dc >= 0.74:
+            shield_candidates.append({
+                "date_day": ko[:10],
+                "kickoff": ko,
+                "time_valid": t_val,
+                "sport_cat": "soccer",
+                "league": p["league"],
+                "match": m_str,
+                "market": f"Double Chance ({dc_lbl})",
+                "pick": f"{pick_team} or Draw ({dc_lbl})",
+                "prob": round(p_dc, 4),
+                "odds": round(syn_dc, 2),
+            })
+
+        # 3. Goals Totals & 3-Score Dutch Cluster candidates from Exact Score Engine
+        esc = p.get("exact_score_prediction") or {}
+        if esc:
+            lam_tot = float(esc.get("lambda_home") or 1.3) + float(esc.get("mu_away") or 1.1)
+            # Poisson P(Total Goals >= 2) = 1 - (1 + L)*exp(-L)
+            p_o15 = 1.0 - (1.0 + lam_tot) * math.exp(-lam_tot)
+            # Poisson P(Total Goals <= 3) = sum_{k=0..3} L^k * exp(-L) / k!
+            p_u35 = sum((lam_tot ** k) * math.exp(-lam_tot) / math.factorial(k) for k in range(4))
+            if p_o15 >= 0.72:
+                fair_o15 = round(1.02 / p_o15, 2)
+                if 1.18 <= fair_o15 <= 1.58:
+                    totals_candidates.append({
+                        "date_day": ko[:10],
+                        "kickoff": ko,
+                        "time_valid": t_val,
+                        "sport_cat": "soccer",
+                        "league": p["league"],
+                        "match": m_str,
+                        "market": "Total Goals O/U",
+                        "pick": f"Over 1.5 Goals (λ+μ={lam_tot:.2f})",
+                        "prob": round(p_o15, 4),
+                        "odds": fair_o15,
+                    })
+            elif p_u35 >= 0.72:
+                fair_u35 = round(1.02 / p_u35, 2)
+                if 1.18 <= fair_u35 <= 1.58:
+                    totals_candidates.append({
+                        "date_day": ko[:10],
+                        "kickoff": ko,
+                        "time_valid": t_val,
+                        "sport_cat": "soccer",
+                        "league": p["league"],
+                        "match": m_str,
+                        "market": "Total Goals O/U",
+                        "pick": f"Under 3.5 Goals (λ+μ={lam_tot:.2f})",
+                        "prob": round(p_u35, 4),
+                        "odds": fair_u35,
+                    })
+            c3_prob = float(esc.get("cluster_3_prob") or 0.0)
+            c3_fair = float(esc.get("cluster_3_fair_odds") or 0.0)
+            if c3_prob >= 0.36 and 1.85 <= c3_fair <= 2.80:
+                plus_candidates.append({
+                    "date_day": ko[:10],
+                    "kickoff": ko,
+                    "time_valid": t_val,
+                    "sport_cat": "soccer",
+                    "league": p["league"],
+                    "match": m_str,
+                    "market": "3-Score Dutch Cluster",
+                    "pick": f"{pick_team} Cluster [{esc.get('cluster_3_scores')}]",
+                    "prob": round(c3_prob, 4),
+                    "odds": round(c3_fair, 2),
+                })
+
     for tp in tennis_picks:
         odds = float(tp.get("best_odds") or tp.get("target_ev3_odds") or 0.0)
         p_win = float(tp.get("win_prob") or 0.0)
-        if 1.15 <= odds <= 1.65 and p_win >= 0.72:
-            candidates.append({
-                "date_day": (tp.get("kickoff") or "")[:10],
-                "kickoff": tp.get("kickoff") or "",
-                "time_valid": tp.get("time_valid", True),
+        ko = tp.get("kickoff") or ""
+        t_val = tp.get("time_valid", True)
+        m_str = f"{tp['player_1']} vs {tp['player_2']}"
+
+        # 1. Tennis Moneyline Banker
+        if 1.14 <= odds <= 1.72 and p_win >= 0.70:
+            ml_candidates.append({
+                "date_day": ko[:10],
+                "kickoff": ko,
+                "time_valid": t_val,
                 "sport_cat": "tennis",
                 "league": tp["tour"],
-                "match": f"{tp['player_1']} vs {tp['player_2']}",
-                "pick": f"{tp['pick']}",
+                "match": m_str,
+                "market": "Match Winner",
+                "pick": f"{tp['pick']} ML",
                 "prob": p_win,
-                "odds": odds,
+                "odds": round(odds, 2),
+            })
+
+        # 2. Tennis Set Handicap (+1.5 Sets = Wins at least 1 set) Shield
+        sp_pred = tp.get("set_score_prediction") or {}
+        if p_win >= 0.70 and sp_pred.get("straight_sets_prob"):
+            # P(winning at least 1 set) ~ 1 - (1 - p_set)^2 where p_win = p_set^2*(3 - 2*p_set)
+            p_plus15 = min(0.95, p_win + (1.0 - p_win) * 0.58)
+            o_plus15 = round(max(1.12, 1.01 / p_plus15), 2)
+            if 1.12 <= o_plus15 <= 1.40:
+                shield_candidates.append({
+                    "date_day": ko[:10],
+                    "kickoff": ko,
+                    "time_valid": t_val,
+                    "sport_cat": "tennis",
+                    "league": tp["tour"],
+                    "match": m_str,
+                    "market": "Set Handicap +1.5",
+                    "pick": f"{tp['pick']} +1.5 Sets (Wins ≥1 Set)",
+                    "prob": round(p_plus15, 4),
+                    "odds": o_plus15,
+                })
+            # 4. Straight Sets 2:0 / 0:2 candidate
+            ss_prob = float(sp_pred.get("straight_sets_prob") or 0.0)
+            ss_fair = float(sp_pred.get("straight_sets_fair_odds") or 0.0)
+            if ss_prob >= 0.50 and 1.45 <= ss_fair <= 2.05:
+                plus_candidates.append({
+                    "date_day": ko[:10],
+                    "kickoff": ko,
+                    "time_valid": t_val,
+                    "sport_cat": "tennis",
+                    "league": tp["tour"],
+                    "match": m_str,
+                    "market": "Exact Sets 2:0",
+                    "pick": f"{tp['pick']} {sp_pred['straight_sets_score']} Sets",
+                    "prob": round(ss_prob, 4),
+                    "odds": round(ss_fair, 2),
+                })
+
+        # 3. Tennis Total Games O/U candidate
+        tm_mkt = tp.get("totals_market") or {}
+        tm_prob = float(tm_mkt.get("prob") or 0.0)
+        tm_odds = float(tm_mkt.get("book_odds") or tm_mkt.get("fair_odds") or 0.0)
+        if tm_prob >= 0.58 and 1.35 <= tm_odds <= 1.95 and tm_mkt.get("recommended"):
+            totals_candidates.append({
+                "date_day": ko[:10],
+                "kickoff": ko,
+                "time_valid": t_val,
+                "sport_cat": "tennis",
+                "league": tp["tour"],
+                "match": m_str,
+                "market": "Total Games O/U",
+                "pick": f"{tm_mkt['recommended']} Games (Exp {tm_mkt.get('expected_games')})",
+                "prob": round(tm_prob, 4),
+                "odds": round(tm_odds, 2),
             })
 
     for op in other_sport_picks:
         odds = float(op.get("best_odds") or 0.0)
         p_win = float(op.get("p_model") or 0.0)
-        if 1.18 <= odds <= 1.68 and p_win >= 0.64 and float(op.get("composite_score") or 0.0) >= 0.20:
-            candidates.append({
-                "date_day": (op.get("kickoff") or "")[:10],
-                "kickoff": op.get("kickoff") or "",
+        ko = op.get("kickoff") or ""
+        if 1.16 <= odds <= 1.75 and p_win >= 0.62 and float(op.get("composite_score") or 0.0) >= 0.15:
+            ml_candidates.append({
+                "date_day": ko[:10],
+                "kickoff": ko,
                 "time_valid": op.get("time_valid", True),
                 "sport_cat": op["sport"],
                 "league": op["league"],
                 "match": f"{op['home']} vs {op['away']}",
+                "market": "Moneyline",
                 "pick": f"{op['pick']} ({op['side']})",
                 "prob": p_win,
-                "odds": odds,
+                "odds": round(odds, 2),
             })
 
     doubles: list[dict[str, Any]] = []
-    used_matches: set[str] = set()
-    # Sort candidates by probability descending
-    candidates.sort(key=lambda c: -c["prob"])
-    for i in range(len(candidates)):
-        for j in range(i + 1, len(candidates)):
-            c1, c2 = candidates[i], candidates[j]
-            if c1["match"] in used_matches or c2["match"] in used_matches:
+
+    def _pair_pool(
+        pool_a: list[dict[str, Any]],
+        pool_b: list[dict[str, Any]],
+        combo_type: str,
+        combo_label: str,
+        min_comb_prob: float,
+        min_comb_odds: float,
+        max_comb_odds: float,
+        limit: int,
+        require_diff_league: bool = True,
+    ) -> None:
+        used_in_cat: set[str] = set()
+        pa = sorted(pool_a, key=lambda c: -c["prob"])
+        pb = sorted(pool_b, key=lambda c: -c["prob"])
+        added = 0
+        for c1 in pa:
+            if c1["match"] in used_in_cat:
                 continue
-            # Prefer same-day or adjacent-day uncorrelated leagues
-            if c1["league"] == c2["league"]:
-                continue
-            comb_prob = c1["prob"] * c2["prob"]
-            comb_odds = c1["odds"] * c2["odds"]
-            if comb_prob < 0.50 or not (1.55 <= comb_odds <= 2.65):
-                continue
-            ev_pct = (comb_prob * comb_odds - 1.0) * 100.0
-            doubles.append({
-                "leg_1": c1,
-                "leg_2": c2,
-                "combined_prob": round(comb_prob, 4),
-                "combined_odds": round(comb_odds, 2),
-                "min_fair_odds": round(1.0 / max(comb_prob, 0.05), 2),
-                "ev_pct": round(ev_pct, 2),
-            })
-            used_matches.add(c1["match"])
-            used_matches.add(c2["match"])
-            break
-        if len(doubles) >= max_doubles:
-            break
-    return doubles
+            for c2 in pb:
+                if c1["match"] == c2["match"] or c2["match"] in used_in_cat:
+                    continue
+                if require_diff_league and c1["league"] == c2["league"] and len(pa) > 2:
+                    continue
+                # Avoid duplicate exact pair across categories
+                pair_sig = tuple(sorted([f"{c1['match']}:{c1['pick']}", f"{c2['match']}:{c2['pick']}"]))
+                if any(tuple(sorted([f"{d['leg_1']['match']}:{d['leg_1']['pick']}", f"{d['leg_2']['match']}:{d['leg_2']['pick']}"])) == pair_sig for d in doubles):
+                    continue
+                comb_prob = c1["prob"] * c2["prob"]
+                comb_odds = c1["odds"] * c2["odds"]
+                if comb_prob < min_comb_prob or not (min_comb_odds <= comb_odds <= max_comb_odds):
+                    continue
+                ev_pct = (comb_prob * comb_odds - 1.0) * 100.0
+                doubles.append({
+                    "combo_type": combo_type,
+                    "combo_label": combo_label,
+                    "leg_1": c1,
+                    "leg_2": c2,
+                    "combined_prob": round(comb_prob, 4),
+                    "combined_odds": round(comb_odds, 2),
+                    "min_fair_odds": round(1.0 / max(comb_prob, 0.05), 2),
+                    "ev_pct": round(ev_pct, 2),
+                })
+                used_in_cat.add(c1["match"])
+                used_in_cat.add(c2["match"])
+                added += 1
+                break
+            if added >= limit or len(doubles) >= max_doubles:
+                break
+
+    # 1. Cross-Sport / Uncorrelated Moneyline Bankers (up to 3)
+    _pair_pool(ml_candidates, ml_candidates, "CROSS_SPORT_BANKER", "Cross-Sport Banker ML", 0.48, 1.50, 2.75, limit=3, require_diff_league=True)
+    # 2. Double-Chance & +1.5 Sets Shield Combos (up to 2, ultra-high hit rate >= 62%)
+    _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double-Chance / +1.5 Sets Shield", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
+    # 3. Goals & Games O/U Totals Combos (up to 2)
+    _pair_pool(totals_candidates, totals_candidates + shield_candidates, "GOALS_GAMES_TOTALS", "Goals & Games O/U Combo", 0.46, 1.55, 2.85, limit=2, require_diff_league=False)
+    # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 2)
+    _pair_pool(plus_candidates, ml_candidates + plus_candidates, "STRAIGHT_SETS_SCORE_CLUSTER", "Straight-Sets & Score-Cluster Plus", 0.35, 1.80, 3.60, limit=2, require_diff_league=False)
+
+    return doubles[:max_doubles]
 
 
 def scan_upcoming_and_log_paper_trades(

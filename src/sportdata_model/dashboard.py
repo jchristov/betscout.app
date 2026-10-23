@@ -511,29 +511,35 @@ def generate_dashboard_html(
         )
 
     from .paper_trade import build_recommended_2leg_doubles
-    doubles_list = rec.get("recommended_doubles") or build_recommended_2leg_doubles(soccer_picks, tennis_picks, other_picks)
+    # Always build multi-variation doubles (ML Bankers, Double-Chance/+1.5 Sets Shield, O/U Totals, Straight-Sets/Score-Cluster)
+    doubles_list = build_recommended_2leg_doubles(soccer_picks, tennis_picks, other_picks, max_doubles=8) or (rec.get("recommended_doubles") or [])
     doubles_cards_html = ""
     if doubles_list:
         d_cards = []
         for idx_d, d in enumerate(doubles_list, start=1):
             l1, l2 = d["leg_1"], d["leg_2"]
             d1_loc = _format_local_time(l1["kickoff"])[:10]
+            c_lbl = d.get("combo_label") or "Cross-Sport Banker ML"
+            m1_pill = f' <span class="pill tier">{html.escape(str(l1.get("market")))}</span>' if l1.get("market") else ""
+            m2_pill = f' <span class="pill tier">{html.escape(str(l2.get("market")))}</span>' if l2.get("market") else ""
+            ico1 = _sport_icon(_league_to_sport_cat(l1.get("sport_cat") or l1.get("league") or ""))
+            ico2 = _sport_icon(_league_to_sport_cat(l2.get("sport_cat") or l2.get("league") or ""))
             d_cards.append(
                 f"""
                 <div class="card" data-day="{html.escape(d1_loc)}">
                   <div class="card-head">
-                    <div><span class="pill badge-bet">2-LEG DOUBLE #{idx_d}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span></div>
-                    <div class="score">Combined Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b>{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
+                    <div><span class="pill badge-bet">COMBO #{idx_d}</span> <span class="pill tier">{html.escape(c_lbl)}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span></div>
+                    <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
                   </div>
-                  <div style="margin-top:8px; font-size:13px;">
-                    <div>1️⃣ <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}) &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
-                    <div style="margin-top:4px;">2️⃣ <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}) &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
+                  <div style="margin-top:8px; font-size:12px;">
+                    <div>1️⃣ {ico1} <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
+                    <div style="margin-top:4px;">2️⃣ {ico2} <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}){m2_pill} &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
                   </div>
                 </div>
                 """
             )
         doubles_cards_html = f"""
-        <h2>Recommended Uncorrelated 2-Leg High-Confidence Doubles (Parlays)</h2>
+        <h2>🔗 Recommended 2-Leg High-Probability Combos &amp; Parlays ({len(d_cards)} Variations)</h2>
         <div class="cards" style="margin-bottom:24px;">{''.join(d_cards)}</div>
         """
 
