@@ -211,6 +211,12 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "Export CSV (with Header)" in html_text
     assert "Filter by Sport:" in html_text
     assert 'data-sport-btn="tennis"' in html_text
+    assert 'class="sortable-table"' in html_text
+    assert 'onclick="sortTable(this)"' in html_text
+    assert "Competition" in html_text
+    assert 'class="sport-icon"' in html_text
+    assert "Win Prob" in html_text
+    assert "Min Fair Odds" in html_text
     # Rybakina (1.08 <= 1.10) must be filtered out by the soft filter!
     assert "Rybakina" not in html_text
     # Fritz (2026-10-22T13:30Z) must appear BEFORE Celtics (2026-10-23T00:00Z) and AC Milan (2026-10-25T19:45Z) in Best Bets table!
