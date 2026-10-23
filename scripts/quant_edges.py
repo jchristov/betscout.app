@@ -16,7 +16,7 @@ from sportdata_model.quant_edges import (  # noqa: E402
     evaluate_us_major_sports_composite,
 )
 
-if __name__ == "__main__":
+def main() -> None:
     db = ROOT / "data" / "matches.sqlite"
     print("=== 7-Factor Orthogonal Invariant Soccer Composite (Big-5 European Leagues) ===")
     res_b5 = evaluate_invariant_soccer_composite(db, leagues=BIG5_LEAGUES)
@@ -55,3 +55,7 @@ if __name__ == "__main__":
             f"  {lg.upper():<6} (n={int(m['n_test_picks']):<3}) | ROI={m['roi_top15']:+.4f} | "
             f"HitRate={m['hit_rate']:.1%} vs MktImplied={m['mkt_implied']:.1%} ({m['hit_rate']-m['mkt_implied']:+.1%})"
         )
+
+
+if __name__ == "__main__":
+    main()

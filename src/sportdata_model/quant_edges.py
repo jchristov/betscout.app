@@ -231,7 +231,10 @@ def evaluate_invariant_soccer_composite(db_path: Path, leagues: tuple[str, ...] 
 
 
 def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, float]]:
-    """Out-of-sample evaluation of the 7-feature Surface + Game-Dominance Tennis model on ATP & WTA."""
+    """Out-of-sample evaluation of the 8-feature Surface (incl. Indoor Hard split) + Game-Dominance + Form
+    Tennis model and Court-Acclimatization / Decider Resilience gates on ATP & WTA."""
+    from .enrich import infer_surface
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     rows = [
@@ -252,14 +255,19 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
     elo_surf: dict[tuple[str, str], Elo] = {}
     elo_games: dict[str, Elo] = {}
     game_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    win6_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
+    decider_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    tourn_wins: dict[tuple[str, str, str], int] = defaultdict(int)
     last_match: dict[tuple[str, str], tuple[datetime, str, float]] = {}
     h2h: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0])
     by_tour: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for r in rows:
         lg = r["league"]
-        surf = r["surface"] or "hard"
+        raw_surf = r["surface"] or "hard"
+        surf = infer_surface(r.get("venue") or "") if raw_surf == "hard" else raw_surf
         dt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
+        yw = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
         ea = elo_all.setdefault(lg, Elo(k=28, home_adv=0.0))
         es = elo_surf.setdefault((lg, surf), Elo(k=28, home_adv=0.0))
         eg = elo_games.setdefault(lg, Elo(k=28, home_adv=0.0))
@@ -271,6 +279,11 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
         d_elo_games = (eg.ratings[h] - eg.ratings[a]) / 400.0
         gh, ga = game_hist[hk], game_hist[ak]
         d_game_pct = (float(np.mean(gh)) if len(gh) >= 3 else 0.5) - (float(np.mean(ga)) if len(ga) >= 3 else 0.5)
+        wh, wa = win6_hist[hk], win6_hist[ak]
+        d_win6 = (float(np.mean(wh)) if len(wh) >= 3 else 0.5) - (float(np.mean(wa)) if len(wa) >= 3 else 0.5)
+        dh, da = decider_hist[hk], decider_hist[ak]
+        d_decider = (float(np.mean(dh)) if len(dh) >= 3 else 0.5) - (float(np.mean(da)) if len(da) >= 3 else 0.5)
+        d_twins = float(tourn_wins[(lg, h, yw)] - tourn_wins[(lg, a, yw)])
 
         def _tf(k: tuple[str, str]) -> tuple[float, float]:
             if k not in last_match:
@@ -289,11 +302,20 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
         by_tour[lg].append({
             "y": won_h,
             "x_base": [d_elo_all],
-            "x_rich": [d_elo_all, d_elo_surf, d_elo_games, d_game_pct, ta - th, fa - fh, h2h_p - 0.5],
+            "x_rich": [d_elo_all, d_elo_surf, d_elo_games, d_game_pct, d_win6, ta - th, fa - fh, h2h_p - 0.5],
+            "d_win6": d_win6,
+            "d_decider": d_decider,
+            "d_twins": d_twins,
         })
 
         ea.update(h, a, float(won_h))
         es.update(h, a, float(won_h))
+        win6_hist[hk].append(float(won_h))
+        win6_hist[ak].append(float(1 - won_h))
+        if won_h:
+            tourn_wins[(lg, h, yw)] += 1
+        else:
+            tourn_wins[(lg, a, yw)] += 1
         hg, ag = r["home_games"], r["away_games"]
         if hg is not None and ag is not None and (hg + ag) > 0:
             g_share = hg / (hg + ag)
@@ -301,6 +323,9 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
             game_hist[hk].append(g_share)
             game_hist[ak].append(1.0 - g_share)
             tot_gms = hg + ag
+            if tot_gms >= 26:
+                decider_hist[hk].append(float(won_h))
+                decider_hist[ak].append(float(1 - won_h))
         else:
             eg.update(h, a, float(won_h))
             tot_gms = 20.0
@@ -319,7 +344,12 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
         p_b = np.clip(m_b.predict_proba(np.array([x["x_base"] for x in te]))[:, 1], 1e-9, 1 - 1e-9)
         m_r = LogisticRegression(C=1.0).fit(np.array([x["x_rich"] for x in tr]), y_tr)
         p_r = np.clip(m_r.predict_proba(np.array([x["x_rich"] for x in te]))[:, 1], 1e-9, 1 - 1e-9)
-        hc = np.abs(p_r - 0.5) >= 0.20
+        sgn = np.where(p_r >= 0.5, 1.0, -1.0)
+        confs = np.maximum(p_r, 1.0 - p_r)
+        w6_pick = np.array([x["d_win6"] for x in te]) * sgn
+        dec_pick = np.array([x["d_decider"] for x in te]) * sgn
+        tw_pick = np.array([x["d_twins"] for x in te]) * sgn
+        hc = (confs >= 0.70) & (w6_pick >= -0.15) & ((confs >= 0.80) | ((dec_pick >= -0.20) & (tw_pick > -1.0)))
         out[lg] = {
             "n_test": float(len(te)),
             "base_log_loss": float(-np.mean(y_te * np.log(p_b) + (1 - y_te) * np.log(1 - p_b))),
@@ -333,7 +363,8 @@ def evaluate_tennis_surface_game_model(db_path: Path) -> dict[str, dict[str, flo
 
 
 def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, float]]:
-    """Out-of-sample evaluation of the 7-Factor Boxscore + Rest/B2B + Rebound Composite on NBA, NHL, NFL & MLB."""
+    """Out-of-sample evaluation of the 7-Factor Boxscore + Rest/B2B + Rebound Composite on NBA, NHL, NFL & MLB,
+    including the NBA Elo+Rest+Efficiency Gate and NHL Rested+Save%/Shot-Volume Alignment Gate."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     rows = [
@@ -356,9 +387,10 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
     ]
     conn.close()
 
-    hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
+    hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=8))
     last_dt: dict[tuple[str, str], datetime] = {}
-    margin_scale = {"nba": 12.0, "nhl": 2.5, "nfl": 14.0, "mlb": 3.5}
+    elo_by_lg: dict[str, Elo] = defaultdict(lambda: Elo(k=20.0, home_adv=30.0))
+    margin_scale = {"nba": 12.0, "nhl": 3.5, "nfl": 14.0, "mlb": 3.5}
     samples_by_lg: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for idx_m, r in enumerate(rows):
@@ -369,6 +401,8 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
         ra = min((dt - last_dt[ak]).days, 10) if ak in last_dt else 4
         b2b_adv = (1.0 if ra <= 1 else 0.0) - (1.0 if rh <= 1 else 0.0)
         rest_adv = (rh - ra) / 3.0 + b2b_adv
+        el = elo_by_lg[lg]
+        p_elo_h = el.p_home_win_or_draw_free(r["home"], r["away"])
 
         oh, oa = hist[hk], hist[ak]
         if len(oh) >= 3 and len(oa) >= 3 and r["odds_home"] and r["odds_away"]:
@@ -386,6 +420,7 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
                 if not (1.25 <= o_bst <= 2.90):
                     continue
                 p_mkt = ph if side == "H" else pa
+                p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 sot_f = sgn * d_sot
                 vol_f = sgn * d_sh
                 cre_f = sgn * d_co
@@ -396,14 +431,20 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
                 won = 1.0 if r["outcome"] == side else 0.0
                 samples_by_lg[lg].append({
                     "match_idx": idx_m,
+                    "side": side,
                     "o_bst": o_bst,
                     "p_mkt": p_mkt,
+                    "p_elo": p_elo,
+                    "sot_f": sot_f,
+                    "vol_f": vol_f,
+                    "r_adv": r_adv,
                     "won": won,
                     "pnl": (o_bst - 1.0) if won else -1.0,
                     "feats": [p_mkt, sot_f, vol_f, cre_f, disc_f, r_adv, rebound_f],
                 })
 
         last_dt[hk] = last_dt[ak] = dt
+        el.update(r["home"], r["away"], 1.0 if r["outcome"] == "H" else 0.0)
         if r["home_sot"] is not None and r["away_sot"] is not None:
             m_act = float(r["home_score"] - r["away_score"]) / margin_scale.get(lg, 5.0)
             if r["odds_home"] and r["odds_away"]:
@@ -434,7 +475,12 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
                 by_m[mid] = x
         uniq_te = [by_m[k] for k in sorted(by_m)]
         thr_85 = float(np.percentile([x["score"] for x in tr], 85))
-        p15 = [x for x in uniq_te if x["score"] >= thr_85]
+        p15 = [
+            x for x in uniq_te
+            if x["score"] >= thr_85
+            and (lg != "nba" or (x["p_elo"] >= x["p_mkt"] - 0.02 and x["r_adv"] >= 0.0 and x["sot_f"] > 0.0))
+            and (lg != "nhl" or (x["sot_f"] > 0.0 and x["vol_f"] > 0.0 and x["r_adv"] >= 0.0 and (x["side"] == "H" or (x["sot_f"] >= 12.0 and x["vol_f"] >= 12.0))))
+        ]
         all_p15.extend(p15)
         if p15:
             out[lg] = {

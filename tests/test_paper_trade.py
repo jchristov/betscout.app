@@ -432,22 +432,27 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     from sportdata_model.webapp import _lookup_matchup_detail
 
     for d_c in doubles[:2]:
-        _upsert_paper_combo(db, d_c, "2026-10-25T08:00:00Z")
+        d_c_past = {
+            **d_c,
+            "leg_1": {**d_c["leg_1"], "kickoff": "2026-10-20T19:45Z", "date_day": "2026-10-20"},
+            "leg_2": {**d_c["leg_2"], "kickoff": "2026-10-20T13:30Z", "date_day": "2026-10-20"},
+        }
+        _upsert_paper_combo(db, d_c_past, "2026-10-20T08:00:00Z")
     sum_c1 = get_paper_ledger_summary(db)
     assert sum_c1["combos_total"] >= 2 and sum_c1["combos_pending"] >= 2
 
     # Insert settled outcomes for Udinese vs AC Milan (0-2 -> Away Win, X2 hit, Over 1.5 hit) and Herbert vs Fritz (0-2 -> Fritz Win, +1.5 Sets hit)
     conn_c = sqlite3.connect(db)
     conn_c.execute(
-        "INSERT OR REPLACE INTO matches (id, league, event_id, outcome, home_score, away_score) VALUES ('m1', 'ita.1', 'e1', 'A', 0, 2)"
+        "INSERT OR REPLACE INTO matches (id, league, event_id, kickoff, home, away, outcome, home_score, away_score) VALUES ('m1', 'ita.1', 'e1', '2026-10-20T19:45Z', 'Udinese', 'AC Milan', 'A', 0, 2)"
     )
     conn_c.execute(
         "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
-        "VALUES ('ita.1', 'e1', '2026-10-25T19:45Z', 'Udinese', 'AC Milan', 'A', 'top_10pct', 0.64, 0.58, 1.65, 1.65, 1.58, 0.044, '{}', '2026-10-25T08:00Z', '2026-10-25T22:00Z', 'SETTLED', 'A', '0-2', 0.65, 0.65)"
+        "VALUES ('ita.1', 'e1', '2026-10-20T19:45Z', 'Udinese', 'AC Milan', 'A', 'top_10pct', 0.64, 0.58, 1.65, 1.65, 1.58, 0.044, '{}', '2026-10-20T08:00Z', '2026-10-20T22:00Z', 'SETTLED', 'A', '0-2', 0.65, 0.65)"
     )
     conn_c.execute(
         "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
-        "VALUES ('atp', 'e2', '2026-10-25T13:30Z', 'Herbert', 'Fritz', 'A', 'banker_70pct', 0.82, 0.82, 1.26, 1.22, 1.24, 0.016, '{}', '2026-10-25T08:00Z', '2026-10-25T16:00Z', 'SETTLED', 'A', '0-2 (4-6, 3-6)', 0.26, 0.22)"
+        "VALUES ('atp', 'e2', '2026-10-20T13:30Z', 'Herbert', 'Fritz', 'A', 'banker_70pct', 0.82, 0.82, 1.26, 1.22, 1.24, 0.016, '{}', '2026-10-20T08:00Z', '2026-10-20T16:00Z', 'SETTLED', 'A', '0-2 (4-6, 3-6)', 0.26, 0.22)"
     )
     conn_c.commit()
     conn_c.close()

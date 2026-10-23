@@ -1383,15 +1383,27 @@ def scan_upcoming_other_sports(
                     comp_score = float(np.tanh(scalers_by_lg[lg].transform([f_vec])[0]).mean())
 
                 side = "H" if p_mkt_h >= 0.5 else "A"
+                sgn_pick = 1.0 if side == "H" else -1.0
+                rest_for_pick = sgn_pick * rest_adv
                 p_mkt = p_mkt_h if side == "H" else (1.0 - p_mkt_h)
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
                 if p_mod < min_prob or odds_pick <= 1.10 or comp_score < -0.05:
                     continue
-                # NHL Road Dual-Dominance & Save-Percentage Gate: road NHL picks must have both Save% diff >= 12 and Shot-Volume diff >= 12
-                if lg == "nhl" and side == "A" and (vol_f < 12.0 or sot_f < 12.0):
-                    continue
+                # 1. NHL Rested + Save% & Shot-Volume Alignment Gate:
+                #    - All NHL picks must have positive rolling Save% diff (sot_f > 0), positive Shot-Volume diff (vol_f > 0), and non-negative rest (rest_for_pick >= 0)
+                #    - Road NHL picks must also clear the strict Dual-Dominance threshold (vol_f >= 12.0 and sot_f >= 12.0)
+                if lg == "nhl":
+                    if sot_f <= 0.0 or vol_f <= 0.0 or rest_for_pick < 0.0:
+                        continue
+                    if side == "A" and (vol_f < 12.0 or sot_f < 12.0):
+                        continue
+                # 2. NBA Elo + Rest + Shooting-Efficiency Alignment Gate:
+                #    - Require Elo confirmation (p_elo >= p_mkt - 0.02), non-negative rest (rest_for_pick >= 0), and positive FG% diff (sot_f > 0)
+                if lg == "nba":
+                    if p_elo < (p_mkt - 0.02) or rest_for_pick < 0.0 or sot_f <= 0.0:
+                        continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(
                     summary, home, away, side, decision_backend=decision_backend
                 )
@@ -1907,16 +1919,23 @@ def scan_upcoming_and_log_paper_trades(
                 sc = best_candidate["score"]
                 sot_z_val = float(best_candidate["factors_tanh_z"].get("sot_d", 0.0))
                 dom_z_val = float(best_candidate["factors_tanh_z"].get("dom_rebound", 0.0))
+                ev_c_val = float(best_candidate.get("ev_pct") or 0.0)
                 is_uefa = lg.key.startswith("uefa.") or lg.key.startswith("fifa.")
+                is_secondary_dom = lg.key in ("ned.1", "por.1", "eng.2", "aut.1")
                 tier = "pass"
                 if sc >= thresholds["top_8pct"]:
                     tier = "top_8pct"
                 elif sc >= thresholds["top_10pct"]:
-                    tier = "top_10pct"
+                    if not is_secondary_dom or sot_z_val >= 0.0:
+                        tier = "top_10pct"
                 elif sc >= thresholds["top_15pct"]:
-                    tier = "top_15pct"
+                    # Secondary domestic leagues have wider bookmaker vig (~6%); require sot_z >= 0.20 and positive EV at top_15pct
+                    if not is_secondary_dom or (sot_z_val >= 0.20 and ev_c_val > 0.0):
+                        tier = "top_15pct"
                 elif sc >= thresholds["top_25pct"]:
-                    tier = "top_25pct"
+                    # Restrict top_25pct to Big-5 leagues only (or secondary domestic with strong sot_z >= 0.40 & EV >= +2.0%)
+                    if not is_secondary_dom or (sot_z_val >= 0.40 and ev_c_val >= 2.0):
+                        tier = "top_25pct"
                 elif is_uefa and sot_z_val >= 0.0 and (sc >= 0.02 or dom_z_val > 0.20):
                     tier = "uefa_edge"
                 best_candidate["tier"] = tier
@@ -2046,8 +2065,13 @@ def scan_upcoming_and_log_paper_trades(
                 now_iso,
             )
 
-    # Retroactive Re-Validation Gate: remove any pre-match PENDING tennis/US-sport bet in the scanned window
-    # that no longer qualifies under the upgraded Court-Acclimatization / Market-Blend EV / NHL Road Dual-Dominance gates
+    # Retroactive Re-Validation Gate: remove any pre-match PENDING soccer/tennis/US-sport bet in the scanned window
+    # that no longer qualifies under the upgraded Court-Acclimatization / Market-Blend EV / Secondary-Soccer / NBA-NHL gates
+    valid_soccer_eids = {
+        (p["league"], str(p["event_id"]))
+        for p in qualifying_picks
+        if p.get("action") == "PAPER_BET" and not p.get("is_live")
+    }
     valid_tennis_eids = {
         (tp["tour"].lower(), str(tp["event_id"]))
         for tp in tennis_picks
@@ -2058,6 +2082,7 @@ def scan_upcoming_and_log_paper_trades(
         for op in other_sport_picks
         if float(op.get("best_odds") or 0.0) > 1.10
     }
+    soccer_max_iso = (base_dt + timedelta(days=days_ahead + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     tennis_max_iso = (base_dt + timedelta(days=min(days_ahead, 3) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     other_max_iso = (base_dt + timedelta(days=min(days_ahead, 4) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     c_rev = sqlite3.connect(db_path)
@@ -2072,6 +2097,8 @@ def scan_upcoming_and_log_paper_trades(
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in ("nba", "nhl", "nfl", "mlb") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
+            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+        elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
     c_rev.commit()
     c_rev.close()
@@ -2419,10 +2446,12 @@ def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> N
 
 def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tuple[int | None, str | None]:
     """Grade one leg of a 2-leg combo against settled `paper_trades` or `matches`.
-    Returns `(1=win, 0=loss, None=pending)` and `score_str`."""
+    Returns `(1=win, 0=loss, None=pending)` and `score_str`.
+    Strictly verifies that any matched `matches` row occurred on or after `leg['kickoff'][:10]` so historical H2H rows never prematurely settle an upcoming leg!"""
     lg = str(leg.get("league") or "").lower().strip()
     eid = str(leg.get("event_id") or "").strip()
     match_name = str(leg.get("match") or "").strip()
+    leg_date = str(leg.get("kickoff") or leg.get("date_day") or "")[:10]
     side = str(leg.get("side") or "H").strip()
     mkt = str(leg.get("market") or "").lower()
     pick_txt = str(leg.get("pick") or "")
@@ -2438,21 +2467,21 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
             "SELECT settled_outcome, settled_score FROM paper_trades WHERE lower(league) = ? AND event_id = ? AND status = 'SETTLED'",
             (lg, eid),
         ).fetchone()
-    if not pt_row and " vs " in match_name:
+    if not pt_row and " vs " in match_name and leg_date:
         h_n, a_n = [x.strip() for x in match_name.split(" vs ", 1)]
         pt_row = conn.execute(
-            "SELECT settled_outcome, settled_score FROM paper_trades WHERE home = ? AND away = ? AND status = 'SETTLED' ORDER BY kickoff DESC LIMIT 1",
-            (h_n, a_n),
+            "SELECT settled_outcome, settled_score FROM paper_trades WHERE home = ? AND away = ? AND kickoff >= ? AND status = 'SETTLED' ORDER BY kickoff DESC LIMIT 1",
+            (h_n, a_n, leg_date),
         ).fetchone()
     if pt_row:
         outcome = pt_row[0]
         score_str = pt_row[1]
 
-    if not outcome and " vs " in match_name:
+    if not outcome and " vs " in match_name and leg_date:
         h_n, a_n = [x.strip() for x in match_name.split(" vs ", 1)]
         m_row = conn.execute(
-            "SELECT outcome, home_score, away_score FROM matches WHERE home = ? AND away = ? AND outcome IS NOT NULL ORDER BY kickoff DESC LIMIT 1",
-            (h_n, a_n),
+            "SELECT outcome, home_score, away_score FROM matches WHERE home = ? AND away = ? AND kickoff >= ? AND outcome IS NOT NULL ORDER BY kickoff DESC LIMIT 1",
+            (h_n, a_n, leg_date),
         ).fetchone()
         if m_row:
             outcome = m_row[0]
@@ -2526,10 +2555,17 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
 
 
 def settle_pending_paper_combos(db_path: Path) -> int:
-    """Grade any PENDING 2-leg combos in `paper_combos` whose legs have completed."""
+    """Grade any PENDING 2-leg combos in `paper_combos` whose legs have completed,
+    and reset any future combo that was prematurely marked settled by historical H2H rows."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Reset any combo whose kickoff is still in the future
+    conn.execute(
+        "UPDATE paper_combos SET status = 'PENDING', leg1_hit = NULL, leg2_hit = NULL, leg1_score = NULL, leg2_score = NULL, pnl = NULL WHERE kickoff > ?",
+        (now_iso,),
+    )
     pending_rows = conn.execute("SELECT * FROM paper_combos WHERE status = 'PENDING'").fetchall()
     settled_n = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
