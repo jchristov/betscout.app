@@ -602,8 +602,10 @@ def _extract_team_logo(competitor: dict[str, Any] | None) -> str | None:
 
 
 def _extract_tennis_media(competitor: dict[str, Any] | None) -> tuple[str | None, str | None]:
-    """Return `(espn_headshot_url, espn_flag_url)` for a tennis competitor strictly from ESPN CDN (`a.espncdn.com`).
-    Never returns SofaScore image URLs because SofaScore rate-limits browser `<img>` loads with 403/429."""
+    """Return `(espn_headshot_url, espn_flag_url)` for a tennis competitor strictly from ESPN Core v2 API
+    (`https://sports.core.api.espn.com/v2/sports/tennis/athletes/{id}`) and ESPN CDN (`a.espncdn.com/i/`).
+    Only returns `headshot.href` when ESPN's Core athlete record confirms a studio portrait exists (`headshot != None`),
+    avoiding 404 requests on players without ESPN studio portraits and falling back cleanly to their ESPN CDN country flag."""
     if not competitor:
         return None, None
     ath = competitor.get("athlete") or {}
@@ -613,7 +615,12 @@ def _extract_tennis_media(competitor: dict[str, Any] | None) -> tuple[str | None
     if not hs_url:
         cid = str(competitor.get("id") or ath.get("id") or "")
         if cid.isdigit():
-            hs_url = f"https://a.espncdn.com/i/headshots/tennis/players/full/{cid}.png"
+            core_ath = _fetch_live_json(f"https://sports.core.api.espn.com/v2/sports/tennis/athletes/{cid}", timeout=8, ttl_sec=86400.0)
+            core_hs = core_ath.get("headshot")
+            if isinstance(core_hs, dict) and core_hs.get("href"):
+                hs_url = str(core_hs["href"])
+            if not flag_url:
+                flag_url = (core_ath.get("flag") or {}).get("href")
     return hs_url, (str(flag_url) if flag_url else None)
 
 
@@ -929,7 +936,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
     conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
+        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (league IN ('atp', 'wta') AND (home_logo LIKE '%/headshots/%' OR away_logo LIKE '%/headshots/%')) OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -948,7 +955,13 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             score_str = f"{int(m_row['home_score'])}-{int(m_row['away_score'])}"
 
         needs_tennis_detail = lg.lower() in ("atp", "wta") and (not score_str or "(" not in score_str)
-        needs_logos = not row["home_logo"] or not row["away_logo"] or "sofascore" in str(row["home_logo"] or "") or "sofascore" in str(row["away_logo"] or "")
+        needs_logos = (
+            not row["home_logo"]
+            or not row["away_logo"]
+            or "sofascore" in str(row["home_logo"] or "")
+            or "sofascore" in str(row["away_logo"] or "")
+            or (lg.lower() in ("atp", "wta") and ("/headshots/" in str(row["home_logo"] or "") or "/headshots/" in str(row["away_logo"] or "")))
+        )
         row_t_valid = row["time_valid"] if "time_valid" in row.keys() and row["time_valid"] is not None else 1
         is_unconfirmed_time = was_pending and (int(row_t_valid) == 0 or row["kickoff"].endswith("T04:00Z") or row["kickoff"].endswith("T04:00:00Z"))
         if (outcome is None or score_str is None or needs_tennis_detail or needs_logos) and (row["kickoff"] < now_iso or is_unconfirmed_time or needs_logos or (was_pending and lg.lower() in ("atp", "wta"))):
@@ -1022,11 +1035,10 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                 p1_hs, p1_fl = _extract_tennis_media(p1_m)
                                 p2_hs, p2_fl = _extract_tennis_media(p2_m)
                                 t_c_logo = _extract_comp_logo(bd)
-                                has_sofascore_logo = "sofascore" in str(row["home_logo"] or "") or "sofascore" in str(row["away_logo"] or "")
-                                if (needs_logos or has_sofascore_logo) and (p1_hs or p1_fl or p2_hs or p2_fl):
+                                if (p1_hs or p1_fl or p2_hs or p2_fl):
                                     conn.execute(
                                         "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
-                                        (t_c_logo, p1_fl or p1_hs, p2_fl or p2_hs, lg, eid),
+                                        (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, eid),
                                     )
                                 new_ko = comp.get("date") or ""
                                 c_st = (comp.get("status") or {}).get("type") or {}
@@ -1889,8 +1901,8 @@ def scan_upcoming_and_log_paper_trades(
                     "competition_logo": tp.get("competition_logo"),
                     "home": tp["player_1"],
                     "away": tp["player_2"],
-                    "home_logo": tp.get("home_flag") or tp.get("home_logo"),
-                    "away_logo": tp.get("away_flag") or tp.get("away_logo"),
+                    "home_logo": tp.get("home_logo") or tp.get("home_flag"),
+                    "away_logo": tp.get("away_logo") or tp.get("away_flag"),
                     "side": t_side,
                     "tier": tp["tier"],
                     "score": tp["win_prob"],
@@ -2028,10 +2040,10 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
                 pick["event_id"],
             ),
         )
-        # Also overwrite any stale SofaScore image URLs with ESPN CDN URLs
+        # Also overwrite any stale SofaScore or unverified tennis image URLs with verified ESPN Core v2 / CDN URLs
         if h_logo or a_logo:
             conn.execute(
-                "UPDATE paper_trades SET home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ? AND (home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%')",
+                "UPDATE paper_trades SET home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
                 (h_logo, a_logo, pick["league"], pick["event_id"]),
             )
     else:
