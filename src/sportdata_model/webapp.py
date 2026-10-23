@@ -14,6 +14,7 @@ Serves:
 from __future__ import annotations
 
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -108,12 +109,21 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
     class QuantDeskRequestHandler(BaseHTTPRequestHandler):
         def _send_json(self, payload: dict[str, Any] | list[Any], status: int = 200) -> None:
             body = json.dumps(payload, indent=2).encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                return
+
+        def handle_one_request(self) -> None:
+            try:
+                super().handle_one_request()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError):
+                self.close_connection = True
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.send_response(204)
@@ -323,6 +333,12 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
 class _DaemonThreadingHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        _, exc, _ = sys.exc_info()
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError)):
+            return
+        super().handle_error(request, client_address)
 
 
 def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090) -> None:
