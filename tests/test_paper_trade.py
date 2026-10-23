@@ -282,13 +282,20 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     t_pred_bo5 = predict_tennis_set_scores(win_prob=0.82, side="H", game_win_pct_diff=0.10, form_6m_diff=0.10, best_of=5)
     assert t_pred_bo5["straight_sets_score"] == "3:0" and t_pred_bo5["best_of"] == 5
 
-    # 6. Exact-score hit grader & automated settlement notification deduplication test
-    from sportdata_model.paper_trade import _check_exact_score_hit
+    # 6. Exact-score hit grader, 2-leg doubles builder & automated settlement notification deduplication test
+    from sportdata_model.paper_trade import _check_exact_score_hit, build_recommended_2leg_doubles
     from sportdata_model.telegram_bot import notify_new_settlements_to_discord
 
     assert _check_exact_score_hit("2:0 (14.0%) | Cluster 2:0 / 1:0 / 2:1 (38.0%)", "2-0") == 1
     assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "0-2 (4-6, 1-6)") == 1
     assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "1-2 (6-4, 2-6, 4-6)") == 0
+
+    doubles = build_recommended_2leg_doubles(
+        [{"league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "action": "PAPER_BET", "best_odds": 1.65, "p_model": 0.64, "kickoff": "2026-10-25T19:45Z"}],
+        [{"tour": "ATP", "player_1": "Herbert", "player_2": "Fritz", "pick": "Fritz", "win_prob": 0.82, "best_odds": 1.26, "kickoff": "2026-10-25T13:30Z"}],
+        [],
+    )
+    assert len(doubles) == 1 and round(doubles[0]["combined_odds"], 2) == round(1.65 * 1.26, 2)
 
     notif_res = notify_new_settlements_to_discord(db, dry_run=True)
     assert notif_res["ok"] is True

@@ -423,6 +423,16 @@ def scan_upcoming_tennis(
                             form_6m_diff=form_diff_pick,
                             best_of=best_of_sets,
                         )
+                        # Expected total games for Best-of-3: ~20.2 games on 2:0, ~31.0 games on 2:1
+                        p_20_match = min(max(set_pred["straight_sets_prob"] / max(win_prob, 0.5), 0.45), 0.90)
+                        exp_games = round(p_20_match * 20.1 + (1.0 - p_20_match) * 30.8, 1) if best_of_sets == 3 else round(36.5, 1)
+                        g_line = live_odds.get("games_line") or (21.5 if win_prob >= 0.75 else 22.5)
+                        # Under probability rises when straight-sets dominance is high
+                        p_under_games = round(min(max(0.50 + (g_line - exp_games) * 0.065, 0.20), 0.82), 4)
+                        p_over_games = round(1.0 - p_under_games, 4)
+                        tot_side = "Under" if p_under_games >= p_over_games else "Over"
+                        tot_prob = max(p_under_games, p_over_games)
+                        tot_book_odds = live_odds.get("odds_under") if tot_side == "Under" else live_odds.get("odds_over")
                         upcoming_picks.append({
                             "tour": lg.upper(),
                             "tournament": t_name,
@@ -441,6 +451,14 @@ def scan_upcoming_tennis(
                             "open_odds": open_book_odds,
                             "ev_pct": ev_pct,
                             "set_score_prediction": set_pred,
+                            "totals_market": {
+                                "expected_games": exp_games,
+                                "games_line": g_line,
+                                "recommended": f"{tot_side} {g_line}",
+                                "prob": tot_prob,
+                                "fair_odds": round(1.0 / max(tot_prob, 0.05), 2),
+                                "book_odds": tot_book_odds,
+                            },
                             "factors": {
                                 "game_elo_diff": round(sgn * d_elo_games * 400.0, 1),
                                 "surf_elo_diff": round(sgn * d_elo_surf * 400.0, 1),
@@ -470,7 +488,11 @@ def _fractional_to_decimal(frac: str | None) -> float | None:
 
 
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, float | None]:
-    """Resolve live SofaScore bookmaker odds for an upcoming tennis match (`player_1` vs `player_2`)."""
+    """Resolve live SofaScore bookmaker moneyline & total-games odds for an upcoming tennis match."""
+    empty: dict[str, float | None] = {
+        "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
+        "games_line": None, "odds_over": None, "odds_under": None,
+    }
     p1_last = player_1.split()[-1].lower()
     p2_last = player_2.split()[-1].lower()
     q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")
@@ -492,9 +514,10 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
             flipped = True
             break
     if not sofascore_eid:
-        return {"odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None}
+        return empty
 
     odds_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/event/{sofascore_eid}/odds/1/all")
+    out = dict(empty)
     for mkt in odds_data.get("markets") or []:
         if mkt.get("marketId") == 1:
             c1 = next((c for c in (mkt.get("choices") or []) if c.get("name") == "1"), {})
@@ -504,9 +527,20 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
             i1 = _fractional_to_decimal(c1.get("initialFractionalValue")) or o1
             i2 = _fractional_to_decimal(c2.get("initialFractionalValue")) or o2
             if flipped:
-                return {"odds_p1": o2, "odds_p2": o1, "open_p1": i2, "open_p2": i1}
-            return {"odds_p1": o1, "odds_p2": o2, "open_p1": i1, "open_p2": i2}
-    return {"odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None}
+                out.update({"odds_p1": o2, "odds_p2": o1, "open_p1": i2, "open_p2": i1})
+            else:
+                out.update({"odds_p1": o1, "odds_p2": o2, "open_p1": i1, "open_p2": i2})
+        elif mkt.get("marketId") == 12 and mkt.get("choiceGroup"):
+            try:
+                g_line = float(mkt["choiceGroup"])
+                c_ov = next((c for c in (mkt.get("choices") or []) if c.get("name") == "Over"), {})
+                c_un = next((c for c in (mkt.get("choices") or []) if c.get("name") == "Under"), {})
+                out["games_line"] = g_line
+                out["odds_over"] = _fractional_to_decimal(c_ov.get("fractionalValue"))
+                out["odds_under"] = _fractional_to_decimal(c_un.get("fractionalValue"))
+            except Exception:
+                pass
+    return out
 
 
 def _logit(p: float) -> float:
@@ -816,11 +850,56 @@ def settle_pending_paper_trades(db_path: Path) -> int:
     return settled_count
 
 
+def _evaluate_us_sport_injuries_and_news(
+    summary: dict[str, Any],
+    home: str,
+    away: str,
+    side: str,
+    decision_backend: str = "laya",
+) -> dict[str, Any]:
+    """Evaluate ESPN structured `injuries` and news articles for NBA/NHL/NFL/MLB via `laya-sports`."""
+    backed_team = home if side == "H" else away
+    opp_team = away if side == "H" else home
+    backed_out_count = 0
+    opp_out_count = 0
+    backed_out_names: list[str] = []
+
+    for team_inj in summary.get("injuries") or []:
+        t_name = ((team_inj.get("team") or {}).get("displayName") or "").strip()
+        is_backed = backed_team.lower() in t_name.lower() or t_name.lower() in backed_team.lower()
+        is_opp = opp_team.lower() in t_name.lower() or t_name.lower() in opp_team.lower()
+        for inj in team_inj.get("injuries") or []:
+            st = str(inj.get("status") or "").lower()
+            if st in ("out", "injured reserve", "ir", "suspension", "doubtful"):
+                ath_name = ((inj.get("athlete") or {}).get("displayName") or "").strip()
+                if is_backed:
+                    backed_out_count += 1
+                    if ath_name and len(backed_out_names) < 4:
+                        backed_out_names.append(f"{ath_name} ({inj.get('status')})")
+                elif is_opp:
+                    opp_out_count += 1
+
+    news_sig = score_match_news(summary, home, away, backend=decision_backend)
+    net_news = round(news_sig.net_edge(side), 3)
+    # Veto if System-1 news edge <= -0.50 OR if backed team has >= 4 more players Out/IR than opponent
+    vetoed = (net_news <= -0.50) or (backed_out_count - opp_out_count >= 5)
+    return {
+        "backend": news_sig.backend,
+        "net_edge_for_pick": net_news,
+        "backed_out_count": backed_out_count,
+        "opp_out_count": opp_out_count,
+        "backed_out_players": backed_out_names,
+        "headlines": news_sig.matched_headlines,
+        "vetoed": vetoed,
+    }
+
+
 def scan_upcoming_other_sports(
     db_path: Path,
     days_ahead: int = 4,
     start_date: datetime | None = None,
     min_prob: float = 0.58,
+    decision_backend: str = "laya",
 ) -> list[dict[str, Any]]:
     """Build 7-Factor Boxscore + Rest/B2B + Rebound Composite & Elo ratings for NBA, NHL, NFL, MLB and score upcoming games."""
     conn = sqlite3.connect(db_path)
@@ -972,6 +1051,11 @@ def scan_upcoming_other_sports(
                 # NHL Road Dual-Dominance & Save-Percentage Gate: road NHL picks must have both Save% diff >= 12 and Shot-Volume diff >= 12
                 if lg == "nhl" and side == "A" and (vol_f < 12.0 or sot_f < 12.0):
                     continue
+                inj_gate = _evaluate_us_sport_injuries_and_news(
+                    summary, home, away, side, decision_backend=decision_backend
+                )
+                if inj_gate["vetoed"]:
+                    continue
                 ev_pct = (p_mod * odds_pick - 1.0) * 100.0
                 picks.append({
                     "sport": lg_obj.sport,
@@ -990,10 +1074,102 @@ def scan_upcoming_other_sports(
                     "best_odds": round(odds_pick, 3),
                     "ev_pct": round(ev_pct, 2),
                     "line_total": prices["line_total"],
+                    "injury_gate": inj_gate,
                 })
 
     picks.sort(key=lambda x: (-x["composite_score"], -x["p_model"]))
     return picks
+
+
+def build_recommended_2leg_doubles(
+    qualifying_picks: list[dict[str, Any]],
+    tennis_picks: list[dict[str, Any]],
+    other_sport_picks: list[dict[str, Any]],
+    max_doubles: int = 4,
+) -> list[dict[str, Any]]:
+    """Construct the Top Uncorrelated Same-Day 2-Leg High-Confidence Doubles (`1.18 - 1.65` per leg).
+    Requires the two legs to come from distinct sports/leagues on the same UTC date.
+    """
+    candidates: list[dict[str, Any]] = []
+    for p in qualifying_picks:
+        if p.get("action") != "PAPER_BET" or p.get("is_live"):
+            continue
+        odds = float(p.get("best_odds") or 0.0)
+        p_win = float(p.get("p_model") or p.get("p_mkt") or 0.0)
+        if 1.16 <= odds <= 1.70 and p_win >= 0.62:
+            pick_team = p["home"] if p["side"] == "H" else p["away"]
+            candidates.append({
+                "date_day": (p.get("kickoff") or "")[:10],
+                "kickoff": p.get("kickoff") or "",
+                "sport_cat": "soccer",
+                "league": p["league"],
+                "match": f"{p['home']} vs {p['away']}",
+                "pick": f"{pick_team} ({p['side']})",
+                "prob": p_win,
+                "odds": odds,
+            })
+
+    for tp in tennis_picks:
+        odds = float(tp.get("best_odds") or tp.get("target_ev3_odds") or 0.0)
+        p_win = float(tp.get("win_prob") or 0.0)
+        if 1.15 <= odds <= 1.65 and p_win >= 0.72:
+            candidates.append({
+                "date_day": (tp.get("kickoff") or "")[:10],
+                "kickoff": tp.get("kickoff") or "",
+                "sport_cat": "tennis",
+                "league": tp["tour"],
+                "match": f"{tp['player_1']} vs {tp['player_2']}",
+                "pick": f"{tp['pick']}",
+                "prob": p_win,
+                "odds": odds,
+            })
+
+    for op in other_sport_picks:
+        odds = float(op.get("best_odds") or 0.0)
+        p_win = float(op.get("p_model") or 0.0)
+        if 1.18 <= odds <= 1.68 and p_win >= 0.64 and float(op.get("composite_score") or 0.0) >= 0.20:
+            candidates.append({
+                "date_day": (op.get("kickoff") or "")[:10],
+                "kickoff": op.get("kickoff") or "",
+                "sport_cat": op["sport"],
+                "league": op["league"],
+                "match": f"{op['home']} vs {op['away']}",
+                "pick": f"{op['pick']} ({op['side']})",
+                "prob": p_win,
+                "odds": odds,
+            })
+
+    doubles: list[dict[str, Any]] = []
+    used_matches: set[str] = set()
+    # Sort candidates by probability descending
+    candidates.sort(key=lambda c: -c["prob"])
+    for i in range(len(candidates)):
+        for j in range(i + 1, len(candidates)):
+            c1, c2 = candidates[i], candidates[j]
+            if c1["match"] in used_matches or c2["match"] in used_matches:
+                continue
+            # Prefer same-day or adjacent-day uncorrelated leagues
+            if c1["league"] == c2["league"]:
+                continue
+            comb_prob = c1["prob"] * c2["prob"]
+            comb_odds = c1["odds"] * c2["odds"]
+            if comb_prob < 0.50 or not (1.55 <= comb_odds <= 2.65):
+                continue
+            ev_pct = (comb_prob * comb_odds - 1.0) * 100.0
+            doubles.append({
+                "leg_1": c1,
+                "leg_2": c2,
+                "combined_prob": round(comb_prob, 4),
+                "combined_odds": round(comb_odds, 2),
+                "min_fair_odds": round(1.0 / max(comb_prob, 0.05), 2),
+                "ev_pct": round(ev_pct, 2),
+            })
+            used_matches.add(c1["match"])
+            used_matches.add(c2["match"])
+            break
+        if len(doubles) >= max_doubles:
+            break
+    return doubles
 
 
 def scan_upcoming_and_log_paper_trades(
@@ -1223,7 +1399,10 @@ def scan_upcoming_and_log_paper_trades(
     evaluated_fixtures.sort(key=lambda x: -x["score"])
     qualifying_picks.sort(key=lambda x: -x["score"])
     tennis_picks = scan_upcoming_tennis(db_path, days_ahead=min(days_ahead, 3), start_date=start_date)
-    other_sport_picks = scan_upcoming_other_sports(db_path, days_ahead=min(days_ahead, 4), start_date=start_date)
+    other_sport_picks = scan_upcoming_other_sports(
+        db_path, days_ahead=min(days_ahead, 4), start_date=start_date, decision_backend=decision_backend
+    )
+    recommended_doubles = build_recommended_2leg_doubles(qualifying_picks, tennis_picks, other_sport_picks)
 
     # Also log qualifying Tennis Bankers (WinProb >= 0.70, odds > 1.10, form_6m_diff >= -0.15) and Major Sport Picks into paper_trades
     for tp in tennis_picks:
@@ -1302,6 +1481,7 @@ def scan_upcoming_and_log_paper_trades(
         "tennis_picks": tennis_picks,
         "other_sport_picks_count": len(other_sport_picks),
         "other_sport_picks": other_sport_picks,
+        "recommended_doubles": recommended_doubles,
         "all_evaluated_upcoming": evaluated_fixtures,
         "paper_ledger": ledger_summary,
     }

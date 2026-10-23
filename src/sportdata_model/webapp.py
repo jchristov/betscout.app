@@ -43,6 +43,13 @@ from .telegram_bot import (
     send_discord_message,
     send_telegram_message,
 )
+from .universal_ingest import ingest_universal
+
+_PIPELINE_STATUS: dict[str, Any] = {
+    "running": False,
+    "step": "Idle",
+    "updated_at": None,
+}
 
 
 def _build_live_snapshot(
@@ -78,6 +85,7 @@ def _build_live_snapshot(
         "timezone": DEFAULT_LOCAL_TZ,
         "discord_env": get_discord_env_config(),
         "telegram_env": get_telegram_env_config(),
+        "pipeline_status": dict(_PIPELINE_STATUS),
         "newly_settled": newly_settled,
         "paper_ledger": ledger,
         "best_bets_count": len(best_bets),
@@ -209,32 +217,59 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             except Exception:
                 body = {}
 
-            if parsed.path in ("/api/settle", "/api/sync"):
-                rescan = bool(body.get("rescan", False))
+            if parsed.path in ("/api/settle", "/api/sync", "/api/pipeline"):
+                is_full_pipeline = parsed.path == "/api/pipeline" or bool(body.get("full_pipeline", False))
+                rescan = is_full_pipeline or bool(body.get("rescan", False))
                 min_odds = float(body.get("min_odds") or 1.10)
-                if rescan:
-                    scan_upcoming_and_log_paper_trades(
-                        db_path=db_path,
-                        days_ahead=int(body.get("days") or 3),
-                        decision_backend="laya",
-                        export_json_path=rec_path,
-                    )
-                    newly_settled = 0
-                else:
-                    newly_settled = settle_pending_paper_trades(db_path)
-                    if newly_settled > 0:
-                        notify_new_settlements_to_discord(db_path)
+                new_ingested_count = 0
+                try:
+                    _PIPELINE_STATUS["running"] = True
+                    if is_full_pipeline:
+                        _PIPELINE_STATUS["step"] = "[1/4] Running incremental config-driven ingestion & quality check..."
+                        ing_res = ingest_universal(
+                            db_path=db_path,
+                            cache_dir=data_dir / "cache",
+                            config_path=root_dir / "ingestion_config.json",
+                            mode="incremental",
+                        )
+                        new_ingested_count = sum(ing_res.get("new_ingested", {}).values())
+                    if rescan:
+                        _PIPELINE_STATUS["step"] = "[2/4] Settling paper bets & scanning upcoming fixtures across all sports..."
+                        scan_upcoming_and_log_paper_trades(
+                            db_path=db_path,
+                            days_ahead=int(body.get("days") or 3),
+                            decision_backend="laya",
+                            export_json_path=rec_path,
+                        )
+                        newly_settled = 0
+                    else:
+                        _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against ESPN..."
+                        newly_settled = settle_pending_paper_trades(db_path)
 
-                generate_dashboard_html(
-                    rec_path,
-                    db_path,
-                    dash_path,
-                    min_odds=min_odds,
-                    csv_export_path=best_csv_path,
-                    json_export_path=best_json_path,
-                )
+                    _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement alerts & regenerating dashboard..."
+                    notify_new_settlements_to_discord(db_path)
+                    generate_dashboard_html(
+                        rec_path,
+                        db_path,
+                        dash_path,
+                        min_odds=min_odds,
+                        csv_export_path=best_csv_path,
+                        json_export_path=best_json_path,
+                    )
+                    app_pub = root_dir.parent / "app" / "public" / "model"
+                    if (root_dir.parent / "app" / "public").exists():
+                        import shutil
+                        app_pub.mkdir(parents=True, exist_ok=True)
+                        for sp in (best_json_path, best_csv_path, rec_path, dash_path):
+                            if sp.exists():
+                                shutil.copy2(sp, app_pub / sp.name)
+                finally:
+                    _PIPELINE_STATUS["running"] = False
+                    _PIPELINE_STATUS["step"] = "Idle"
+
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport="all", run_settle=False)
                 snap["newly_settled"] = newly_settled
+                snap["new_ingested_count"] = new_ingested_count
                 self._send_json({"ok": True, **snap})
                 return
 

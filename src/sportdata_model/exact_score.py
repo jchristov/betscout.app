@@ -26,7 +26,7 @@ from typing import Any
 
 import numpy as np
 
-from .goals import MAX_GOALS, fit_rates, score_grid
+from .goals import MAX_GOALS, fit_rates, markets, score_grid
 from .quant_edges import BIG5_LEAGUES, CONFIRM_FROM, build_soccer_feature_rows
 
 
@@ -193,10 +193,27 @@ def predict_soccer_exact_scores(
     cluster_2_label = " / ".join(x[0] for x in top2)
     cluster_3_label = " / ".join(x[0] for x in top3)
 
-    # Also compute proportional Dutch stakes for a 1.00u total stake across Cluster-2 and Cluster-3
+    # Also compute Over/Under (on tot_line and 2.5) and BTTS (Yes/No) from the tilted scoreline grid
+    mkt_25 = markets(grid, line=2.5)
+    mkt_line = markets(grid, line=tot_line)
+    p_btts_yes = float(mkt_25["btts"])
+    p_btts_no = max(0.0, 1.0 - p_btts_yes)
+    p_over = float(mkt_line.get("over", mkt_25["over"]))
+    p_under = float(mkt_line.get("under", mkt_25["under"]))
+
     return {
         "lambda_home": round(lam, 2),
         "mu_away": round(mu, 2),
+        "expected_total_goals": round(lam + mu, 2),
+        "line_total": round(tot_line, 2),
+        "over_prob": round(p_over, 4),
+        "over_fair_odds": round(1.0 / max(p_over, 0.02), 2),
+        "under_prob": round(p_under, 4),
+        "under_fair_odds": round(1.0 / max(p_under, 0.02), 2),
+        "btts_yes_prob": round(p_btts_yes, 4),
+        "btts_yes_fair_odds": round(1.0 / max(p_btts_yes, 0.02), 2),
+        "btts_no_prob": round(p_btts_no, 4),
+        "btts_no_fair_odds": round(1.0 / max(p_btts_no, 0.02), 2),
         "top_exact_score": top1_sc,
         "top_exact_prob": round(top1_p, 4),
         "top_exact_fair_odds": round(1.0 / max(top1_p, 0.01), 2),

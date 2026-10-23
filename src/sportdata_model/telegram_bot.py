@@ -21,7 +21,11 @@ from typing import Any
 from . import load_dotenv
 from .dashboard import DEFAULT_LOCAL_TZ, _format_local_time, _league_to_sport_cat, build_best_bets_summary
 from .espn import LEAGUE_LABELS
-from .paper_trade import get_paper_ledger_summary, settle_pending_paper_trades
+from .paper_trade import (
+    build_recommended_2leg_doubles,
+    get_paper_ledger_summary,
+    settle_pending_paper_trades,
+)
 
 SPORT_EMOJIS: dict[str, str] = {
     "soccer": "⚽",
@@ -129,6 +133,26 @@ def format_telegram_digest(
                 f"   🕒 <code>{html.escape(loc_time)}</code> · {sp_emoji} {html.escape(b['sport_league'])}\n"
                 f"   🎯 Pick: <b>{html.escape(b['pick'])}</b> · 💰 Odds: <b>{html.escape(b['odds_display'])}</b>"
                 f"{esc_line}"
+            )
+
+    doubles = rec.get("recommended_doubles") or build_recommended_2leg_doubles(
+        rec.get("qualifying_picks") or [],
+        rec.get("tennis_picks") or [],
+        rec.get("other_sport_picks") or [],
+        max_doubles=3,
+    )
+    if doubles and sport_filter == "all":
+        lines.append("")
+        lines.append("🔗 <b>Recommended Uncorrelated 2-Leg Doubles (Parlays):</b>")
+        for idx_d, d in enumerate(doubles[:3], start=1):
+            l1, l2 = d["leg_1"], d["leg_2"]
+            e1 = SPORT_EMOJIS.get(_league_to_sport_cat(l1["league"]), "🎯")
+            e2 = SPORT_EMOJIS.get(_league_to_sport_cat(l2["league"]), "🎯")
+            lines.append(
+                f"  <b>Double #{idx_d}</b> — Combined Odds: <b>{d['combined_odds']:.2f}</b> "
+                f"(WinProb {d['combined_prob']*100:.1f}%, Fair {d['min_fair_odds']:.2f})\n"
+                f"   1️⃣ {e1} {html.escape(l1['match'])} &rarr; <b>{html.escape(l1['pick'])}</b> @ {l1['odds']:.2f}\n"
+                f"   2️⃣ {e2} {html.escape(l2['match'])} &rarr; <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f}"
             )
 
     lines.append("")

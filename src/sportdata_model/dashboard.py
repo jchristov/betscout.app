@@ -298,10 +298,16 @@ def generate_dashboard_html(
         esc_p = p.get("exact_score_prediction") or {}
         esc_strip_html = ""
         if esc_p.get("top_exact_score"):
+            ou_line = esc_p.get("line_total", 2.5)
+            p_ov = esc_p.get("over_prob", 0.5)
+            p_un = esc_p.get("under_prob", 0.5)
+            ou_str = f"O{ou_line}: {p_ov*100:.0f}%" if p_ov >= p_un else f"U{ou_line}: {p_un*100:.0f}%"
+            btts_p = esc_p.get("btts_yes_prob", 0.5)
+            btts_str = f"Yes {btts_p*100:.0f}%" if btts_p >= 0.5 else f"No {(1-btts_p)*100:.0f}%"
             esc_strip_html = (
                 f'<div class="odds-strip" style="margin-top:-6px; background:#09101b; border:1px dashed var(--border);">'
-                f'<div><span>Expected Goals (λ/μ)</span><b>{esc_p.get("lambda_home", 0):.2f} – {esc_p.get("mu_away", 0):.2f}</b></div>'
-                f'<div><span>Top Exact Score</span><b class="num-pos">{html.escape(esc_p["top_exact_score"])} ({esc_p["top_exact_prob"]*100:.1f}%)</b></div>'
+                f'<div><span>Exp Goals (λ/μ)</span><b>{esc_p.get("lambda_home", 0):.2f}–{esc_p.get("mu_away", 0):.2f} ({ou_str})</b></div>'
+                f'<div><span>Top Score / BTTS</span><b class="num-pos">{html.escape(esc_p["top_exact_score"])} ({esc_p["top_exact_prob"]*100:.1f}%) · {btts_str}</b></div>'
                 f'<div><span>2-Score Dutch</span><b>{html.escape(esc_p["cluster_2_scores"])} ({esc_p["cluster_2_prob"]*100:.1f}%)</b></div>'
                 f'<div><span>3-Score Cluster</span><b class="num-pos">{html.escape(esc_p["cluster_3_scores"])} ({esc_p["cluster_3_prob"]*100:.1f}%, @{esc_p["cluster_3_fair_odds"]:.2f})</b></div>'
                 f'</div>'
@@ -356,8 +362,14 @@ def generate_dashboard_html(
         g_elo = float(f.get("game_elo_diff", 0.0))
         s_elo = float(f.get("surf_elo_diff", 0.0))
         sp_pred = tp.get("set_score_prediction") or {}
+        tm_pred = tp.get("totals_market") or {}
+        tm_suffix = (
+            f' · <span class="pill" title="Exp Games: {tm_pred.get("expected_games")}">{html.escape(str(tm_pred.get("recommended")))} ({float(tm_pred.get("prob") or 0)*100:.0f}%)</span>'
+            if tm_pred.get("recommended")
+            else ""
+        )
         set_cell = (
-            f'<b class="num-pos">{html.escape(sp_pred["straight_sets_score"])}</b> ({sp_pred["straight_sets_prob"]*100:.1f}%, Fair {sp_pred["straight_sets_fair_odds"]:.2f})<br>'
+            f'<b class="num-pos">{html.escape(sp_pred["straight_sets_score"])}</b> ({sp_pred["straight_sets_prob"]*100:.1f}%, Fair {sp_pred["straight_sets_fair_odds"]:.2f}){tm_suffix}<br>'
             f'<span class="muted">{html.escape(sp_pred["decider_sets_score"])}: {sp_pred["decider_sets_prob"]*100:.1f}%</span>'
             if sp_pred.get("straight_sets_score")
             else "—"
@@ -383,12 +395,18 @@ def generate_dashboard_html(
     for op in other_picks[:20]:
         sp_cat = _league_to_sport_cat(op.get("sport") or op.get("league") or "")
         ev_val = float(op.get("ev_pct") or 0.0)
+        inj_g = op.get("injury_gate") or {}
+        inj_pill = (
+            f' <span class="pill" title="{html.escape(", ".join(inj_g.get("backed_out_players") or []))}">Out: {inj_g.get("backed_out_count", 0)} vs {inj_g.get("opp_out_count", 0)}</span>'
+            if inj_g.get("backed_out_count") is not None
+            else ""
+        )
         other_rows.append(
             f"""
             <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
               <td><span class="pill">{html.escape(op['sport'].upper())}</span> <span class="pill">{html.escape(op['league'])}</span></td>
               <td>{_time_span(op['kickoff'])}</td>
-              <td>{html.escape(op['home'])} vs {html.escape(op['away'])}</td>
+              <td>{html.escape(op['home'])} vs {html.escape(op['away'])}{inj_pill}</td>
               <td><b>{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></td>
               <td><b>{op['p_model']*100:.1f}%</b> (Mkt {op['p_mkt']*100:.1f}%)</td>
               <td><b>{op['best_odds']:.2f}</b></td>
@@ -396,6 +414,32 @@ def generate_dashboard_html(
             </tr>
             """
         )
+
+    from .paper_trade import build_recommended_2leg_doubles
+    doubles_list = rec.get("recommended_doubles") or build_recommended_2leg_doubles(soccer_picks, tennis_picks, other_picks)
+    doubles_cards_html = ""
+    if doubles_list:
+        d_cards = []
+        for idx_d, d in enumerate(doubles_list, start=1):
+            l1, l2 = d["leg_1"], d["leg_2"]
+            d_cards.append(
+                f"""
+                <div class="card">
+                  <div class="card-head">
+                    <div><span class="pill badge-bet">2-LEG DOUBLE #{idx_d}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span></div>
+                    <div class="score">Combined Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b>{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
+                  </div>
+                  <div style="margin-top:8px; font-size:13px;">
+                    <div>1️⃣ <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'])}) &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
+                    <div style="margin-top:4px;">2️⃣ <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'])}) &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
+                  </div>
+                </div>
+                """
+            )
+        doubles_cards_html = f"""
+        <h2>Recommended Uncorrelated 2-Leg High-Confidence Doubles (Parlays)</h2>
+        <div class="cards" style="margin-bottom:24px;">{''.join(d_cards)}</div>
+        """
 
     # Build unified Best Bets Summary Table at the end, sorted by Date (ascending: soonest upcoming events first!)
     best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=norm_sport)
@@ -663,6 +707,7 @@ def generate_dashboard_html(
       </span>
       <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger</button>
       <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live Matches</button>
+      <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Run Full Daily Pipeline</button>
       <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share to Discord / Telegram</button>
     </div>
   </header>
@@ -771,6 +816,8 @@ def generate_dashboard_html(
       </tbody>
     </table>
   </div>
+
+  {doubles_cards_html}
 
   <div class="section-head">
     <h2 id="settledHeaderTitle">Settled Paper-Bets (Completed Results: <span id="settledCountSpan">{ledger.get('settled_count', 0)}</span> · Wins: <b class="num-pos" id="settledWinsSpan">{ledger.get('settled_wins', 0)}</b> · Losses: <b{losses_cls} id="settledLossesSpan">{settled_losses_n}</b> · Realized Profit: <span id="settledProfitSpan">{_fmt_signed(settled_profit_u, '+.2f', 'u')}</span>)</h2>
@@ -1202,6 +1249,36 @@ def generate_dashboard_html(
       }}
     }}
 
+    async function runFullDailyPipeline() {{
+      if (isActionBusy) return;
+      const btn = document.getElementById('runFullPipelineBtn');
+      setActionBusy(true, '[1/4] Running full daily pipeline (Incremental Ingest -> Quality Check -> Multi-Sport Scan -> Dashboard)...', btn);
+      try {{
+        if (!window.location.protocol.startsWith('http')) {{
+          showToast('ℹ️ Start the WebApp server (`uv run sportdata-webapp --port 8090`) and open http://127.0.0.1:8090 to run the full pipeline from the browser!');
+          return;
+        }}
+        const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
+        const r = await fetch('/api/pipeline', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ full_pipeline: true, min_odds: minThr }})
+        }});
+        const d = await r.json();
+        if (d.ok) {{
+          applyLiveStreamPayload(d);
+          showToast('✅ Full daily pipeline complete (' + (d.new_ingested_count || 0) + ' new matches ingested; ' + (d.paper_ledger?.settled_count || 0) + ' settled bets)!');
+          setTimeout(() => window.location.reload(), 900);
+        }} else {{
+          showToast('❌ Pipeline error: ' + (d.error || 'Unknown error'));
+        }}
+      }} catch (err) {{
+        showToast('❌ Failed to reach WebApp server: ' + err);
+      }} finally {{
+        setActionBusy(false);
+      }}
+    }}
+
     function initLiveEventStream() {{
       const dot = document.getElementById('streamDot');
       const txt = document.getElementById('streamStatusText');
@@ -1217,6 +1294,10 @@ def generate_dashboard_html(
         try {{
           const snap = JSON.parse(ev.data);
           updateSocialEnvBadges(snap);
+          if (snap.pipeline_status?.running && snap.pipeline_status?.step) {{
+            const txtEl = document.getElementById('actionProgressText');
+            if (txtEl) txtEl.textContent = snap.pipeline_status.step;
+          }}
           applyLiveStreamPayload(snap);
         }} catch (_) {{}}
       }});
