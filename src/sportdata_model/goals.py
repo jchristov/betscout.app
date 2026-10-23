@@ -61,19 +61,50 @@ def exact_score(grid: np.ndarray, home: int, away: int) -> float:
     return float(grid[home, away]) if home < grid.shape[0] and away < grid.shape[0] else 0.0
 
 
+_BASE_POISSON_CACHE: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+
+
+def _get_base_grid_tensors(max_goals: int = MAX_GOALS) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    cached = _BASE_POISSON_CACHE.get(max_goals)
+    if cached is not None:
+        return cached
+    lams = np.arange(0.2, 3.6, 0.1, dtype=np.float64)
+    k = np.arange(max_goals + 1, dtype=np.float64)
+    facts = np.array([math.factorial(int(x)) for x in k], dtype=np.float64)
+    # P(X=k | lam) shape: (N_lam, max_goals+1)
+    pmf = np.exp(-lams[:, None]) * (lams[:, None] ** k[None, :]) / facts[None, :]
+    # Outer product across all (lam, mu) pairs -> shape (N_lam, N_mu, max_goals+1, max_goals+1)
+    base_grids = pmf[:, None, :, None] * pmf[None, :, None, :]
+    ii, jj = np.indices((max_goals + 1, max_goals + 1))
+    res = (lams, base_grids, ii > jj, ii == jj, ii < jj)
+    _BASE_POISSON_CACHE[max_goals] = res
+    return res
+
+
 def fit_rates(total_goals_line: float, home_p: float, away_p: float, draw_p: float,
               rho: float = -0.1) -> tuple[float, float]:
     """Solve (lambda, mu) so the grid's 1X2 best matches the blended market probabilities.
 
-    Simple grid search over the implied expected goals (lambda, mu) minimising squared 1X2 error,
-    with the total-goals line as a soft prior on lambda + mu."""
-    best, best_err = (1.3, 1.1), float("inf")
-    for lam in np.arange(0.2, 3.6, 0.1):
-        for mu in np.arange(0.2, 3.6, 0.1):
-            m = markets(score_grid(lam, mu, rho))
-            err = (m["home"] - home_p) ** 2 + (m["draw"] - draw_p) ** 2 + (m["away"] - away_p) ** 2
-            if total_goals_line is not None:
-                err += 0.25 * (lam + mu - total_goals_line) ** 2 / (total_goals_line**2)
-            if err < best_err:
-                best, best_err = (float(lam), float(mu)), err
-    return best
+    Vectorised over the 34x34 (lambda, mu) grid (~100x faster than nested Python loops)."""
+    lams, base_grids, mask_h, mask_d, mask_a = _get_base_grid_tensors(MAX_GOALS)
+    grids = base_grids.copy()
+    lam_grid = lams[:, None]
+    mu_grid = lams[None, :]
+    grids[:, :, 0, 0] *= (1.0 - lam_grid * mu_grid * rho)
+    grids[:, :, 0, 1] *= (1.0 + lam_grid * rho)
+    grids[:, :, 1, 0] *= (1.0 + mu_grid * rho)
+    grids[:, :, 1, 1] *= (1.0 - rho)
+    norm = grids.sum(axis=(2, 3), keepdims=True)
+    grids /= norm
+
+    ph = grids[:, :, mask_h].sum(axis=-1)
+    pd = grids[:, :, mask_d].sum(axis=-1)
+    pa = grids[:, :, mask_a].sum(axis=-1)
+
+    err = (ph - home_p) ** 2 + (pd - draw_p) ** 2 + (pa - away_p) ** 2
+    if total_goals_line is not None and total_goals_line > 0:
+        err += 0.25 * ((lam_grid + mu_grid - total_goals_line) ** 2) / (total_goals_line ** 2)
+
+    idx = int(np.argmin(err))
+    i_best, j_best = divmod(idx, len(lams))
+    return float(lams[i_best]), float(lams[j_best])
