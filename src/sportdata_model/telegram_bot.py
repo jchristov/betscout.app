@@ -509,6 +509,72 @@ def notify_new_settlements_to_discord(
         return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
 
 
+def notify_inplay_rebound_edges_to_discord(
+    db_path: Path,
+    webhook_url: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Check `paper_trades` for any active in-play (`status = 'PENDING' AND is_live = 1`) match
+    whose `live_momentum_json` has `is_rebound_edge == True` and `notified_live_edge == False`,
+    post a one-time Halftime / In-Play Dominance Rebound alert to Discord, and stamp `notified_live_edge = True`."""
+    if not db_path.exists():
+        return {"ok": True, "notified_count": 0}
+
+    with _SETTLEMENT_NOTIFY_LOCK:
+        conn = sqlite3.connect(db_path, timeout=30.0, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT * FROM paper_trades WHERE status = 'PENDING' AND is_live = 1 AND live_momentum_json IS NOT NULL"
+                ).fetchall()
+            ]
+            to_notify: list[tuple[dict[str, Any], dict[str, Any]]] = []
+            for r in rows:
+                try:
+                    mom = json.loads(r["live_momentum_json"] or "{}")
+                except Exception:
+                    mom = {}
+                if mom.get("is_rebound_edge") and not mom.get("notified_live_edge"):
+                    mom["notified_live_edge"] = True
+                    if not dry_run:
+                        conn.execute(
+                            "UPDATE paper_trades SET live_momentum_json = ? WHERE league = ? AND event_id = ?",
+                            (json.dumps(mom), r["league"], r["event_id"]),
+                        )
+                    to_notify.append((r, mom))
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            conn.close()
+            raise
+        conn.close()
+
+        if not to_notify:
+            return {"ok": True, "notified_count": 0}
+
+        lines = [
+            f"🔥 **VEKTORPULSE — LIVE IN-PLAY DOMINANCE REBOUND ALERT ({len(to_notify)} Active)**",
+            "",
+        ]
+        for r, mom in to_notify:
+            pick_team = r["home"] if r["side"] == "H" else r["away"]
+            lg_lbl = LEAGUE_LABELS.get(r["league"], r["league"].upper())
+            lines.append(
+                f"• ⚽ **{r['home']} vs {r['away']}** ({lg_lbl}) — Score: **`{r.get('live_score') or 'LIVE'}`**\n"
+                f"  🎯 Backed Favorite: **{pick_team} ({r['side']})** @ `{r['logged_best_odds']:.2f}` | "
+                f"📊 Live Telemetry: **SoT `{mom.get('sot_for_pick',0)}–{mom.get('sot_opp',0)}` (`{mom.get('sot_diff',0):+d}`)** · "
+                f"Shots `{mom.get('shots_diff',0):+d}` · Corners `{mom.get('corners_diff',0):+d}` · Possession **`{mom.get('poss_pct',50):.0f}%`**"
+            )
+        res = send_discord_message("\n".join(lines), webhook_url=webhook_url, dry_run=dry_run)
+        return {**res, "notified_count": len(to_notify)}
+
+
 def get_telegram_env_config(env_path: Path | None = None) -> dict[str, Any]:
     """Reload `.env` on the fly and return current Telegram configuration status."""
     load_dotenv(env_path=env_path, override=True)

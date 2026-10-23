@@ -43,6 +43,7 @@ from .telegram_bot import (
     format_telegram_digest,
     get_discord_env_config,
     get_telegram_env_config,
+    notify_inplay_rebound_edges_to_discord,
     notify_new_settlements_to_discord,
     send_discord_message,
     send_telegram_message,
@@ -192,6 +193,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
             try:
                 settled_n = settle_pending_paper_trades(db_path)
                 vetoes = refresh_t60_starting_xi_gates(db_path)
+                notify_inplay_rebound_edges_to_discord(db_path)
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 if vetoes:

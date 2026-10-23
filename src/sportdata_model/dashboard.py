@@ -542,7 +542,7 @@ def generate_dashboard_html(
                 <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
               </div>
               <h3 class="matchup-inline">{p_home_logo}<span>{html.escape(p['home'])}</span> <span class="muted">vs</span> {p_away_logo}<span>{html.escape(p['away'])}</span></h3>
-              <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: {p_pick_logo}<b class="num-pos">{html.escape(pick_team)} ({p['side']})</b> · Paper ¼-Kelly: <b>{0.0 if is_veto else qk_pct:.2f}%</b></div>
+              <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: {p_pick_logo}<b class="num-pos">{html.escape(pick_team)} ({p['side']})</b> · ¼-Kelly: <b class="kelly-stake" data-kelly-pct="{0.0 if is_veto else qk_pct:.3f}">{0.0 if is_veto else qk_pct:.2f}% (€{0.0 if is_veto else qk_pct * 10.0:.2f})</b></div>
               <div class="odds-strip">
                 <div><span>Best 1X2</span><b>{p['best_odds']:.2f}</b></div>
                 <div><span>Syn Dutch DC</span><b>{html.escape(syn_dc_str)}</b></div>
@@ -805,6 +805,9 @@ def generate_dashboard_html(
             else html.escape(b["match"])
         )
         b_pick_img = _img_tag(b.get("pick_logo"), b_pick_name, "player-avatar" if b_is_tennis else "team-logo", fallback_url=b.get("pick_flag"))
+        b_ev_raw = max((b_win_pct / 100.0) * float(b["odds"]) - 1.0, 0.015)
+        b_qk_pct = min(max(0.25 * (b_ev_raw / max(float(b["odds"]) - 1.0, 0.05)) * 100.0, 0.50), 2.50)
+        b_kelly_pill = f' <span class="pill badge-bet kelly-stake" data-kelly-pct="{b_qk_pct:.3f}" title="Recommended Quarter-Kelly Stake">{b_qk_pct:.2f}% (€{b_qk_pct * 10.0:.2f})</span>'
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
@@ -816,7 +819,7 @@ def generate_dashboard_html(
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
-              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
+              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html}{b_kelly_pill} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
             </tr>
             """
         )
@@ -1384,6 +1387,8 @@ def generate_dashboard_html(
       <button type="button" class="sport-btn active" id="tzBtnLocal" onclick="applyTimezoneMode('local')">Local ({DEFAULT_LOCAL_TZ})</button>
       <button type="button" class="sport-btn" id="tzBtnUtc" onclick="applyTimezoneMode('utc')">UTC</button>
     </div>
+    <b>Bankroll (€):</b>
+    <input id="bankrollInput" type="number" min="50" max="1000000" step="50" value="1000" oninput="applyBankrollCalculator(this.value)" style="width:82px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700;">
     <span style="margin-left:auto;"></span>
     <b>Soft Min-Odds:</b>
     <input id="minOddsSlider" type="range" min="1.05" max="2.00" step="0.05" value="{min_odds:.2f}" oninput="applyOddsFilter(this.value)">
@@ -1714,6 +1719,15 @@ def generate_dashboard_html(
         else el.classList.remove('hidden-by-odds');
       }});
       updateVisibleKpi();
+    }}
+
+    function applyBankrollCalculator(val) {{
+      const bank = Math.max(0, parseFloat(val) || 1000);
+      document.querySelectorAll('.kelly-stake').forEach(el => {{
+        const pct = parseFloat(el.getAttribute('data-kelly-pct') || '0');
+        const eur = (bank * (pct / 100.0)).toFixed(2);
+        el.textContent = pct.toFixed(2) + '% (€' + eur + ')';
+      }});
     }}
 
     function applySportFilter(sport) {{

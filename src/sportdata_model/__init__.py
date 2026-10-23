@@ -109,3 +109,8 @@ def compare_models_cli() -> None:
 def exact_score_cli() -> None:
     _run_script("exact_score_eval")
 
+
+def calibrate_cli() -> None:
+    _run_script("calibration_report")
+
+

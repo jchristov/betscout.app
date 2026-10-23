@@ -27,6 +27,8 @@ sportdata-telegram = "sportdata_model:telegram_cli"
 sportdata-distill = "sportdata_model:distill_cli"
 sportdata-compare = "sportdata_model:compare_models_cli"
 sportdata-exact-score = "sportdata_model:exact_score_cli"
+sportdata-calibrate = "sportdata_model:calibrate_cli"
+vektorpulse = "sportdata_model:webapp_cli"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

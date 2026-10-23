@@ -534,6 +534,27 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     mom = _evaluate_inplay_soccer_momentum(fake_live_summary, "H", 0, 0, "HT")
     assert mom["is_rebound_edge"] is True and mom["signal"] == "DOMINANCE_REBOUND_EDGE" and mom["sot_diff"] == 5
 
+    # 13. Calibration Monitor & Live In-Play Dominance Rebound Discord Notifier test
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from calibration_report import compute_calibration_report
+    from sportdata_model.telegram_bot import notify_inplay_rebound_edges_to_discord
+
+    cal_rep = compute_calibration_report(db)
+    assert cal_rep["settled_count"] >= 2 and "brier_skill_vs_market" in cal_rep and "ece" in cal_rep
+
+    conn_rb = sqlite3.connect(db)
+    conn_rb.execute(
+        "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, is_live, live_score, live_pnl, live_momentum_json) "
+        "VALUES ('eng.2', 'live99', '2026-10-23T19:00Z', 'Bolton', 'Middlesbrough', 'A', 'top_8pct', 0.48, 0.62, 1.59, 1.59, 1.55, 0.025, '{}', '2026-10-23T10:00Z', '2026-10-23T19:45Z', 'PENDING', 1, '0-0 (HT)', 0.0, '{\"is_rebound_edge\": true, \"sot_for_pick\": 6, \"sot_opp\": 1, \"sot_diff\": 5, \"shots_diff\": 10, \"corners_diff\": 5, \"poss_pct\": 64.0}')"
+    )
+    conn_rb.commit()
+    conn_rb.close()
+
+    rb_res = notify_inplay_rebound_edges_to_discord(db, dry_run=True)
+    assert rb_res["ok"] is True and rb_res["notified_count"] == 1
+
+
 
 
 
