@@ -1669,9 +1669,9 @@ def generate_dashboard_html(
         const matchStr = tr.home + ' vs ' + tr.away;
         const isTen = spCat === 'tennis';
         const imgCls = isTen ? 'player-avatar' : 'team-logo';
-        const cLogoHtml = tr.comp_logo ? '<img src="' + escHtml(tr.comp_logo) + '" class="comp-logo" loading="lazy" onerror="this.style.display=\'none\'">' : '';
-        const hLogoHtml = tr.home_logo ? '<img src="' + escHtml(tr.home_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\'none\'">' : '';
-        const aLogoHtml = tr.away_logo ? '<img src="' + escHtml(tr.away_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+        const cLogoHtml = tr.comp_logo ? '<img src="' + escHtml(tr.comp_logo) + '" class="comp-logo" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
+        const hLogoHtml = tr.home_logo ? '<img src="' + escHtml(tr.home_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
+        const aLogoHtml = tr.away_logo ? '<img src="' + escHtml(tr.away_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
         const pLogoHtml = (tr.side === 'H' ? hLogoHtml : aLogoHtml);
         const matchRichHtml = '<span class="matchup-inline">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
         const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';

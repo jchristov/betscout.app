@@ -1,4 +1,5 @@
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from collections import deque
@@ -220,6 +221,10 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "Score Projection" in html_text
     assert "Odds / CLV" in html_text
     assert 'id="liveTradesTable"' in html_text
+    # Ensure embedded <script> block in dashboard.html has zero JavaScript syntax errors!
+    script_body = html_text.split("<script>", 1)[1].split("</script>", 1)[0]
+    node_chk = subprocess.run(["node", "--check"], input=script_body, text=True, capture_output=True)
+    assert node_chk.returncode == 0, f"Dashboard JS syntax error: {node_chk.stderr}"
     # Rybakina (1.08 <= 1.10) must be filtered out by the soft filter!
     assert "Rybakina" not in html_text
     # Fritz (2026-10-22T13:30Z) must appear BEFORE Celtics (2026-10-23T00:00Z) and AC Milan (2026-10-25T19:45Z) in Best Bets table!
