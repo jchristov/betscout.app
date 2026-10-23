@@ -39,6 +39,7 @@ from .telegram_bot import (
     format_telegram_digest,
     get_discord_env_config,
     get_telegram_env_config,
+    notify_new_settlements_to_discord,
     send_discord_message,
     send_telegram_message,
 )
@@ -55,6 +56,8 @@ def _build_live_snapshot(
     if run_settle and db_path.exists():
         try:
             newly_settled = settle_pending_paper_trades(db_path)
+            if newly_settled > 0:
+                notify_new_settlements_to_discord(db_path)
         except Exception:
             newly_settled = 0
 
@@ -219,6 +222,8 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     newly_settled = 0
                 else:
                     newly_settled = settle_pending_paper_trades(db_path)
+                    if newly_settled > 0:
+                        notify_new_settlements_to_discord(db_path)
 
                 generate_dashboard_html(
                     rec_path,

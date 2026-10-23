@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     status TEXT NOT NULL DEFAULT 'PENDING',
     settled_outcome TEXT,
     settled_score TEXT,
+    exact_score_pred TEXT,
+    exact_score_hit INTEGER,
+    notified_at TEXT,
     pnl_best REAL,
     pnl_primary REAL,
     PRIMARY KEY (league, event_id)
@@ -700,19 +703,43 @@ def _format_tennis_comp_score(p1: dict[str, Any], p2: dict[str, Any], comp: dict
     return f"{s1_sets}-{s2_sets} ({', '.join(set_strs)}{ret_suffix})"
 
 
+def _check_exact_score_hit(exact_pred: str | None, settled_score: str | None) -> int | None:
+    """Grade whether a settled match score ('2-0', '0-2 (4-6, 1-6)') hit our `exact_score_pred`
+    (e.g. '2:0 | Cluster 2:0 / 1:0 / 2:1' or 'Sets 0:2 (55.1%)'). Returns 1 (hit), 0 (miss), or None."""
+    if not exact_pred or not settled_score or "walkover" in settled_score.lower():
+        return None
+    head = settled_score.split("(", 1)[0].strip().replace("-", ":")
+    if ":" not in head:
+        return None
+    if "Cluster" in exact_pred:
+        cluster_part = exact_pred.split("Cluster", 1)[1].split("(", 1)[0].strip()
+        targets = {s.strip() for s in cluster_part.split("/") if ":" in s}
+    else:
+        targets = {tok.strip() for tok in exact_pred.replace("Sets", "").split() if ":" in tok}
+    if not targets:
+        return None
+    return 1 if head in targets else 0
+
+
 def settle_pending_paper_trades(db_path: Path) -> int:
     """Settle any PENDING paper_trades whose match outcome is now available in `matches` or live on ESPN,
-    and backfill `settled_score` for any previously settled trades missing a detailed score string."""
+    and backfill `settled_score` and `exact_score_hit` for settled bets."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
-    if "settled_score" not in cols:
-        conn.execute("ALTER TABLE paper_trades ADD COLUMN settled_score TEXT")
-        conn.commit()
+    for col_name, col_type in (
+        ("settled_score", "TEXT"),
+        ("exact_score_pred", "TEXT"),
+        ("exact_score_hit", "INTEGER"),
+        ("notified_at", "TEXT"),
+    ):
+        if col_name not in cols:
+            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+    conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
+        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -769,14 +796,17 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             won = outcome == side
             pnl_best = (row["logged_best_odds"] - 1.0) if won else -1.0
             pnl_pri = (row["logged_primary_odds"] - 1.0) if won else -1.0
+            final_sc = score_str or row["settled_score"]
+            esc_hit = _check_exact_score_hit(row["exact_score_pred"], final_sc)
             conn.execute(
                 """
                 UPDATE paper_trades
                 SET status = 'SETTLED', settled_outcome = ?, settled_score = COALESCE(?, settled_score),
+                    exact_score_hit = COALESCE(?, exact_score_hit),
                     pnl_best = ?, pnl_primary = ?, updated_at = ?
                 WHERE league = ? AND event_id = ?
                 """,
-                (outcome, score_str, pnl_best, pnl_pri, now_iso, lg, eid),
+                (outcome, score_str, esc_hit, pnl_best, pnl_pri, now_iso, lg, eid),
             )
             if was_pending:
                 settled_count += 1
@@ -916,6 +946,8 @@ def scan_upcoming_other_sports(
 
                 oh_dq, oa_dq = box_hist.get(hk), box_hist.get(ak)
                 comp_score = 0.0
+                sot_f = 0.0
+                vol_f = 0.0
                 if oh_dq and oa_dq and len(oh_dq) >= 2 and len(oa_dq) >= 2 and lg in scalers_by_lg:
                     d_sot = float(np.mean([x["sot_d"] for x in oh_dq]) - np.mean([x["sot_d"] for x in oa_dq]))
                     d_sh = float(np.mean([x["sh_d"] for x in oh_dq]) - np.mean([x["sh_d"] for x in oa_dq]))
@@ -925,8 +957,9 @@ def scan_upcoming_other_sports(
                     sgn = 1.0 if p_mkt_h >= 0.5 else -1.0
                     p_m = p_mkt_h if sgn > 0 else (1.0 - p_mkt_h)
                     sot_f = sgn * d_sot
+                    vol_f = sgn * d_sh
                     sm_neg = max(0.0, -sgn * d_sm)
-                    f_vec = [p_m, sot_f, sgn * d_sh, sgn * d_co, -sgn * d_fo, sgn * rest_adv, max(0.0, sot_f) * sm_neg]
+                    f_vec = [p_m, sot_f, vol_f, sgn * d_co, -sgn * d_fo, sgn * rest_adv, max(0.0, sot_f) * sm_neg]
                     comp_score = float(np.tanh(scalers_by_lg[lg].transform([f_vec])[0]).mean())
 
                 side = "H" if p_mkt_h >= 0.5 else "A"
@@ -935,6 +968,9 @@ def scan_upcoming_other_sports(
                 p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
                 if p_mod < min_prob or odds_pick <= 1.10 or comp_score < -0.05:
+                    continue
+                # NHL Road Dual-Dominance & Save-Percentage Gate: road NHL picks must have both Save% diff >= 12 and Shot-Volume diff >= 12
+                if lg == "nhl" and side == "A" and (vol_f < 12.0 or sot_f < 12.0):
                     continue
                 ev_pct = (p_mod * odds_pick - 1.0) * 100.0
                 picks.append({
@@ -1194,6 +1230,12 @@ def scan_upcoming_and_log_paper_trades(
         t_odds = float(tp.get("best_odds") or tp.get("target_ev3_odds") or 0.0)
         t_open = float(tp.get("open_odds") or t_odds)
         t_form = float((tp.get("factors") or {}).get("form_6m_diff", 0.0))
+        sp_pred = tp.get("set_score_prediction") or {}
+        t_esc_str = (
+            f"Sets {sp_pred['straight_sets_score']} ({sp_pred['straight_sets_prob']*100:.1f}%, Fair {sp_pred['straight_sets_fair_odds']:.2f})"
+            if sp_pred.get("straight_sets_score")
+            else None
+        )
         if tp.get("win_prob", 0.0) >= 0.70 and float(tp.get("min_fair_odds") or 0.0) > 1.10 and t_odds > 1.10 and t_form >= -0.15:
             t_side = "H" if tp["pick"] == tp["player_1"] else "A"
             _upsert_paper_trade(
@@ -1213,6 +1255,7 @@ def scan_upcoming_and_log_paper_trades(
                     "primary_odds": tp["min_fair_odds"],
                     "close_odds": t_odds,
                     "synthetic_dc_odds": None,
+                    "exact_score_pred": t_esc_str,
                     "factors_tanh_z": tp.get("factors") or {},
                     "news_signal": {"backend": "tennis_surface_game_model"},
                 },
@@ -1272,6 +1315,22 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
     """Insert a new paper bet or update `latest_close_odds` and `clv_pct` if already logged."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    for col_name, col_type in (
+        ("settled_score", "TEXT"),
+        ("exact_score_pred", "TEXT"),
+        ("exact_score_hit", "INTEGER"),
+        ("notified_at", "TEXT"),
+    ):
+        if col_name not in cols:
+            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+
+    esc_pred_str = pick.get("exact_score_pred")
+    if not esc_pred_str and isinstance(pick.get("exact_score_prediction"), dict):
+        ep = pick["exact_score_prediction"]
+        if ep.get("top_exact_score"):
+            esc_pred_str = f"{ep['top_exact_score']} ({ep['top_exact_prob']*100:.1f}%) | Cluster {ep['cluster_3_scores']} ({ep['cluster_3_prob']*100:.1f}%)"
+
     existing = conn.execute(
         "SELECT logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_trades WHERE league = ? AND event_id = ?",
         (pick["league"], pick["event_id"]),
@@ -1286,6 +1345,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
             """
             UPDATE paper_trades
             SET latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
+                exact_score_pred = COALESCE(?, exact_score_pred),
                 factor_breakdown_json = ?, news_signal_json = ?, updated_at = ?
             WHERE league = ? AND event_id = ? AND status = 'PENDING'
             """,
@@ -1294,6 +1354,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
                 clv_pct,
                 pick["score"],
                 pick["tier"],
+                esc_pred_str,
                 json.dumps(pick["factors_tanh_z"]),
                 json.dumps(pick.get("news_signal")),
                 now_iso,
@@ -1310,8 +1371,8 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
             INSERT INTO paper_trades (
                 league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt,
                 open_odds, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct,
-                synthetic_dc_odds, factor_breakdown_json, news_signal_json, logged_at, updated_at, status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
+                synthetic_dc_odds, exact_score_pred, factor_breakdown_json, news_signal_json, logged_at, updated_at, status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
             """,
             (
                 pick["league"],
@@ -1329,6 +1390,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
                 cur_close,
                 clv_pct,
                 pick["synthetic_dc_odds"],
+                esc_pred_str,
                 json.dumps(pick["factors_tanh_z"]),
                 json.dumps(pick.get("news_signal")),
                 now_iso,
@@ -1356,8 +1418,44 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     ]
     conn.close()
     pending = [r for r in rows if r["status"] == "PENDING"]
-    settled = [r for r in rows if r["status"] == "SETTLED"]
+    settled = sorted([r for r in rows if r["status"] == "SETTLED"], key=lambda x: x["kickoff"])
     wins = sum(1 for r in settled if (r["pnl_best"] or 0.0) > 0)
+    settled_pnls = [float(r["pnl_best"] or 0.0) for r in settled]
+    settled_cum_pnl = [round(float(v), 2) for v in np.cumsum(settled_pnls)] if settled_pnls else [0.0]
+
+    def _sp_bucket(lg_str: str) -> str:
+        l = (lg_str or "").lower()
+        if l in ("atp", "wta"):
+            return "Tennis (ATP/WTA)"
+        if l == "nhl":
+            return "Hockey (NHL)"
+        if l == "nfl":
+            return "American Football (NFL)"
+        if l == "nba":
+            return "Basketball (NBA)"
+        if l == "mlb":
+            return "Baseball (MLB)"
+        return "Football (UEFA & Domestic)"
+
+    by_sport_map: dict[str, list[float]] = defaultdict(list)
+    for r in settled:
+        by_sport_map[_sp_bucket(r["league"])].append(float(r["pnl_best"] or 0.0))
+    by_sport_summary = [
+        {
+            "sport": sp_label,
+            "settled": len(vals),
+            "wins": sum(1 for v in vals if v > 0),
+            "losses": sum(1 for v in vals if v <= 0),
+            "win_rate_pct": round(sum(1 for v in vals if v > 0) / len(vals) * 100.0, 1),
+            "profit_u": round(float(sum(vals)), 2),
+            "roi_pct": round(float(np.mean(vals)) * 100.0, 2),
+        }
+        for sp_label, vals in sorted(by_sport_map.items(), key=lambda kv: -sum(kv[1]))
+    ]
+
+    esc_graded = [r for r in settled if r.get("exact_score_hit") in (0, 1)]
+    esc_hits = sum(1 for r in esc_graded if r.get("exact_score_hit") == 1)
+
     return {
         "total_logged": len(rows),
         "pending_count": len(pending),
@@ -1367,6 +1465,11 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         "settled_roi_best": float(np.mean([r["pnl_best"] for r in settled])) if settled else None,
         "settled_roi_primary": float(np.mean([r["pnl_primary"] for r in settled])) if settled else None,
         "settled_profit_u": round(float(np.sum([r["pnl_best"] for r in settled])), 2) if settled else 0.0,
+        "settled_cum_pnl": settled_cum_pnl,
+        "by_sport": by_sport_summary,
+        "exact_score_graded": len(esc_graded),
+        "exact_score_hits": esc_hits,
+        "exact_score_hit_rate_pct": round(esc_hits / len(esc_graded) * 100.0, 1) if esc_graded else None,
         "mean_clv_pct": float(np.mean([r["clv_pct"] for r in rows])) if rows else 0.0,
         "trades": [
             {
@@ -1383,6 +1486,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "clv_pct": round(float(r["clv_pct"]) * 100.0, 2),
                 "status": r["status"],
                 "settled_outcome": r["settled_outcome"],
+                "exact_score_pred": r.get("exact_score_pred"),
+                "exact_score_hit": r.get("exact_score_hit"),
+                "notified_at": r.get("notified_at"),
                 "score_str": (
                     r.get("settled_score")
                     if r.get("settled_score")

@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from sportdata_model.dashboard import generate_dashboard_html  # noqa: E402
 from sportdata_model.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
+from sportdata_model.telegram_bot import notify_new_settlements_to_discord  # noqa: E402
 from sportdata_model.universal_ingest import ingest_universal  # noqa: E402
 
 
@@ -63,6 +64,7 @@ def run_pipeline(
         decision_backend=decision_backend,
         export_json_path=rec_json,
     )
+    notify_new_settlements_to_discord(db_path)
     bt = rep.get("backtest_risk") or {}
     print(
         f"      Post-2025 Holdout Top-10%: Profit={bt.get('post25_profit_u', 0):+.2f}u | "

@@ -282,4 +282,15 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     t_pred_bo5 = predict_tennis_set_scores(win_prob=0.82, side="H", game_win_pct_diff=0.10, form_6m_diff=0.10, best_of=5)
     assert t_pred_bo5["straight_sets_score"] == "3:0" and t_pred_bo5["best_of"] == 5
 
+    # 6. Exact-score hit grader & automated settlement notification deduplication test
+    from sportdata_model.paper_trade import _check_exact_score_hit
+    from sportdata_model.telegram_bot import notify_new_settlements_to_discord
+
+    assert _check_exact_score_hit("2:0 (14.0%) | Cluster 2:0 / 1:0 / 2:1 (38.0%)", "2-0") == 1
+    assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "0-2 (4-6, 1-6)") == 1
+    assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "1-2 (6-4, 2-6, 4-6)") == 0
+
+    notif_res = notify_new_settlements_to_discord(db, dry_run=True)
+    assert notif_res["ok"] is True
+
 

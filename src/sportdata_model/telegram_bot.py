@@ -13,6 +13,7 @@ import html
 import json
 import os
 import re
+import sqlite3
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -288,6 +289,74 @@ def send_discord_message(
         "chunks_sent": len(message_ids),
         "channel_id": last_resp.get("channel_id"),
     }
+
+
+def notify_new_settlements_to_discord(
+    db_path: Path,
+    webhook_url: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Check `paper_trades` for any `SETTLED` rows where `notified_at IS NULL`, post a compact
+    settlement recap to Discord, and stamp `notified_at` so each bet is notified at most once."""
+    if not db_path.exists():
+        return {"ok": True, "notified_count": 0}
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    if "notified_at" not in cols:
+        conn.execute("ALTER TABLE paper_trades ADD COLUMN notified_at TEXT")
+        conn.commit()
+
+    unnotified = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT * FROM paper_trades WHERE status = 'SETTLED' AND notified_at IS NULL ORDER BY kickoff ASC"
+        ).fetchall()
+    ]
+    if not unnotified:
+        conn.close()
+        return {"ok": True, "notified_count": 0}
+
+    summary = get_paper_ledger_summary(db_path)
+    s_cnt = summary.get("settled_count", 0)
+    s_wins = summary.get("settled_wins", 0)
+    s_loss = summary.get("settled_losses", 0)
+    s_prof = float(summary.get("settled_profit_u") or 0.0)
+    s_roi = float(summary.get("settled_roi_best") or 0.0) * 100.0
+
+    lines: list[str] = [
+        f"🔔 **NEW SETTLED PAPER-BET ALERT ({len(unnotified)} Resolved)**",
+        f"📈 *Cumulative Ledger: {s_cnt} Settled ({s_wins}W - {s_loss}L) · Profit: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)*",
+        "",
+    ]
+    for r in unnotified:
+        pnl_v = float(r.get("pnl_best") or 0.0)
+        badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
+        sp_emoji = SPORT_EMOJIS.get(_league_to_sport_cat(r["league"]), "🎯")
+        pick_name = r["home"] if r["side"] == "H" else r["away"]
+        sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
+        esc_info = ""
+        if r.get("exact_score_pred"):
+            hit_icon = "🎯 Exact/Cluster HIT!" if r.get("exact_score_hit") == 1 else f"(Proj: {r['exact_score_pred']})"
+            esc_info = f" · 🎲 {hit_icon}"
+        lines.append(
+            f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — "
+            f"*{r['home']} vs {r['away']}* [`{sc_str}`]{esc_info}"
+        )
+
+    msg = "\n".join(lines)
+    res = send_discord_message(msg, webhook_url=webhook_url, dry_run=dry_run)
+    if res.get("ok") and not res.get("dry_run"):
+        from datetime import datetime, timezone
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        for r in unnotified:
+            conn.execute(
+                "UPDATE paper_trades SET notified_at = ? WHERE league = ? AND event_id = ?",
+                (now_iso, r["league"], r["event_id"]),
+            )
+        conn.commit()
+    conn.close()
+    return {**res, "notified_count": len(unnotified)}
 
 
 def get_telegram_env_config(env_path: Path | None = None) -> dict[str, Any]:

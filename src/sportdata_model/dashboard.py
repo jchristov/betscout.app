@@ -446,6 +446,12 @@ def generate_dashboard_html(
                 if pnl_f > 0
                 else f'<span class="pill badge-veto">LOSS ({pnl_f:+.2f}u)</span>'
             )
+            esc_badge = ""
+            if tr.get("exact_score_pred"):
+                if tr.get("exact_score_hit") == 1:
+                    esc_badge = f' <span class="pill badge-bet" title="{html.escape(str(tr["exact_score_pred"]))}">🎯 Exact/Cluster HIT</span>'
+                else:
+                    esc_badge = f' <span class="pill" title="{html.escape(str(tr["exact_score_pred"]))}">Proj: {html.escape(str(tr["exact_score_pred"]).split("(", 1)[0].strip())}</span>'
             settled_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
@@ -453,7 +459,7 @@ def generate_dashboard_html(
                   <td><span class="pill">{html.escape(lg_name)}</span></td>
                   <td>{html.escape(tr['home'])} vs {html.escape(tr['away'])}</td>
                   <td><b>{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
-                  <td><b>{html.escape(score_str)}</b></td>
+                  <td><b>{html.escape(score_str)}</b>{esc_badge}</td>
                   <td><b>{tr['logged_best_odds']:.2f}</b> (CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td>{st_badge}</td>
                 </tr>
@@ -473,6 +479,62 @@ def generate_dashboard_html(
                 """
             )
 
+    # Live Paper-Betting Equity Curve & By-Sport PnL Breakdown
+    settled_cum = ledger.get("settled_cum_pnl") or [0.0]
+    by_sport_list = ledger.get("by_sport") or []
+    live_ledger_analytics_html = ""
+    if len(settled_cum) >= 2 or by_sport_list:
+        lw, lh = 520, 130
+        pts_live = [0.0] + list(settled_cum)
+        l_min, l_max = min(0.0, min(pts_live)), max(1.0, max(pts_live))
+        l_span = max(l_max - l_min, 1.0)
+        l_poly = []
+        for idx_p, val_p in enumerate(pts_live):
+            lx = 10 + (idx_p / max(1, len(pts_live) - 1)) * (lw - 20)
+            ly = lh - 12 - ((val_p - l_min) / l_span) * (lh - 24)
+            l_poly.append(f"{lx:.1f},{ly:.1f}")
+        ly_zero = lh - 12 - ((0.0 - l_min) / l_span) * (lh - 24)
+        sp_rows_html = "".join(
+            f"<tr><td><b>{html.escape(s['sport'])}</b></td>"
+            f"<td>{s['settled']} (<b class='num-pos'>{s['wins']}W</b> – <b class='{'num-neg' if s['losses']>0 else ''}'>{s['losses']}L</b>)</td>"
+            f"<td><b>{s['win_rate_pct']:.1f}%</b></td>"
+            f"<td>{_fmt_signed(float(s['profit_u']), '+.2f', 'u')}</td>"
+            f"<td>{_fmt_signed(float(s['roi_pct']), '+.1f', '%')}</td></tr>"
+            for s in by_sport_list
+        )
+        esc_graded_n = ledger.get("exact_score_graded") or 0
+        esc_hits_n = ledger.get("exact_score_hits") or 0
+        esc_rate_v = ledger.get("exact_score_hit_rate_pct")
+        esc_summary_str = (
+            f" · Exact Score / Cluster Hits: <b class='num-pos'>{esc_hits_n}/{esc_graded_n} ({esc_rate_v:.1f}%)</b>"
+            if esc_graded_n > 0 and esc_rate_v is not None
+            else ""
+        )
+        live_ledger_analytics_html = f"""
+        <div class="cards" style="margin-bottom: 18px;">
+          <div class="card">
+            <div class="card-head">
+              <div><b>Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
+              <div class="muted">Realized PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{esc_summary_str}</div>
+            </div>
+            <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:130px; margin-top:8px;">
+              <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
+              <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
+            </svg>
+          </div>
+          <div class="card">
+            <div class="card-head" style="margin-bottom:8px;">
+              <div><b>Settled Paper-Betting Performance by Sport</b></div>
+            </div>
+            <table style="margin-bottom:0;">
+              <thead>
+                <tr><th>Sport</th><th>Settled (W–L)</th><th>Win Rate</th><th>Profit (u)</th><th>ROI%</th></tr>
+              </thead>
+              <tbody>{sp_rows_html}</tbody>
+            </table>
+          </div>
+        </div>
+        """
     bt_risk = rec.get("backtest_risk") or {}
     cum_pnl = bt_risk.get("post25_cum_pnl") or [0.0]
     svg_chart = ""
@@ -716,6 +778,7 @@ def generate_dashboard_html(
       <button id="syncLedgerTableBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger Now</button>
     </div>
   </div>
+  {live_ledger_analytics_html}
   <table id="settledTradesTable">
     <thead>
       <tr>
