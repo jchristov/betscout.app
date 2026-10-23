@@ -75,6 +75,59 @@ SPORT_ICONS: dict[str, str] = {
     "baseball": "⚾",
 }
 
+COMPETITION_FALLBACK_LOGOS: dict[str, str] = {
+    "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
+    "eng.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/24.png",
+    "esp.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
+    "ger.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png",
+    "ita.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/12.png",
+    "fra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
+    "ned.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/11.png",
+    "por.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/14.png",
+    "uefa.champions": "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png",
+    "uefa.europa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png",
+    "uefa.europa.conf": "https://a.espncdn.com/i/leaguelogos/soccer/500/20296.png",
+    "nba": "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png",
+    "nhl": "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png",
+    "nfl": "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png",
+    "mlb": "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png",
+    "atp": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-tennis.png",
+    "wta": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-tennis.png",
+}
+
+
+def _resolve_comp_logo(league_key: str, explicit_url: str | None = None) -> str | None:
+    if explicit_url:
+        return str(explicit_url)
+    return COMPETITION_FALLBACK_LOGOS.get((league_key or "").lower().strip())
+
+
+def _img_tag(url: str | None, alt: str = "", cls: str = "team-logo") -> str:
+    if not url:
+        return ""
+    return f'<img src="{html.escape(str(url))}" alt="{html.escape(alt)}" class="{cls}" loading="lazy" onerror="this.style.display=\'none\'">'
+
+
+def _matchup_html(
+    home: str,
+    away: str,
+    home_logo: str | None = None,
+    away_logo: str | None = None,
+    is_tennis: bool = False,
+    extra_html: str = "",
+) -> str:
+    cls = "player-avatar" if is_tennis else "team-logo"
+    h_img = _img_tag(home_logo, home, cls)
+    a_img = _img_tag(away_logo, away, cls)
+    return (
+        f'<span class="matchup-inline">'
+        f'{h_img}<span>{html.escape(home)}</span>'
+        f'<span class="muted">vs</span>'
+        f'{a_img}<span>{html.escape(away)}</span>'
+        f'{extra_html}'
+        f'</span>'
+    )
+
 
 def _sport_icon(sport_cat: str) -> str:
     return SPORT_ICONS.get((sport_cat or "soccer").lower().strip(), "⚽")
@@ -114,28 +167,47 @@ def build_best_bets_summary(
         if t.get("status") == "SETTLED"
     }
     ledger_time_map = {
-        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True), float(t.get("clv_pct") or 0.0))
+        (t["league"], str(t["event_id"])): (
+            t["kickoff"],
+            t.get("time_valid", True),
+            float(t.get("clv_pct") or 0.0),
+            t.get("comp_logo"),
+            t.get("home_logo"),
+            t.get("away_logo"),
+        )
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
         if t.get("status") != "SETTLED"
     }
     raw_soccer_picks = [
-        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[0],
-         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[1],
-         "clv_pct": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[2]}
+        {**p,
+         "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0, None, None, None))[0],
+         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0, None, None, None))[1],
+         "clv_pct": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0, None, None, None))[2],
+         "competition_logo": p.get("competition_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, 0.0, None, None, None))[3],
+         "home_logo": p.get("home_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, 0.0, None, None, None))[4],
+         "away_logo": p.get("away_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, 0.0, None, None, None))[5]}
         for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
     ]
     raw_tennis_picks = [
-        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[0],
-         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[1],
-         "clv_pct": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[2]}
+        {**tp,
+         "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0, None, None, None))[0],
+         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0, None, None, None))[1],
+         "clv_pct": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0, None, None, None))[2],
+         "competition_logo": tp.get("competition_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, 0.0, None, None, None))[3],
+         "home_logo": tp.get("home_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, 0.0, None, None, None))[4],
+         "away_logo": tp.get("away_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, 0.0, None, None, None))[5]}
         for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
     ]
     raw_other_picks = [
-        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[0],
-         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[1],
-         "clv_pct": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[2]}
+        {**op,
+         "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0, None, None, None))[0],
+         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0, None, None, None))[1],
+         "clv_pct": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0, None, None, None))[2],
+         "competition_logo": op.get("competition_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, 0.0, None, None, None))[3],
+         "home_logo": op.get("home_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, 0.0, None, None, None))[4],
+         "away_logo": op.get("away_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, 0.0, None, None, None))[5]}
         for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
     ]
@@ -168,9 +240,15 @@ def build_best_bets_summary(
             "sport_cat": "soccer",
             "sport_icon": _sport_icon("soccer"),
             "competition": f"{lg_label} ({p['league']}){live_tag}",
+            "competition_logo": _resolve_comp_logo(p["league"], p.get("competition_logo")),
             "sport_league": f"Football · {lg_label} ({p['league']}){live_tag}",
+            "home": p["home"],
+            "away": p["away"],
+            "home_logo": p.get("home_logo"),
+            "away_logo": p.get("away_logo"),
             "match": f"{p['home']} vs {p['away']}",
             "pick_name": f"{pick_team} ({p['side']})",
+            "pick_logo": p.get("home_logo") if p["side"] == "H" else p.get("away_logo"),
             "tier": p["tier"],
             "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
             "win_prob": round(p_win_val, 4),
@@ -207,9 +285,15 @@ def build_best_bets_summary(
             "sport_cat": "tennis",
             "sport_icon": _sport_icon("tennis"),
             "competition": t_comp_lbl,
+            "competition_logo": _resolve_comp_logo(tp["tour"], tp.get("competition_logo")),
             "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
+            "home": tp["player_1"],
+            "away": tp["player_2"],
+            "home_logo": tp.get("home_logo"),
+            "away_logo": tp.get("away_logo"),
             "match": f"{tp['player_1']} vs {tp['player_2']}",
             "pick_name": tp["pick"],
+            "pick_logo": tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"),
             "tier": tp.get("tier") or "banker_70pct",
             "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
             "win_prob": round(float(tp["win_prob"]), 4),
@@ -236,9 +320,15 @@ def build_best_bets_summary(
             "sport_cat": sp_cat,
             "sport_icon": _sport_icon(sp_cat),
             "competition": op["league_name"],
+            "competition_logo": _resolve_comp_logo(op["league"], op.get("competition_logo")),
             "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
+            "home": op["home"],
+            "away": op["away"],
+            "home_logo": op.get("home_logo"),
+            "away_logo": op.get("away_logo"),
             "match": f"{op['home']} vs {op['away']}",
             "pick_name": f"{op['pick']} ({op['side']})",
+            "pick_logo": op.get("home_logo") if op["side"] == "H" else op.get("away_logo"),
             "tier": op.get("tier") or "high_conf",
             "pick": f"{op['pick']} ({op['side']}) (Win {op['p_model']*100:.1f}%)",
             "win_prob": round(op_win, 4),
@@ -307,25 +397,43 @@ def generate_dashboard_html(
         if t.get("status") == "SETTLED"
     }
     ledger_time_map = {
-        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True))
+        (t["league"], str(t["event_id"])): (
+            t["kickoff"],
+            t.get("time_valid", True),
+            t.get("comp_logo"),
+            t.get("home_logo"),
+            t.get("away_logo"),
+        )
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
-        if t.get("status") == "PENDING"
+        if t.get("status") != "SETTLED"
     }
     raw_soccer_picks = [
-        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[1]}
+        {**p,
+         "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), None, None, None))[0],
+         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), None, None, None))[1],
+         "competition_logo": p.get("competition_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, None, None, None))[2],
+         "home_logo": p.get("home_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, None, None, None))[3],
+         "away_logo": p.get("away_logo") or ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, None, None, None))[4]}
         for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
     ]
     raw_tennis_picks = [
-        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[1]}
+        {**tp,
+         "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), None, None, None))[0],
+         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), None, None, None))[1],
+         "competition_logo": tp.get("competition_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, None, None, None))[2],
+         "home_logo": tp.get("home_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, None, None, None))[3],
+         "away_logo": tp.get("away_logo") or ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, None, None, None))[4]}
         for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
     ]
     raw_other_picks = [
-        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[1]}
+        {**op,
+         "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), None, None, None))[0],
+         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), None, None, None))[1],
+         "competition_logo": op.get("competition_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, None, None, None))[2],
+         "home_logo": op.get("home_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, None, None, None))[3],
+         "away_logo": op.get("away_logo") or ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, None, None, None))[4]}
         for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
     ]
@@ -402,20 +510,24 @@ def generate_dashboard_html(
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
         sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"], time_valid=p.get("time_valid"))))
         p_day_loc = _format_local_time(p["kickoff"])[:10]
+        p_comp_logo = _img_tag(_resolve_comp_logo(p["league"], p.get("competition_logo")), lg_label, "comp-logo")
+        p_home_logo = _img_tag(p.get("home_logo"), p["home"], "team-logo-lg")
+        p_away_logo = _img_tag(p.get("away_logo"), p["away"], "team-logo-lg")
+        p_pick_logo = _img_tag(p.get("home_logo") if p["side"] == "H" else p.get("away_logo"), pick_team, "team-logo")
         soccer_cards.append(
             f"""
             <div class="card {'card-veto' if is_veto else ''}" data-odds="{p['best_odds']:.3f}" data-sport-cat="soccer" data-day="{html.escape(p_day_loc)}" data-search="{html.escape((p['home'] + ' ' + p['away'] + ' ' + lg_label + ' ' + p['league']).lower())}">
               <div class="card-head">
                 <div>
-                  <span class="pill">{html.escape(lg_label)}</span>
+                  <span class="pill">{p_comp_logo}{html.escape(lg_label)}</span>
                   <span class="pill tier">{html.escape(p['tier'])}</span>
                   <span class="pill {badge_cls}">{html.escape(act)}</span>
                   {live_pill}
                 </div>
                 <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
               </div>
-              <h3>{html.escape(p['home'])} <span class="muted">vs</span> {html.escape(p['away'])}</h3>
-              <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: <b>{html.escape(pick_team)} ({p['side']})</b> · Paper ¼-Kelly: <b>{0.0 if is_veto else qk_pct:.2f}%</b></div>
+              <h3 class="matchup-inline">{p_home_logo}<span>{html.escape(p['home'])}</span> <span class="muted">vs</span> {p_away_logo}<span>{html.escape(p['away'])}</span></h3>
+              <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: {p_pick_logo}<b class="num-pos">{html.escape(pick_team)} ({p['side']})</b> · Paper ¼-Kelly: <b>{0.0 if is_veto else qk_pct:.2f}%</b></div>
               <div class="odds-strip">
                 <div><span>Best 1X2</span><b>{p['best_odds']:.2f}</b></div>
                 <div><span>Syn Dutch DC</span><b>{html.escape(syn_dc_str)}</b></div>
@@ -461,14 +573,17 @@ def generate_dashboard_html(
         tp_day_loc = _format_local_time(tp["kickoff"])[:10]
         t_comp_str = f"{tp['tour']} · {tp['tournament']}"
         t_match_str = f"{tp['player_1']} vs {tp['player_2']}"
+        t_comp_img = _img_tag(_resolve_comp_logo(tp["tour"], tp.get("competition_logo")), tp["tour"], "comp-logo")
+        t_match_html = _matchup_html(tp["player_1"], tp["player_2"], tp.get("home_logo"), tp.get("away_logo"), is_tennis=True)
+        t_pick_img = _img_tag(tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"), tp["pick"], "player-avatar")
         tennis_rows.append(
             f"""
             <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-day="{html.escape(tp_day_loc)}" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
               <td class="col-icon" data-sort="tennis"><span class="sport-icon" title="Tennis">🎾</span></td>
-              <td data-sort="{html.escape(t_comp_str)}"><span class="pill">{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span> {html.escape(tp['tournament'])}</td>
+              <td data-sort="{html.escape(t_comp_str)}"><span class="pill">{t_comp_img}{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span> {html.escape(tp['tournament'])}</td>
               <td data-sort="{html.escape(tp['kickoff'])}">{_time_span(tp['kickoff'], time_valid=tp.get('time_valid'))}</td>
-              <td data-sort="{html.escape(t_match_str)}">{html.escape(t_match_str)}</td>
-              <td data-sort="{html.escape(tp['pick'])}"><b class="num-pos">{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></td>
+              <td data-sort="{html.escape(t_match_str)}">{t_match_html}</td>
+              <td data-sort="{html.escape(tp['pick'])}"><span class="matchup-inline">{t_pick_img}<b class="num-pos">{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></span></td>
               <td data-sort="{tp['win_prob']*100:.2f}"><b class="num-pos">{tp['win_prob']*100:.1f}%</b></td>
               <td data-sort="{sp_pred.get('straight_sets_prob', 0.0)*100:.2f}">{set_cell}</td>
               <td data-sort="{tp['min_fair_odds']:.3f}">{tp['min_fair_odds']:.2f}</td>
@@ -494,14 +609,17 @@ def generate_dashboard_html(
         op_day_loc = _format_local_time(op["kickoff"])[:10]
         op_comp = op.get("league_name") or op["league"]
         op_match = f"{op['home']} vs {op['away']}"
+        op_comp_img = _img_tag(_resolve_comp_logo(op["league"], op.get("competition_logo")), op_comp, "comp-logo")
+        op_match_html = _matchup_html(op["home"], op["away"], op.get("home_logo"), op.get("away_logo"), extra_html=inj_pill)
+        op_pick_img = _img_tag(op.get("home_logo") if op["side"] == "H" else op.get("away_logo"), op["pick"], "team-logo")
         other_rows.append(
             f"""
             <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-day="{html.escape(op_day_loc)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
               <td class="col-icon" data-sort="{html.escape(sp_cat)}"><span class="sport-icon" title="{html.escape(op['sport'].capitalize())}">{sp_ico}</span></td>
-              <td data-sort="{html.escape(op_comp)}"><span class="pill">{html.escape(op_comp)}</span></td>
+              <td data-sort="{html.escape(op_comp)}"><span class="pill">{op_comp_img}{html.escape(op_comp)}</span></td>
               <td data-sort="{html.escape(op['kickoff'])}">{_time_span(op['kickoff'], time_valid=op.get('time_valid'))}</td>
-              <td data-sort="{html.escape(op_match)}">{html.escape(op_match)}{inj_pill}</td>
-              <td data-sort="{html.escape(op['pick'])}"><b class="num-pos">{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></td>
+              <td data-sort="{html.escape(op_match)}">{op_match_html}</td>
+              <td data-sort="{html.escape(op['pick'])}"><span class="matchup-inline">{op_pick_img}<b class="num-pos">{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></span></td>
               <td data-sort="{op_win*100:.2f}"><b class="num-pos">{op_win*100:.1f}%</b> <span class="muted">(Mkt {op['p_mkt']*100:.1f}%)</span></td>
               <td data-sort="{op_fair:.3f}">{op_fair:.2f}</td>
               <td data-sort="{op['best_odds']:.3f}"><b>{op['best_odds']:.2f}</b></td>
@@ -567,14 +685,22 @@ def generate_dashboard_html(
         b_pick_name = html.escape(str(b.get("pick_name") or b["pick"].split("[", 1)[0].split("(Win", 1)[0].strip()))
         b_tier_str = str(b.get("tier") or "")
         b_tier_pill = f' <span class="pill tier">{html.escape(b_tier_str)}</span>' if b_tier_str else ""
+        b_is_tennis = b["sport_cat"] == "tennis"
+        b_comp_img = _img_tag(b.get("competition_logo"), b_comp, "comp-logo")
+        b_match_html = (
+            _matchup_html(b["home"], b["away"], b.get("home_logo"), b.get("away_logo"), is_tennis=b_is_tennis)
+            if (b.get("home") and b.get("away"))
+            else html.escape(b["match"])
+        )
+        b_pick_img = _img_tag(b.get("pick_logo"), b_pick_name, "player-avatar" if b_is_tennis else "team-logo")
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
               <td class="col-icon" data-sort="{html.escape(b['sport_cat'])}"><span class="sport-icon" title="{html.escape(b['sport_cat'].capitalize())}">{b_ico}</span></td>
-              <td data-sort="{html.escape(b_comp)}"><span class="pill">{html.escape(b_comp)}</span></td>
+              <td data-sort="{html.escape(b_comp)}"><span class="pill">{b_comp_img}{html.escape(b_comp)}</span></td>
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
-              <td data-sort="{html.escape(b['match'])}">{html.escape(b['match'])}</td>
-              <td data-sort="{b_pick_name}"><b class="num-pos">{b_pick_name}</b>{b_tier_pill}</td>
+              <td data-sort="{html.escape(b['match'])}">{b_match_html}</td>
+              <td data-sort="{b_pick_name}"><span class="matchup-inline">{b_pick_img}<b class="num-pos">{b_pick_name}</b>{b_tier_pill}</span></td>
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
@@ -593,6 +719,7 @@ def generate_dashboard_html(
             continue
         lg_name = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
         tr_sport_cat = _league_to_sport_cat(tr["league"])
+        tr_is_tennis = tr_sport_cat == "tennis"
         tr_ico = _sport_icon(tr_sport_cat)
         pick_team = tr["home"] if tr["side"] == "H" else tr["away"]
         st = tr.get("status", "PENDING")
@@ -601,6 +728,9 @@ def generate_dashboard_html(
         clv_v = float(tr.get("clv_pct") or 0.0)
         score_str = tr.get("score_str") or "—"
         tr_match = f"{tr['home']} vs {tr['away']}"
+        tr_comp_img = _img_tag(_resolve_comp_logo(tr["league"], tr.get("comp_logo")), lg_name, "comp-logo")
+        tr_match_html = _matchup_html(tr["home"], tr["away"], tr.get("home_logo"), tr.get("away_logo"), is_tennis=tr_is_tennis)
+        tr_pick_img = _img_tag(tr.get("home_logo") if tr["side"] == "H" else tr.get("away_logo"), pick_team, "player-avatar" if tr_is_tennis else "team-logo")
         search_txt = html.escape(f"{tr['home']} {tr['away']} {lg_name} {pick_team}".lower())
         esc_pred_raw = str(tr.get("exact_score_pred") or "")
         esc_short = esc_pred_raw.split("(", 1)[0].strip() if esc_pred_raw else ""
@@ -622,10 +752,10 @@ def generate_dashboard_html(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
                   <td class="col-icon" data-sort="{html.escape(tr_sport_cat)}"><span class="sport-icon" title="{html.escape(tr_sport_cat.capitalize())}">{tr_ico}</span></td>
-                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
+                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
-                  <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
-                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(score_str)}"><b>{html.escape(score_str)}</b>{esc_badge}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="{pnl_f:.3f}">{st_badge}</td>
@@ -649,10 +779,10 @@ def generate_dashboard_html(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
                   <td class="col-icon" data-sort="{html.escape(tr_sport_cat)}"><span class="sport-icon" title="{html.escape(tr_sport_cat.capitalize())}">{tr_ico}</span></td>
-                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
+                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
-                  <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
-                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="{l_pnl_f:.3f}">{l_badge}</td>
@@ -670,10 +800,10 @@ def generate_dashboard_html(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-day="{html.escape(tr_day_loc)}" data-search="{search_txt}">
                   <td class="col-icon" data-sort="{html.escape(tr_sport_cat)}"><span class="sport-icon" title="{html.escape(tr_sport_cat.capitalize())}">{tr_ico}</span></td>
-                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
+                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True, time_valid=tr.get('time_valid'))}</td>
-                  <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
-                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(esc_short or '—')}">{pend_score_cell}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>
@@ -911,6 +1041,11 @@ def generate_dashboard_html(
   .sortable-table th.sort-desc::after {{ content: "\\00a0▼"; opacity: 1; color: var(--accent); display: inline-block; margin-left: 2px; }}
   .col-icon {{ width: 58px; min-width: 58px; text-align: center !important; padding-left: 6px !important; padding-right: 6px !important; white-space: nowrap !important; }}
   .sport-icon {{ font-size: 14px; line-height: 1; display: inline-block; }}
+  .matchup-inline {{ display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; vertical-align: middle; }}
+  .comp-logo {{ width: 15px; height: 15px; object-fit: contain; vertical-align: -3px; margin-right: 4px; border-radius: 3px; }}
+  .team-logo {{ width: 18px; height: 18px; object-fit: contain; vertical-align: middle; flex-shrink: 0; }}
+  .team-logo-lg {{ width: 22px; height: 22px; object-fit: contain; vertical-align: middle; flex-shrink: 0; }}
+  .player-avatar {{ width: 20px; height: 20px; object-fit: cover; border-radius: 50%; border: 1px solid rgba(56, 189, 248, 0.45); background: #0f172a; vertical-align: middle; flex-shrink: 0; }}
   .ledger-grid-table {{ table-layout: fixed; }}
   .ledger-grid-table col.c-sport {{ width: 60px; }}
   .ledger-grid-table col.c-comp {{ width: 15%; }}
@@ -1532,6 +1667,14 @@ def generate_dashboard_html(
         const rowCls = (hideOdds + hideSport + hideSearch).trim();
         const spIcon = getSportEmoji(spCat);
         const matchStr = tr.home + ' vs ' + tr.away;
+        const isTen = spCat === 'tennis';
+        const imgCls = isTen ? 'player-avatar' : 'team-logo';
+        const cLogoHtml = tr.comp_logo ? '<img src="' + escHtml(tr.comp_logo) + '" class="comp-logo" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+        const hLogoHtml = tr.home_logo ? '<img src="' + escHtml(tr.home_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+        const aLogoHtml = tr.away_logo ? '<img src="' + escHtml(tr.away_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+        const pLogoHtml = (tr.side === 'H' ? hLogoHtml : aLogoHtml);
+        const matchRichHtml = '<span class="matchup-inline">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
+        const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
         if (tr.status === 'SETTLED' && tr.pnl_best !== null && tr.pnl_best !== undefined) {{
@@ -1542,10 +1685,10 @@ def generate_dashboard_html(
           settledRows.push(
             '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
-              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
+              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + cLogoHtml + escHtml(lgName) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
-              '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
-              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(tr.score_str || '—') + '"><b>' + escHtml(tr.score_str || '—') + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
               '<td data-sort="' + pnl.toFixed(3) + '">' + badge + '</td>' +
@@ -1561,10 +1704,10 @@ def generate_dashboard_html(
           liveRows.push(
             '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
-              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
+              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + cLogoHtml + escHtml(lgName) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
-              '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
-              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(lSc) + '"><b>' + escHtml(lSc) + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
               '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + '</td>' +
@@ -1581,10 +1724,10 @@ def generate_dashboard_html(
           pendingRows.push(
             '<tr class="' + pendCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-day="' + escHtml(trDay) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
-              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
+              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + cLogoHtml + escHtml(lgName) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
-              '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
-              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(escShort || '—') + '">' + pendScCell + '</td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
               '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>' +

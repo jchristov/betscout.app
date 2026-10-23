@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     is_live INTEGER DEFAULT 0,
     live_score TEXT,
     live_pnl REAL,
+    comp_logo TEXT,
+    home_logo TEXT,
+    away_logo TEXT,
     pnl_best REAL,
     pnl_primary REAL,
     PRIMARY KEY (league, event_id)
@@ -511,6 +514,9 @@ def scan_upcoming_tennis(
                         tot_side = "Under" if p_under_games >= p_over_games else "Over"
                         tot_prob = max(p_under_games, p_over_games)
                         tot_book_odds = live_odds.get("odds_under") if tot_side == "Under" else live_odds.get("odds_over")
+                        p1_hs, p1_flag = _extract_tennis_media(p1, live_odds.get("p1_img"))
+                        p2_hs, p2_flag = _extract_tennis_media(p2, live_odds.get("p2_img"))
+                        t_comp_logo = _extract_comp_logo(board)
                         upcoming_picks.append({
                             "tour": lg.upper(),
                             "tournament": t_name,
@@ -518,8 +524,13 @@ def scan_upcoming_tennis(
                             "event_id": cid,
                             "kickoff": ko,
                             "time_valid": espn_time_valid,
+                            "competition_logo": t_comp_logo,
                             "player_1": h,
                             "player_2": a,
+                            "home_logo": p1_hs or p1_flag,
+                            "away_logo": p2_hs or p2_flag,
+                            "home_flag": p1_flag,
+                            "away_flag": p2_flag,
                             "pick": pick_player,
                             "side": t_side,
                             "tier": "banker_70pct" if win_prob >= 0.70 else "solid_65pct",
@@ -566,11 +577,53 @@ def _fractional_to_decimal(frac: str | None) -> float | None:
         return None
 
 
+def _extract_comp_logo(board: dict[str, Any], summary: dict[str, Any] | None = None) -> str | None:
+    """Extract competition / league logo URL from ESPN scoreboard or summary payload."""
+    for src in (board, summary or {}):
+        lgs = src.get("leagues") or []
+        if lgs and isinstance(lgs[0], dict):
+            logos = lgs[0].get("logos") or []
+            if logos and isinstance(logos[0], dict) and logos[0].get("href"):
+                return str(logos[0]["href"])
+    return None
+
+
+def _extract_team_logo(competitor: dict[str, Any] | None) -> str | None:
+    """Extract team crest / logo URL from an ESPN competitor dict."""
+    if not competitor:
+        return None
+    tm = competitor.get("team") or {}
+    if tm.get("logo"):
+        return str(tm["logo"])
+    logos = tm.get("logos") or []
+    if logos and isinstance(logos[0], dict) and logos[0].get("href"):
+        return str(logos[0]["href"])
+    return None
+
+
+def _extract_tennis_media(competitor: dict[str, Any] | None, sofascore_img: str | None = None) -> tuple[str | None, str | None]:
+    """Return `(headshot_url, flag_url)` for a tennis competitor."""
+    if not competitor:
+        return sofascore_img, None
+    ath = competitor.get("athlete") or {}
+    flag_url = (ath.get("flag") or {}).get("href")
+    hs = ath.get("headshot")
+    hs_url = hs.get("href") if isinstance(hs, dict) else (str(hs) if isinstance(hs, str) and hs.startswith("http") else None)
+    if not hs_url:
+        cid = str(competitor.get("id") or ath.get("id") or "")
+        if cid.isdigit():
+            hs_url = sofascore_img or f"https://a.espncdn.com/i/headshots/tennis/players/full/{cid}.png"
+        else:
+            hs_url = sofascore_img
+    return hs_url, (str(flag_url) if flag_url else None)
+
+
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
-    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc) for an upcoming tennis match."""
+    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc & player headshots) for an upcoming tennis match."""
     empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
+        "p1_img": None, "p2_img": None,
     }
     p1_last = player_1.split()[-1].lower()
     p2_last = player_2.split()[-1].lower()
@@ -578,6 +631,8 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
     search_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/search/all?q={q}")
     sofascore_eid: str | None = None
     sofascore_start_ts: int | None = None
+    p1_tid: int | None = None
+    p2_tid: int | None = None
     flipped = False
     for item in search_data.get("results") or []:
         ent = item.get("entity") or {}
@@ -586,16 +641,20 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
         st_type = (ent.get("status") or {}).get("type")
         if st_type not in (None, "notstarted", "inprogress"):
             continue
-        ht = ((ent.get("homeTeam") or {}).get("name") or "").lower()
-        at = ((ent.get("awayTeam") or {}).get("name") or "").lower()
+        ht_obj = ent.get("homeTeam") or {}
+        at_obj = ent.get("awayTeam") or {}
+        ht = (ht_obj.get("name") or "").lower()
+        at = (at_obj.get("name") or "").lower()
         if p1_last in ht and p2_last in at:
             sofascore_eid = str(ent.get("id"))
             sofascore_start_ts = ent.get("startTimestamp")
+            p1_tid, p2_tid = ht_obj.get("id"), at_obj.get("id")
             flipped = False
             break
         if p1_last in at and p2_last in ht:
             sofascore_eid = str(ent.get("id"))
             sofascore_start_ts = ent.get("startTimestamp")
+            p1_tid, p2_tid = at_obj.get("id"), ht_obj.get("id")
             flipped = True
             break
     if not sofascore_eid:
@@ -603,6 +662,10 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
 
     odds_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/event/{sofascore_eid}/odds/1/all")
     out = dict(empty)
+    if p1_tid:
+        out["p1_img"] = f"https://api.sofascore.com/api/v1/team/{p1_tid}/image"
+    if p2_tid:
+        out["p2_img"] = f"https://api.sofascore.com/api/v1/team/{p2_tid}/image"
     if isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
         out["start_utc"] = datetime.fromtimestamp(int(sofascore_start_ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for mkt in odds_data.get("markets") or []:
@@ -858,13 +921,16 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         ("is_live", "INTEGER DEFAULT 0"),
         ("live_score", "TEXT"),
         ("live_pnl", "REAL"),
+        ("comp_logo", "TEXT"),
+        ("home_logo", "TEXT"),
+        ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
     conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
+        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -883,9 +949,10 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             score_str = f"{int(m_row['home_score'])}-{int(m_row['away_score'])}"
 
         needs_tennis_detail = lg.lower() in ("atp", "wta") and (not score_str or "(" not in score_str)
+        needs_logos = not row["home_logo"] or not row["away_logo"]
         row_t_valid = row["time_valid"] if "time_valid" in row.keys() and row["time_valid"] is not None else 1
         is_unconfirmed_time = was_pending and (int(row_t_valid) == 0 or row["kickoff"].endswith("T04:00Z") or row["kickoff"].endswith("T04:00:00Z"))
-        if (outcome is None or score_str is None or needs_tennis_detail) and (row["kickoff"] < now_iso or is_unconfirmed_time or (was_pending and lg.lower() in ("atp", "wta"))):
+        if (outcome is None or score_str is None or needs_tennis_detail or needs_logos) and (row["kickoff"] < now_iso or is_unconfirmed_time or needs_logos or (was_pending and lg.lower() in ("atp", "wta"))):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
             if sp != "tennis":
@@ -894,6 +961,14 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                 hdr_comps = (sd.get("header") or {}).get("competitions") or []
                 if hdr_comps:
                     c0 = hdr_comps[0]
+                    h_c0, a_c0 = _competitor(c0, "home"), _competitor(c0, "away")
+                    h_lg_url, a_lg_url = _extract_team_logo(h_c0), _extract_team_logo(a_c0)
+                    c_lg_url = _extract_comp_logo((sd.get("header") or {}), sd)
+                    if (h_lg_url or a_lg_url or c_lg_url) and needs_logos:
+                        conn.execute(
+                            "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = COALESCE(?, home_logo), away_logo = COALESCE(?, away_logo) WHERE league = ? AND event_id = ?",
+                            (c_lg_url, h_lg_url, a_lg_url, lg, eid),
+                        )
                     new_ko = c0.get("date") or ""
                     c0_st = (c0.get("status") or {}).get("type") or {}
                     c0_tv = 1 if (c0.get("timeValid") is not False and str(c0_st.get("shortDetail") or "").upper() != "TBD") else 0
@@ -944,6 +1019,15 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                     for grp in tourn.get("groupings") or []:
                         for comp in grp.get("competitions") or []:
                             if str(comp.get("id")) == str(eid):
+                                p1_m, p2_m = _competitor(comp, "home"), _competitor(comp, "away")
+                                p1_hs, p1_fl = _extract_tennis_media(p1_m)
+                                p2_hs, p2_fl = _extract_tennis_media(p2_m)
+                                t_c_logo = _extract_comp_logo(bd)
+                                if needs_logos and (p1_hs or p1_fl or p2_hs or p2_fl):
+                                    conn.execute(
+                                        "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = COALESCE(?, home_logo), away_logo = COALESCE(?, away_logo) WHERE league = ? AND event_id = ?",
+                                        (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, eid),
+                                    )
                                 new_ko = comp.get("date") or ""
                                 c_st = (comp.get("status") or {}).get("type") or {}
                                 c_tv = 1 if (comp.get("timeValid") is not False and str(c_st.get("shortDetail") or "").upper() != "TBD" and not new_ko.endswith("T04:00Z")) else 0
@@ -1240,8 +1324,11 @@ def scan_upcoming_other_sports(
                     "event_id": eid,
                     "kickoff": ko,
                     "time_valid": ev_time_valid,
+                    "competition_logo": _extract_comp_logo(board, summary),
                     "home": home,
                     "away": away,
+                    "home_logo": _extract_team_logo(h_c),
+                    "away_logo": _extract_team_logo(a_c),
                     "side": side,
                     "pick": home if side == "H" else away,
                     "tier": "top_15pct" if comp_score >= 0.22 else ("high_conf" if p_mod >= 0.64 else "solid"),
@@ -1686,10 +1773,13 @@ def scan_upcoming_and_log_paper_trades(
                         "event_id": eid,
                         "kickoff": kickoff,
                         "time_valid": soc_time_valid,
+                        "competition_logo": _extract_comp_logo(board, summary),
                         "is_live": is_live,
                         "live_score": live_score_str,
                         "home": home,
                         "away": away,
+                        "home_logo": _extract_team_logo(h_c),
+                        "away_logo": _extract_team_logo(a_c),
                         "side": side,
                         "score": round(score, 4),
                         "p_mkt": round(p_mkt, 4),
@@ -1796,8 +1886,11 @@ def scan_upcoming_and_log_paper_trades(
                     "event_id": tp["event_id"],
                     "kickoff": tp["kickoff"],
                     "time_valid": tp.get("time_valid", True),
+                    "competition_logo": tp.get("competition_logo"),
                     "home": tp["player_1"],
                     "away": tp["player_2"],
+                    "home_logo": tp.get("home_logo"),
+                    "away_logo": tp.get("away_logo"),
                     "side": t_side,
                     "tier": tp["tier"],
                     "score": tp["win_prob"],
@@ -1823,8 +1916,11 @@ def scan_upcoming_and_log_paper_trades(
                     "event_id": op["event_id"],
                     "kickoff": op["kickoff"],
                     "time_valid": op.get("time_valid", True),
+                    "competition_logo": op.get("competition_logo"),
                     "home": op["home"],
                     "away": op["away"],
+                    "home_logo": op.get("home_logo"),
+                    "away_logo": op.get("away_logo"),
                     "side": op["side"],
                     "tier": op["tier"],
                     "score": op["p_model"],
@@ -1876,6 +1972,9 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         ("exact_score_hit", "INTEGER"),
         ("notified_at", "TEXT"),
         ("time_valid", "INTEGER DEFAULT 1"),
+        ("comp_logo", "TEXT"),
+        ("home_logo", "TEXT"),
+        ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
@@ -1893,6 +1992,9 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
     ).fetchone()
 
     cur_close = pick["close_odds"] or pick["best_odds"]
+    c_logo = pick.get("competition_logo") or pick.get("comp_logo")
+    h_logo = pick.get("home_logo")
+    a_logo = pick.get("away_logo")
     if existing:
         logged_best = float(existing["logged_best_odds"])
         # CLV % = (logged_best_odds / latest_close_odds) - 1.0
@@ -1902,6 +2004,9 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
             UPDATE paper_trades
             SET kickoff = ?, time_valid = ?, latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
                 exact_score_pred = COALESCE(?, exact_score_pred),
+                comp_logo = COALESCE(?, comp_logo),
+                home_logo = COALESCE(?, home_logo),
+                away_logo = COALESCE(?, away_logo),
                 factor_breakdown_json = ?, news_signal_json = ?, updated_at = ?
             WHERE league = ? AND event_id = ? AND status = 'PENDING'
             """,
@@ -1913,6 +2018,9 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
                 pick["score"],
                 pick["tier"],
                 esc_pred_str,
+                c_logo,
+                h_logo,
+                a_logo,
                 json.dumps(pick["factors_tanh_z"]),
                 json.dumps(pick.get("news_signal")),
                 now_iso,
@@ -1927,10 +2035,11 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         conn.execute(
             """
             INSERT INTO paper_trades (
-                league, event_id, kickoff, time_valid, home, away, side, tier, composite_score, p_mkt,
-                open_odds, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct,
-                synthetic_dc_odds, exact_score_pred, factor_breakdown_json, news_signal_json, logged_at, updated_at, status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
+                league, event_id, kickoff, time_valid, home, away, comp_logo, home_logo, away_logo,
+                side, tier, composite_score, p_mkt, open_odds, logged_best_odds, logged_primary_odds,
+                latest_close_odds, clv_pct, synthetic_dc_odds, exact_score_pred, factor_breakdown_json,
+                news_signal_json, logged_at, updated_at, status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
             """,
             (
                 pick["league"],
@@ -1939,6 +2048,9 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
                 t_valid_int,
                 pick["home"],
                 pick["away"],
+                c_logo,
+                h_logo,
+                a_logo,
                 pick["side"],
                 pick["tier"],
                 pick["score"],
@@ -1974,6 +2086,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         ("is_live", "INTEGER DEFAULT 0"),
         ("live_score", "TEXT"),
         ("live_pnl", "REAL"),
+        ("comp_logo", "TEXT"),
+        ("home_logo", "TEXT"),
+        ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
@@ -2057,6 +2172,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "live_pnl": round(float(r["live_pnl"]), 2) if r.get("live_pnl") is not None else None,
                 "home": r["home"],
                 "away": r["away"],
+                "comp_logo": r.get("comp_logo"),
+                "home_logo": r.get("home_logo"),
+                "away_logo": r.get("away_logo"),
                 "side": r["side"],
                 "tier": r["tier"],
                 "logged_best_odds": r["logged_best_odds"],
