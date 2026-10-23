@@ -102,10 +102,16 @@ def _resolve_comp_logo(league_key: str, explicit_url: str | None = None) -> str 
     return COMPETITION_FALLBACK_LOGOS.get((league_key or "").lower().strip())
 
 
-def _img_tag(url: str | None, alt: str = "", cls: str = "team-logo") -> str:
-    if not url:
+def _img_tag(url: str | None, alt: str = "", cls: str = "team-logo", fallback_url: str | None = None) -> str:
+    if not url and not fallback_url:
         return ""
-    return f'<img src="{html.escape(str(url))}" alt="{html.escape(alt)}" class="{cls}" loading="lazy" onerror="this.style.display=\'none\'">'
+    primary = str(url or fallback_url)
+    if fallback_url and url and str(url) != str(fallback_url):
+        fb_esc = html.escape(str(fallback_url))
+        err_js = f"if(this.dataset.fb){{this.style.display='none';}}else{{this.dataset.fb='1';this.src='{fb_esc}';}}"
+    else:
+        err_js = "this.style.display='none'"
+    return f'<img src="{html.escape(primary)}" alt="{html.escape(alt)}" class="{cls}" loading="lazy" onerror="{err_js}">'
 
 
 def _matchup_html(
@@ -115,10 +121,12 @@ def _matchup_html(
     away_logo: str | None = None,
     is_tennis: bool = False,
     extra_html: str = "",
+    home_flag: str | None = None,
+    away_flag: str | None = None,
 ) -> str:
     cls = "player-avatar" if is_tennis else "team-logo"
-    h_img = _img_tag(home_logo, home, cls)
-    a_img = _img_tag(away_logo, away, cls)
+    h_img = _img_tag(home_logo, home, cls, fallback_url=home_flag)
+    a_img = _img_tag(away_logo, away, cls, fallback_url=away_flag)
     return (
         f'<span class="matchup-inline">'
         f'{h_img}<span>{html.escape(home)}</span>'
@@ -291,9 +299,12 @@ def build_best_bets_summary(
             "away": tp["player_2"],
             "home_logo": tp.get("home_logo"),
             "away_logo": tp.get("away_logo"),
+            "home_flag": tp.get("home_flag"),
+            "away_flag": tp.get("away_flag"),
             "match": f"{tp['player_1']} vs {tp['player_2']}",
             "pick_name": tp["pick"],
             "pick_logo": tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"),
+            "pick_flag": tp.get("home_flag") if tp["pick"] == tp["player_1"] else tp.get("away_flag"),
             "tier": tp.get("tier") or "banker_70pct",
             "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
             "win_prob": round(float(tp["win_prob"]), 4),
@@ -574,8 +585,17 @@ def generate_dashboard_html(
         t_comp_str = f"{tp['tour']} · {tp['tournament']}"
         t_match_str = f"{tp['player_1']} vs {tp['player_2']}"
         t_comp_img = _img_tag(_resolve_comp_logo(tp["tour"], tp.get("competition_logo")), tp["tour"], "comp-logo")
-        t_match_html = _matchup_html(tp["player_1"], tp["player_2"], tp.get("home_logo"), tp.get("away_logo"), is_tennis=True)
-        t_pick_img = _img_tag(tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"), tp["pick"], "player-avatar")
+        t_match_html = _matchup_html(
+            tp["player_1"], tp["player_2"], tp.get("home_logo"), tp.get("away_logo"),
+            is_tennis=True, home_flag=tp.get("home_flag"), away_flag=tp.get("away_flag"),
+        )
+        t_pick_is_p1 = tp["pick"] == tp["player_1"]
+        t_pick_img = _img_tag(
+            tp.get("home_logo") if t_pick_is_p1 else tp.get("away_logo"),
+            tp["pick"],
+            "player-avatar",
+            fallback_url=(tp.get("home_flag") if t_pick_is_p1 else tp.get("away_flag")),
+        )
         tennis_rows.append(
             f"""
             <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-day="{html.escape(tp_day_loc)}" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
@@ -688,11 +708,14 @@ def generate_dashboard_html(
         b_is_tennis = b["sport_cat"] == "tennis"
         b_comp_img = _img_tag(b.get("competition_logo"), b_comp, "comp-logo")
         b_match_html = (
-            _matchup_html(b["home"], b["away"], b.get("home_logo"), b.get("away_logo"), is_tennis=b_is_tennis)
+            _matchup_html(
+                b["home"], b["away"], b.get("home_logo"), b.get("away_logo"),
+                is_tennis=b_is_tennis, home_flag=b.get("home_flag"), away_flag=b.get("away_flag"),
+            )
             if (b.get("home") and b.get("away"))
             else html.escape(b["match"])
         )
-        b_pick_img = _img_tag(b.get("pick_logo"), b_pick_name, "player-avatar" if b_is_tennis else "team-logo")
+        b_pick_img = _img_tag(b.get("pick_logo"), b_pick_name, "player-avatar" if b_is_tennis else "team-logo", fallback_url=b.get("pick_flag"))
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
