@@ -14,7 +14,9 @@ Serves:
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -32,6 +34,7 @@ from .dashboard import (
 from .espn import LEAGUE_LABELS
 from .paper_trade import (
     get_paper_ledger_summary,
+    refresh_t60_starting_xi_gates,
     scan_upcoming_and_log_paper_trades,
     settle_pending_paper_trades,
 )
@@ -97,6 +100,115 @@ def _build_live_snapshot(
     }
 
 
+def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, league: str = "") -> dict[str, Any]:
+    """Return H2H history, Last-6 form for both sides, and Exact-Score / Set-Score breakdown for the Matchup Inspector modal."""
+    h = (home or "").strip()
+    a = (away or "").strip()
+    lg = (league or "").strip().lower()
+    h2h_rows: list[dict[str, Any]] = []
+    form_home: list[dict[str, Any]] = []
+    form_away: list[dict[str, Any]] = []
+    if db_path.exists() and h and a:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        for r in conn.execute(
+            """
+            SELECT league, kickoff, home, away, home_score, away_score, outcome
+            FROM matches
+            WHERE outcome IS NOT NULL AND ((home = ? AND away = ?) OR (home = ? AND away = ?))
+            ORDER BY kickoff DESC LIMIT 8
+            """,
+            (h, a, a, h),
+        ).fetchall():
+            sc = f"{int(r['home_score'])}-{int(r['away_score'])}" if r["home_score"] is not None and r["away_score"] is not None else r["outcome"]
+            h2h_rows.append({"date": str(r["kickoff"])[:10], "league": r["league"], "home": r["home"], "away": r["away"], "score": sc, "outcome": r["outcome"]})
+
+        for team_name, bucket in ((h, form_home), (a, form_away)):
+            for r in conn.execute(
+                """
+                SELECT league, kickoff, home, away, home_score, away_score, outcome
+                FROM matches
+                WHERE outcome IS NOT NULL AND (home = ? OR away = ?)
+                ORDER BY kickoff DESC LIMIT 6
+                """,
+                (team_name, team_name),
+            ).fetchall():
+                is_h = r["home"] == team_name
+                opp = r["away"] if is_h else r["home"]
+                res = "D" if r["outcome"] == "D" else ("W" if ((is_h and r["outcome"] == "H") or (not is_h and r["outcome"] == "A")) else "L")
+                sc = f"{int(r['home_score'])}-{int(r['away_score'])}" if r["home_score"] is not None and r["away_score"] is not None else r["outcome"]
+                bucket.append({"date": str(r["kickoff"])[:10], "opp": opp, "venue": "H" if is_h else "A", "result": res, "score": sc})
+        conn.close()
+
+    model_pick_detail: dict[str, Any] = {}
+    if rec_path.exists():
+        try:
+            rec = json.loads(rec_path.read_text(encoding="utf-8"))
+            for p in rec.get("qualifying_picks") or []:
+                if p.get("home") == h and p.get("away") == a:
+                    model_pick_detail = p
+                    break
+            if not model_pick_detail:
+                for tp in rec.get("tennis_picks") or []:
+                    if tp.get("player_1") == h and tp.get("player_2") == a:
+                        model_pick_detail = tp
+                        break
+            if not model_pick_detail:
+                for op in rec.get("other_sport_picks") or []:
+                    if op.get("home") == h and op.get("away") == a:
+                        model_pick_detail = op
+                        break
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "home": h,
+        "away": a,
+        "league": lg,
+        "h2h": h2h_rows,
+        "form_home": form_home,
+        "form_away": form_away,
+        "pick_detail": model_pick_detail,
+    }
+
+
+def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> threading.Thread:
+    """Start a daemon background thread that periodically settles finished/in-play matches
+    and evaluates T-60m starting XI gates for upcoming soccer fixtures."""
+    data_dir = root_dir / "data"
+    db_path = data_dir / "matches.sqlite"
+    rec_path = data_dir / "recommendations.json"
+    dash_path = data_dir / "dashboard.html"
+
+    def _loop() -> None:
+        while True:
+            time.sleep(interval_sec)
+            if _PIPELINE_STATUS.get("running") or not db_path.exists():
+                continue
+            try:
+                settled_n = settle_pending_paper_trades(db_path)
+                vetoes = refresh_t60_starting_xi_gates(db_path)
+                if settled_n > 0:
+                    notify_new_settlements_to_discord(db_path)
+                if vetoes:
+                    lines = ["🚨 **VEKTORPULSE — T-60m STARTING XI VETO ALERT**", ""]
+                    for v in vetoes:
+                        lines.append(
+                            f"⛔ **{v['home']} vs {v['away']}** ({v['league'].upper()}) — "
+                            f"`{v['status']}` (Attack Share: {v['attack_share']*100:.0f}%) -> Removed from active Paper-Bets!"
+                        )
+                    send_discord_message("\n".join(lines))
+                if settled_n > 0 or vetoes:
+                    generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_loop, name="vektorpulse-auto-poller", daemon=True)
+    t.start()
+    return t
+
+
 def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
     data_dir = root_dir / "data"
     rec_path = data_dir / "recommendations.json"
@@ -159,6 +271,13 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/api/data":
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False)
                 self._send_json(snap)
+                return
+
+            if parsed.path == "/api/matchup":
+                home_q = (qs.get("home") or [""])[0]
+                away_q = (qs.get("away") or [""])[0]
+                lg_q = (qs.get("league") or [""])[0]
+                self._send_json(_lookup_matchup_detail(db_path, rec_path, home_q, away_q, lg_q))
                 return
 
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status"):
@@ -344,9 +463,10 @@ class _DaemonThreadingHTTPServer(ThreadingHTTPServer):
 
 
 def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090) -> None:
+    _start_background_auto_poller(root_dir, interval_sec=90)
     handler_cls = build_webapp_handler(root_dir)
     server = _DaemonThreadingHTTPServer((host, port), handler_cls)
-    print(f"🚀 Sportdata Quant Desk Web App, SSE Stream & Social Addon running at http://{host}:{port}")
+    print(f"🚀 VektorPulse Web App, Auto-Poller & Social Addon running at http://{host}:{port}")
     print(f"   - Dashboard UI:       http://{host}:{port}/")
     print(f"   - Live SSE Stream:    http://{host}:{port}/api/stream")
     print(f"   - Sync & Settle API:  http://{host}:{port}/api/sync")

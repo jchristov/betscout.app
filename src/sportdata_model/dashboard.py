@@ -123,12 +123,16 @@ def _matchup_html(
     extra_html: str = "",
     home_flag: str | None = None,
     away_flag: str | None = None,
+    league: str = "",
 ) -> str:
     cls = "player-avatar" if is_tennis else "team-logo"
     h_img = _img_tag(home_logo, home, cls, fallback_url=home_flag)
     a_img = _img_tag(away_logo, away, cls, fallback_url=away_flag)
+    h_js = html.escape(json.dumps(home))
+    a_js = html.escape(json.dumps(away))
+    lg_js = html.escape(json.dumps(league))
     return (
-        f'<span class="matchup-inline">'
+        f'<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector({h_js}, {a_js}, {lg_js})">'
         f'{h_img}<span>{html.escape(home)}</span>'
         f'<span class="muted">vs</span>'
         f'{a_img}<span>{html.escape(away)}</span>'
@@ -653,6 +657,10 @@ def generate_dashboard_html(
     doubles_list = build_recommended_2leg_doubles(soccer_picks, tennis_picks, other_picks, max_doubles=8) or (rec.get("recommended_doubles") or [])
     doubles_cards_html = ""
     if doubles_list:
+        combo_status_map = {
+            f"{c['leg_1'].get('match','')}::{c['leg_1'].get('pick','')}___{c['leg_2'].get('match','')}::{c['leg_2'].get('pick','')}": c
+            for c in (ledger.get("combos") or [])
+        }
         d_cards = []
         for idx_d, d in enumerate(doubles_list, start=1):
             l1, l2 = d["leg_1"], d["leg_2"]
@@ -662,22 +670,49 @@ def generate_dashboard_html(
             m2_pill = f' <span class="pill tier">{html.escape(str(l2.get("market")))}</span>' if l2.get("market") else ""
             ico1 = _sport_icon(_league_to_sport_cat(l1.get("sport_cat") or l1.get("league") or ""))
             ico2 = _sport_icon(_league_to_sport_cat(l2.get("sport_cat") or l2.get("league") or ""))
+            c_key = f"{l1.get('match','')}::{l1.get('pick','')}___{l2.get('match','')}::{l2.get('pick','')}"
+            c_logged = combo_status_map.get(c_key) or d
+            l1_badge = (
+                ' <span class="pill badge-bet">✅ HIT</span>' if c_logged.get("leg1_hit") == 1
+                else (' <span class="pill badge-veto">❌ MISS</span>' if c_logged.get("leg1_hit") == 0 else "")
+            )
+            l2_badge = (
+                ' <span class="pill badge-bet">✅ HIT</span>' if c_logged.get("leg2_hit") == 1
+                else (' <span class="pill badge-veto">❌ MISS</span>' if c_logged.get("leg2_hit") == 0 else "")
+            )
+            c_st_pill = (
+                f' <span class="pill badge-bet">WON ({float(c_logged["pnl"]):+.2f}u)</span>'
+                if c_logged.get("status") == "SETTLED" and float(c_logged.get("pnl") or 0) > 0
+                else (
+                    f' <span class="pill badge-veto">LOST ({float(c_logged["pnl"]):+.2f}u)</span>'
+                    if c_logged.get("status") == "SETTLED"
+                    else ' <span class="pill">TRACKED</span>'
+                )
+            )
             d_cards.append(
                 f"""
                 <div class="card" data-day="{html.escape(d1_loc)}">
                   <div class="card-head">
-                    <div><span class="pill badge-bet">COMBO #{idx_d}</span> <span class="pill tier">{html.escape(c_lbl)}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span></div>
+                    <div><span class="pill badge-bet">COMBO #{idx_d}</span> <span class="pill tier">{html.escape(c_lbl)}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span>{c_st_pill}</div>
                     <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
                   </div>
                   <div style="margin-top:8px; font-size:12px;">
-                    <div>1️⃣ {ico1} <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
-                    <div style="margin-top:4px;">2️⃣ {ico2} <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}){m2_pill} &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
+                    <div>1️⃣ {ico1} <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%){l1_badge}</div>
+                    <div style="margin-top:4px;">2️⃣ {ico2} <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}){m2_pill} &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%){l2_badge}</div>
                   </div>
                 </div>
                 """
             )
+        combos_settled_n = ledger.get("combos_settled") or 0
+        combos_wins_n = ledger.get("combos_wins") or 0
+        combos_prof_v = float(ledger.get("combos_profit_u") or 0.0)
+        combo_kpi_str = (
+            f" · Settled Combos: {combos_settled_n} ({combos_wins_n}W, {combos_prof_v:+.2f}u)"
+            if combos_settled_n > 0
+            else f" · {ledger.get('combos_pending') or len(d_cards)} Active Tracked in Ledger"
+        )
         doubles_cards_html = f"""
-        <h2>🔗 Recommended 2-Leg High-Probability Combos &amp; Parlays ({len(d_cards)} Variations)</h2>
+        <h2>🔗 Recommended 2-Leg High-Probability Combos &amp; Parlays ({len(d_cards)} Variations{combo_kpi_str})</h2>
         <div class="cards" style="margin-bottom:24px;">{''.join(d_cards)}</div>
         """
 
@@ -880,6 +915,42 @@ def generate_dashboard_html(
             if esc_graded_n > 0 and esc_rate_v is not None
             else ""
         )
+        by_tier_list = ledger.get("by_tier") or []
+        tier_rows_html = "".join(
+            f"<tr><td data-sort='{html.escape(t['tier'])}'><span class='pill tier'>{html.escape(t['tier'])}</span></td>"
+            f"<td data-sort='{t['settled']}'>{t['settled']} (<b class='num-pos'>{t['wins']}W</b> – <b class='{'num-neg' if t['losses']>0 else ''}'>{t['losses']}L</b>)</td>"
+            f"<td data-sort='{t['expected_win_pct']:.1f}'>{t['expected_win_pct']:.1f}%</td>"
+            f"<td data-sort='{t['realized_win_pct']:.1f}'><b class='num-pos'>{t['realized_win_pct']:.1f}%</b> ({_fmt_signed(float(t['calibration_edge_pp']), '+.1f', 'pp')})</td>"
+            f"<td data-sort='{float(t['mean_clv_pct']):.2f}'>{_fmt_signed(float(t['mean_clv_pct']), '+.2f', '%')}</td>"
+            f"<td data-sort='{float(t['profit_u']):.3f}'>{_fmt_signed(float(t['profit_u']), '+.2f', 'u')}</td>"
+            f"<td data-sort='{float(t['roi_pct']):.2f}'>{_fmt_signed(float(t['roi_pct']), '+.1f', '%')}</td></tr>"
+            for t in by_tier_list
+        )
+        tier_card_html = (
+            f"""
+          <div class="card">
+            <div class="card-head" style="margin-bottom:8px;">
+              <div><b>Calibration &amp; Tier / CLV Attribution (Predicted vs Realized Win Rate)</b></div>
+            </div>
+            <table id="byTierTable" class="sortable-table" style="margin-bottom:0;">
+              <thead>
+                <tr>
+                  <th data-sort-type="text" onclick="sortTable(this)">Tier</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Settled (W–L)</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Exp Win%</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Realized Win%</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Mean CLV</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
+                  <th data-sort-type="num" onclick="sortTable(this)">ROI%</th>
+                </tr>
+              </thead>
+              <tbody>{tier_rows_html}</tbody>
+            </table>
+          </div>
+            """
+            if tier_rows_html
+            else ""
+        )
         live_ledger_analytics_html = f"""
         <div class="cards" style="margin-bottom: 18px;">
           <div class="card">
@@ -910,6 +981,7 @@ def generate_dashboard_html(
               <tbody>{sp_rows_html}</tbody>
             </table>
           </div>
+          {tier_card_html}
         </div>
         """
     bt_risk = rec.get("backtest_risk") or {}
@@ -1065,6 +1137,14 @@ def generate_dashboard_html(
   .col-icon {{ width: 58px; min-width: 58px; text-align: center !important; padding-left: 6px !important; padding-right: 6px !important; white-space: nowrap !important; }}
   .sport-icon {{ font-size: 14px; line-height: 1; display: inline-block; }}
   .matchup-inline {{ display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; vertical-align: middle; }}
+  .matchup-clickable {{ cursor: pointer; border-bottom: 1px dotted rgba(56, 189, 248, 0.35); padding-bottom: 1px; transition: color 0.15s ease; }}
+  .matchup-clickable:hover {{ color: var(--accent); border-bottom-color: var(--accent); }}
+  .modal-backdrop {{ display: none; position: fixed; inset: 0; background: rgba(7, 11, 19, 0.78); backdrop-filter: blur(4px); z-index: 999; align-items: center; justify-content: center; padding: 20px; }}
+  .modal-card {{ background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; width: 100%; max-width: 680px; max-height: 86vh; overflow-y: auto; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65); }}
+  .form-pill {{ display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 5px; font-weight: 700; font-size: 10.5px; margin-right: 3px; }}
+  .form-W {{ background: rgba(34, 197, 94, 0.2); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.45); }}
+  .form-D {{ background: rgba(245, 158, 11, 0.18); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.42); }}
+  .form-L {{ background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.45); }}
   .comp-logo {{ width: 15px; height: 15px; object-fit: contain; vertical-align: -3px; margin-right: 4px; border-radius: 3px; }}
   .team-logo {{ width: 18px; height: 18px; object-fit: contain; vertical-align: middle; flex-shrink: 0; }}
   .team-logo-lg {{ width: 22px; height: 22px; object-fit: contain; vertical-align: middle; flex-shrink: 0; }}
@@ -1173,6 +1253,16 @@ def generate_dashboard_html(
   <div id="syncToast" class="toast-banner">
     <span id="syncToastText"></span>
     <button type="button" class="btn-mini" onclick="document.getElementById('syncToast').style.display='none'">✕</button>
+  </div>
+
+  <div id="matchupInspectorModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-card">
+      <div class="card-head" style="margin-bottom:12px;">
+        <div><b id="miTitle" style="font-size:15px;">Matchup Drill-Down Inspector</b></div>
+        <button class="btn-export" type="button" onclick="document.getElementById('matchupInspectorModal').style.display='none'">Close ✕</button>
+      </div>
+      <div id="miBody" class="muted">Loading H2H, Last-6 Form, and Exact-Score Breakdown...</div>
+    </div>
   </div>
 
   <div id="telegramModal" class="card" style="display:none; margin-bottom:20px; border-color:var(--green);">
@@ -1438,6 +1528,68 @@ def generate_dashboard_html(
       if (el && txt) {{
         txt.textContent = msg;
         el.style.display = 'flex';
+      }}
+    }}
+
+    async function openMatchupInspector(home, away, league) {{
+      const modal = document.getElementById('matchupInspectorModal');
+      const titleEl = document.getElementById('miTitle');
+      const bodyEl = document.getElementById('miBody');
+      if (!modal || !titleEl || !bodyEl) return;
+      titleEl.textContent = '🔍 ' + home + ' vs ' + away;
+      bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from VektorPulse store...</div>';
+      modal.style.display = 'flex';
+      if (!window.location.protocol.startsWith('http')) {{
+        bodyEl.innerHTML = '<p>Start the VektorPulse WebApp server (<code>uv run sportdata-webapp --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live SQLite H2H &amp; form drill-down.</p>';
+        return;
+      }}
+      try {{
+        const qs = new URLSearchParams({{ home: home || '', away: away || '', league: league || '' }});
+        const r = await fetch('/api/matchup?' + qs.toString());
+        const d = await r.json();
+        const fmtForm = (rows) => {{
+          if (!rows || !rows.length) return '<span class="muted">No recent matches in store</span>';
+          return rows.map(m =>
+            '<div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(34,48,73,0.5);">' +
+              '<span><span class="form-pill form-' + escHtml(m.result) + '">' + escHtml(m.result) + '</span> ' + escHtml(m.venue) + ' vs <b>' + escHtml(m.opp) + '</b></span>' +
+              '<span class="muted">' + escHtml(m.score) + ' (' + escHtml(m.date) + ')</span>' +
+            '</div>'
+          ).join('');
+        }};
+        const h2hHtml = (d.h2h && d.h2h.length)
+          ? d.h2h.map(m =>
+              '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.5);">' +
+                '<span><b>' + escHtml(m.home) + '</b> vs <b>' + escHtml(m.away) + '</b></span>' +
+                '<span><b class="num-pos">' + escHtml(m.score) + '</b> <span class="muted">(' + escHtml(m.date) + ')</span></span>' +
+              '</div>'
+            ).join('')
+          : '<div class="muted">First tracked meeting in current database window.</div>';
+        let scHtml = '';
+        const pk = d.pick_detail || {{}};
+        const esc = pk.exact_score_prediction || {{}};
+        const sp = pk.set_score_prediction || {{}};
+        if (esc.top_3_breakdown && esc.top_3_breakdown.length) {{
+          const top3 = esc.top_3_breakdown.map(x => '<span class="pill badge-bet">' + escHtml(x.score) + ' (' + (Number(x.prob)*100).toFixed(1) + '%, Fair ' + Number(x.fair_odds).toFixed(2) + ')</span>').join(' ');
+          scHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">' +
+            '<div style="margin-bottom:6px;"><b>🎲 Dixon-Coles Score Projection (λ=' + Number(esc.lambda_home||0).toFixed(2) + ', μ=' + Number(esc.mu_away||0).toFixed(2) + ')</b></div>' +
+            '<div>Top Exact Scores: ' + top3 + '</div>' +
+            '<div style="margin-top:5px;">3-Score Dutch Cluster: <b class="num-pos">' + escHtml(esc.cluster_3_scores) + '</b> (' + (Number(esc.cluster_3_prob||0)*100).toFixed(1) + '%, Fair @' + Number(esc.cluster_3_fair_odds||0).toFixed(2) + ')</div>' +
+          '</div>';
+        }} else if (sp.straight_sets_score) {{
+          scHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">' +
+            '<div style="margin-bottom:6px;"><b>🎾 Calibrated Tennis Set-Score Distribution</b></div>' +
+            '<div>Straight Sets: <span class="pill badge-bet">' + escHtml(sp.straight_sets_score) + ' (' + (Number(sp.straight_sets_prob)*100).toFixed(1) + '%, Fair ' + Number(sp.straight_sets_fair_odds).toFixed(2) + ')</span> · Decider: <span class="pill tier">' + escHtml(sp.decider_sets_score) + ' (' + (Number(sp.decider_sets_prob)*100).toFixed(1) + '%)</span></div>' +
+          '</div>';
+        }}
+        bodyEl.innerHTML =
+          '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">' +
+            '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(home) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_home) + '</div>' +
+            '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(away) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_away) + '</div>' +
+          '</div>' +
+          '<div style="margin-top:14px;"><div style="margin-bottom:6px; color:var(--text);"><b>⚔️ Head-to-Head History (' + (d.h2h?.length || 0) + ' Meetings)</b></div>' + h2hHtml + '</div>' +
+          scHtml;
+      }} catch (err) {{
+        bodyEl.innerHTML = '<div class="num-neg">Failed to load matchup details: ' + escHtml(String(err)) + '</div>';
       }}
     }}
 

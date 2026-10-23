@@ -81,6 +81,27 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     pnl_primary REAL,
     PRIMARY KEY (league, event_id)
 );
+
+CREATE TABLE IF NOT EXISTS paper_combos (
+    combo_id TEXT PRIMARY KEY,
+    combo_type TEXT NOT NULL,
+    combo_label TEXT NOT NULL,
+    kickoff TEXT NOT NULL,
+    leg1_json TEXT NOT NULL,
+    leg2_json TEXT NOT NULL,
+    combined_prob REAL NOT NULL,
+    combined_odds REAL NOT NULL,
+    min_fair_odds REAL NOT NULL,
+    ev_pct REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    leg1_hit INTEGER,
+    leg2_hit INTEGER,
+    leg1_score TEXT,
+    leg2_score TEXT,
+    pnl REAL,
+    logged_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 FACTOR_NAMES = (
@@ -1106,6 +1127,10 @@ def settle_pending_paper_trades(db_path: Path) -> int:
 
     conn.commit()
     conn.close()
+    try:
+        settle_pending_paper_combos(db_path)
+    except Exception:
+        pass
     return settled_count
 
 
@@ -1383,6 +1408,7 @@ def build_recommended_2leg_doubles(
         ko = p.get("kickoff") or ""
         t_val = p.get("time_valid", True)
         m_str = f"{p['home']} vs {p['away']}"
+        eid_str = str(p.get("event_id") or "")
 
         # 1. Moneyline / 1X2 candidate
         if 1.16 <= odds <= 1.78 and p_win >= 0.58:
@@ -1392,6 +1418,8 @@ def build_recommended_2leg_doubles(
                 "time_valid": t_val,
                 "sport_cat": "soccer",
                 "league": p["league"],
+                "event_id": eid_str,
+                "side": p["side"],
                 "match": m_str,
                 "market": "1X2 Moneyline",
                 "pick": f"{pick_team} ({p['side']})",
@@ -1411,6 +1439,8 @@ def build_recommended_2leg_doubles(
                 "time_valid": t_val,
                 "sport_cat": "soccer",
                 "league": p["league"],
+                "event_id": eid_str,
+                "side": p["side"],
                 "match": m_str,
                 "market": f"Double Chance ({dc_lbl})",
                 "pick": f"{pick_team} or Draw ({dc_lbl})",
@@ -1435,6 +1465,8 @@ def build_recommended_2leg_doubles(
                         "time_valid": t_val,
                         "sport_cat": "soccer",
                         "league": p["league"],
+                        "event_id": eid_str,
+                        "side": p["side"],
                         "match": m_str,
                         "market": "Total Goals O/U",
                         "pick": f"Over 1.5 Goals (λ+μ={lam_tot:.2f})",
@@ -1450,6 +1482,8 @@ def build_recommended_2leg_doubles(
                         "time_valid": t_val,
                         "sport_cat": "soccer",
                         "league": p["league"],
+                        "event_id": eid_str,
+                        "side": p["side"],
                         "match": m_str,
                         "market": "Total Goals O/U",
                         "pick": f"Under 3.5 Goals (λ+μ={lam_tot:.2f})",
@@ -1465,6 +1499,8 @@ def build_recommended_2leg_doubles(
                     "time_valid": t_val,
                     "sport_cat": "soccer",
                     "league": p["league"],
+                    "event_id": eid_str,
+                    "side": p["side"],
                     "match": m_str,
                     "market": "3-Score Dutch Cluster",
                     "pick": f"{pick_team} Cluster [{esc.get('cluster_3_scores')}]",
@@ -1478,6 +1514,8 @@ def build_recommended_2leg_doubles(
         ko = tp.get("kickoff") or ""
         t_val = tp.get("time_valid", True)
         m_str = f"{tp['player_1']} vs {tp['player_2']}"
+        t_eid = str(tp.get("event_id") or "")
+        t_side = tp.get("side") or ("H" if tp.get("pick") == tp.get("player_1") else "A")
 
         # 1. Tennis Moneyline Banker
         if 1.14 <= odds <= 1.72 and p_win >= 0.70:
@@ -1486,7 +1524,9 @@ def build_recommended_2leg_doubles(
                 "kickoff": ko,
                 "time_valid": t_val,
                 "sport_cat": "tennis",
-                "league": tp["tour"],
+                "league": tp["tour"].lower(),
+                "event_id": t_eid,
+                "side": t_side,
                 "match": m_str,
                 "market": "Match Winner",
                 "pick": f"{tp['pick']} ML",
@@ -1506,7 +1546,9 @@ def build_recommended_2leg_doubles(
                     "kickoff": ko,
                     "time_valid": t_val,
                     "sport_cat": "tennis",
-                    "league": tp["tour"],
+                    "league": tp["tour"].lower(),
+                    "event_id": t_eid,
+                    "side": t_side,
                     "match": m_str,
                     "market": "Set Handicap +1.5",
                     "pick": f"{tp['pick']} +1.5 Sets (Wins ≥1 Set)",
@@ -1522,7 +1564,9 @@ def build_recommended_2leg_doubles(
                     "kickoff": ko,
                     "time_valid": t_val,
                     "sport_cat": "tennis",
-                    "league": tp["tour"],
+                    "league": tp["tour"].lower(),
+                    "event_id": t_eid,
+                    "side": t_side,
                     "match": m_str,
                     "market": "Exact Sets 2:0",
                     "pick": f"{tp['pick']} {sp_pred['straight_sets_score']} Sets",
@@ -1540,7 +1584,9 @@ def build_recommended_2leg_doubles(
                 "kickoff": ko,
                 "time_valid": t_val,
                 "sport_cat": "tennis",
-                "league": tp["tour"],
+                "league": tp["tour"].lower(),
+                "event_id": t_eid,
+                "side": t_side,
                 "match": m_str,
                 "market": "Total Games O/U",
                 "pick": f"{tm_mkt['recommended']} Games (Exp {tm_mkt.get('expected_games')})",
@@ -1558,7 +1604,9 @@ def build_recommended_2leg_doubles(
                 "kickoff": ko,
                 "time_valid": op.get("time_valid", True),
                 "sport_cat": op["sport"],
-                "league": op["league"],
+                "league": op["league"].lower(),
+                "event_id": str(op.get("event_id") or ""),
+                "side": op.get("side") or "H",
                 "match": f"{op['home']} vs {op['away']}",
                 "market": "Moneyline",
                 "pick": f"{op['pick']} ({op['side']})",
@@ -1877,6 +1925,8 @@ def scan_upcoming_and_log_paper_trades(
         db_path, days_ahead=min(days_ahead, 4), start_date=start_date, decision_backend=decision_backend
     )
     recommended_doubles = build_recommended_2leg_doubles(qualifying_picks, tennis_picks, other_sport_picks)
+    for d_combo in recommended_doubles:
+        _upsert_paper_combo(db_path, d_combo, now_iso)
 
     # Also log qualifying Tennis Bankers (WinProb >= 0.70, odds > 1.10, form_6m_diff >= -0.15) and Major Sport Picks into paper_trades
     for tp in tennis_picks:
@@ -1950,6 +2000,7 @@ def scan_upcoming_and_log_paper_trades(
 
     # Run settlement once more in case any logged trades already finished in `matches`
     settled_n += settle_pending_paper_trades(db_path)
+    settle_pending_paper_combos(db_path)
     ledger_summary = get_paper_ledger_summary(db_path)
     report = {
         "generated_at": now_iso,
@@ -2090,6 +2141,253 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
     conn.close()
 
 
+def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
+    """Inspect pending soccer paper bets kicking off within the next 90 minutes.
+    If official 11-player starting XIs are announced and `evaluate_starting_xi_gate` flags
+    `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`, remove the bet from active PENDING
+    `paper_trades` and return the list of newly vetoed fixtures."""
+    if not db_path.exists():
+        return []
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(PAPER_SCHEMA)
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    soon_iso = (now_dt + timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = conn.execute(
+        """
+        SELECT * FROM paper_trades
+        WHERE status = 'PENDING'
+          AND lower(league) NOT IN ('atp', 'wta', 'nba', 'nhl', 'nfl', 'mlb')
+          AND kickoff >= ? AND kickoff <= ?
+        """,
+        (now_iso, soon_iso),
+    ).fetchall()
+    conn.close()
+    if not rows:
+        return []
+
+    xi_hist = _build_team_player_attack_history(db_path, db_path.parent / "cache", leagues=EXPANDED_SOCCER_LEAGUES)
+    vetoed_alerts: list[dict[str, Any]] = []
+    for r in rows:
+        lg, eid = r["league"], r["event_id"]
+        backed = r["home"] if r["side"] == "H" else r["away"]
+        s_url = f"{BASE}/soccer/{lg}/summary?event={eid}"
+        summary = _fetch_live_json(s_url, ttl_sec=60.0)
+        if not summary:
+            continue
+        gate = evaluate_starting_xi_gate(summary, lg, backed, r["side"], xi_hist)
+        if gate.get("vetoed"):
+            c_del = sqlite3.connect(db_path)
+            c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+            c_del.commit()
+            c_del.close()
+            vetoed_alerts.append({
+                "league": lg,
+                "event_id": eid,
+                "home": r["home"],
+                "away": r["away"],
+                "backed_team": backed,
+                "status": gate["status"],
+                "attack_share": gate["attack_share"],
+            })
+    return vetoed_alerts
+
+
+def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> None:
+    """Persist a 2-leg combo bet into `paper_combos` for prospective tracking and auto-settlement."""
+    conn = sqlite3.connect(db_path)
+    conn.executescript(PAPER_SCHEMA)
+    l1, l2 = combo["leg_1"], combo["leg_2"]
+    cid = f"{combo.get('combo_type','COMBO')}::{l1.get('match','')}::{l1.get('pick','')}___{l2.get('match','')}::{l2.get('pick','')}"
+    ko = max(str(l1.get("kickoff") or ""), str(l2.get("kickoff") or ""))
+    existing = conn.execute("SELECT combo_id FROM paper_combos WHERE combo_id = ?", (cid,)).fetchone()
+    if existing:
+        conn.execute(
+            """
+            UPDATE paper_combos
+            SET kickoff = ?, leg1_json = ?, leg2_json = ?, combined_prob = ?, combined_odds = ?,
+                min_fair_odds = ?, ev_pct = ?, updated_at = ?
+            WHERE combo_id = ? AND status = 'PENDING'
+            """,
+            (
+                ko,
+                json.dumps(l1),
+                json.dumps(l2),
+                float(combo["combined_prob"]),
+                float(combo["combined_odds"]),
+                float(combo["min_fair_odds"]),
+                float(combo["ev_pct"]),
+                now_iso,
+                cid,
+            ),
+        )
+    else:
+        conn.execute(
+            """
+            INSERT INTO paper_combos (
+                combo_id, combo_type, combo_label, kickoff, leg1_json, leg2_json,
+                combined_prob, combined_odds, min_fair_odds, ev_pct, status, logged_at, updated_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
+            """,
+            (
+                cid,
+                str(combo.get("combo_type") or "CROSS_SPORT_BANKER"),
+                str(combo.get("combo_label") or "Cross-Sport Banker ML"),
+                ko,
+                json.dumps(l1),
+                json.dumps(l2),
+                float(combo["combined_prob"]),
+                float(combo["combined_odds"]),
+                float(combo["min_fair_odds"]),
+                float(combo["ev_pct"]),
+                now_iso,
+                now_iso,
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+
+def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tuple[int | None, str | None]:
+    """Grade one leg of a 2-leg combo against settled `paper_trades` or `matches`.
+    Returns `(1=win, 0=loss, None=pending)` and `score_str`."""
+    lg = str(leg.get("league") or "").lower().strip()
+    eid = str(leg.get("event_id") or "").strip()
+    match_name = str(leg.get("match") or "").strip()
+    side = str(leg.get("side") or "H").strip()
+    mkt = str(leg.get("market") or "").lower()
+    pick_txt = str(leg.get("pick") or "")
+
+    outcome: str | None = None
+    score_str: str | None = None
+    hs: int | None = None
+    as_: int | None = None
+
+    pt_row = None
+    if lg and eid:
+        pt_row = conn.execute(
+            "SELECT settled_outcome, settled_score FROM paper_trades WHERE lower(league) = ? AND event_id = ? AND status = 'SETTLED'",
+            (lg, eid),
+        ).fetchone()
+    if not pt_row and " vs " in match_name:
+        h_n, a_n = [x.strip() for x in match_name.split(" vs ", 1)]
+        pt_row = conn.execute(
+            "SELECT settled_outcome, settled_score FROM paper_trades WHERE home = ? AND away = ? AND status = 'SETTLED' ORDER BY kickoff DESC LIMIT 1",
+            (h_n, a_n),
+        ).fetchone()
+    if pt_row:
+        outcome = pt_row[0]
+        score_str = pt_row[1]
+
+    if not outcome and " vs " in match_name:
+        h_n, a_n = [x.strip() for x in match_name.split(" vs ", 1)]
+        m_row = conn.execute(
+            "SELECT outcome, home_score, away_score FROM matches WHERE home = ? AND away = ? AND outcome IS NOT NULL ORDER BY kickoff DESC LIMIT 1",
+            (h_n, a_n),
+        ).fetchone()
+        if m_row:
+            outcome = m_row[0]
+            if m_row[1] is not None and m_row[2] is not None:
+                hs, as_ = int(m_row[1]), int(m_row[2])
+                score_str = score_str or f"{hs}-{as_}"
+
+    if not outcome:
+        return None, None
+    if score_str and "walkover" in score_str.lower():
+        return (1 if outcome == side else 0), score_str
+
+    # Parse hs, as_ from score_str head ('2-1' or '0-2 (4-6, 1-6)')
+    if hs is None and score_str:
+        head = score_str.split("(", 1)[0].strip()
+        if "-" in head:
+            parts = head.split("-", 1)
+            if parts[0].strip().isdigit() and parts[1].strip().isdigit():
+                hs, as_ = int(parts[0].strip()), int(parts[1].strip())
+
+    if "double chance" in mkt or "(1x)" in pick_txt.lower() or "(x2)" in pick_txt.lower():
+        if "1x" in mkt or "(1x)" in pick_txt.lower():
+            return (1 if outcome in ("H", "D") else 0), score_str
+        return (1 if outcome in ("A", "D") else 0), score_str
+
+    if "+1.5" in mkt or "+1.5 sets" in pick_txt.lower():
+        if outcome == side:
+            return 1, score_str
+        if hs is not None and as_ is not None:
+            sets_won = hs if side == "H" else as_
+            return (1 if sets_won >= 1 else 0), score_str
+        return 0, score_str
+
+    if "exact sets" in mkt or "0:2 sets" in pick_txt.lower() or "2:0 sets" in pick_txt.lower():
+        if hs is not None and as_ is not None:
+            target = (2, 0) if side == "H" else (0, 2)
+            return (1 if (hs, as_) == target else 0), score_str
+        return 0, score_str
+
+    if "total goals" in mkt:
+        if hs is None or as_ is None:
+            return None, score_str
+        tot_g = hs + as_
+        if "over 1.5" in pick_txt.lower():
+            return (1 if tot_g >= 2 else 0), score_str
+        if "under 3.5" in pick_txt.lower():
+            return (1 if tot_g <= 3 else 0), score_str
+
+    if "total games" in mkt and score_str and "(" in score_str:
+        games_part = score_str.split("(", 1)[1].split(")", 1)[0]
+        tot_games = 0
+        for sp in games_part.split(","):
+            sp_c = sp.replace("Ret.", "").strip()
+            if "-" in sp_c:
+                g_a, g_b = sp_c.split("-", 1)
+                if g_a.strip().isdigit() and g_b.strip().isdigit():
+                    tot_games += int(g_a.strip()) + int(g_b.strip())
+        if tot_games > 0:
+            try:
+                line_val = float(pick_txt.split()[1])
+                if pick_txt.lower().startswith("under"):
+                    return (1 if tot_games < line_val else 0), score_str
+                return (1 if tot_games > line_val else 0), score_str
+            except Exception:
+                pass
+
+    if "cluster" in mkt and hs is not None and as_ is not None:
+        return _check_exact_score_hit(f"Cluster {pick_txt.split('[',1)[-1].split(']',1)[0]}", f"{hs}-{as_}"), score_str
+
+    return (1 if outcome == side else 0), score_str
+
+
+def settle_pending_paper_combos(db_path: Path) -> int:
+    """Grade any PENDING 2-leg combos in `paper_combos` whose legs have completed."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(PAPER_SCHEMA)
+    pending_rows = conn.execute("SELECT * FROM paper_combos WHERE status = 'PENDING'").fetchall()
+    settled_n = 0
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for r in pending_rows:
+        l1 = json.loads(r["leg1_json"])
+        l2 = json.loads(r["leg2_json"])
+        h1, sc1 = _grade_single_combo_leg(conn, l1)
+        h2, sc2 = _grade_single_combo_leg(conn, l2)
+        if h1 is not None or h2 is not None:
+            conn.execute(
+                "UPDATE paper_combos SET leg1_hit = COALESCE(?, leg1_hit), leg2_hit = COALESCE(?, leg2_hit), leg1_score = COALESCE(?, leg1_score), leg2_score = COALESCE(?, leg2_score), updated_at = ? WHERE combo_id = ?",
+                (h1, h2, sc1, sc2, now_iso, r["combo_id"]),
+            )
+        if h1 in (0, 1) and h2 in (0, 1):
+            won = (h1 == 1 and h2 == 1)
+            pnl = round((float(r["combined_odds"]) - 1.0) if won else -1.0, 2)
+            conn.execute(
+                "UPDATE paper_combos SET status = 'SETTLED', leg1_hit = ?, leg2_hit = ?, leg1_score = ?, leg2_score = ?, pnl = ?, updated_at = ? WHERE combo_id = ?",
+                (h1, h2, sc1, sc2, pnl, now_iso, r["combo_id"]),
+            )
+            settled_n += 1
+    conn.commit()
+    conn.close()
+    return settled_n
+
+
 def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -2121,6 +2419,10 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             ORDER BY p.status DESC, p.kickoff ASC
             """
         ).fetchall()
+    ]
+    combo_rows = [
+        dict(r)
+        for r in conn.execute("SELECT * FROM paper_combos ORDER BY status DESC, kickoff ASC").fetchall()
     ]
     conn.close()
     pending = [r for r in rows if r["status"] == "PENDING" and not r.get("is_live")]
@@ -2160,6 +2462,39 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         for sp_label, vals in sorted(by_sport_map.items(), key=lambda kv: -sum(kv[1]))
     ]
 
+    # Calibration & Tier Attribution Breakdown across settled bets
+    by_tier_map: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in settled:
+        by_tier_map[r["tier"]].append(r)
+    by_tier_summary = []
+    for t_name, t_rows in sorted(by_tier_map.items(), key=lambda kv: -sum(float(x["pnl_best"] or 0.0) for x in kv[1])):
+        t_pnls = [float(x["pnl_best"] or 0.0) for x in t_rows]
+        t_wins = sum(1 for v in t_pnls if v > 0)
+        # Expected win prob: p_mkt for tennis/other (stored in p_mkt/composite_score), or 1/logged_primary_odds fallback
+        t_exp_probs = [
+            float(x["composite_score"]) if x["league"].lower() in ("atp", "wta", "nba", "nhl", "nfl", "mlb") and 0.45 <= float(x["composite_score"]) <= 0.99
+            else min(max(float(x["p_mkt"] or 0.60), 0.35), 0.95)
+            for x in t_rows
+        ]
+        t_clvs = [float(x["clv_pct"] or 0.0) * 100.0 for x in t_rows]
+        by_tier_summary.append({
+            "tier": t_name,
+            "settled": len(t_rows),
+            "wins": t_wins,
+            "losses": len(t_rows) - t_wins,
+            "expected_win_pct": round(float(np.mean(t_exp_probs)) * 100.0, 1),
+            "realized_win_pct": round(t_wins / len(t_rows) * 100.0, 1),
+            "calibration_edge_pp": round((t_wins / len(t_rows) - float(np.mean(t_exp_probs))) * 100.0, 1),
+            "mean_clv_pct": round(float(np.mean(t_clvs)), 2),
+            "profit_u": round(float(sum(t_pnls)), 2),
+            "roi_pct": round(float(np.mean(t_pnls)) * 100.0, 1),
+        })
+
+    settled_combos = [c for c in combo_rows if c["status"] == "SETTLED"]
+    pending_combos = [c for c in combo_rows if c["status"] == "PENDING"]
+    combo_wins = sum(1 for c in settled_combos if float(c.get("pnl") or 0.0) > 0)
+    combo_profit = round(sum(float(c.get("pnl") or 0.0) for c in settled_combos), 2)
+
     esc_graded = [r for r in settled if r.get("exact_score_hit") in (0, 1)]
     esc_hits = sum(1 for r in esc_graded if r.get("exact_score_hit") == 1)
 
@@ -2175,6 +2510,34 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         "settled_profit_u": round(float(np.sum([r["pnl_best"] for r in settled])), 2) if settled else 0.0,
         "settled_cum_pnl": settled_cum_pnl,
         "by_sport": by_sport_summary,
+        "by_tier": by_tier_summary,
+        "combos_total": len(combo_rows),
+        "combos_pending": len(pending_combos),
+        "combos_settled": len(settled_combos),
+        "combos_wins": combo_wins,
+        "combos_losses": len(settled_combos) - combo_wins,
+        "combos_profit_u": combo_profit,
+        "combos": [
+            {
+                "combo_id": c["combo_id"],
+                "combo_type": c["combo_type"],
+                "combo_label": c["combo_label"],
+                "kickoff": c["kickoff"],
+                "leg_1": json.loads(c["leg1_json"]),
+                "leg_2": json.loads(c["leg2_json"]),
+                "combined_prob": c["combined_prob"],
+                "combined_odds": c["combined_odds"],
+                "min_fair_odds": c["min_fair_odds"],
+                "ev_pct": c["ev_pct"],
+                "status": c["status"],
+                "leg1_hit": c.get("leg1_hit"),
+                "leg2_hit": c.get("leg2_hit"),
+                "leg1_score": c.get("leg1_score"),
+                "leg2_score": c.get("leg2_score"),
+                "pnl": round(float(c["pnl"]), 2) if c.get("pnl") is not None else None,
+            }
+            for c in combo_rows
+        ],
         "exact_score_graded": len(esc_graded),
         "exact_score_hits": esc_hits,
         "exact_score_hit_rate_pct": round(esc_hits / len(esc_graded) * 100.0, 1) if esc_graded else None,
