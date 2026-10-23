@@ -217,6 +217,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert 'class="sport-icon"' in html_text
     assert "Win Prob" in html_text
     assert "Min Fair Odds" in html_text
+    assert "Score Projection" in html_text
+    assert "Odds / CLV" in html_text
+    assert 'id="liveTradesTable"' in html_text
     # Rybakina (1.08 <= 1.10) must be filtered out by the soft filter!
     assert "Rybakina" not in html_text
     # Fritz (2026-10-22T13:30Z) must appear BEFORE Celtics (2026-10-23T00:00Z) and AC Milan (2026-10-25T19:45Z) in Best Bets table!

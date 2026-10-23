@@ -114,25 +114,28 @@ def build_best_bets_summary(
         if t.get("status") == "SETTLED"
     }
     ledger_time_map = {
-        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True))
+        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True), float(t.get("clv_pct") or 0.0))
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
-        if t.get("status") == "PENDING"
+        if t.get("status") != "SETTLED"
     }
     raw_soccer_picks = [
-        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[1]}
+        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[0],
+         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[1],
+         "clv_pct": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0))[2]}
         for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
     ]
     raw_tennis_picks = [
-        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[1]}
+        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[0],
+         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[1],
+         "clv_pct": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True), 0.0))[2]}
         for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
     ]
     raw_other_picks = [
-        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[0],
-         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[1]}
+        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[0],
+         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[1],
+         "clv_pct": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True), 0.0))[2]}
         for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
     ]
@@ -157,6 +160,7 @@ def build_best_bets_summary(
         )
         p_win_val = float(p.get("p_model") or p.get("p_mkt") or 0.5)
         f_odds_val = round(1.0 / max(p_win_val, 0.05), 2)
+        p_clv = float(p.get("clv_pct") or 0.0)
         best_bets.append({
             "date": p["kickoff"],
             "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
@@ -171,6 +175,7 @@ def build_best_bets_summary(
             "min_fair_odds": f_odds_val,
             "exact_score_pick": esc_str,
             "odds": round(odds_val, 3),
+            "clv_pct": round(p_clv, 2),
             "odds_display": f"{odds_val:.2f}",
         })
 
@@ -192,6 +197,7 @@ def build_best_bets_summary(
             else "—"
         )
         t_comp_lbl = f"{tp['tour']} · {tp.get('tournament') or tp['surface'].capitalize()} ({tp['surface'].capitalize()})"
+        tp_clv = float(tp.get("clv_pct") or 0.0)
         best_bets.append({
             "date": tp["kickoff"],
             "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
@@ -206,6 +212,7 @@ def build_best_bets_summary(
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
             "exact_score_pick": set_str,
             "odds": round(odds_val, 3),
+            "clv_pct": round(tp_clv, 2),
             "odds_display": odds_disp,
         })
 
@@ -217,6 +224,7 @@ def build_best_bets_summary(
         if norm_sport not in ("all", sp_cat):
             continue
         op_win = float(op.get("p_model") or op.get("p_mkt") or 0.5)
+        op_clv = float(op.get("clv_pct") or 0.0)
         best_bets.append({
             "date": op["kickoff"],
             "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
@@ -231,6 +239,7 @@ def build_best_bets_summary(
             "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
             "exact_score_pick": "—",
             "odds": round(odds_val, 3),
+            "clv_pct": round(op_clv, 2),
             "odds_display": f"{odds_val:.2f}",
         })
 
@@ -453,8 +462,8 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(t_comp_str)}"><span class="pill">{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span> {html.escape(tp['tournament'])}</td>
               <td data-sort="{html.escape(tp['kickoff'])}">{_time_span(tp['kickoff'], time_valid=tp.get('time_valid'))}</td>
               <td data-sort="{html.escape(t_match_str)}">{html.escape(t_match_str)}</td>
-              <td data-sort="{html.escape(tp['pick'])}"><b>{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></td>
-              <td data-sort="{tp['win_prob']*100:.2f}"><b>{tp['win_prob']*100:.1f}%</b></td>
+              <td data-sort="{html.escape(tp['pick'])}"><b class="num-pos">{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></td>
+              <td data-sort="{tp['win_prob']*100:.2f}"><b class="num-pos">{tp['win_prob']*100:.1f}%</b></td>
               <td data-sort="{sp_pred.get('straight_sets_prob', 0.0)*100:.2f}">{set_cell}</td>
               <td data-sort="{tp['min_fair_odds']:.3f}">{tp['min_fair_odds']:.2f}</td>
               <td data-sort="{t_odds_attr:.3f}">{book_cell}</td>
@@ -486,8 +495,8 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(op_comp)}"><span class="pill">{html.escape(op_comp)}</span></td>
               <td data-sort="{html.escape(op['kickoff'])}">{_time_span(op['kickoff'], time_valid=op.get('time_valid'))}</td>
               <td data-sort="{html.escape(op_match)}">{html.escape(op_match)}{inj_pill}</td>
-              <td data-sort="{html.escape(op['pick'])}"><b>{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></td>
-              <td data-sort="{op_win*100:.2f}"><b>{op_win*100:.1f}%</b> <span class="muted">(Mkt {op['p_mkt']*100:.1f}%)</span></td>
+              <td data-sort="{html.escape(op['pick'])}"><b class="num-pos">{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></td>
+              <td data-sort="{op_win*100:.2f}"><b class="num-pos">{op_win*100:.1f}%</b> <span class="muted">(Mkt {op['p_mkt']*100:.1f}%)</span></td>
               <td data-sort="{op_fair:.3f}">{op_fair:.2f}</td>
               <td data-sort="{op['best_odds']:.3f}"><b>{op['best_odds']:.2f}</b></td>
               <td data-sort="{ev_val:.2f}">{_fmt_signed(ev_val, '+.1f', '%')}</td>
@@ -541,6 +550,8 @@ def generate_dashboard_html(
         b_ico = b.get("sport_icon") or _sport_icon(b["sport_cat"])
         b_win_pct = float(b.get("win_prob") or 0.5) * 100.0
         b_fair = float(b.get("min_fair_odds") or round(100.0 / max(b_win_pct, 5.0), 2))
+        b_clv = float(b.get("clv_pct") or 0.0)
+        b_clv_html = f" (CLV {_fmt_signed(b_clv, '+.1f', '%')})"
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
@@ -549,17 +560,18 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
               <td data-sort="{html.escape(b['match'])}">{html.escape(b['match'])}</td>
               <td data-sort="{html.escape(b['pick'])}"><b class="num-pos">{html.escape(b['pick'])}</b></td>
-              <td data-sort="{b_win_pct:.2f}"><b>{b_win_pct:.1f}%</b></td>
+              <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
-              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
+              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
             </tr>
             """
         )
 
-    # Build separate SETTLED and PENDING Paper-Betting Ledger tables
+    # Build separate SETTLED, LIVE (IN-PLAY), and PENDING Paper-Betting Ledger tables (identical 8-column layout!)
     ledger_trades = ledger.get("trades") or []
     settled_html_rows = []
+    live_html_rows = []
     pending_html_rows = []
     for tr in ledger_trades:
         if float(tr.get("logged_best_odds") or 0.0) <= min_odds:
@@ -569,11 +581,15 @@ def generate_dashboard_html(
         tr_ico = _sport_icon(tr_sport_cat)
         pick_team = tr["home"] if tr["side"] == "H" else tr["away"]
         st = tr.get("status", "PENDING")
+        is_tr_live = bool(tr.get("is_live")) or st == "LIVE"
         pnl_v = tr.get("pnl_best")
         clv_v = float(tr.get("clv_pct") or 0.0)
         score_str = tr.get("score_str") or "—"
         tr_match = f"{tr['home']} vs {tr['away']}"
         search_txt = html.escape(f"{tr['home']} {tr['away']} {lg_name} {pick_team}".lower())
+        esc_pred_raw = str(tr.get("exact_score_pred") or "")
+        esc_short = esc_pred_raw.split("(", 1)[0].strip() if esc_pred_raw else ""
+
         if st == "SETTLED" and pnl_v is not None:
             pnl_f = float(pnl_v)
             st_badge = (
@@ -582,11 +598,11 @@ def generate_dashboard_html(
                 else f'<span class="pill badge-veto">LOSS ({pnl_f:+.2f}u)</span>'
             )
             esc_badge = ""
-            if tr.get("exact_score_pred"):
+            if esc_pred_raw:
                 if tr.get("exact_score_hit") == 1:
-                    esc_badge = f' <span class="pill badge-bet" title="{html.escape(str(tr["exact_score_pred"]))}">🎯 Exact/Cluster HIT</span>'
+                    esc_badge = f' <span class="pill badge-bet" title="{html.escape(esc_pred_raw)}">🎯 Exact/Cluster HIT</span>'
                 else:
-                    esc_badge = f' <span class="pill" title="{html.escape(str(tr["exact_score_pred"]))}">Proj: {html.escape(str(tr["exact_score_pred"]).split("(", 1)[0].strip())}</span>'
+                    esc_badge = f' <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>'
             settled_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
@@ -594,15 +610,47 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
                   <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
-                  <td data-sort="{html.escape(pick_team)}"><b>{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
                   <td data-sort="{html.escape(score_str)}"><b>{html.escape(score_str)}</b>{esc_badge}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="{pnl_f:.3f}">{st_badge}</td>
                 </tr>
                 """
             )
+        elif is_tr_live:
+            l_pnl_f = float(tr.get("live_pnl") or 0.0)
+            l_sc_disp = tr.get("live_score") or score_str or "0-0 (LIVE)"
+            l_badge = (
+                f'<span class="pill badge-bet">LIVE · LEADING ({l_pnl_f:+.2f}u)</span>'
+                if l_pnl_f > 0
+                else (
+                    f'<span class="pill badge-veto">LIVE · TRAILING ({l_pnl_f:+.2f}u)</span>'
+                    if l_pnl_f < 0
+                    else '<span class="pill tier">LIVE · LEVEL (0.00u)</span>'
+                )
+            )
+            esc_badge_l = f' <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>' if esc_short else ""
+            live_html_rows.append(
+                f"""
+                <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
+                  <td class="col-icon" data-sort="{html.escape(tr_sport_cat)}"><span class="sport-icon" title="{html.escape(tr_sport_cat.capitalize())}">{tr_ico}</span></td>
+                  <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
+                  <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
+                  <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
+                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{esc_badge_l}</td>
+                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
+                  <td data-sort="{l_pnl_f:.3f}">{l_badge}</td>
+                </tr>
+                """
+            )
         else:
             tr_day_loc = _format_local_time(tr["kickoff"])[:10]
+            pend_score_cell = (
+                f'<span class="muted">—</span> <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>'
+                if esc_short
+                else '<span class="muted">— (Pre-Match)</span>'
+            )
             pending_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-day="{html.escape(tr_day_loc)}" data-search="{search_txt}">
@@ -610,9 +658,10 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(lg_name)}"><span class="pill">{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True, time_valid=tr.get('time_valid'))}</td>
                   <td data-sort="{html.escape(tr_match)}">{html.escape(tr_match)}</td>
-                  <td data-sort="{html.escape(pick_team)}"><b>{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(pick_team)}"><b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
+                  <td data-sort="{html.escape(esc_short or '—')}">{pend_score_cell}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="PENDING"><span class="pill tier">PENDING</span></td>
+                  <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>
                 </tr>
                 """
             )
@@ -839,14 +888,23 @@ def generate_dashboard_html(
   .headlines {{ margin: 6px 0 0; padding-left: 16px; font-size: 11px; color: #cbd5e1; }}
   table {{ width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 11.5px; margin-bottom: 18px; }}
   th, td {{ padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }}
-  th {{ background: #0f1623; color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; user-select: none; }}
-  .sortable-table th[onclick] {{ cursor: pointer; transition: color 0.15s ease, background 0.15s ease; }}
+  th {{ background: #0f1623; color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; user-select: none; white-space: nowrap; }}
+  .sortable-table th[onclick] {{ cursor: pointer; transition: color 0.15s ease, background 0.15s ease; white-space: nowrap; }}
   .sortable-table th[onclick]:hover {{ color: var(--accent); background: #162133; }}
-  .sortable-table th[onclick]::after {{ content: " ⇅"; opacity: 0.35; font-size: 9.5px; }}
-  .sortable-table th.sort-asc::after {{ content: " ▲"; opacity: 1; color: var(--accent); }}
-  .sortable-table th.sort-desc::after {{ content: " ▼"; opacity: 1; color: var(--accent); }}
-  .col-icon {{ width: 38px; text-align: center !important; padding-left: 6px !important; padding-right: 6px !important; }}
+  .sortable-table th[onclick]::after {{ content: "\00a0⇅"; opacity: 0.35; font-size: 9.5px; display: inline-block; }}
+  .sortable-table th.sort-asc::after {{ content: "\00a0▲"; opacity: 1; color: var(--accent); display: inline-block; }}
+  .sortable-table th.sort-desc::after {{ content: "\00a0▼"; opacity: 1; color: var(--accent); display: inline-block; }}
+  .col-icon {{ width: 58px; min-width: 58px; text-align: center !important; padding-left: 6px !important; padding-right: 6px !important; white-space: nowrap !important; }}
   .sport-icon {{ font-size: 14px; line-height: 1; display: inline-block; }}
+  .ledger-grid-table {{ table-layout: fixed; }}
+  .ledger-grid-table col.c-sport {{ width: 60px; }}
+  .ledger-grid-table col.c-comp {{ width: 15%; }}
+  .ledger-grid-table col.c-ko {{ width: 14%; }}
+  .ledger-grid-table col.c-match {{ width: 20%; }}
+  .ledger-grid-table col.c-pick {{ width: 15%; }}
+  .ledger-grid-table col.c-score {{ width: 13%; }}
+  .ledger-grid-table col.c-odds {{ width: 12%; }}
+  .ledger-grid-table col.c-res {{ width: 11%; }}
   .hidden-by-odds, .hidden-by-sport, .hidden-by-search, .hidden-by-day {{ display: none !important; }}
   .section-head {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin: 22px 0 10px; }}
   .section-head h2 {{ margin: 0; }}
@@ -1023,11 +1081,11 @@ def generate_dashboard_html(
           <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
           <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
           <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-          <th data-sort-type="text" onclick="sortTable(this)">Model Pick</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
           <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Exact Set Score (2:0 / 2:1)</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Score Projection</th>
           <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Book / Target Odds</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds / Target</th>
           <th data-sort-type="num" onclick="sortTable(this)">Game / Surf Elo Diff</th>
         </tr>
       </thead>
@@ -1046,10 +1104,10 @@ def generate_dashboard_html(
           <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
           <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
           <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-          <th data-sort-type="text" onclick="sortTable(this)">Model Pick</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
           <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
           <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Best Odds</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds</th>
           <th data-sort-type="num" onclick="sortTable(this)">EV%</th>
         </tr>
       </thead>
@@ -1068,16 +1126,19 @@ def generate_dashboard_html(
     </div>
   </div>
   {live_ledger_analytics_html}
-  <table id="settledTradesTable" class="sortable-table">
+  <table id="settledTradesTable" class="sortable-table ledger-grid-table">
+    <colgroup>
+      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+    </colgroup>
     <thead>
       <tr>
         <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
         <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
         <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
         <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Logged Pick</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Final Score</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Logged Odds / CLV</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
         <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
       </tr>
     </thead>
@@ -1086,21 +1147,47 @@ def generate_dashboard_html(
     </tbody>
   </table>
 
-  <h2>Pending Paper-Bets Awaiting Kickoff / Completion (Count: <span id="pendingCountSpan">{ledger.get('pending_count', 0)}</span>)</h2>
-  <table id="pendingTradesTable" class="sortable-table">
+  <h2>🔴 Live In-Play Paper-Bets (Ongoing Events: <span id="liveCountSpan">{len(live_html_rows)}</span>)</h2>
+  <table id="liveTradesTable" class="sortable-table ledger-grid-table">
+    <colgroup>
+      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+    </colgroup>
     <thead>
       <tr>
         <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
         <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
         <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
         <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Logged Pick</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Logged Odds / CLV</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Status</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
+      </tr>
+    </thead>
+    <tbody id="liveTradesTbody">
+      {''.join(live_html_rows) if live_html_rows else '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>'}
+    </tbody>
+  </table>
+
+  <h2>Pending Paper-Bets Awaiting Kickoff (Count: <span id="pendingCountSpan">{len(pending_html_rows)}</span>)</h2>
+  <table id="pendingTradesTable" class="sortable-table ledger-grid-table">
+    <colgroup>
+      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+        <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
       </tr>
     </thead>
     <tbody id="pendingTradesTbody">
-      {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="7" class="muted">No pending paper bets.</td></tr>'}
+      {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="8" class="muted">No pending paper bets.</td></tr>'}
     </tbody>
   </table>
 
@@ -1119,11 +1206,11 @@ def generate_dashboard_html(
         <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
         <th class="tz-col-head sort-asc" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
         <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Model Pick</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
         <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
         <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Exact Score / Set-Score Projection</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Odds</th>
+        <th data-sort-type="text" onclick="sortTable(this)">Score Projection</th>
+        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
       </tr>
     </thead>
     <tbody>
@@ -1400,6 +1487,7 @@ def generate_dashboard_html(
       const swEl = document.getElementById('settledWinsSpan');
       const slEl = document.getElementById('settledLossesSpan');
       const spEl = document.getElementById('settledProfitSpan');
+      const lcEl = document.getElementById('liveCountSpan');
       const pcEl = document.getElementById('pendingCountSpan');
       if (scEl) scEl.textContent = String(ledger.settled_count ?? 0);
       if (swEl) swEl.textContent = String(ledger.settled_wins ?? 0);
@@ -1408,11 +1496,13 @@ def generate_dashboard_html(
         slEl.className = (ledger.settled_losses || 0) > 0 ? 'num-neg' : '';
       }}
       if (spEl) spEl.innerHTML = fmtSignedHtml(ledger.settled_profit_u || 0, 2, 'u');
+      if (lcEl) lcEl.textContent = String(ledger.live_count ?? 0);
       if (pcEl) pcEl.textContent = String(ledger.pending_count ?? 0);
 
       const trades = ledger.trades || [];
       const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
       const settledRows = [];
+      const liveRows = [];
       const pendingRows = [];
       trades.forEach(tr => {{
         const o = Number(tr.logged_best_odds || 0);
@@ -1427,6 +1517,8 @@ def generate_dashboard_html(
         const rowCls = (hideOdds + hideSport + hideSearch).trim();
         const spIcon = getSportEmoji(spCat);
         const matchStr = tr.home + ' vs ' + tr.away;
+        const escPredRaw = String(tr.exact_score_pred || '');
+        const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
         if (tr.status === 'SETTLED' && tr.pnl_best !== null && tr.pnl_best !== undefined) {{
           const pnl = Number(tr.pnl_best);
           const badge = pnl > 0
@@ -1438,10 +1530,29 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
               '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
-              '<td data-sort="' + escHtml(pickTeam) + '"><b>' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.score_str || '—') + '"><b>' + escHtml(tr.score_str || '—') + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
               '<td data-sort="' + pnl.toFixed(3) + '">' + badge + '</td>' +
+            '</tr>'
+          );
+        }} else if (tr.is_live || tr.status === 'LIVE') {{
+          const closeO = Number(tr.latest_close_odds || o);
+          const lPnl = Number(tr.live_pnl || 0);
+          const lSc = tr.live_score || tr.score_str || '0-0 (LIVE)';
+          const lBadge = lPnl > 0
+            ? '<span class="pill badge-bet">LIVE · LEADING (+' + lPnl.toFixed(2) + 'u)</span>'
+            : (lPnl < 0 ? '<span class="pill badge-veto">LIVE · TRAILING (' + lPnl.toFixed(2) + 'u)</span>' : '<span class="pill tier">LIVE · LEVEL (0.00u)</span>');
+          liveRows.push(
+            '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
+              '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
+              '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
+              '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
+              '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(lSc) + '"><b>' + escHtml(lSc) + '</b></td>' +
+              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
+              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + '</td>' +
             '</tr>'
           );
         }} else {{
@@ -1449,22 +1560,28 @@ def generate_dashboard_html(
           const trDay = (tr.kickoff_local || tr.kickoff || '').slice(0, 10);
           const hideDay = (currentDayFilter !== 'all' && !(currentDaySet ? currentDaySet.has(trDay) : trDay === currentDayFilter)) ? ' hidden-by-day' : '';
           const pendCls = (rowCls + hideDay).trim();
+          const pendScCell = escShort
+            ? '<span class="muted">—</span> <span class="pill">Proj: ' + escHtml(escShort) + '</span>'
+            : '<span class="muted">— (Pre-Match)</span>';
           pendingRows.push(
             '<tr class="' + pendCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-day="' + escHtml(trDay) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
               '<td data-sort="' + escHtml(lgName) + '"><span class="pill">' + escHtml(lgName) + '</span></td>' +
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
               '<td data-sort="' + escHtml(matchStr) + '">' + escHtml(matchStr) + '</td>' +
-              '<td data-sort="' + escHtml(pickTeam) + '"><b>' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(pickTeam) + '"><b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></td>' +
+              '<td data-sort="' + escHtml(escShort || '—') + '">' + pendScCell + '</td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="PENDING"><span class="pill tier">PENDING</span></td>' +
+              '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>' +
             '</tr>'
           );
         }}
       }});
       const sTbody = document.getElementById('settledTradesTbody');
+      const lTbody = document.getElementById('liveTradesTbody');
       const pTbody = document.getElementById('pendingTradesTbody');
       if (sTbody && settledRows.length) sTbody.innerHTML = settledRows.join('');
+      if (lTbody) lTbody.innerHTML = liveRows.length ? liveRows.join('') : '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>';
       if (pTbody && pendingRows.length) pTbody.innerHTML = pendingRows.join('');
     }}
 

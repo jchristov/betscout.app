@@ -71,6 +71,9 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     exact_score_hit INTEGER,
     notified_at TEXT,
     time_valid INTEGER DEFAULT 1,
+    is_live INTEGER DEFAULT 0,
+    live_score TEXT,
+    live_pnl REAL,
     pnl_best REAL,
     pnl_primary REAL,
     PRIMARY KEY (league, event_id)
@@ -852,6 +855,9 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         ("exact_score_hit", "INTEGER"),
         ("notified_at", "TEXT"),
         ("time_valid", "INTEGER DEFAULT 1"),
+        ("is_live", "INTEGER DEFAULT 0"),
+        ("live_score", "TEXT"),
+        ("live_pnl", "REAL"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
@@ -904,6 +910,29 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                             outcome = _outcome(hs, as_)
                             if hs is not None and as_ is not None:
                                 score_str = f"{int(hs)}-{int(as_)}"
+                    elif c0_st.get("state") == "in" and was_pending:
+                        h_c = _competitor(c0, "home")
+                        a_c = _competitor(c0, "away")
+                        if h_c and a_c:
+                            hs, as_ = _score(h_c), _score(a_c)
+                            st_det = str(c0_st.get("shortDetail") or c0_st.get("description") or "LIVE").strip()
+                            l_sc = f"{int(hs or 0)}-{int(as_ or 0)} ({st_det})"
+                            cur_out = _outcome(hs, as_)
+                            if cur_out == side:
+                                l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2)
+                            elif cur_out == "D":
+                                l_pnl = 0.0
+                            else:
+                                l_pnl = -1.0
+                            conn.execute(
+                                "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (l_sc, l_pnl, now_iso, lg, eid),
+                            )
+                    elif was_pending and row["is_live"]:
+                        conn.execute(
+                            "UPDATE paper_trades SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            (lg, eid),
+                        )
             else:
                 ymd = row["kickoff"][:10].replace("-", "")
                 b_key = (lg.lower(), ymd)
@@ -933,6 +962,31 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                         t_sc = _format_tennis_comp_score(p1, p2, comp)
                                         if t_sc:
                                             score_str = t_sc
+                                elif c_st.get("state") == "in" and was_pending:
+                                    p1, p2 = _competitor(comp, "home"), _competitor(comp, "away")
+                                    if p1 and p2:
+                                        t_sc = _format_tennis_comp_score(p1, p2, comp) or "0-0"
+                                        st_det = str(c_st.get("shortDetail") or "LIVE").strip()
+                                        l_sc = f"{t_sc} [{st_det}]" if st_det not in t_sc else t_sc
+                                        head_part = t_sc.split("(", 1)[0].strip()
+                                        s1_v, s2_v = (int(x) for x in head_part.split("-", 1)) if "-" in head_part and head_part.replace("-", "").isdigit() else (0, 0)
+                                        if s1_v == s2_v and "(" in t_sc:
+                                            last_set = t_sc.split("(", 1)[1].split(")", 1)[0].split(",")[-1].strip()
+                                            if "-" in last_set:
+                                                try:
+                                                    s1_v, s2_v = (int(x) for x in last_set.split("-", 1))
+                                                except Exception:
+                                                    pass
+                                        if (side == "H" and s1_v > s2_v) or (side == "A" and s2_v > s1_v):
+                                            l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2)
+                                        elif s1_v == s2_v:
+                                            l_pnl = 0.0
+                                        else:
+                                            l_pnl = -1.0
+                                        conn.execute(
+                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            (l_sc, l_pnl, now_iso, lg, eid),
+                                        )
 
         if outcome in ("H", "D", "A"):
             won = outcome == side
@@ -943,7 +997,8 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             conn.execute(
                 """
                 UPDATE paper_trades
-                SET status = 'SETTLED', settled_outcome = ?, settled_score = COALESCE(?, settled_score),
+                SET status = 'SETTLED', is_live = 0, live_score = NULL, live_pnl = NULL,
+                    settled_outcome = ?, settled_score = COALESCE(?, settled_score),
                     exact_score_hit = COALESCE(?, exact_score_hit),
                     pnl_best = ?, pnl_primary = ?, updated_at = ?
                 WHERE league = ? AND event_id = ?
@@ -1731,6 +1786,20 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    for col_name, col_type in (
+        ("settled_score", "TEXT"),
+        ("exact_score_pred", "TEXT"),
+        ("exact_score_hit", "INTEGER"),
+        ("notified_at", "TEXT"),
+        ("time_valid", "INTEGER DEFAULT 1"),
+        ("is_live", "INTEGER DEFAULT 0"),
+        ("live_score", "TEXT"),
+        ("live_pnl", "REAL"),
+    ):
+        if col_name not in cols:
+            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+    conn.commit()
     rows = [
         dict(r)
         for r in conn.execute(
@@ -1743,7 +1812,8 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         ).fetchall()
     ]
     conn.close()
-    pending = [r for r in rows if r["status"] == "PENDING"]
+    pending = [r for r in rows if r["status"] == "PENDING" and not r.get("is_live")]
+    live_active = [r for r in rows if r["status"] == "PENDING" and r.get("is_live")]
     settled = sorted([r for r in rows if r["status"] == "SETTLED"], key=lambda x: x["kickoff"])
     wins = sum(1 for r in settled if (r["pnl_best"] or 0.0) > 0)
     settled_pnls = [float(r["pnl_best"] or 0.0) for r in settled]
@@ -1785,6 +1855,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     return {
         "total_logged": len(rows),
         "pending_count": len(pending),
+        "live_count": len(live_active),
         "settled_count": len(settled),
         "settled_wins": wins,
         "settled_losses": len(settled) - wins,
@@ -1803,6 +1874,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "event_id": r["event_id"],
                 "kickoff": r["kickoff"],
                 "time_valid": bool(r.get("time_valid", 1)) and not str(r["kickoff"]).endswith("T04:00Z"),
+                "is_live": bool(r.get("is_live", 0)),
+                "live_score": r.get("live_score"),
+                "live_pnl": round(float(r["live_pnl"]), 2) if r.get("live_pnl") is not None else None,
                 "home": r["home"],
                 "away": r["away"],
                 "side": r["side"],
@@ -1811,18 +1885,22 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "logged_primary_odds": r["logged_primary_odds"],
                 "latest_close_odds": r["latest_close_odds"],
                 "clv_pct": round(float(r["clv_pct"]) * 100.0, 2),
-                "status": r["status"],
+                "status": "LIVE" if (r["status"] == "PENDING" and r.get("is_live")) else r["status"],
                 "settled_outcome": r["settled_outcome"],
                 "exact_score_pred": r.get("exact_score_pred"),
                 "exact_score_hit": r.get("exact_score_hit"),
                 "notified_at": r.get("notified_at"),
                 "score_str": (
-                    r.get("settled_score")
-                    if r.get("settled_score")
+                    r.get("live_score")
+                    if (r["status"] == "PENDING" and r.get("is_live") and r.get("live_score"))
                     else (
-                        f"{int(r['home_score'])}-{int(r['away_score'])}"
-                        if (r.get("home_score") is not None and r.get("away_score") is not None)
-                        else ("—" if r["status"] == "PENDING" else f"Winner: {r['settled_outcome']}")
+                        r.get("settled_score")
+                        if r.get("settled_score")
+                        else (
+                            f"{int(r['home_score'])}-{int(r['away_score'])}"
+                            if (r.get("home_score") is not None and r.get("away_score") is not None)
+                            else ("—" if r["status"] == "PENDING" else f"Winner: {r['settled_outcome']}")
+                        )
                     )
                 ),
                 "pnl_best": round(float(r["pnl_best"]), 2) if r["pnl_best"] is not None else None,
