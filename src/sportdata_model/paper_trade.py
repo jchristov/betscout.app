@@ -474,6 +474,10 @@ def scan_upcoming_tennis(
                         if win_prob < min_prob or form_diff_pick < -0.15:
                             continue
                         live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
+                        # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
+                        # and SofaScore has the actual scheduled court timestamp, use SofaScore's UTC start time!
+                        if (comp.get("timeValid") is False or ko.endswith("T04:00Z")) and live_odds.get("start_utc"):
+                            ko = str(live_odds["start_utc"])
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
                         ev_pct = round((win_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
@@ -550,30 +554,36 @@ def _fractional_to_decimal(frac: str | None) -> float | None:
         return None
 
 
-def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, float | None]:
-    """Resolve live SofaScore bookmaker moneyline & total-games odds for an upcoming tennis match."""
-    empty: dict[str, float | None] = {
+def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
+    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc) for an upcoming tennis match."""
+    empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
-        "games_line": None, "odds_over": None, "odds_under": None,
+        "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
     }
     p1_last = player_1.split()[-1].lower()
     p2_last = player_2.split()[-1].lower()
     q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")
     search_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/search/all?q={q}")
     sofascore_eid: str | None = None
+    sofascore_start_ts: int | None = None
     flipped = False
     for item in search_data.get("results") or []:
         ent = item.get("entity") or {}
         if ((ent.get("tournament") or {}).get("category") or {}).get("sport", {}).get("slug") != "tennis":
             continue
+        st_type = (ent.get("status") or {}).get("type")
+        if st_type not in (None, "notstarted", "inprogress"):
+            continue
         ht = ((ent.get("homeTeam") or {}).get("name") or "").lower()
         at = ((ent.get("awayTeam") or {}).get("name") or "").lower()
         if p1_last in ht and p2_last in at:
             sofascore_eid = str(ent.get("id"))
+            sofascore_start_ts = ent.get("startTimestamp")
             flipped = False
             break
         if p1_last in at and p2_last in ht:
             sofascore_eid = str(ent.get("id"))
+            sofascore_start_ts = ent.get("startTimestamp")
             flipped = True
             break
     if not sofascore_eid:
@@ -581,6 +591,8 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
 
     odds_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/event/{sofascore_eid}/odds/1/all")
     out = dict(empty)
+    if isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
+        out["start_utc"] = datetime.fromtimestamp(int(sofascore_start_ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for mkt in odds_data.get("markets") or []:
         if mkt.get("marketId") == 1:
             c1 = next((c for c in (mkt.get("choices") or []) if c.get("name") == "1"), {})
@@ -855,7 +867,8 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             score_str = f"{int(m_row['home_score'])}-{int(m_row['away_score'])}"
 
         needs_tennis_detail = lg.lower() in ("atp", "wta") and (not score_str or "(" not in score_str)
-        if (outcome is None or score_str is None or needs_tennis_detail) and row["kickoff"] < now_iso:
+        is_tennis_tbd_time = lg.lower() in ("atp", "wta") and was_pending and row["kickoff"].endswith("T04:00Z")
+        if (outcome is None or score_str is None or needs_tennis_detail) and (row["kickoff"] < now_iso or is_tennis_tbd_time):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
             if sp != "tennis":
@@ -880,14 +893,21 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                 for tourn in bd.get("events") or []:
                     for grp in tourn.get("groupings") or []:
                         for comp in grp.get("competitions") or []:
-                            if str(comp.get("id")) == str(eid) and ((comp.get("status") or {}).get("type") or {}).get("completed"):
-                                p1, p2 = _competitor(comp, "home"), _competitor(comp, "away")
-                                if p1 and p2:
-                                    if p1.get("winner") or p2.get("winner"):
-                                        outcome = "H" if p1.get("winner") else "A"
-                                    t_sc = _format_tennis_comp_score(p1, p2, comp)
-                                    if t_sc:
-                                        score_str = t_sc
+                            if str(comp.get("id")) == str(eid):
+                                new_ko = comp.get("date") or ""
+                                if was_pending and new_ko and new_ko != row["kickoff"]:
+                                    conn.execute(
+                                        "UPDATE paper_trades SET kickoff = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                        (new_ko, now_iso, lg, eid),
+                                    )
+                                if ((comp.get("status") or {}).get("type") or {}).get("completed"):
+                                    p1, p2 = _competitor(comp, "home"), _competitor(comp, "away")
+                                    if p1 and p2:
+                                        if p1.get("winner") or p2.get("winner"):
+                                            outcome = "H" if p1.get("winner") else "A"
+                                        t_sc = _format_tennis_comp_score(p1, p2, comp)
+                                        if t_sc:
+                                            score_str = t_sc
 
         if outcome in ("H", "D", "A"):
             won = outcome == side
@@ -1604,12 +1624,13 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         conn.execute(
             """
             UPDATE paper_trades
-            SET latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
+            SET kickoff = ?, latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
                 exact_score_pred = COALESCE(?, exact_score_pred),
                 factor_breakdown_json = ?, news_signal_json = ?, updated_at = ?
             WHERE league = ? AND event_id = ? AND status = 'PENDING'
             """,
             (
+                pick["kickoff"],
                 cur_close,
                 clv_pct,
                 pick["score"],

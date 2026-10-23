@@ -22,7 +22,9 @@ DEFAULT_LOCAL_TZ = "Europe/Vienna"
 
 
 def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ) -> str:
-    """Convert a UTC ISO timestamp ('2026-10-22T19:00Z') into local display string ('2026-10-22 21:00 CEST')."""
+    """Convert a UTC ISO timestamp ('2026-10-22T19:00Z') into local display string ('2026-10-22 21:00 CEST').
+    If ESPN still uses its midnight-EDT placeholder ('T04:00Z' / 'T04:00:00Z') before Order of Play is released,
+    indicate 'Time TBD' alongside the local date."""
     if not utc_iso or utc_iso == "—":
         return utc_iso
     try:
@@ -30,6 +32,8 @@ def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ) -> str:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         loc = dt.astimezone(ZoneInfo(tz_name))
+        if utc_iso.endswith("T04:00Z") or utc_iso.endswith("T04:00:00Z"):
+            return f"{loc.strftime('%Y-%m-%d')} TBD ({loc.strftime('%H:%M %Z')})"
         return loc.strftime("%Y-%m-%d %H:%M %Z")
     except Exception:
         return utc_iso
