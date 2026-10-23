@@ -170,6 +170,8 @@ def build_best_bets_summary(
             "competition": f"{lg_label} ({p['league']}){live_tag}",
             "sport_league": f"Football · {lg_label} ({p['league']}){live_tag}",
             "match": f"{p['home']} vs {p['away']}",
+            "pick_name": f"{pick_team} ({p['side']})",
+            "tier": p["tier"],
             "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
             "win_prob": round(p_win_val, 4),
             "min_fair_odds": f_odds_val,
@@ -207,6 +209,8 @@ def build_best_bets_summary(
             "competition": t_comp_lbl,
             "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
             "match": f"{tp['player_1']} vs {tp['player_2']}",
+            "pick_name": tp["pick"],
+            "tier": tp.get("tier") or "banker_70pct",
             "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
             "win_prob": round(float(tp["win_prob"]), 4),
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
@@ -234,6 +238,8 @@ def build_best_bets_summary(
             "competition": op["league_name"],
             "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
             "match": f"{op['home']} vs {op['away']}",
+            "pick_name": f"{op['pick']} ({op['side']})",
+            "tier": op.get("tier") or "high_conf",
             "pick": f"{op['pick']} ({op['side']}) (Win {op['p_model']*100:.1f}%)",
             "win_prob": round(op_win, 4),
             "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
@@ -552,6 +558,9 @@ def generate_dashboard_html(
         b_fair = float(b.get("min_fair_odds") or round(100.0 / max(b_win_pct, 5.0), 2))
         b_clv = float(b.get("clv_pct") or 0.0)
         b_clv_html = f" (CLV {_fmt_signed(b_clv, '+.1f', '%')})"
+        b_pick_name = html.escape(str(b.get("pick_name") or b["pick"].split("[", 1)[0].split("(Win", 1)[0].strip()))
+        b_tier_str = str(b.get("tier") or "")
+        b_tier_pill = f' <span class="pill tier">{html.escape(b_tier_str)}</span>' if b_tier_str else ""
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
@@ -559,7 +568,7 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(b_comp)}"><span class="pill">{html.escape(b_comp)}</span></td>
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
               <td data-sort="{html.escape(b['match'])}">{html.escape(b['match'])}</td>
-              <td data-sort="{html.escape(b['pick'])}"><b class="num-pos">{html.escape(b['pick'])}</b></td>
+              <td data-sort="{b_pick_name}"><b class="num-pos">{b_pick_name}</b>{b_tier_pill}</td>
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
@@ -869,10 +878,10 @@ def generate_dashboard_html(
   .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }}
   .card-veto {{ border-color: #7f1d1d; opacity: 0.88; }}
   .card-head {{ display: flex; justify-content: space-between; align-items: center; }}
-  .pill {{ display: inline-block; padding: 1.5px 7px; border-radius: 99px; font-size: 10.5px; font-weight: 600; background: #1e293b; color: var(--accent); margin-right: 3px; }}
-  .pill.tier {{ color: var(--amber); }}
-  .pill.badge-bet {{ background: rgba(34,197,94,0.16); color: var(--green); }}
-  .pill.badge-veto {{ background: rgba(239,68,68,0.18); color: var(--red); }}
+  .pill {{ display: inline-block; padding: 1.5px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 600; background: rgba(56, 189, 248, 0.12); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35); margin-right: 3px; }}
+  .pill.tier {{ background: rgba(245, 158, 11, 0.12); color: var(--amber); border-color: rgba(245, 158, 11, 0.42); }}
+  .pill.badge-bet {{ background: rgba(34, 197, 94, 0.14); color: var(--green); border-color: rgba(34, 197, 94, 0.42); }}
+  .pill.badge-veto {{ background: rgba(239, 68, 68, 0.16); color: var(--red); border-color: rgba(239, 68, 68, 0.45); }}
   .meta {{ color: var(--muted); font-size: 11.5px; margin-bottom: 8px; }}
   .odds-strip {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: #0e1522; padding: 6px 8px; border-radius: 6px; margin-bottom: 10px; }}
   .odds-strip span {{ display: block; font-size: 10px; color: var(--muted); }}
@@ -891,9 +900,9 @@ def generate_dashboard_html(
   th {{ background: #0f1623; color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; user-select: none; white-space: nowrap; }}
   .sortable-table th[onclick] {{ cursor: pointer; transition: color 0.15s ease, background 0.15s ease; white-space: nowrap; }}
   .sortable-table th[onclick]:hover {{ color: var(--accent); background: #162133; }}
-  .sortable-table th[onclick]::after {{ content: "\00a0⇅"; opacity: 0.35; font-size: 9.5px; display: inline-block; }}
-  .sortable-table th.sort-asc::after {{ content: "\00a0▲"; opacity: 1; color: var(--accent); display: inline-block; }}
-  .sortable-table th.sort-desc::after {{ content: "\00a0▼"; opacity: 1; color: var(--accent); display: inline-block; }}
+  .sortable-table th[onclick]::after {{ content: "\\00a0⇅"; opacity: 0.4; font-size: 9.5px; display: inline-block; margin-left: 2px; }}
+  .sortable-table th.sort-asc::after {{ content: "\\00a0▲"; opacity: 1; color: var(--accent); display: inline-block; margin-left: 2px; }}
+  .sortable-table th.sort-desc::after {{ content: "\\00a0▼"; opacity: 1; color: var(--accent); display: inline-block; margin-left: 2px; }}
   .col-icon {{ width: 58px; min-width: 58px; text-align: center !important; padding-left: 6px !important; padding-right: 6px !important; white-space: nowrap !important; }}
   .sport-icon {{ font-size: 14px; line-height: 1; display: inline-block; }}
   .ledger-grid-table {{ table-layout: fixed; }}
