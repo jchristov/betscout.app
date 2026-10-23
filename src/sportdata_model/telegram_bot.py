@@ -104,7 +104,7 @@ def format_telegram_digest(
     gen_local = _format_local_time(rec.get("generated_at") or "", tz_name)
 
     lines: list[str] = [
-        f"📊 <b>SPORTDATA QUANT DESK — DAILY UPDATES &amp; PICKS ({html.escape(day_label)})</b>",
+        f"⚡ <b>VEKTORPULSE — DAILY UPDATES &amp; PICKS ({html.escape(day_label)})</b>",
         f"🕒 <i>Generated: {html.escape(gen_local)}</i>",
         "",
     ]
@@ -214,7 +214,7 @@ def format_telegram_digest(
         lines.append("")
         lines.append("<i>* Provisional / unconfirmed start time (updates automatically once official Order of Play is released).</i>")
     lines.append("")
-    lines.append("🤖 <i>Powered by 7-Factor tanh(Z) Composite + Laya-Sports System-1 Gate</i>")
+    lines.append("⚡ <i>VektorPulse · Sports Edge &amp; Score Intelligence</i>")
     return "\n".join(lines)
 
 

@@ -1423,7 +1423,7 @@ def generate_dashboard_html(
       const items = collectVisibleBestBets().slice(0, 20);
       const dayBadge = currentDayFilter === 'all' ? 'All Upcoming Days' : ('Day Filter: ' + currentDayFilter);
       const lines = [
-        '📊 **SPORTDATA QUANT DESK — DAILY PICKS & UPDATES**',
+        '⚡ **VEKTORPULSE — DAILY PICKS & UPDATES**',
         '🕒 *Timezone: {DEFAULT_LOCAL_TZ} · ' + dayBadge + ' · Showing ' + items.length + ' Picks*',
         ''
       ];
@@ -1436,7 +1436,7 @@ def generate_dashboard_html(
           '   🎯 Pick: **' + it.pick + '** · 💰 Odds: **' + it.odds_display + '**'
         );
       }});
-      lines.push('', '🤖 *Powered by 7-Factor tanh(Z) Composite + Laya-Sports System-1 Gate*');
+      lines.push('', '⚡ *VektorPulse · Sports Edge & Score Intelligence*');
       return lines.join('\\n');
     }}
 
@@ -1452,14 +1452,14 @@ def generate_dashboard_html(
       modal.style.display = 'block';
       const icon = getSportEmoji(sportCat || matchStr);
       const msg = [
-        '🎯 **SPORTDATA QUANT DESK — HIGH-CONVICTION PICK**',
+        '🎯 **VEKTORPULSE — HIGH-CONVICTION PICK**',
         '',
         icon + ' **' + matchStr + '**',
         '🕒 Kickoff: `' + dateLocalStr + '`',
         '✅ Pick: **' + pickStr + '**',
         '💰 Odds: **' + oddsStr + '**',
         '',
-        '🤖 *Verified by 7-Factor tanh(Z) Composite + Laya-Sports System-1 Gate*'
+        '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
       ].join('\\n');
       document.getElementById('tgMessagePreview').value = msg;
       modal.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
