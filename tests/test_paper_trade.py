@@ -461,6 +461,33 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     m_detail = _lookup_matchup_detail(db, rec_json, "Udinese", "AC Milan", "ita.1")
     assert m_detail["ok"] is True and m_detail["home"] == "Udinese"
 
+    # 10. Concurrent settlement notification deduplication test (atomically claims notified_at so concurrent threads send at most once)
+    import threading
+    from unittest.mock import patch
+
+    conn_n = sqlite3.connect(db)
+    conn_n.execute("UPDATE paper_trades SET notified_at = NULL WHERE status = 'SETTLED'")
+    conn_n.commit()
+    conn_n.close()
+
+    send_calls = []
+
+    def _fake_send_discord(msg_txt, **kwargs):
+        import time
+        time.sleep(0.05)
+        send_calls.append(msg_txt)
+        return {"ok": True, "dry_run": False, "message_id": "m1"}
+
+    with patch("sportdata_model.telegram_bot.send_discord_message", side_effect=_fake_send_discord):
+        threads = [threading.Thread(target=notify_new_settlements_to_discord, args=(db,)) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert len(send_calls) == 1, f"Expected exactly 1 Discord notification across 4 concurrent threads, got {len(send_calls)}"
+
+
 
 
 

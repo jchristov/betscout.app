@@ -294,21 +294,19 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self.send_header("Connection", "keep-alive")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                tick = 0
                 try:
                     while True:
-                        # Run live ESPN settlement every 3rd tick (~45s), fast DB snapshot every 15s
+                        # Fast DB snapshot every 15s (live ESPN settlement & Discord alerts are handled by the singleton background poller)
                         snap = _build_live_snapshot(
                             rec_path,
                             db_path,
                             min_odds=min_odds,
                             sport=sport,
-                            run_settle=(tick % 3 == 0),
+                            run_settle=False,
                         )
                         msg = f"event: update\ndata: {json.dumps(snap)}\n\n"
                         self.wfile.write(msg.encode("utf-8"))
                         self.wfile.flush()
-                        tick += 1
                         time.sleep(15)
                 except (BrokenPipeError, ConnectionResetError, Exception):
                     return
