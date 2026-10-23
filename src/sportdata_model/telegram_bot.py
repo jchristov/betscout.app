@@ -209,6 +209,10 @@ def format_telegram_digest(
                 f"   2️⃣ {e2} {html.escape(l2['match'])} &rarr; <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f}"
             )
 
+    has_unconfirmed_time = any(b.get("time_valid") is False or "*" in str(b.get("date_local") or "") for b in best_bets[:max_picks])
+    if has_unconfirmed_time:
+        lines.append("")
+        lines.append("<i>* Provisional / unconfirmed start time (updates automatically once official Order of Play is released).</i>")
     lines.append("")
     lines.append("🤖 <i>Powered by 7-Factor tanh(Z) Composite + Laya-Sports System-1 Gate</i>")
     return "\n".join(lines)

@@ -184,7 +184,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     # 3. Dashboard generation smoke test (including soft min_odds filter and sorted Best Bets table)
     db = tmp_path / "d.sqlite"
     conn = sqlite3.connect(db)
-    conn.executescript("CREATE TABLE matches (id TEXT);" + PAPER_SCHEMA)
+    conn.executescript("CREATE TABLE matches (id TEXT, league TEXT, event_id TEXT, outcome TEXT, home_score REAL, away_score REAL);" + PAPER_SCHEMA)
     conn.commit()
     conn.close()
     rec_json = tmp_path / "rec.json"
@@ -332,5 +332,71 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         assert set(xi_fast.keys()) == set(xi_full.keys())
         for k in xi_full:
             assert list(xi_fast[k]) == list(xi_full[k]), f"Mismatch on {k}"
+
+    # 8. Provisional / Unconfirmed Kickoff Time (`*` indicator + auto-update from provisional to confirmed)
+    from sportdata_model.dashboard import _format_local_time, _time_span
+    from sportdata_model.paper_trade import _upsert_paper_trade, get_paper_ledger_summary
+
+    assert _format_local_time("2026-10-23T12:00Z", time_valid=True) == "2026-10-23 14:00 CEST"
+    assert _format_local_time("2026-10-24T09:30Z", time_valid=False) == "2026-10-24 11:30 CEST*"
+    assert _format_local_time("2026-10-24T04:00Z", time_valid=False) == "2026-10-24 06:00 CEST* (TBD)"
+    assert "*" in _time_span("2026-10-24T09:30Z", time_valid=False)
+
+    # First log with provisional time (`time_valid=False`, `2026-10-23T04:00Z`)
+    _upsert_paper_trade(
+        db,
+        {
+            "league": "atp",
+            "event_id": "999001",
+            "kickoff": "2026-10-23T04:00Z",
+            "time_valid": False,
+            "home": "Clement Chidekh",
+            "away": "Francisco Cerundolo",
+            "side": "A",
+            "tier": "banker_70pct",
+            "score": 0.80,
+            "p_mkt": 0.80,
+            "open_odds": 1.30,
+            "best_odds": 1.32,
+            "primary_odds": 1.25,
+            "close_odds": 1.32,
+            "synthetic_dc_odds": None,
+            "factors_tanh_z": {"form_6m_diff": 0.15},
+            "news_signal": {"backend": "tennis"},
+        },
+        "2026-10-22T20:00:00Z",
+    )
+    sum1 = get_paper_ledger_summary(db)
+    tr1 = next(t for t in sum1["trades"] if t["event_id"] == "999001")
+    assert tr1["kickoff"] == "2026-10-23T04:00Z" and tr1["time_valid"] is False
+
+    # Now ESPN confirms the official court time (`2026-10-23T12:00Z`, `time_valid=True`): verify `_upsert_paper_trade` updates it!
+    _upsert_paper_trade(
+        db,
+        {
+            "league": "atp",
+            "event_id": "999001",
+            "kickoff": "2026-10-23T12:00Z",
+            "time_valid": True,
+            "home": "Clement Chidekh",
+            "away": "Francisco Cerundolo",
+            "side": "A",
+            "tier": "banker_70pct",
+            "score": 0.80,
+            "p_mkt": 0.80,
+            "open_odds": 1.30,
+            "best_odds": 1.32,
+            "primary_odds": 1.25,
+            "close_odds": 1.30,
+            "synthetic_dc_odds": None,
+            "factors_tanh_z": {"form_6m_diff": 0.15},
+            "news_signal": {"backend": "tennis"},
+        },
+        "2026-10-23T08:00:00Z",
+    )
+    sum2 = get_paper_ledger_summary(db)
+    tr2 = next(t for t in sum2["trades"] if t["event_id"] == "999001")
+    assert tr2["kickoff"] == "2026-10-23T12:00Z" and tr2["time_valid"] is True
+
 
 

@@ -21,10 +21,10 @@ BEST_BETS_CSV_COLUMNS = ("date", "date_local", "sport_league", "match", "pick", 
 DEFAULT_LOCAL_TZ = "Europe/Vienna"
 
 
-def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ) -> str:
+def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ, time_valid: bool | None = None) -> str:
     """Convert a UTC ISO timestamp ('2026-10-22T19:00Z') into local display string ('2026-10-22 21:00 CEST').
-    If ESPN still uses its midnight-EDT placeholder ('T04:00Z' / 'T04:00:00Z') before Order of Play is released,
-    indicate 'Time TBD' alongside the local date."""
+    If the start time is not yet confirmed by the tournament/league (`time_valid is False` or ESPN's
+    midnight-EDT placeholder 'T04:00Z'), append a `*` indicator after the time."""
     if not utc_iso or utc_iso == "—":
         return utc_iso
     try:
@@ -32,19 +32,29 @@ def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ) -> str:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         loc = dt.astimezone(ZoneInfo(tz_name))
-        if utc_iso.endswith("T04:00Z") or utc_iso.endswith("T04:00:00Z"):
-            return f"{loc.strftime('%Y-%m-%d')} TBD ({loc.strftime('%H:%M %Z')})"
-        return loc.strftime("%Y-%m-%d %H:%M %Z")
+        is_placeholder = utc_iso.endswith("T04:00Z") or utc_iso.endswith("T04:00:00Z")
+        unconfirmed = (time_valid is False) or is_placeholder
+        star = "*" if unconfirmed else ""
+        if is_placeholder:
+            return f"{loc.strftime('%Y-%m-%d %H:%M %Z')}* (TBD)"
+        return f"{loc.strftime('%Y-%m-%d %H:%M %Z')}{star}"
     except Exception:
         return utc_iso
 
 
-def _time_span(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ, bold: bool = False) -> str:
+def _time_span(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ, bold: bool = False, time_valid: bool | None = None) -> str:
     """Render an HTML element with `data-utc` so the browser can switch between Local Time and UTC."""
-    loc_str = html.escape(_format_local_time(utc_iso, tz_name))
-    utc_esc = html.escape(utc_iso)
+    is_placeholder = str(utc_iso).endswith("T04:00Z") or str(utc_iso).endswith("T04:00:00Z")
+    unconfirmed = (time_valid is False) or is_placeholder
+    loc_str = html.escape(_format_local_time(utc_iso, tz_name, time_valid=time_valid))
+    utc_disp = html.escape(f"{utc_iso}*" if (unconfirmed and not str(utc_iso).endswith("*")) else str(utc_iso))
+    tip = (
+        f"UTC: {utc_disp} (* Provisional / unconfirmed schedule — updates automatically once official Order of Play is released)"
+        if unconfirmed
+        else f"UTC: {utc_disp}"
+    )
     tag = "b" if bold else "span"
-    return f'<{tag} class="tz-time" data-utc="{utc_esc}" data-local="{loc_str}" title="UTC: {utc_esc}">{loc_str}</{tag}>'
+    return f'<{tag} class="tz-time" data-utc="{utc_disp}" data-local="{loc_str}" title="{tip}">{loc_str}</{tag}>'
 
 SPORT_FILTER_LABELS: dict[str, str] = {
     "all": "All Sports",
@@ -90,16 +100,27 @@ def build_best_bets_summary(
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
         if t.get("status") == "SETTLED"
     }
+    ledger_time_map = {
+        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True))
+        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        if t.get("status") == "PENDING"
+    }
     raw_soccer_picks = [
-        p for p in (rec.get("qualifying_picks") or [])
+        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[1]}
+        for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
     ]
     raw_tennis_picks = [
-        tp for tp in (rec.get("tennis_picks") or [])
+        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[1]}
+        for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
     ]
     raw_other_picks = [
-        op for op in (rec.get("other_sport_picks") or [])
+        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[1]}
+        for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
     ]
 
@@ -123,7 +144,8 @@ def build_best_bets_summary(
         )
         best_bets.append({
             "date": p["kickoff"],
-            "date_local": _format_local_time(p["kickoff"]),
+            "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
+            "time_valid": p.get("time_valid", True),
             "sport_cat": "soccer",
             "sport_league": f"Football · {lg_label} ({p['league']}){live_tag}",
             "match": f"{p['home']} vs {p['away']}",
@@ -152,7 +174,8 @@ def build_best_bets_summary(
         )
         best_bets.append({
             "date": tp["kickoff"],
-            "date_local": _format_local_time(tp["kickoff"]),
+            "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
+            "time_valid": tp.get("time_valid", True),
             "sport_cat": "tennis",
             "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
             "match": f"{tp['player_1']} vs {tp['player_2']}",
@@ -171,7 +194,8 @@ def build_best_bets_summary(
             continue
         best_bets.append({
             "date": op["kickoff"],
-            "date_local": _format_local_time(op["kickoff"]),
+            "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
+            "time_valid": op.get("time_valid", True),
             "sport_cat": sp_cat,
             "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
             "match": f"{op['home']} vs {op['away']}",
@@ -238,16 +262,27 @@ def generate_dashboard_html(
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
         if t.get("status") == "SETTLED"
     }
+    ledger_time_map = {
+        (t["league"], str(t["event_id"])): (t["kickoff"], t.get("time_valid", True))
+        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        if t.get("status") == "PENDING"
+    }
     raw_soccer_picks = [
-        p for p in (rec.get("qualifying_picks") or [])
+        {**p, "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True)))[1]}
+        for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
     ]
     raw_tennis_picks = [
-        tp for tp in (rec.get("tennis_picks") or [])
+        {**tp, "kickoff": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp["kickoff"], tp.get("time_valid", True)))[1]}
+        for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
     ]
     raw_other_picks = [
-        op for op in (rec.get("other_sport_picks") or [])
+        {**op, "kickoff": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[0],
+         "time_valid": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op["kickoff"], op.get("time_valid", True)))[1]}
+        for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
     ]
     ledger = rec.get("paper_ledger") or {}
@@ -321,7 +356,7 @@ def generate_dashboard_html(
             sh_pick_str += f" · Exact: {esc_p['top_exact_score']} ({esc_p['top_exact_prob']*100:.1f}%) | Cluster: {esc_p['cluster_3_scores']} ({esc_p['cluster_3_prob']*100:.1f}%)"
         sh_pick = html.escape(json.dumps(sh_pick_str))
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
-        sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"])))
+        sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"], time_valid=p.get("time_valid"))))
         p_day_loc = _format_local_time(p["kickoff"])[:10]
         soccer_cards.append(
             f"""
@@ -336,7 +371,7 @@ def generate_dashboard_html(
                 <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
               </div>
               <h3>{html.escape(p['home'])} <span class="muted">vs</span> {html.escape(p['away'])}</h3>
-              <div class="meta">Kickoff: {_time_span(p['kickoff'])} · Pick: <b>{html.escape(pick_team)} ({p['side']})</b> · Paper ¼-Kelly: <b>{0.0 if is_veto else qk_pct:.2f}%</b></div>
+              <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: <b>{html.escape(pick_team)} ({p['side']})</b> · Paper ¼-Kelly: <b>{0.0 if is_veto else qk_pct:.2f}%</b></div>
               <div class="odds-strip">
                 <div><span>Best 1X2</span><b>{p['best_odds']:.2f}</b></div>
                 <div><span>Syn Dutch DC</span><b>{html.escape(syn_dc_str)}</b></div>
@@ -385,7 +420,7 @@ def generate_dashboard_html(
             <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-day="{html.escape(tp_day_loc)}" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
               <td><span class="pill">{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span></td>
               <td>{html.escape(tp['tournament'])}</td>
-              <td>{_time_span(tp['kickoff'])}</td>
+              <td>{_time_span(tp['kickoff'], time_valid=tp.get('time_valid'))}</td>
               <td>{html.escape(tp['player_1'])} vs {html.escape(tp['player_2'])}</td>
               <td><b>{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></td>
               <td><b>{tp['win_prob']*100:.1f}%</b></td>
@@ -412,7 +447,7 @@ def generate_dashboard_html(
             f"""
             <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-day="{html.escape(op_day_loc)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
               <td><span class="pill">{html.escape(op['sport'].upper())}</span> <span class="pill">{html.escape(op['league'])}</span></td>
-              <td>{_time_span(op['kickoff'])}</td>
+              <td>{_time_span(op['kickoff'], time_valid=op.get('time_valid'))}</td>
               <td>{html.escape(op['home'])} vs {html.escape(op['away'])}{inj_pill}</td>
               <td><b>{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></td>
               <td><b>{op['p_model']*100:.1f}%</b> (Mkt {op['p_mkt']*100:.1f}%)</td>
@@ -438,8 +473,8 @@ def generate_dashboard_html(
                     <div class="score">Combined Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b>{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
                   </div>
                   <div style="margin-top:8px; font-size:13px;">
-                    <div>1️⃣ <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'])}) &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
-                    <div style="margin-top:4px;">2️⃣ <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'])}) &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
+                    <div>1️⃣ <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}) &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%)</div>
+                    <div style="margin-top:4px;">2️⃣ <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}) &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%)</div>
                   </div>
                 </div>
                 """
@@ -467,7 +502,7 @@ def generate_dashboard_html(
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
-              <td>{_time_span(b['date'], bold=True)}</td>
+              <td>{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
               <td><span class="pill">{html.escape(b['sport_league'])}</span></td>
               <td>{html.escape(b['match'])}</td>
               <td><b class="num-pos">{html.escape(b['pick'])}</b></td>
@@ -523,7 +558,7 @@ def generate_dashboard_html(
             pending_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-day="{html.escape(tr_day_loc)}" data-search="{search_txt}">
-                  <td>{_time_span(tr['kickoff'], bold=True)}</td>
+                  <td>{_time_span(tr['kickoff'], bold=True, time_valid=tr.get('time_valid'))}</td>
                   <td><span class="pill">{html.escape(lg_name)}</span></td>
                   <td>{html.escape(tr['home'])} vs {html.escape(tr['away'])}</td>
                   <td><b>{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></td>
@@ -754,7 +789,7 @@ def generate_dashboard_html(
     <div>
       <div class="muted">SPORTDATA QUANTITATIVE RESEARCH DESK · LIVE WEB APP &amp; PAPER-BETTING LEDGER</div>
       <h1>Multi-Sport Quantitative Edge &amp; System-1 Desk</h1>
-      <div class="muted" style="margin-top:4px;">Generated: {_time_span(gen_at)} · Store: {total_matches:,} verified matches · <span id="lastStreamTick">Ready</span></div>
+      <div class="muted" style="margin-top:4px;">Generated: {_time_span(gen_at)} · Store: {total_matches:,} verified matches · <span id="lastStreamTick">Ready</span> · <span title="Provisional / unconfirmed start times (e.g. awaiting official court Order of Play) are marked with * and update automatically">* = Provisional / Unconfirmed Time</span></div>
     </div>
     <div class="btn-group">
       <span class="stream-pill" title="Server-Sent Events (SSE) Live Stream Status">

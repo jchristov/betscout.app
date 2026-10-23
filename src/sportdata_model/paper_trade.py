@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     exact_score_pred TEXT,
     exact_score_hit INTEGER,
     notified_at TEXT,
+    time_valid INTEGER DEFAULT 1,
     pnl_best REAL,
     pnl_primary REAL,
     PRIMARY KEY (league, event_id)
@@ -438,6 +439,13 @@ def scan_upcoming_tennis(
                         if not h or not a or "TBD" in (h, a):
                             continue
                         ko = comp.get("date") or ""
+                        comp_st_type = (comp.get("status") or {}).get("type") or {}
+                        espn_time_valid = bool(
+                            comp.get("timeValid") is not False
+                            and str(comp_st_type.get("shortDetail") or "").upper() != "TBD"
+                            and not ko.endswith("T04:00Z")
+                            and not ko.endswith("T04:00:00Z")
+                        )
                         dt = datetime.fromisoformat(ko.replace("Z", "+00:00"))
                         ea = elo_all[lg]
                         es = elo_surf.setdefault((lg, surf), Elo(k=28, home_adv=0.0))
@@ -476,7 +484,7 @@ def scan_upcoming_tennis(
                         live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
                         # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
                         # and SofaScore has the actual scheduled court timestamp, use SofaScore's UTC start time!
-                        if (comp.get("timeValid") is False or ko.endswith("T04:00Z")) and live_odds.get("start_utc"):
+                        if not espn_time_valid and live_odds.get("start_utc"):
                             ko = str(live_odds["start_utc"])
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
@@ -506,6 +514,7 @@ def scan_upcoming_tennis(
                             "surface": surf,
                             "event_id": cid,
                             "kickoff": ko,
+                            "time_valid": espn_time_valid,
                             "player_1": h,
                             "player_2": a,
                             "pick": pick_player,
@@ -842,6 +851,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         ("exact_score_pred", "TEXT"),
         ("exact_score_hit", "INTEGER"),
         ("notified_at", "TEXT"),
+        ("time_valid", "INTEGER DEFAULT 1"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
@@ -867,22 +877,33 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             score_str = f"{int(m_row['home_score'])}-{int(m_row['away_score'])}"
 
         needs_tennis_detail = lg.lower() in ("atp", "wta") and (not score_str or "(" not in score_str)
-        is_tennis_tbd_time = lg.lower() in ("atp", "wta") and was_pending and row["kickoff"].endswith("T04:00Z")
-        if (outcome is None or score_str is None or needs_tennis_detail) and (row["kickoff"] < now_iso or is_tennis_tbd_time):
+        row_t_valid = row["time_valid"] if "time_valid" in row.keys() and row["time_valid"] is not None else 1
+        is_unconfirmed_time = was_pending and (int(row_t_valid) == 0 or row["kickoff"].endswith("T04:00Z") or row["kickoff"].endswith("T04:00:00Z"))
+        if (outcome is None or score_str is None or needs_tennis_detail) and (row["kickoff"] < now_iso or is_unconfirmed_time or (was_pending and lg.lower() in ("atp", "wta"))):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
             if sp != "tennis":
                 s_url = f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}"
                 sd = _fetch_live_json(s_url)
                 hdr_comps = (sd.get("header") or {}).get("competitions") or []
-                if hdr_comps and ((hdr_comps[0].get("status") or {}).get("type") or {}).get("completed"):
-                    h_c = _competitor(hdr_comps[0], "home")
-                    a_c = _competitor(hdr_comps[0], "away")
-                    if h_c and a_c:
-                        hs, as_ = _score(h_c), _score(a_c)
-                        outcome = _outcome(hs, as_)
-                        if hs is not None and as_ is not None:
-                            score_str = f"{int(hs)}-{int(as_)}"
+                if hdr_comps:
+                    c0 = hdr_comps[0]
+                    new_ko = c0.get("date") or ""
+                    c0_st = (c0.get("status") or {}).get("type") or {}
+                    c0_tv = 1 if (c0.get("timeValid") is not False and str(c0_st.get("shortDetail") or "").upper() != "TBD") else 0
+                    if was_pending and new_ko and (new_ko != row["kickoff"] or c0_tv != int(row_t_valid)):
+                        conn.execute(
+                            "UPDATE paper_trades SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            (new_ko, c0_tv, now_iso, lg, eid),
+                        )
+                    if c0_st.get("completed"):
+                        h_c = _competitor(c0, "home")
+                        a_c = _competitor(c0, "away")
+                        if h_c and a_c:
+                            hs, as_ = _score(h_c), _score(a_c)
+                            outcome = _outcome(hs, as_)
+                            if hs is not None and as_ is not None:
+                                score_str = f"{int(hs)}-{int(as_)}"
             else:
                 ymd = row["kickoff"][:10].replace("-", "")
                 b_key = (lg.lower(), ymd)
@@ -895,12 +916,16 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                         for comp in grp.get("competitions") or []:
                             if str(comp.get("id")) == str(eid):
                                 new_ko = comp.get("date") or ""
-                                if was_pending and new_ko and new_ko != row["kickoff"]:
+                                c_st = (comp.get("status") or {}).get("type") or {}
+                                c_tv = 1 if (comp.get("timeValid") is not False and str(c_st.get("shortDetail") or "").upper() != "TBD" and not new_ko.endswith("T04:00Z")) else 0
+                                if was_pending and new_ko and (new_ko != row["kickoff"] or c_tv != int(row_t_valid)):
+                                    # Keep SofaScore's resolved start_utc if ESPN is still at T04:00Z placeholder
+                                    ko_to_save = row["kickoff"] if (not c_tv and new_ko.endswith("T04:00Z") and not row["kickoff"].endswith("T04:00Z")) else new_ko
                                     conn.execute(
-                                        "UPDATE paper_trades SET kickoff = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                        (new_ko, now_iso, lg, eid),
+                                        "UPDATE paper_trades SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                        (ko_to_save, c_tv, now_iso, lg, eid),
                                     )
-                                if ((comp.get("status") or {}).get("type") or {}).get("completed"):
+                                if c_st.get("completed"):
                                     p1, p2 = _competitor(comp, "home"), _competitor(comp, "away")
                                     if p1 and p2:
                                         if p1.get("winner") or p2.get("winner"):
@@ -1097,6 +1122,11 @@ def scan_upcoming_other_sports(
                 if not home or not away:
                     continue
                 ko = ev.get("date") or ""
+                ev_st_type = (ev.get("status") or {}).get("type") or {}
+                ev_time_valid = bool(
+                    comp.get("timeValid") is not False
+                    and str(ev_st_type.get("shortDetail") or "").upper() != "TBD"
+                )
                 dt = datetime.fromisoformat(ko.replace("Z", "+00:00"))
                 s_url = f"{BASE}/{lg_obj.sport}/{lg_obj.league}/summary?event={eid}"
                 summary = _fetch_live_json(s_url)
@@ -1154,6 +1184,7 @@ def scan_upcoming_other_sports(
                     "league_name": LEAGUE_LABELS.get(lg, lg.upper()),
                     "event_id": eid,
                     "kickoff": ko,
+                    "time_valid": ev_time_valid,
                     "home": home,
                     "away": away,
                     "side": side,
@@ -1192,6 +1223,7 @@ def build_recommended_2leg_doubles(
             candidates.append({
                 "date_day": (p.get("kickoff") or "")[:10],
                 "kickoff": p.get("kickoff") or "",
+                "time_valid": p.get("time_valid", True),
                 "sport_cat": "soccer",
                 "league": p["league"],
                 "match": f"{p['home']} vs {p['away']}",
@@ -1207,6 +1239,7 @@ def build_recommended_2leg_doubles(
             candidates.append({
                 "date_day": (tp.get("kickoff") or "")[:10],
                 "kickoff": tp.get("kickoff") or "",
+                "time_valid": tp.get("time_valid", True),
                 "sport_cat": "tennis",
                 "league": tp["tour"],
                 "match": f"{tp['player_1']} vs {tp['player_2']}",
@@ -1222,6 +1255,7 @@ def build_recommended_2leg_doubles(
             candidates.append({
                 "date_day": (op.get("kickoff") or "")[:10],
                 "kickoff": op.get("kickoff") or "",
+                "time_valid": op.get("time_valid", True),
                 "sport_cat": op["sport"],
                 "league": op["league"],
                 "match": f"{op['home']} vs {op['away']}",
@@ -1320,6 +1354,10 @@ def scan_upcoming_and_log_paper_trades(
                     continue
                 home, away = _team_name(h_c).strip(), _team_name(a_c).strip()
                 kickoff = ev.get("date") or ""
+                soc_time_valid = bool(
+                    comp.get("timeValid") is not False
+                    and str(st_type.get("shortDetail") or "").upper() != "TBD"
+                )
                 is_live = state == "in"
                 live_status_desc = str(st_type.get("shortDetail") or st_type.get("description") or "LIVE").strip()
                 hs_live, as_live = _score(h_c), _score(a_c)
@@ -1414,6 +1452,7 @@ def scan_upcoming_and_log_paper_trades(
                         "league": lg.key,
                         "event_id": eid,
                         "kickoff": kickoff,
+                        "time_valid": soc_time_valid,
                         "is_live": is_live,
                         "live_score": live_score_str,
                         "home": home,
@@ -1523,6 +1562,7 @@ def scan_upcoming_and_log_paper_trades(
                     "league": tp["tour"].lower(),
                     "event_id": tp["event_id"],
                     "kickoff": tp["kickoff"],
+                    "time_valid": tp.get("time_valid", True),
                     "home": tp["player_1"],
                     "away": tp["player_2"],
                     "side": t_side,
@@ -1549,6 +1589,7 @@ def scan_upcoming_and_log_paper_trades(
                     "league": op["league"].lower(),
                     "event_id": op["event_id"],
                     "kickoff": op["kickoff"],
+                    "time_valid": op.get("time_valid", True),
                     "home": op["home"],
                     "away": op["away"],
                     "side": op["side"],
@@ -1601,10 +1642,12 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         ("exact_score_pred", "TEXT"),
         ("exact_score_hit", "INTEGER"),
         ("notified_at", "TEXT"),
+        ("time_valid", "INTEGER DEFAULT 1"),
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
 
+    t_valid_int = 0 if (pick.get("time_valid") is False or str(pick.get("kickoff") or "").endswith("T04:00Z")) else 1
     esc_pred_str = pick.get("exact_score_pred")
     if not esc_pred_str and isinstance(pick.get("exact_score_prediction"), dict):
         ep = pick["exact_score_prediction"]
@@ -1624,13 +1667,14 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         conn.execute(
             """
             UPDATE paper_trades
-            SET kickoff = ?, latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
+            SET kickoff = ?, time_valid = ?, latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
                 exact_score_pred = COALESCE(?, exact_score_pred),
                 factor_breakdown_json = ?, news_signal_json = ?, updated_at = ?
             WHERE league = ? AND event_id = ? AND status = 'PENDING'
             """,
             (
                 pick["kickoff"],
+                t_valid_int,
                 cur_close,
                 clv_pct,
                 pick["score"],
@@ -1650,15 +1694,16 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         conn.execute(
             """
             INSERT INTO paper_trades (
-                league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt,
+                league, event_id, kickoff, time_valid, home, away, side, tier, composite_score, p_mkt,
                 open_odds, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct,
                 synthetic_dc_odds, exact_score_pred, factor_breakdown_json, news_signal_json, logged_at, updated_at, status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
             """,
             (
                 pick["league"],
                 pick["event_id"],
                 pick["kickoff"],
+                t_valid_int,
                 pick["home"],
                 pick["away"],
                 pick["side"],
@@ -1757,6 +1802,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "league": r["league"],
                 "event_id": r["event_id"],
                 "kickoff": r["kickoff"],
+                "time_valid": bool(r.get("time_valid", 1)) and not str(r["kickoff"]).endswith("T04:00Z"),
                 "home": r["home"],
                 "away": r["away"],
                 "side": r["side"],
