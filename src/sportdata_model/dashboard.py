@@ -782,7 +782,7 @@ def generate_dashboard_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sportdata Quant Desk — Multi-Factor & System-1 Dashboard</title>
+<title>VektorPulse — Sports Edge &amp; Score Intelligence</title>
 <style>
   :root {{
     --bg: #0b0f17; --panel: #131b29; --border: #223049; --text: #e6edf7;
@@ -790,8 +790,15 @@ def generate_dashboard_html(
   }}
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; padding: 20px 24px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; }}
-  header {{ display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 18px; }}
-  h1 {{ margin: 0; font-size: 20px; letter-spacing: -0.02em; }}
+  header {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
+  .brand-wrap {{ display: flex; align-items: center; gap: 13px; }}
+  .brand-logo {{ width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(34, 197, 94, 0.22)); border: 1px solid rgba(56, 189, 248, 0.45); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 0 16px rgba(56, 189, 248, 0.18); }}
+  .brand-title-row {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+  h1 {{ margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+  .brand-tagline {{ font-size: 12px; color: #cbd5e1; font-weight: 500; }}
+  .brand-meta {{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 11px; color: var(--muted); }}
+  .meta-chip {{ display: inline-flex; align-items: center; gap: 4px; background: rgba(15, 22, 35, 0.85); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-size: 10.5px; color: var(--muted); }}
+  .meta-chip b {{ color: var(--text); }}
   h2 {{ font-size: 15px; margin: 22px 0 10px; color: var(--accent); }}
   h3 {{ margin: 8px 0 4px; font-size: 14px; }}
   .muted {{ color: var(--muted); font-size: 11.5px; }}
@@ -864,20 +871,41 @@ def generate_dashboard_html(
 </head>
 <body>
   <header>
-    <div>
-      <div class="muted">SPORTDATA QUANTITATIVE RESEARCH DESK · LIVE WEB APP &amp; PAPER-BETTING LEDGER</div>
-      <h1>Multi-Sport Quantitative Edge &amp; System-1 Desk</h1>
-      <div class="muted" style="margin-top:4px;">Generated: {_time_span(gen_at)} · Store: {total_matches:,} verified matches · <span id="lastStreamTick">Ready</span> · <span title="Provisional / unconfirmed start times (e.g. awaiting official court Order of Play) are marked with * and update automatically">* = Provisional / Unconfirmed Time</span></div>
+    <div class="brand-wrap">
+      <div class="brand-logo" title="VektorPulse — Sports Edge &amp; Score Intelligence">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#vpGrad)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <defs>
+            <linearGradient id="vpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <polyline points="2 13 6 13 9 5 14 19 17 11 22 11"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title-row">
+          <h1>VektorPulse</h1>
+          <span class="pill badge-bet" style="font-size:10px;">LIVE AI</span>
+          <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence</span>
+        </div>
+        <div class="brand-meta">
+          <span class="meta-chip">🕒 Updated: {_time_span(gen_at, bold=True)}</span>
+          <span class="meta-chip">🗄️ <b>{total_matches:,}</b> Verified Matches</span>
+          <span class="meta-chip">📡 <span id="lastStreamTick">Ready</span></span>
+          <span class="meta-chip" title="Provisional / unconfirmed start times (e.g. awaiting official court Order of Play) are marked with * and update automatically"><b>*</b> = Provisional Time</span>
+        </div>
+      </div>
     </div>
     <div class="btn-group">
       <span class="stream-pill" title="Server-Sent Events (SSE) Live Stream Status">
         <span id="streamDot" class="stream-dot"></span>
         <span id="streamStatusText">Live Stream: Connecting...</span>
       </span>
-      <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger</button>
-      <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live Matches</button>
-      <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Run Full Daily Pipeline</button>
-      <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share to Discord / Telegram</button>
+      <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle</button>
+      <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live</button>
+      <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Full Pipeline</button>
+      <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share Picks</button>
     </div>
   </header>
 
@@ -957,14 +985,14 @@ def generate_dashboard_html(
   {svg_chart}
 
   <div data-sport-section="soccer">
-    <h2>Upcoming Football Picks (7-Factor tanh(Z) + System-1 Injury Veto + T-60m XI Gate)</h2>
+    <h2>⚽ Upcoming Football Picks</h2>
     <div class="cards">
       {''.join(soccer_cards) if soccer_cards else '<p class="muted">No upcoming qualifying soccer picks in window.</p>'}
     </div>
   </div>
 
   <div data-sport-section="tennis">
-    <h2>Upcoming High-Confidence ATP &amp; WTA Tennis Picks (Surface-Elo + Game-Dominance + Exact Set-Score Model)</h2>
+    <h2>🎾 Upcoming Tennis Picks (ATP &amp; WTA)</h2>
     <table id="tennisTable" class="sortable-table">
       <thead>
         <tr>
@@ -987,7 +1015,7 @@ def generate_dashboard_html(
   </div>
 
   <div data-sport-section="us-sports">
-    <h2>Upcoming Major Sports Picks (NBA · NHL · NFL · MLB)</h2>
+    <h2>🏀🏒🏈⚾ Upcoming Major League Picks (NBA · NHL · NFL · MLB)</h2>
     <table id="otherSportsTable" class="sortable-table">
       <thead>
         <tr>
