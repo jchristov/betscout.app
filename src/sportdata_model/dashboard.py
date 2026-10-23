@@ -783,6 +783,7 @@ def generate_dashboard_html(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VektorPulse — Sports Edge &amp; Score Intelligence</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpolygon points='32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5' fill='%230f172a' stroke='%2338bdf8' stroke-width='3'/%3E%3Cpath d='M12 33 L20 33 L26 46 L35 16 L41 34 L51 20' stroke='%2322c55e' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M44.5 19.5 L51.5 19.5 L51.5 26.5' stroke='%2338bdf8' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {{
     --bg: #0b0f17; --panel: #131b29; --border: #223049; --text: #e6edf7;
@@ -791,8 +792,9 @@ def generate_dashboard_html(
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; padding: 20px 24px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; }}
   header {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
-  .brand-wrap {{ display: flex; align-items: center; gap: 13px; }}
-  .brand-logo {{ width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(34, 197, 94, 0.22)); border: 1px solid rgba(56, 189, 248, 0.45); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 0 16px rgba(56, 189, 248, 0.18); }}
+  .brand-wrap {{ display: flex; align-items: center; gap: 14px; }}
+  .brand-logo {{ width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28)); transition: transform 0.2s ease; }}
+  .brand-logo:hover {{ transform: scale(1.05); }}
   .brand-title-row {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
   h1 {{ margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
   .brand-tagline {{ font-size: 12px; color: #cbd5e1; font-weight: 500; }}
@@ -873,14 +875,35 @@ def generate_dashboard_html(
   <header>
     <div class="brand-wrap">
       <div class="brand-logo" title="VektorPulse — Sports Edge &amp; Score Intelligence">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#vpGrad)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="vpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id="vpShieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0f172a"/>
+              <stop offset="55%" stop-color="#131b29"/>
+              <stop offset="100%" stop-color="#0b2436"/>
+            </linearGradient>
+            <linearGradient id="vpRim" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="50%" stop-color="#10b981"/>
               <stop offset="100%" stop-color="#22c55e"/>
             </linearGradient>
+            <linearGradient id="vpPulse" x1="0%" y1="50%" x2="100%" y2="20%">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="55%" stop-color="#34d399"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+            <filter id="vpGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.0" result="blur"/>
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
           </defs>
-          <polyline points="2 13 6 13 9 5 14 19 17 11 22 11"/>
+          <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="url(#vpShieldBg)" stroke="url(#vpRim)" stroke-width="2.4" stroke-linejoin="round"/>
+          <circle cx="32" cy="32" r="19" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <path d="M16 40 C22 25, 42 25, 48 40" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.3" fill="none"/>
+          <path d="M12 33 L20 33 L26 46 L35 16 L41 34 L51 20" stroke="url(#vpPulse)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#vpGlow)"/>
+          <path d="M44.5 19.5 L51.5 19.5 L51.5 26.5" stroke="#22c55e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="35" cy="16" r="2.6" fill="#38bdf8"/>
+          <circle cx="51" cy="20" r="2.8" fill="#22c55e"/>
         </svg>
       </div>
       <div>
