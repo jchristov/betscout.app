@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+import unicodedata
 
 import math
 import numpy as np
@@ -371,6 +372,8 @@ def scan_upcoming_tennis(
     elo_games: dict[str, Elo] = {}
     game_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
     win6_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
+    decider_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    tourn_wins: dict[tuple[str, str, str], int] = defaultdict(int)
     last_match: dict[tuple[str, str], tuple[datetime, str, float]] = {}
     h2h: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0])
     train_by_tour: dict[str, list[tuple[list[float], int]]] = defaultdict(list)
@@ -379,6 +382,7 @@ def scan_upcoming_tennis(
         lg = r["league"]
         surf = r["surface"] or "hard"
         dt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
+        yw = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
         ea = elo_all.setdefault(lg, Elo(k=28, home_adv=0.0))
         es = elo_surf.setdefault((lg, surf), Elo(k=28, home_adv=0.0))
         eg = elo_games.setdefault(lg, Elo(k=28, home_adv=0.0))
@@ -412,6 +416,10 @@ def scan_upcoming_tennis(
         es.update(h, a, float(won_h))
         win6_hist[hk].append(float(won_h))
         win6_hist[ak].append(float(1 - won_h))
+        if won_h:
+            tourn_wins[(lg, h, yw)] += 1
+        else:
+            tourn_wins[(lg, a, yw)] += 1
         hg, ag = r["home_games"], r["away_games"]
         if hg is not None and ag is not None and (hg + ag) > 0:
             g_share = hg / (hg + ag)
@@ -419,6 +427,9 @@ def scan_upcoming_tennis(
             game_hist[hk].append(g_share)
             game_hist[ak].append(1.0 - g_share)
             tot_gms = hg + ag
+            if tot_gms >= 26:
+                decider_hist[hk].append(float(won_h))
+                decider_hist[ak].append(float(1 - won_h))
         else:
             eg.update(h, a, float(won_h))
             tot_gms = 20.0
@@ -505,8 +516,17 @@ def scan_upcoming_tennis(
                         win_prob = p_h if p_h >= 0.5 else (1.0 - p_h)
                         sgn = 1.0 if p_h >= 0.5 else -1.0
                         form_diff_pick = sgn * d_win6
-                        # Form-Slump / Hot-Qualifier Gate: skip when backed favorite has >=15pp worse 6-match form than opponent
+                        dh_q, da_q = decider_hist[hk], decider_hist[ak]
+                        d_decider = (float(np.mean(dh_q)) if len(dh_q) >= 3 else 0.5) - (float(np.mean(da_q)) if len(da_q) >= 3 else 0.5)
+                        decider_diff_pick = sgn * d_decider
+                        yw_live = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
+                        t_wins_diff_pick = int(sgn * (tourn_wins[(lg, h, yw_live)] - tourn_wins[(lg, a, yw_live)]))
+                        # 1. Form-Slump Gate: skip when backed favorite has >=15pp worse 6-match form
+                        # 2. Decider / Court-Acclimatization Gate: skip when backed favorite has >=20pp worse
+                        #    3-set/decider win rate OR has >=1 fewer current-week court win unless WinProb >= 80%
                         if win_prob < min_prob or form_diff_pick < -0.15:
+                            continue
+                        if win_prob < 0.80 and (decider_diff_pick < -0.20 or t_wins_diff_pick <= -1):
                             continue
                         live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
                         # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
@@ -514,8 +534,17 @@ def scan_upcoming_tennis(
                         if not espn_time_valid and live_odds.get("start_utc"):
                             ko = str(live_odds["start_utc"])
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
+                        opp_book_odds = live_odds["odds_p2"] if p_h >= 0.5 else live_odds["odds_p1"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
+                        # 3. Market-Blend & Zero-Margin EV Gate: when live bookmaker odds exist, blend 75% Model + 25% De-Vigged Market
+                        #    and require positive expected value (EV >= 0.0%) so sub-80% favorites with negative EV (like Lehecka @ 1.36) are vetoed!
+                        if book_odds and opp_book_odds and book_odds > 1.01 and opp_book_odds > 1.01:
+                            inv_pick, inv_opp = 1.0 / book_odds, 1.0 / opp_book_odds
+                            p_mkt_devig = inv_pick / (inv_pick + inv_opp)
+                            win_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
                         ev_pct = round((win_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
+                        if ev_pct is not None and ev_pct < 0.0 and win_prob < 0.80:
+                            continue
                         t_side = "H" if p_h >= 0.5 else "A"
                         best_of_sets = 5 if any(gs in t_name.lower() for gs in ("australian open", "roland garros", "french open", "wimbledon", "us open")) and lg == "atp" else 3
                         set_pred = predict_tennis_set_scores(
@@ -576,6 +605,8 @@ def scan_upcoming_tennis(
                                 "all_elo_diff": round(sgn * d_elo_all * 400.0, 1),
                                 "game_win_pct_diff": round(sgn * d_game_pct, 3),
                                 "form_6m_diff": round(form_diff_pick, 3),
+                                "decider_diff": round(decider_diff_pick, 3),
+                                "tourn_wins_diff": t_wins_diff_pick,
                                 "h2h_n": n_p,
                             },
                         })
@@ -645,6 +676,10 @@ def _extract_tennis_media(competitor: dict[str, Any] | None) -> tuple[str | None
     return hs_url, (str(flag_url) if flag_url else None)
 
 
+def _strip_accents(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(c)).lower()
+
+
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
     """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc & player headshots) for an upcoming tennis match."""
     empty: dict[str, Any] = {
@@ -652,8 +687,8 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
         "p1_img": None, "p2_img": None,
     }
-    p1_last = player_1.split()[-1].lower()
-    p2_last = player_2.split()[-1].lower()
+    p1_last = _strip_accents(player_1.split()[-1])
+    p2_last = _strip_accents(player_2.split()[-1])
     q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")
     search_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/search/all?q={q}")
     sofascore_eid: str | None = None
@@ -670,8 +705,8 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
             continue
         ht_obj = ent.get("homeTeam") or {}
         at_obj = ent.get("awayTeam") or {}
-        ht = (ht_obj.get("name") or "").lower()
-        at = (at_obj.get("name") or "").lower()
+        ht = _strip_accents(ht_obj.get("name") or "")
+        at = _strip_accents(at_obj.get("name") or "")
         if p1_last in ht and p2_last in at:
             sofascore_eid = str(ent.get("id"))
             sofascore_start_ts = ent.get("startTimestamp")
