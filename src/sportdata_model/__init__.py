@@ -47,7 +47,11 @@ def _run_script(module_name: str) -> None:
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     mod = __import__(module_name)
-    mod.main()
+    try:
+        mod.main()
+    except KeyboardInterrupt:
+        print("\n👋 Interrupted by user (Ctrl+C). Exiting cleanly.")
+        sys.exit(0)
 
 
 def main() -> None:

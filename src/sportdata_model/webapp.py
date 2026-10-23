@@ -320,12 +320,24 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
     return QuantDeskRequestHandler
 
 
+class _DaemonThreadingHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
 def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090) -> None:
     handler_cls = build_webapp_handler(root_dir)
-    server = ThreadingHTTPServer((host, port), handler_cls)
-    print(f"🚀 Sportdata Quant Desk Web App, SSE Stream & Telegram Addon running at http://{host}:{port}")
+    server = _DaemonThreadingHTTPServer((host, port), handler_cls)
+    print(f"🚀 Sportdata Quant Desk Web App, SSE Stream & Social Addon running at http://{host}:{port}")
     print(f"   - Dashboard UI:       http://{host}:{port}/")
     print(f"   - Live SSE Stream:    http://{host}:{port}/api/stream")
     print(f"   - Sync & Settle API:  http://{host}:{port}/api/sync")
+    print(f"   - Discord POST API:   http://{host}:{port}/api/discord")
     print(f"   - Telegram POST API:  http://{host}:{port}/api/telegram")
-    server.serve_forever()
+    print("   (Press Ctrl+C to stop)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n👋 Shutting down Sportdata Quant Desk Web App server...")
+    finally:
+        server.server_close()
