@@ -353,4 +353,30 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
      - **WTA (`n = 8,299`)**: `2:0` Brier = **`0.2382`** · On `WinProb >= 70%` (`n = 2,943`): **Actual `2:0` = `58.4%`** vs Model `55.1%` · On `WinProb >= 80%` (`n = 1,255`): **Actual `2:0` = `65.4%`** vs Model `63.9%`
 3. **Full Integration into Dashboard, Web App, CSV/JSON & Discord/Telegram Digests**:
    - Every Football pick card in [dashboard.html](./data/dashboard.html) now displays an **Expected Goals ($\lambda/\mu$), Top Exact Score, 2-Score Dutch, and 3-Score Cluster** strip.
-   - The Tennis table and Best Bets Summary Table now include the **Exact Score / Set-Score Projection** column, and Discord/Telegram digests automatically include `🎲 Exact Score: ...` on every football and tennis pick.
+   - The Tennis table and Best Bets Summary Table now include the **Score Projection** column, and Discord/Telegram digests automatically include `🎲 Exact Score: ...` on every football and tennis pick.
+
+---
+
+## 12. VektorPulse Platform Rebrand, 4-Archetype 2-Leg Combo Ledger, ESPN Core v2 Media & Post-Mortem #2 (`Griekspoor vs Lehecka`)
+
+1. **VektorPulse Rebrand, Sortable 8-Column Ledger Tables, Live In-Play Table & ESPN Core v2 Media ([`src/sportdata_model/dashboard.py`](./src/sportdata_model/dashboard.py) & [`app/src/views/QuantModelView.vue`](../app/src/views/QuantModelView.vue))**:
+   - Rebranded the platform to **VektorPulse** (*Sports Edge, Exact-Score & Paper-Betting Intelligence*) with a custom hexagonal shield + vector-pulse SVG logo and browser tab favicon ([`app/public/vektorpulse-logo.svg`](../app/public/vektorpulse-logo.svg)).
+   - Added **Per-Day Filtering** (`Today`, `Tomorrow`, `Today + Tomorrow`, `All Days`), **Provisional Time (`*`) Detection & Auto-Sync**, single-row interactive column sorting (`⇅` / `▲` / `▼`), a dedicated **Sport Icon** column (`⚽`, `🎾`, `🏀`, `🏒`, `🏈`, `⚾`), and unified **`Competition`** / **`Matchup`** / **`Pick`** / **`Score`** / **`Odds / CLV`** / **`Result / PnL`** 8-column tables across **Settled**, **🔴 Live In-Play**, and **Pending** paper bets.
+   - Integrated **100% ESPN-native competition logos, team crests, and verified tennis player headshots** via `https://sports.core.api.espn.com/v2/sports/tennis/athletes/{id}` (`a.espncdn.com/i/headshots/tennis/players/full/{id}.png` with automatic `a.espncdn.com/i/teamlogos/countries/500/{iso}.png` fallback — zero SofaScore image requests and zero 404s).
+   - Added an **Interactive Matchup Drill-Down Inspector Modal (`GET /api/matchup`)** displaying Last-6 form (`W`/`D`/`L` pills), H2H meetings, and Dixon-Coles / Tennis Set-Score breakdowns on click, plus a **Calibration & Tier / CLV Attribution Table (`by_tier`)** and **Quarter-Kelly Compounding vs. Flat `1.0u` Equity Curve**.
+
+2. **4-Archetype 2-Leg Combo / Parlay Engine & Auto-Grading Ledger (`paper_combos` in [`src/sportdata_model/paper_trade.py`](./src/sportdata_model/paper_trade.py))**:
+   - `build_recommended_2leg_doubles` constructs up to `8` uncorrelated 2-leg combinations across 4 high-probability market archetypes:
+     1. **`CROSS_SPORT_BANKER`** (*Cross-Sport Banker ML*: `1X2` / Moneyline / Tennis Match Winner)
+     2. **`DOUBLE_CHANCE_SHIELD`** (*Double-Chance / +1.5 Sets Shield*: Football `1X`/`X2` + Tennis `+1.5 Sets` Handicap, `~72–77%` combined hit rate)
+     3. **`GOALS_GAMES_TOTALS`** (*Goals & Games O/U Combo*: Poisson `Over 1.5` / `Under 3.5 Goals` + Tennis `Total Games O/U`)
+     4. **`STRAIGHT_SETS_SCORE_CLUSTER`** (*Straight-Sets & Score-Cluster Plus*: Tennis `2:0` Straight Sets + Football `3-Score Dutch Cluster`)
+   - Persists all recommended combos into `paper_combos`, grades each leg automatically (`settle_pending_paper_combos`), renders the sortable **`#combosLedgerTable`**, and sends atomic Discord alerts (`notify_new_settlements_to_discord` with `BEGIN IMMEDIATE` + `_SETTLEMENT_NOTIFY_LOCK` deduplication).
+
+3. **Post-Mortem #2 (`Tallon Griekspoor vs Jiri Lehecka`, `2-1`) & Tennis Model Upgrades**:
+   - Audited our sole loss in the current `22`-bet settled ledger (**`21W – 1L`, `95.5%` Win Rate, `+8.49u`, `+38.6%` ROI**) and implemented four permanent upgrades:
+     - **Unicode NFKD Diacritic Normalization (`_strip_accents`)**: Fixed `"Jiri Lehecka"` (ESPN) vs `"Jiri Lehečka"` (SofaScore) matching so players with accents always resolve live bookmaker odds.
+     - **75/25 Model + De-Vigged Market Blend & Zero-Margin EV Gate**: Blends `75% Model + 25% De-Vigged Market` probability when bookmaker odds exist and vetoes any sub-80% tennis pick with `ev_pct < 0.0%`.
+     - **Court-Acclimatization (`tourn_wins_diff`) & 3-Set Decider Resilience (`decider_diff`) Gate**: Tracks current-week tournament wins on court and rolling `>=26`-game decider win rates, lifting Post-2025 out-of-sample `>=70%` accuracy across `2,468` picks to **`78.06%` on ATP** (`+1.14%`) and **`78.83%` on WTA** (`+0.80%`).
+     - **Indoor Hard vs. Outdoor Hard Surface Split (`hard_indoor` vs `hard`) & Retroactive Pending Re-Validation**: Splits indoor hard-court tournaments (`Basel`, `Vienna`, `Paris`, `ATP Finals`, etc.) into their own `elo_surf` bucket and automatically prunes any pre-match `PENDING` bet that no longer passes upgraded gates.
+
