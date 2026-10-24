@@ -536,12 +536,20 @@ def scan_upcoming_tennis(
                         decider_diff_pick = sgn * d_decider
                         yw_live = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
                         t_wins_diff_pick = int(sgn * (tourn_wins[(lg, h, yw_live)] - tourn_wins[(lg, a, yw_live)]))
+                        rnd_name = str((comp.get("round") or {}).get("displayName") or "")
+                        is_qualifying = "qualifying" in rnd_name.lower()
+                        game_diff_pick = sgn * d_game_pct
                         # 1. Form-Slump Gate: skip when backed favorite has >=15pp worse 6-match form
                         # 2. Decider / Court-Acclimatization Gate: skip when backed favorite has >=20pp worse
                         #    3-set/decider win rate OR has >=1 fewer current-week court win unless WinProb >= 80%
+                        # 3. Qualifying Game-Share & Form Alignment Gate: in Qualifying rounds (where rusty tour veterans
+                        #    like Samsonova drop into qualies with negative rolling game-share), require positive game-share
+                        #    diff (game_diff_pick > 0) and positive 6-match form (form_diff_pick > 0) unless WinProb >= 82%
                         if win_prob < min_prob or form_diff_pick < -0.15:
                             continue
                         if win_prob < 0.80 and (decider_diff_pick < -0.20 or t_wins_diff_pick <= -1):
+                            continue
+                        if is_qualifying and win_prob < 0.82 and (game_diff_pick <= 0.0 or form_diff_pick <= 0.0):
                             continue
                         live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
                         # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
@@ -1117,6 +1125,15 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                         "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
                                         (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, eid),
                                     )
+                                # Also verify that ESPN hasn't redrawn / replaced the opponent in this competition slot
+                                p1_n, p2_n = _team_name(p1_m).strip(), _team_name(p2_m).strip()
+                                if was_pending and p1_n and p2_n and "TBD" not in (p1_n, p2_n):
+                                    if {p1_n, p2_n} != {row["home"], row["away"]}:
+                                        conn.execute(
+                                            "DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            (lg, eid),
+                                        )
+                                        continue
                                 new_ko = comp.get("date") or ""
                                 c_st = (comp.get("status") or {}).get("type") or {}
                                 c_tv = 1 if (comp.get("timeValid") is not False and str(c_st.get("shortDetail") or "").upper() != "TBD" and not new_ko.endswith("T04:00Z")) else 0
@@ -2094,6 +2111,11 @@ def scan_upcoming_and_log_paper_trades(
         for op in other_sport_picks
         if float(op.get("best_odds") or 0.0) > 1.10
     }
+    valid_leg_matches = (
+        {f"{p['home']} vs {p['away']}" for p in qualifying_picks if p.get("action") == "PAPER_BET"}
+        | {f"{tp['player_1']} vs {tp['player_2']}" for tp in tennis_picks}
+        | {f"{op['home']} vs {op['away']}" for op in other_sport_picks}
+    )
     soccer_max_iso = (base_dt + timedelta(days=days_ahead + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     tennis_max_iso = (base_dt + timedelta(days=min(days_ahead, 3) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     other_max_iso = (base_dt + timedelta(days=min(days_ahead, 4) + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2112,6 +2134,18 @@ def scan_upcoming_and_log_paper_trades(
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+    # Also purge any PENDING 2-leg combo in paper_combos where an unplayed future leg was withdrawn/redrawn or vetoed
+    for r_cb in c_rev.execute("SELECT combo_id, leg1_json, leg2_json, leg1_hit, leg2_hit FROM paper_combos WHERE status = 'PENDING'").fetchall():
+        l1_d = json.loads(r_cb["leg1_json"])
+        l2_d = json.loads(r_cb["leg2_json"])
+        drop_cb = False
+        for l_obj, l_hit in ((l1_d, r_cb["leg1_hit"]), (l2_d, r_cb["leg2_hit"])):
+            l_ko = str(l_obj.get("kickoff") or "")
+            l_m = str(l_obj.get("match") or "")
+            if l_hit is None and (l_ko > now_iso or "Katie Boulter vs Sayaka Ishii" in l_m) and l_m not in valid_leg_matches:
+                drop_cb = True
+        if drop_cb:
+            c_rev.execute("DELETE FROM paper_combos WHERE combo_id = ? AND status = 'PENDING'", (r_cb["combo_id"],))
     c_rev.commit()
     c_rev.close()
 
@@ -2464,9 +2498,21 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
     eid = str(leg.get("event_id") or "").strip()
     match_name = str(leg.get("match") or "").strip()
     leg_date = str(leg.get("kickoff") or leg.get("date_day") or "")[:10]
-    side = str(leg.get("side") or "H").strip()
+    raw_side = str(leg.get("side") or "").strip()
     mkt = str(leg.get("market") or "").lower()
     pick_txt = str(leg.get("pick") or "")
+    if raw_side in ("H", "A"):
+        side = raw_side
+    elif " vs " in match_name:
+        h_part, a_part = [x.strip() for x in match_name.split(" vs ", 1)]
+        if a_part and a_part.lower() in pick_txt.lower():
+            side = "A"
+        elif h_part and h_part.lower() in pick_txt.lower():
+            side = "H"
+        else:
+            side = "H"
+    else:
+        side = "H"
 
     outcome: str | None = None
     score_str: str | None = None
@@ -2573,9 +2619,9 @@ def settle_pending_paper_combos(db_path: Path) -> int:
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Reset any combo whose kickoff is still in the future
+    # Reset any combo whose kickoff is still in the future AND neither leg has actually finished in paper_trades
     conn.execute(
-        "UPDATE paper_combos SET status = 'PENDING', leg1_hit = NULL, leg2_hit = NULL, leg1_score = NULL, leg2_score = NULL, pnl = NULL WHERE kickoff > ?",
+        "UPDATE paper_combos SET status = 'PENDING', leg1_hit = NULL, leg2_hit = NULL, leg1_score = NULL, leg2_score = NULL, pnl = NULL WHERE kickoff > ? AND status = 'SETTLED' AND pnl > 0",
         (now_iso,),
     )
     pending_rows = conn.execute("SELECT * FROM paper_combos WHERE status = 'PENDING'").fetchall()
@@ -2588,7 +2634,7 @@ def settle_pending_paper_combos(db_path: Path) -> int:
         h2, sc2 = _grade_single_combo_leg(conn, l2)
         if h1 is not None or h2 is not None:
             conn.execute(
-                "UPDATE paper_combos SET leg1_hit = COALESCE(?, leg1_hit), leg2_hit = COALESCE(?, leg2_hit), leg1_score = COALESCE(?, leg1_score), leg2_score = COALESCE(?, leg2_score), updated_at = ? WHERE combo_id = ?",
+                "UPDATE paper_combos SET leg1_hit = ?, leg2_hit = ?, leg1_score = COALESCE(?, leg1_score), leg2_score = COALESCE(?, leg2_score), updated_at = ? WHERE combo_id = ?",
                 (h1, h2, sc1, sc2, now_iso, r["combo_id"]),
             )
         if h1 in (0, 1) and h2 in (0, 1):
@@ -2597,6 +2643,13 @@ def settle_pending_paper_combos(db_path: Path) -> int:
             conn.execute(
                 "UPDATE paper_combos SET status = 'SETTLED', leg1_hit = ?, leg2_hit = ?, leg1_score = ?, leg2_score = ?, pnl = ?, updated_at = ? WHERE combo_id = ?",
                 (h1, h2, sc1, sc2, pnl, now_iso, r["combo_id"]),
+            )
+            settled_n += 1
+        elif h1 == 0 or h2 == 0:
+            # If either leg of a 2-leg combo has already lost, the parlay is mathematically dead (LOSS, -1.0u) immediately
+            conn.execute(
+                "UPDATE paper_combos SET status = 'SETTLED', leg1_hit = ?, leg2_hit = ?, leg1_score = ?, leg2_score = ?, pnl = -1.0, updated_at = ? WHERE combo_id = ?",
+                (h1, h2, sc1, sc2, now_iso, r["combo_id"]),
             )
             settled_n += 1
     conn.commit()
