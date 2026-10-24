@@ -2162,10 +2162,11 @@ def scan_upcoming_and_log_paper_trades(
                     }
                     qualifying_picks.append(best_candidate)
                     # Only log pre-match ('pre') fixtures into paper_trades so in-play matches cannot retroactively pollute the ledger
-                    if not (vetoed_news or vetoed_xi) and not best_candidate.get("is_live"):
-                        _upsert_paper_trade(db_path, best_candidate, now_iso)
+                    if not (vetoed_news or vetoed_xi):
+                        if not best_candidate.get("is_live"):
+                            _upsert_paper_trade(db_path, best_candidate, now_iso)
                     else:
-                        # Remove from active PENDING paper_trades if previously logged before injury/lineup news broke
+                        # Remove from active PENDING paper_trades ONLY if vetoed by injury/lineup news before kickoff
                         c_del = _open_db(db_path)
                         c_del.execute(
                             "DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'",
