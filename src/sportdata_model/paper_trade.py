@@ -559,11 +559,24 @@ def scan_upcoming_tennis(
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
                         opp_book_odds = live_odds["odds_p2"] if p_h >= 0.5 else live_odds["odds_p1"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
-                        # 3. Market-Blend & Zero-Margin EV Gate: when live bookmaker odds exist, blend 75% Model + 25% De-Vigged Market
-                        #    and require positive expected value (EV >= 0.0%) so sub-80% favorites with negative EV (like Lehecka @ 1.36) are vetoed!
+                        # 4. Market-Blend, Market-Divergence & Challenger/All-Level Form Gate:
+                        #    - Blend 75% Model + 25% De-Vigged Market when live bookmaker odds exist
+                        #    - Veto when Market-Implied Prob is >=15pp lower than Model Prob (meaning the market sees
+                        #      Challenger/ITF form or injury data absent from main-tour ESPN, as in Faria vs Brunold!)
+                        #    - Veto when SofaScore all-level last-5 win rate is <=20% (1-4 or 0-5) while opponent is >=60% (3-2+)
+                        sf_p1_f5 = live_odds.get("p1_last5_win_rate")
+                        sf_p2_f5 = live_odds.get("p2_last5_win_rate")
+                        pick_f5 = sf_p1_f5 if p_h >= 0.5 else sf_p2_f5
+                        opp_f5 = sf_p2_f5 if p_h >= 0.5 else sf_p1_f5
+                        if pick_f5 is not None and opp_f5 is not None:
+                            if pick_f5 <= 0.25 and opp_f5 >= 0.60:
+                                continue
+                            form_diff_pick = round(pick_f5 - opp_f5, 3)
                         if book_odds and opp_book_odds and book_odds > 1.01 and opp_book_odds > 1.01:
                             inv_pick, inv_opp = 1.0 / book_odds, 1.0 / opp_book_odds
                             p_mkt_devig = inv_pick / (inv_pick + inv_opp)
+                            if (win_prob - p_mkt_devig) >= 0.15 and p_mkt_devig < 0.60:
+                                continue
                             win_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
                         ev_pct = round((win_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
                         if ev_pct is not None and ev_pct < 0.0 and win_prob < 0.80:
@@ -704,11 +717,12 @@ def _strip_accents(s: str) -> str:
 
 
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
-    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc & player headshots) for an upcoming tennis match."""
+    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc, player headshots,
+    and true 5-match all-level ATP/WTA/Challenger form) for an upcoming tennis match."""
     empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
-        "p1_img": None, "p2_img": None,
+        "p1_img": None, "p2_img": None, "p1_last5_win_rate": None, "p2_last5_win_rate": None,
     }
     p1_last = _strip_accents(player_1.split()[-1])
     p2_last = _strip_accents(player_2.split()[-1])
@@ -751,6 +765,20 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
         out["p1_img"] = f"https://api.sofascore.com/api/v1/team/{p1_tid}/image"
     if p2_tid:
         out["p2_img"] = f"https://api.sofascore.com/api/v1/team/{p2_tid}/image"
+    for key_lbl, tid_v in (("p1_last5_win_rate", p1_tid), ("p2_last5_win_rate", p2_tid)):
+        if tid_v:
+            ev_hist = _fetch_live_json(f"https://api.sofascore.com/api/v1/team/{tid_v}/events/last/0", ttl_sec=900.0)
+            finished_evs = [
+                e for e in (ev_hist.get("events") or [])
+                if ((e.get("status") or {}).get("type") == "finished") and e.get("winnerCode") in (1, 2)
+            ][-5:]
+            if len(finished_evs) >= 3:
+                wins_n = sum(
+                    1 for e in finished_evs
+                    if (e.get("winnerCode") == 1 and (e.get("homeTeam") or {}).get("id") == tid_v)
+                    or (e.get("winnerCode") == 2 and (e.get("awayTeam") or {}).get("id") == tid_v)
+                )
+                out[key_lbl] = round(wins_n / len(finished_evs), 3)
     if isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
         out["start_utc"] = datetime.fromtimestamp(int(sofascore_start_ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for mkt in odds_data.get("markets") or []:
