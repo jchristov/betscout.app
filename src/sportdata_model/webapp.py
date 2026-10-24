@@ -245,6 +245,25 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
                         break
         except Exception:
             pass
+    if not model_pick_detail and db_path.exists():
+        try:
+            conn_pt = sqlite3.connect(db_path)
+            conn_pt.row_factory = sqlite3.Row
+            pt_r = conn_pt.execute(
+                "SELECT * FROM paper_trades WHERE home = ? AND away = ? ORDER BY kickoff DESC LIMIT 1",
+                (h, a),
+            ).fetchone()
+            conn_pt.close()
+            if pt_r:
+                model_pick_detail = {
+                    "tier": pt_r["tier"],
+                    "score": pt_r["composite_score"],
+                    "p_mkt": pt_r["p_mkt"],
+                    "best_odds": pt_r["logged_best_odds"],
+                    "factors": json.loads(pt_r["factor_breakdown_json"] or "{}"),
+                }
+        except Exception:
+            pass
 
     return {
         "ok": True,

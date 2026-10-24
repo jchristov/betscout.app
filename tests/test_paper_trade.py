@@ -598,6 +598,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "toggleInplayItemAlert" in html_text
     assert "exactScoreSplitterSection" in html_text and "recalcStandaloneDutchSplitter" in html_text
     assert "settingsModal" in html_text and "openSettingsModal" in html_text
+    assert "EMBEDDED_MATCHUP_DETAILS" in html_text
+
 
     # Test per-sport Discord webhook resolution via .env and UI overrides
     env_file.write_text(

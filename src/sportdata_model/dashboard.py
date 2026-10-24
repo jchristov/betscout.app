@@ -556,6 +556,92 @@ def generate_dashboard_html(
     tennis_picks = [tp for tp in raw_tennis_picks if float(tp.get("min_fair_odds") or 0.0) > min_odds]
     other_picks = [op for op in raw_other_picks if float(op.get("best_odds") or 0.0) > min_odds]
 
+    # Precompute embedded H2H + Last-6 Form lookup map from matches.sqlite for every matchup rendered on the page
+    all_page_pairs: set[tuple[str, str]] = set()
+    for p in soccer_picks:
+        if p.get("home") and p.get("away"):
+            all_page_pairs.add((str(p["home"]), str(p["away"])))
+    for tp in tennis_picks[:25]:
+        if tp.get("player_1") and tp.get("player_2"):
+            all_page_pairs.add((str(tp["player_1"]), str(tp["player_2"])))
+    for op in other_picks[:25]:
+        if op.get("home") and op.get("away"):
+            all_page_pairs.add((str(op["home"]), str(op["away"])))
+    for tr in ((rec.get("paper_ledger") or {}).get("trades") or []):
+        if tr.get("home") and tr.get("away"):
+            all_page_pairs.add((str(tr["home"]), str(tr["away"])))
+    for d_c in ((rec.get("recommended_doubles") or []) + ((rec.get("paper_ledger") or {}).get("combos") or [])):
+        for lk in ("leg_1", "leg_2"):
+            m_txt = str((d_c.get(lk) or {}).get("match") or "")
+            if " vs " in m_txt:
+                h_m, a_m = [x.strip() for x in m_txt.split(" vs ", 1)]
+                if h_m and a_m:
+                    all_page_pairs.add((h_m, a_m))
+
+    embedded_matchup_details: dict[str, dict[str, Any]] = {}
+    if db_path.exists() and all_page_pairs:
+        try:
+            c_det = sqlite3.connect(db_path)
+            c_det.row_factory = sqlite3.Row
+            team_form_cache: dict[str, list[dict[str, Any]]] = {}
+            all_teams = {t for pair in all_page_pairs for t in pair}
+            for t_name in all_teams:
+                f_rows = []
+                for r in c_det.execute(
+                    "SELECT kickoff, home, away, home_score, away_score, outcome FROM matches WHERE outcome IS NOT NULL AND (home = ? OR away = ?) ORDER BY kickoff DESC LIMIT 6",
+                    (t_name, t_name),
+                ).fetchall():
+                    is_h = r["home"] == t_name
+                    opp = r["away"] if is_h else r["home"]
+                    res = "D" if r["outcome"] == "D" else ("W" if ((is_h and r["outcome"] == "H") or (not is_h and r["outcome"] == "A")) else "L")
+                    sc = f"{int(r['home_score'])}-{int(r['away_score'])}" if r["home_score"] is not None and r["away_score"] is not None else r["outcome"]
+                    f_rows.append({"date": str(r["kickoff"])[:10], "opp": opp, "venue": "H" if is_h else "A", "result": res, "score": sc})
+                team_form_cache[t_name] = f_rows
+
+            pick_detail_map: dict[tuple[str, str], dict[str, Any]] = {}
+            for p in soccer_picks:
+                pick_detail_map[(p["home"], p["away"])] = {
+                    "exact_score_prediction": p.get("exact_score_prediction"),
+                    "factors_tanh_z": p.get("factors_tanh_z"),
+                }
+            for tp in tennis_picks:
+                pick_detail_map[(tp["player_1"], tp["player_2"])] = {
+                    "set_score_prediction": tp.get("set_score_prediction"),
+                    "factors": tp.get("factors"),
+                }
+            for op in other_picks:
+                pick_detail_map[(op["home"], op["away"])] = {
+                    "p_model": op.get("p_model"),
+                    "ev_pct": op.get("ev_pct"),
+                    "factors": {"p_model": op.get("p_model"), "p_mkt": op.get("p_mkt"), "ev_pct": op.get("ev_pct"), "composite": op.get("composite_score")},
+                }
+            for tr in ((rec.get("paper_ledger") or {}).get("trades") or []):
+                if tr.get("home") and tr.get("away") and (tr["home"], tr["away"]) not in pick_detail_map:
+                    pick_detail_map[(tr["home"], tr["away"])] = {
+                        "factors": tr.get("factors") or {},
+                    }
+
+            for h_n, a_n in all_page_pairs:
+                h2h_list = []
+                for r in c_det.execute(
+                    "SELECT league, kickoff, home, away, home_score, away_score, outcome FROM matches WHERE outcome IS NOT NULL AND ((home = ? AND away = ?) OR (home = ? AND away = ?)) ORDER BY kickoff DESC LIMIT 8",
+                    (h_n, a_n, a_n, h_n),
+                ).fetchall():
+                    sc = f"{int(r['home_score'])}-{int(r['away_score'])}" if r["home_score"] is not None and r["away_score"] is not None else r["outcome"]
+                    h2h_list.append({"date": str(r["kickoff"])[:10], "league": r["league"], "home": r["home"], "away": r["away"], "score": sc, "outcome": r["outcome"]})
+                embedded_matchup_details[f"{h_n} vs {a_n}"] = {
+                    "ok": True,
+                    "home": h_n,
+                    "away": a_n,
+                    "h2h": h2h_list,
+                    "form_home": team_form_cache.get(h_n, []),
+                    "form_away": team_form_cache.get(a_n, []),
+                    "pick_detail": pick_detail_map.get((h_n, a_n), {}),
+                }
+            c_det.close()
+        except Exception:
+            pass
+
     active_bets = sum(1 for p in soccer_picks if p.get("action") == "PAPER_BET")
     vetoed_bets = sum(1 for p in soccer_picks if str(p.get("action", "")).startswith("VETOED"))
     mean_clv = (ledger.get("mean_clv_pct") or 0.0) * 100.0
@@ -636,9 +722,9 @@ def generate_dashboard_html(
                   <span class="pill {badge_cls}">{html.escape(act)}</span>
                   {live_pill}
                 </div>
-                <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Open Exact-Score Investment Splitter for this match" onclick="selectMatchForDutching({p_match_plain_js})">🎲 Split €</button> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
+                <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector({html.escape(json.dumps(p['home']))}, {html.escape(json.dumps(p['away']))}, {html.escape(json.dumps(p['league']))})">🔍 H2H</button> <button type="button" class="btn-mini" title="Open Exact-Score Investment Splitter for this match" onclick="selectMatchForDutching({p_match_plain_js})">🎲 Split €</button> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
               </div>
-              <h3 class="matchup-inline">{p_home_logo}<span>{html.escape(p['home'])}</span> <span class="muted">vs</span> {p_away_logo}<span>{html.escape(p['away'])}</span></h3>
+              <h3 class="matchup-inline">{_matchup_html(p['home'], p['away'], p.get('home_logo'), p.get('away_logo'), league=p['league'])}</h3>
               <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: {p_pick_logo}<b class="num-pos">{html.escape(pick_team)} ({p['side']})</b> · ¼-Kelly: <b class="kelly-stake" data-kelly-pct="{0.0 if is_veto else qk_pct:.3f}">{0.0 if is_veto else qk_pct:.2f}% (€{0.0 if is_veto else qk_pct * 10.0:.2f})</b></div>
               <div class="odds-strip">
                 <div><span>Best 1X2</span><b>{p['best_odds']:.2f}</b></div>
@@ -786,6 +872,18 @@ def generate_dashboard_html(
                     else ' <span class="pill">TRACKED</span>'
                 )
             )
+            l1_m_parts = str(l1.get("match") or "").split(" vs ", 1)
+            l2_m_parts = str(l2.get("match") or "").split(" vs ", 1)
+            l1_click = (
+                f'class="matchup-clickable" title="Click to inspect H2H &amp; Last-6 Form" onclick="openMatchupInspector({html.escape(json.dumps(l1_m_parts[0]))}, {html.escape(json.dumps(l1_m_parts[1]))}, {html.escape(json.dumps(str(l1.get("league") or "")))})"'
+                if len(l1_m_parts) == 2
+                else ""
+            )
+            l2_click = (
+                f'class="matchup-clickable" title="Click to inspect H2H &amp; Last-6 Form" onclick="openMatchupInspector({html.escape(json.dumps(l2_m_parts[0]))}, {html.escape(json.dumps(l2_m_parts[1]))}, {html.escape(json.dumps(str(l2.get("league") or "")))})"'
+                if len(l2_m_parts) == 2
+                else ""
+            )
             d_cards.append(
                 f"""
                 <div class="card" data-day="{html.escape(d1_loc)}">
@@ -794,8 +892,8 @@ def generate_dashboard_html(
                     <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
                   </div>
                   <div style="margin-top:8px; font-size:12px;">
-                    <div>1️⃣ {ico1} <b>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%){l1_badge}</div>
-                    <div style="margin-top:4px;">2️⃣ {ico2} <b>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}){m2_pill} &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%){l2_badge}</div>
+                    <div>1️⃣ {ico1} <b {l1_click}>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%){l1_badge}</div>
+                    <div style="margin-top:4px;">2️⃣ {ico2} <b {l2_click}>{html.escape(l2['match'])}</b> ({_time_span(l2['kickoff'], time_valid=l2.get('time_valid'))}){m2_pill} &rarr; <b class="num-pos">{html.escape(l2['pick'])}</b> @ <b>{l2['odds']:.2f}</b> ({l2['prob']*100:.1f}%){l2_badge}</div>
                   </div>
                 </div>
                 """
@@ -827,13 +925,25 @@ def generate_dashboard_html(
                 )
             )
             c_search = html.escape(f"{c['combo_label']} {cl1.get('match','')} {cl1.get('pick','')} {cl2.get('match','')} {cl2.get('pick','')}".lower())
+            cl1_parts = str(cl1.get("match") or "").split(" vs ", 1)
+            cl2_parts = str(cl2.get("match") or "").split(" vs ", 1)
+            cl1_click = (
+                f'class="matchup-clickable" title="Click to inspect H2H &amp; Last-6 Form" onclick="openMatchupInspector({html.escape(json.dumps(cl1_parts[0]))}, {html.escape(json.dumps(cl1_parts[1]))}, {html.escape(json.dumps(str(cl1.get("league") or "")))})"'
+                if len(cl1_parts) == 2
+                else ""
+            )
+            cl2_click = (
+                f'class="matchup-clickable" title="Click to inspect H2H &amp; Last-6 Form" onclick="openMatchupInspector({html.escape(json.dumps(cl2_parts[0]))}, {html.escape(json.dumps(cl2_parts[1]))}, {html.escape(json.dumps(str(cl2.get("league") or "")))})"'
+                if len(cl2_parts) == 2
+                else ""
+            )
             combo_table_rows.append(
                 f"""
                 <tr data-day="{html.escape(c_day)}" data-search="{c_search}">
                   <td data-sort="{html.escape(c['combo_label'])}"><span class="pill tier">{html.escape(c['combo_label'])}</span></td>
                   <td data-sort="{html.escape(c['kickoff'])}">{_time_span(c['kickoff'], bold=True)}</td>
-                  <td data-sort="{html.escape(cl1.get('match',''))}">{ico_c1} <b>{html.escape(cl1.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl1.get('pick',''))}</b> @ {float(cl1.get('odds') or 1.0):.2f}{b1}</td>
-                  <td data-sort="{html.escape(cl2.get('match',''))}">{ico_c2} <b>{html.escape(cl2.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl2.get('pick',''))}</b> @ {float(cl2.get('odds') or 1.0):.2f}{b2}</td>
+                  <td data-sort="{html.escape(cl1.get('match',''))}">{ico_c1} <b {cl1_click}>{html.escape(cl1.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl1.get('pick',''))}</b> @ {float(cl1.get('odds') or 1.0):.2f}{b1}</td>
+                  <td data-sort="{html.escape(cl2.get('match',''))}">{ico_c2} <b {cl2_click}>{html.escape(cl2.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl2.get('pick',''))}</b> @ {float(cl2.get('odds') or 1.0):.2f}{b2}</td>
                   <td data-sort="{float(c['combined_prob'])*100:.1f}"><b class="num-pos">{float(c['combined_prob'])*100:.1f}%</b></td>
                   <td data-sort="{float(c['combined_odds']):.2f}"><b>{float(c['combined_odds']):.2f}</b> (Fair {float(c['min_fair_odds']):.2f})</td>
                   <td data-sort="{c_pnl_v:.2f}">{c_res_pill}</td>
@@ -1986,6 +2096,7 @@ def generate_dashboard_html(
   </table>
 
   <script>
+    const EMBEDDED_MATCHUP_DETAILS = {json.dumps(embedded_matchup_details)};
     let currentSportFilter = {json.dumps(norm_sport)};
     let currentDayFilter = {json.dumps(default_day_filter)};
     let currentDaySet = null;
@@ -2043,14 +2154,24 @@ def generate_dashboard_html(
       titleEl.textContent = '🔍 ' + home + ' vs ' + away;
       bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from VektorPulse store...</div>';
       modal.style.display = 'flex';
-      if (!window.location.protocol.startsWith('http')) {{
-        bodyEl.innerHTML = '<p>Start the VektorPulse WebApp server (<code>uv run sportdata-webapp --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live SQLite H2H &amp; form drill-down.</p>';
-        return;
-      }}
       try {{
-        const qs = new URLSearchParams({{ home: home || '', away: away || '', league: league || '' }});
-        const r = await fetch('/api/matchup?' + qs.toString());
-        const d = await r.json();
+        let d = null;
+        if (window.location.protocol.startsWith('http')) {{
+          try {{
+            const qs = new URLSearchParams({{ home: home || '', away: away || '', league: league || '' }});
+            const r = await fetch('/api/matchup?' + qs.toString());
+            if (r.ok) d = await r.json();
+          }} catch (_) {{}}
+        }}
+        if (!d || !d.ok) {{
+          const mKey = (home || '') + ' vs ' + (away || '');
+          const mKeyRev = (away || '') + ' vs ' + (home || '');
+          d = EMBEDDED_MATCHUP_DETAILS[mKey] || EMBEDDED_MATCHUP_DETAILS[mKeyRev] || null;
+        }}
+        if (!d) {{
+          bodyEl.innerHTML = '<p>No precomputed H2H/Form found for <b>' + escHtml(home + ' vs ' + away) + '</b>. Start the VektorPulse WebApp server (<code>uv run vektorpulse --port 8090</code>) for live database queries.</p>';
+          return;
+        }}
         const fmtForm = (rows) => {{
           if (!rows || !rows.length) return '<span class="muted">No recent matches in store</span>';
           return rows.map(m =>
@@ -2125,12 +2246,26 @@ def generate_dashboard_html(
             '</div>' +
           '</div>';
         }}
+        const facObj = pk.factors_tanh_z || pk.factors || null;
+        let facHtml = '';
+        if (facObj && typeof facObj === 'object' && Object.keys(facObj).length) {{
+          const facPills = Object.entries(facObj).map(([k, v]) => {{
+            const numV = Number(v || 0);
+            const cls = numV > 0 ? 'badge-bet' : (numV < 0 ? 'badge-veto' : '');
+            return '<span class="pill ' + cls + '">' + escHtml(k) + ': ' + (numV >= 0 ? '+' : '') + numV + '</span>';
+          }}).join(' ');
+          facHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">' +
+            '<div style="margin-bottom:6px;"><b>📊 Model Factor &amp; Edge Breakdown</b></div>' +
+            '<div style="display:flex; flex-wrap:wrap; gap:5px;">' + facPills + '</div>' +
+          '</div>';
+        }}
         bodyEl.innerHTML =
           '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">' +
             '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(home) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_home) + '</div>' +
             '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(away) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_away) + '</div>' +
           '</div>' +
           '<div style="margin-top:14px;"><div style="margin-bottom:6px; color:var(--text);"><b>⚔️ Head-to-Head History (' + (d.h2h?.length || 0) + ' Meetings)</b></div>' + h2hHtml + '</div>' +
+          facHtml +
           scHtml;
       }} catch (err) {{
         bodyEl.innerHTML = '<div class="num-neg">Failed to load matchup details: ' + escHtml(String(err)) + '</div>';
@@ -3043,7 +3178,10 @@ def generate_dashboard_html(
         const hLogoHtml = tr.home_logo ? '<img src="' + escHtml(tr.home_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
         const aLogoHtml = tr.away_logo ? '<img src="' + escHtml(tr.away_logo) + '" class="' + imgCls + '" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
         const pLogoHtml = (tr.side === 'H' ? hLogoHtml : aLogoHtml);
-        const matchRichHtml = '<span class="matchup-inline">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
+        const hArg = escHtml(JSON.stringify(tr.home || ''));
+        const aArg = escHtml(JSON.stringify(tr.away || ''));
+        const lgArg = escHtml(JSON.stringify(tr.league || ''));
+        const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
         const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
