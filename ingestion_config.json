@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Descriptor of all configured sports and leagues for periodic & historical ingestion.",
-  "updated_at": "2026-10-24T06:56:14Z",
+  "updated_at": "2026-10-24T19:49:28Z",
   "sources": [
     {
       "sport": "soccer",
@@ -326,6 +326,96 @@
       "first_kickoff": "2026-08-23T11:00Z",
       "last_ingested_kickoff": "2026-10-23T19:00Z",
       "last_ingested_ymd": "20261023"
+    },
+    {
+      "sport": "volleyball",
+      "league": "wvolleyball",
+      "name": "NCAA Women's Volleyball",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 1537,
+      "priced_records": 0,
+      "first_kickoff": "2026-09-24T22:00Z",
+      "last_ingested_kickoff": "2026-10-24T18:00Z",
+      "last_ingested_ymd": "20261024"
+    },
+    {
+      "sport": "volleyball",
+      "league": "mvolleyball",
+      "name": "NCAA Men's Volleyball",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 476,
+      "priced_records": 0,
+      "first_kickoff": "2026-03-01T19:00Z",
+      "last_ingested_kickoff": "2026-05-11T23:00Z",
+      "last_ingested_ymd": "20260511"
+    },
+    {
+      "sport": "basketball",
+      "league": "wnba",
+      "name": "WNBA",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 25,
+      "priced_records": 25,
+      "first_kickoff": "2026-09-24T23:00Z",
+      "last_ingested_kickoff": "2026-10-24T17:00Z",
+      "last_ingested_ymd": "20261024"
+    },
+    {
+      "sport": "basketball",
+      "league": "nbl",
+      "name": "NBL (Australia)",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 34,
+      "priced_records": 0,
+      "first_kickoff": "2026-09-24T09:30Z",
+      "last_ingested_kickoff": "2026-10-24T08:30Z",
+      "last_ingested_ymd": "20261024"
+    },
+    {
+      "sport": "basketball",
+      "league": "ncaam",
+      "name": "NCAA Men's Basketball",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 152,
+      "priced_records": 147,
+      "first_kickoff": "2026-03-01T18:30Z",
+      "last_ingested_kickoff": "2026-04-07T00:50Z",
+      "last_ingested_ymd": "20260407"
+    },
+    {
+      "sport": "basketball",
+      "league": "ncaaw",
+      "name": "NCAA Women's Basketball",
+      "enabled": true,
+      "default_years": [
+        2025,
+        2026
+      ],
+      "total_records": 218,
+      "priced_records": 101,
+      "first_kickoff": "2026-03-01T17:00Z",
+      "last_ingested_kickoff": "2026-04-05T19:30Z",
+      "last_ingested_ymd": "20260405"
     }
   ]
 }

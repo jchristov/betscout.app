@@ -46,6 +46,12 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     {"sport": "tennis", "league": "atp", "name": "ATP Tour", "enabled": True, "default_years": [2022, 2023, 2024, 2025, 2026]},
     {"sport": "tennis", "league": "wta", "name": "WTA Tour", "enabled": True, "default_years": [2022, 2023, 2024, 2025, 2026]},
     {"sport": "basketball", "league": "nba", "name": "NBA", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "basketball", "league": "wnba", "name": "WNBA", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "basketball", "league": "ncaam", "name": "NCAA Men's Basketball", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "basketball", "league": "ncaaw", "name": "NCAA Women's Basketball", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "basketball", "league": "nbl", "name": "NBL (Australia)", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "volleyball", "league": "wvolleyball", "name": "NCAA Women's Volleyball", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "volleyball", "league": "mvolleyball", "name": "NCAA Men's Volleyball", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "hockey", "league": "nhl", "name": "NHL", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "football", "league": "nfl", "name": "NFL", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "baseball", "league": "mlb", "name": "MLB", "enabled": True, "default_years": [2025, 2026]},
@@ -225,7 +231,7 @@ def ingest_universal(
 
     sources_by_key = {s["league"]: s for s in cfg.get("sources", [])}
     target_leagues = [
-        League(k, sources_by_key[k]["sport"], k)
+        resolve_league(f"{sources_by_key[k]['sport']}/{k}")
         for k in [s["league"] for s in cfg.get("sources", []) if s["league"] in target_keys]
     ]
 

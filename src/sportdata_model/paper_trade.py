@@ -1430,7 +1430,7 @@ def scan_upcoming_other_sports(
                    d.home_corners, d.away_corners, d.home_fouls, d.away_fouls
             FROM matches m
             LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
-            WHERE m.sport IN ('basketball', 'hockey', 'football', 'baseball')
+            WHERE m.sport IN ('basketball', 'volleyball', 'hockey', 'football', 'baseball')
                   AND m.outcome IS NOT NULL AND m.home_score IS NOT NULL
             ORDER BY m.kickoff
             """
@@ -1442,8 +1442,8 @@ def scan_upcoming_other_sports(
     box_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
     last_dt: dict[tuple[str, str], datetime] = {}
     hist_feats_by_lg: dict[str, list[list[float]]] = defaultdict(list)
-    sport_home_adv = {"nba": 45.0, "nhl": 25.0, "nfl": 40.0, "mlb": 20.0}
-    margin_scale = {"nba": 12.0, "nhl": 2.5, "nfl": 14.0, "mlb": 3.5}
+    sport_home_adv = {"nba": 45.0, "wnba": 40.0, "ncaam": 55.0, "ncaaw": 50.0, "nbl": 45.0, "wvolleyball": 35.0, "mvolleyball": 35.0, "nhl": 25.0, "nfl": 40.0, "mlb": 20.0}
+    margin_scale = {"nba": 12.0, "wnba": 11.0, "ncaam": 11.5, "ncaaw": 12.0, "nbl": 11.0, "wvolleyball": 1.5, "mvolleyball": 1.5, "nhl": 2.5, "nfl": 14.0, "mlb": 3.5}
 
     for r in rows:
         lg = r["league"]

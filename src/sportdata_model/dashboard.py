@@ -78,7 +78,8 @@ SPORT_FILTER_LABELS: dict[str, str] = {
     "all": "All Sports",
     "soccer": "Football",
     "tennis": "Tennis",
-    "basketball": "Basketball (NBA)",
+    "basketball": "Basketball",
+    "volleyball": "Volleyball",
     "hockey": "Hockey (NHL)",
     "football": "American Football (NFL)",
     "baseball": "Baseball (MLB)",
@@ -88,6 +89,7 @@ SPORT_ICONS: dict[str, str] = {
     "soccer": "⚽",
     "tennis": "🎾",
     "basketball": "🏀",
+    "volleyball": "🏐",
     "hockey": "🏒",
     "football": "🏈",
     "baseball": "⚾",
@@ -167,8 +169,10 @@ def _league_to_sport_cat(league_or_sport: str) -> str:
     low = (league_or_sport or "").lower().strip()
     if low in ("atp", "wta", "tennis"):
         return "tennis"
-    if low in ("nba", "basketball"):
+    if low in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "basketball", "mens-college-basketball", "womens-college-basketball"):
         return "basketball"
+    if low in ("wvolleyball", "mvolleyball", "volleyball", "womens-college-volleyball", "mens-college-volleyball"):
+        return "volleyball"
     if low in ("nhl", "hockey"):
         return "hockey"
     if low in ("nfl", "football"):
@@ -2211,7 +2215,7 @@ def generate_dashboard_html(
         if (currentSportFilter === 'all') {{
           sec.classList.remove('hidden-by-sport');
         }} else if (secType === 'us-sports') {{
-          if (['basketball', 'hockey', 'football', 'baseball'].includes(currentSportFilter)) sec.classList.remove('hidden-by-sport');
+          if (['basketball', 'volleyball', 'hockey', 'football', 'baseball'].includes(currentSportFilter)) sec.classList.remove('hidden-by-sport');
           else sec.classList.add('hidden-by-sport');
         }} else {{
           if (secType === currentSportFilter) sec.classList.remove('hidden-by-sport');
@@ -2913,6 +2917,7 @@ def generate_dashboard_html(
       soccer: '⚽',
       tennis: '🎾',
       basketball: '🏀',
+      volleyball: '🏐',
       hockey: '🏒',
       football: '🏈',
       baseball: '⚾'
@@ -2922,7 +2927,8 @@ def generate_dashboard_html(
       const low = String(catOrLeague || '').toLowerCase();
       if (SPORT_EMOJIS[low]) return SPORT_EMOJIS[low];
       if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return '🎾';
-      if (low.includes('basketball') || low.includes('nba')) return '🏀';
+      if (low.includes('volleyball')) return '🏐';
+      if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return '🏀';
       if (low.includes('hockey') || low.includes('nhl')) return '🏒';
       if (low.includes('nfl') || low.includes('american football')) return '🏈';
       if (low.includes('baseball') || low.includes('mlb')) return '⚾';

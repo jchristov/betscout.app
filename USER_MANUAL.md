@@ -8,7 +8,8 @@
 ---
 
 ## 📑 Table of Contents
-1. [Quick Start & Launching the WebApp](#1-quick-start--launching-the-webapp)
+1. [Sports & Championships Covered in Database (`59,026` Matches)](#0-sports--championships-covered-in-database-59026-matches)
+2. [Quick Start & Launching the WebApp](#1-quick-start--launching-the-webapp)
 2. [Header Bar & Global Live Controls](#2-header-bar--global-live-controls)
 3. [Day, Sport, Timezone, Bankroll & Min-Odds Filter Bar](#3-day-sport-timezone-bankroll--min-odds-filter-bar)
 4. [🎯 Smart Bet Slip & Stake Allocation Optimizer](#4--smart-bet-slip--stake-allocation-optimizer)
@@ -24,6 +25,42 @@
 14. [💬 Discord & Telegram Publishing & Automated Alerts](#14--discord--telegram-publishing--automated-alerts)
 15. [Quantitative Model Gates & Safety Guardrails](#15-quantitative-model-gates--safety-guardrails)
 16. [CLI Reference & Environment Configuration (`.env`)](#16-cli-reference--environment-configuration-env)
+
+---
+
+## 0. Sports & Championships Covered in Database (`59,026` Matches)
+
+All historical and live records are stored in a single canonical SQLite database: **`model/data/matches.sqlite`** (`0` quality errors across `59,026` verified matches and `26` active championships across **7 sports**).
+
+| Sport | League Key | ESPN Slug | Championship / Competition Name | Verified Matches | Date Range |
+| :--- | :--- | :--- | :--- | :---: | :--- |
+| **⚽ Football (Soccer)** | `esp.1` | `esp.1` | **Spanish La Liga** | `1,803` | `2022-01` – Present |
+| **⚽ Football (Soccer)** | `eng.1` | `eng.1` | **English Premier League** | `1,788` | `2022-01` – Present |
+| **⚽ Football (Soccer)** | `ita.1` | `ita.1` | **Italian Serie A** | `1,782` | `2022-01` – Present |
+| **⚽ Football (Soccer)** | `fra.1` | `fra.1` | **French Ligue 1** | `1,553` | `2022-01` – Present |
+| **⚽ Football (Soccer)** | `ger.1` | `ger.1` | **German Bundesliga** | `1,432` | `2022-01` – Present |
+| **⚽ Football (Soccer)** | `aut.1` | `aut.1` | **Austrian Bundesliga** | `922` | `2022-02` – Present |
+| **⚽ Football (Soccer)** | `ned.1` | `ned.1` | **Dutch Eredivisie** | `548` | `2025-01` – Present |
+| **⚽ Football (Soccer)** | `por.1` | `por.1` | **Portuguese Primeira Liga** | `541` | `2025-01` – Present |
+| **⚽ Football (Soccer)** | `uefa.europa` | `uefa.europa` | **UEFA Europa League** | `339` | `2022-09` – Present |
+| **⚽ Football (Soccer)** | `uefa.champions` | `uefa.champions` | **UEFA Champions League** | `324` | `2025-01` – Present |
+| **⚽ Football (Soccer)** | `uefa.europa.conf` | `uefa.europa.conf` | **UEFA Conference League** | `233` | `2025-02` – Present |
+| **⚽ Football (Soccer)** | `eng.2` | `eng.2` | **English Championship** | `110` | `2026-08` – Present |
+| **⚽ Football (Soccer)** | `fifa.world` | `fifa.world` | **FIFA World Cup** | `105` | `2022-11` – `2026-07` |
+| **⚽ Football (Soccer)** | `uefa.nations` | `uefa.nations` | **UEFA Nations League** | `102` | `2022-06` – Present |
+| **🎾 Tennis** | `wta` | `wta` | **WTA Tour** (Grand Slams, WTA 1000/500/250 & Qualies) | `24,776` | `2022-01` – Present |
+| **🎾 Tennis** | `atp` | `atp` | **ATP Tour** (Grand Slams, Masters 1000, 500/250 & Qualies) | `18,392` | `2021-09` – Present |
+| **🏐 Volleyball** | `wvolleyball` | `womens-college-volleyball` | **NCAA Women's Volleyball** | `1,537` | `2026-09` – Present |
+| **🏐 Volleyball** | `mvolleyball` | `mens-college-volleyball` | **NCAA Men's Volleyball** | `476` | `2026-03` – `2026-05` |
+| **🏀 Basketball** | `nba` | `nba` | **NBA** (National Basketball Association) | `521` | `2026-03` – Present |
+| **🏀 Basketball** | `ncaaw` | `womens-college-basketball` | **NCAA Women's Basketball** | `218` | `2026-03` – `2026-04` |
+| **🏀 Basketball** | `ncaam` | `mens-college-basketball` | **NCAA Men's Basketball** | `152` | `2026-03` – `2026-04` |
+| **🏀 Basketball** | `nbl` | `nbl` | **NBL** (Australian National Basketball League) | `34` | `2026-09` – Present |
+| **🏀 Basketball** | `wnba` | `wnba` | **WNBA** (Women's National Basketball Association) | `25` | `2026-09` – Present |
+| **🏒 Ice Hockey** | `nhl` | `nhl` | **NHL** (National Hockey League) | `678` | `2026-03` – Present |
+| **🏈 American Football**| `nfl` | `nfl` | **NFL** (National Football League) | `479` | `2025-01` – Present |
+| **⚾ Baseball** | `mlb` | `mlb` | **MLB** (Major League Baseball) | `156` | `2026-09` – Present |
+| **TOTAL (7 Sports)** | **26 Leagues** | — | **All Configured Championships** | **`59,026`** | **`0` Quality Errors** |
 
 ---
 

@@ -35,6 +35,9 @@ def load_dotenv(env_path: Path | None = None, override: bool = False) -> dict[st
                 if val:
                     os.environ[key] = val
                     loaded[key] = val
+                elif override:
+                    os.environ[key] = ""
+                    loaded[key] = ""
     return loaded
 
 

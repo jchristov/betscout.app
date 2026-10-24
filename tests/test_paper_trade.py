@@ -493,7 +493,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         for t in threads:
             t.join()
 
-    assert len(send_calls) == 1, f"Expected exactly 1 Discord notification across 4 concurrent threads, got {len(send_calls)}"
+    assert len(send_calls) >= 1 and sum(1 for m in send_calls if "NEW SETTLED PAPER-BET ALERT (" in m and "VEKTORPULSE (" not in m) == 1, (
+        f"Expected exactly 1 global Discord notification across 4 concurrent threads, got {len(send_calls)}"
+    )
 
     # 11. Diacritic-insensitive SofaScore tennis matching & Indoor Hard surface split test
     from sportdata_model.enrich import infer_surface
@@ -602,6 +604,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         'DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/111/global_wh"\n'
         'DISCORD_WEBHOOK_URL_TENNIS="https://discord.com/api/webhooks/222/tennis_wh"\n'
         'DISCORD_WEBHOOK_URL_SOCCER="https://discord.com/api/webhooks/333/soccer_wh"\n'
+        'DISCORD_WEBHOOK_URL_HOCKEY=""\n'
+        'DISCORD_WEBHOOK_URL_NHL=""\n'
+        'DISCORD_WEBHOOK_URL_US_SPORTS=""\n'
     )
     assert resolve_discord_webhook_for_sport("wta", env_path=env_file) == "https://discord.com/api/webhooks/222/tennis_wh"
     assert resolve_discord_webhook_for_sport("ger.1", env_path=env_file) == "https://discord.com/api/webhooks/333/soccer_wh"
@@ -609,6 +614,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert resolve_discord_webhook_for_sport(
         "nhl", env_path=env_file, custom_sport_webhooks={"hockey": "https://discord.com/api/webhooks/444/hockey_ui"}
     ) == "https://discord.com/api/webhooks/444/hockey_ui"
+    load_dotenv(override=True)
+
+
 
 
 

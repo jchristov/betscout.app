@@ -151,7 +151,8 @@ SPORT_TOTAL_BOUNDS: dict[str, tuple[float, float]] = {
     "hockey": (3.0, 10.5),
     "baseball": (4.0, 16.5),
     "football": (24.0, 75.0),
-    "basketball": (140.0, 285.0),
+    "basketball": (110.0, 285.0),
+    "volleyball": (2.5, 5.5),
 }
 
 

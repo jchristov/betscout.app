@@ -41,9 +41,16 @@ SOCCER_LEAGUES = [
 TENNIS_LEAGUES = [League("atp", "tennis", "atp"), League("wta", "tennis", "wta")]
 OTHER_LEAGUES = [
     League("nba", "basketball", "nba"),
+    League("wnba", "basketball", "wnba"),
+    League("ncaam", "basketball", "mens-college-basketball"),
+    League("ncaaw", "basketball", "womens-college-basketball"),
+    League("nbl", "basketball", "nbl"),
+    League("fiba", "basketball", "fiba"),
     League("nhl", "hockey", "nhl"),
     League("nfl", "football", "nfl"),
     League("mlb", "baseball", "mlb"),
+    League("wvolleyball", "volleyball", "womens-college-volleyball"),
+    League("mvolleyball", "volleyball", "mens-college-volleyball"),
 ]
 ALL_LEAGUES = SOCCER_LEAGUES + TENNIS_LEAGUES + OTHER_LEAGUES
 
@@ -68,9 +75,18 @@ LEAGUE_LABELS: dict[str, str] = {
     "atp": "ATP Tour",
     "wta": "WTA Tour",
     "nba": "NBA",
+    "wnba": "WNBA",
+    "ncaam": "NCAA Men's Basketball",
+    "ncaaw": "NCAA Women's Basketball",
+    "nbl": "NBL (Australia)",
+    "fiba": "FIBA Basketball",
     "nhl": "NHL",
     "nfl": "NFL",
     "mlb": "MLB",
+    "wvolleyball": "NCAA Women's Volleyball",
+    "mvolleyball": "NCAA Men's Volleyball",
+    "womens-college-volleyball": "NCAA Women's Volleyball",
+    "mens-college-volleyball": "NCAA Men's Volleyball",
 }
 
 
@@ -78,12 +94,17 @@ def resolve_league(spec: str) -> League:
     """Resolve a league key ('uefa.champions', 'nba') or 'sport/league' ('soccer/ned.1') into a League object."""
     clean = spec.strip().lower()
     by_key = {lg.key: lg for lg in ALL_LEAGUES}
+    by_slug = {lg.league: lg for lg in ALL_LEAGUES}
     if clean in by_key:
         return by_key[clean]
+    if clean in by_slug:
+        return by_slug[clean]
     if "/" in clean:
         sp, lg_slug = clean.split("/", 1)
         if lg_slug in by_key:
             return by_key[lg_slug]
+        if lg_slug in by_slug:
+            return by_slug[lg_slug]
         return League(lg_slug, sp, lg_slug)
     # Default to soccer if dot-separated slug (e.g. 'bel.1', 'tur.1', 'sco.1', 'usa.1')
     if "." in clean:
