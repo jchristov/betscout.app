@@ -64,24 +64,35 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
     import os
     cfg_file = data_dir / "webapp_settings.json"
     env_default = (os.environ.get("INPLAY_ALERTS_ENABLED") or "").strip().lower() in ("1", "true", "yes", "on")
+    defaults: dict[str, Any] = {
+        "inplay_alerts_enabled": env_default,
+        "inplay_alert_items": {},
+        "settlement_alerts_enabled": True,
+        "bankroll_eur": 1000.0,
+        "default_bet_budget_eur": 100.0,
+        "default_risk_mode": "balanced",
+        "min_odds": 1.10,
+        "tennis_banker_min_prob": 0.70,
+        "mispricing_min_edge_pp": 2.0,
+        "mispricing_min_ev_pct": 2.0,
+        "daily_digest_hour": (os.environ.get("DAILY_DIGEST_HOUR") or "").strip(),
+        "sport_webhooks": {},
+    }
     if cfg_file.exists():
         try:
             d = json.loads(cfg_file.read_text(encoding="utf-8"))
-            _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(d.get("inplay_alerts_enabled", env_default))
-            raw_items = d.get("inplay_alert_items")
-            _PIPELINE_STATUS["inplay_alert_items"] = dict(raw_items) if isinstance(raw_items, dict) else {}
-            return {
-                "inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"],
-                "inplay_alert_items": _PIPELINE_STATUS["inplay_alert_items"],
-            }
+            if isinstance(d, dict):
+                defaults.update(d)
         except Exception:
             pass
-    _PIPELINE_STATUS["inplay_alerts_enabled"] = env_default
-    _PIPELINE_STATUS["inplay_alert_items"] = {}
-    return {
-        "inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"],
-        "inplay_alert_items": _PIPELINE_STATUS["inplay_alert_items"],
-    }
+    _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(defaults.get("inplay_alerts_enabled", False))
+    raw_items = defaults.get("inplay_alert_items")
+    _PIPELINE_STATUS["inplay_alert_items"] = dict(raw_items) if isinstance(raw_items, dict) else {}
+    defaults["inplay_alerts_enabled"] = _PIPELINE_STATUS["inplay_alerts_enabled"]
+    defaults["inplay_alert_items"] = _PIPELINE_STATUS["inplay_alert_items"]
+    if not isinstance(defaults.get("sport_webhooks"), dict):
+        defaults["sport_webhooks"] = {}
+    return defaults
 
 
 def _save_webapp_settings(
@@ -89,15 +100,36 @@ def _save_webapp_settings(
     inplay_alerts_enabled: bool | None = None,
     item_key: str | None = None,
     item_enabled: bool | None = None,
+    updates: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cur = _load_webapp_settings(data_dir)
+    if updates and isinstance(updates, dict):
+        for k in (
+            "inplay_alerts_enabled",
+            "settlement_alerts_enabled",
+            "bankroll_eur",
+            "default_bet_budget_eur",
+            "default_risk_mode",
+            "min_odds",
+            "tennis_banker_min_prob",
+            "mispricing_min_edge_pp",
+            "mispricing_min_ev_pct",
+            "daily_digest_hour",
+        ):
+            if k in updates and updates[k] is not None:
+                cur[k] = updates[k]
+        if isinstance(updates.get("sport_webhooks"), dict):
+            sw = dict(cur.get("sport_webhooks") or {})
+            for sk, sv in updates["sport_webhooks"].items():
+                sw[str(sk).lower()] = str(sv or "").strip()
+            cur["sport_webhooks"] = sw
     if inplay_alerts_enabled is not None:
         cur["inplay_alerts_enabled"] = bool(inplay_alerts_enabled)
     items_map = dict(cur.get("inplay_alert_items") or {})
     if item_key:
         items_map[str(item_key).lower()] = bool(item_enabled)
     cur["inplay_alert_items"] = items_map
-    _PIPELINE_STATUS["inplay_alerts_enabled"] = cur["inplay_alerts_enabled"]
+    _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(cur.get("inplay_alerts_enabled", False))
     _PIPELINE_STATUS["inplay_alert_items"] = items_map
     cfg_file = data_dir / "webapp_settings.json"
     try:
@@ -628,11 +660,13 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
                 return
 
-            if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status"):
+            if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status", "/api/settings"):
                 cfg_s = _load_webapp_settings(data_dir)
                 self._send_json({
-                    "discord": get_discord_env_config(),
+                    "ok": True,
+                    "discord": get_discord_env_config(custom_sport_webhooks=cfg_s.get("sport_webhooks")),
                     "telegram": get_telegram_env_config(),
+                    "settings": cfg_s,
                     "inplay_alerts_enabled": bool(cfg_s.get("inplay_alerts_enabled", False)),
                     "inplay_alert_items": cfg_s.get("inplay_alert_items") or {},
                 })
@@ -695,13 +729,20 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             except Exception:
                 body = {}
 
-            if parsed.path == "/api/settings/inplay-alerts":
+            if parsed.path in ("/api/settings", "/api/settings/inplay-alerts"):
                 item_k = body.get("item_key")
                 if item_k:
                     saved = _save_webapp_settings(data_dir, item_key=str(item_k), item_enabled=bool(body.get("enabled", False)))
+                elif parsed.path == "/api/settings":
+                    saved = _save_webapp_settings(data_dir, updates=body)
                 else:
                     saved = _save_webapp_settings(data_dir, inplay_alerts_enabled=bool(body.get("enabled", False)))
-                self._send_json({"ok": True, **saved})
+                self._send_json({
+                    "ok": True,
+                    "settings": saved,
+                    "discord": get_discord_env_config(custom_sport_webhooks=saved.get("sport_webhooks")),
+                    **saved,
+                })
                 return
 
             if parsed.path in ("/api/settle", "/api/sync", "/api/pipeline"):
@@ -761,13 +802,15 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path == "/api/discord":
+                cfg_d = _load_webapp_settings(data_dir)
                 rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                 custom_text = (body.get("text") or "").strip()
+                sp_f = str(body.get("sport") or "all")
                 msg = custom_text or format_discord_digest(
                     rec=rec,
                     db_path=db_path,
                     min_odds=float(body.get("min_odds") or 1.15),
-                    sport_filter=str(body.get("sport") or "all"),
+                    sport_filter=sp_f,
                     day_filter=str(body.get("day") or "today"),
                     max_picks=int(body.get("max_picks") or 12),
                 )
@@ -777,6 +820,8 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     bot_token=body.get("bot_token"),
                     channel_id=body.get("channel_id"),
                     dry_run=bool(body.get("dry_run", False)),
+                    sport=sp_f,
+                    custom_sport_webhooks=cfg_d.get("sport_webhooks"),
                 )
                 self._send_json({**res, "formatted_message": msg})
                 return

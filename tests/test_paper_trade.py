@@ -585,6 +585,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "mispricingRadarSection" in html_text and "printSmartBetTicket" in html_text and "saveSlipPrefsToStorage" in html_text
     assert "inplayAlertsToggleBtn" in html_text and "🔕 Live Alerts: OFF" in html_text
 
+    from sportdata_model.telegram_bot import resolve_discord_webhook_for_sport
     from sportdata_model.webapp import _load_webapp_settings, _save_webapp_settings
     assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
     _save_webapp_settings(tmp_path, inplay_alerts_enabled=True)
@@ -594,6 +595,21 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert cfg_after["inplay_alerts_enabled"] is False and cfg_after["inplay_alert_items"]["ger.1:401884763"] is True
     assert "toggleInplayItemAlert" in html_text
     assert "exactScoreSplitterSection" in html_text and "recalcStandaloneDutchSplitter" in html_text
+    assert "settingsModal" in html_text and "openSettingsModal" in html_text
+
+    # Test per-sport Discord webhook resolution via .env and UI overrides
+    env_file.write_text(
+        'DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/111/global_wh"\n'
+        'DISCORD_WEBHOOK_URL_TENNIS="https://discord.com/api/webhooks/222/tennis_wh"\n'
+        'DISCORD_WEBHOOK_URL_SOCCER="https://discord.com/api/webhooks/333/soccer_wh"\n'
+    )
+    assert resolve_discord_webhook_for_sport("wta", env_path=env_file) == "https://discord.com/api/webhooks/222/tennis_wh"
+    assert resolve_discord_webhook_for_sport("ger.1", env_path=env_file) == "https://discord.com/api/webhooks/333/soccer_wh"
+    assert resolve_discord_webhook_for_sport("nhl", env_path=env_file) == "https://discord.com/api/webhooks/111/global_wh"
+    assert resolve_discord_webhook_for_sport(
+        "nhl", env_path=env_file, custom_sport_webhooks={"hockey": "https://discord.com/api/webhooks/444/hockey_ui"}
+    ) == "https://discord.com/api/webhooks/444/hockey_ui"
+
 
 
 

@@ -252,10 +252,56 @@ def format_discord_digest(
     return html_to_discord_markdown(html_msg)
 
 
-def get_discord_env_config(env_path: Path | None = None) -> dict[str, Any]:
-    """Reload `.env` on the fly and return current Discord configuration status."""
+SPORT_DISCORD_ENV_KEYS: dict[str, tuple[str, ...]] = {
+    "soccer": ("DISCORD_WEBHOOK_URL_SOCCER", "DISCORD_WEBHOOK_URL_FOOTBALL"),
+    "tennis": ("DISCORD_WEBHOOK_URL_TENNIS", "DISCORD_WEBHOOK_URL_ATP", "DISCORD_WEBHOOK_URL_WTA"),
+    "basketball": ("DISCORD_WEBHOOK_URL_BASKETBALL", "DISCORD_WEBHOOK_URL_NBA", "DISCORD_WEBHOOK_URL_US_SPORTS"),
+    "hockey": ("DISCORD_WEBHOOK_URL_HOCKEY", "DISCORD_WEBHOOK_URL_NHL", "DISCORD_WEBHOOK_URL_US_SPORTS"),
+    "football": ("DISCORD_WEBHOOK_URL_NFL", "DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL", "DISCORD_WEBHOOK_URL_US_SPORTS"),
+    "baseball": ("DISCORD_WEBHOOK_URL_BASEBALL", "DISCORD_WEBHOOK_URL_MLB", "DISCORD_WEBHOOK_URL_US_SPORTS"),
+}
+
+
+def resolve_discord_webhook_for_sport(
+    sport_or_league: str | None = None,
+    explicit_webhook_url: str | None = None,
+    env_path: Path | None = None,
+    custom_sport_webhooks: dict[str, str] | None = None,
+) -> str:
+    """Resolve the target Discord Webhook URL for a given sport/league (`soccer`, `tennis`, `hockey`, etc.).
+    Priority:
+      1. `explicit_webhook_url` (if passed directly by caller)
+      2. `custom_sport_webhooks[sport_cat]` (if configured in WebApp Settings UI)
+      3. Per-sport environment variable (`DISCORD_WEBHOOK_URL_TENNIS`, `DISCORD_WEBHOOK_URL_SOCCER`, etc.)
+      4. Global `DISCORD_WEBHOOK_URL` fallback.
+    """
     load_dotenv(env_path=env_path, override=True)
-    webhook_url = (os.environ.get("DISCORD_WEBHOOK_URL") or "").strip()
+    if explicit_webhook_url and explicit_webhook_url.strip():
+        return explicit_webhook_url.strip()
+    sp_cat = _league_to_sport_cat(sport_or_league or "") if (sport_or_league and sport_or_league != "all") else ""
+    if sp_cat and custom_sport_webhooks and isinstance(custom_sport_webhooks, dict):
+        ui_wh = str(custom_sport_webhooks.get(sp_cat) or "").strip()
+        if ui_wh.startswith("https://discord"):
+            return ui_wh
+    if sp_cat and sp_cat in SPORT_DISCORD_ENV_KEYS:
+        for env_k in SPORT_DISCORD_ENV_KEYS[sp_cat]:
+            val = (os.environ.get(env_k) or "").strip()
+            if val.startswith("https://discord"):
+                return val
+    if custom_sport_webhooks and isinstance(custom_sport_webhooks, dict):
+        g_ui = str(custom_sport_webhooks.get("global") or "").strip()
+        if g_ui.startswith("https://discord"):
+            return g_ui
+    return (os.environ.get("DISCORD_WEBHOOK_URL") or "").strip()
+
+
+def get_discord_env_config(
+    env_path: Path | None = None,
+    custom_sport_webhooks: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Reload `.env` on the fly and return current Discord configuration status (global + per-sport webhooks)."""
+    load_dotenv(env_path=env_path, override=True)
+    webhook_url = resolve_discord_webhook_for_sport(None, env_path=env_path, custom_sport_webhooks=custom_sport_webhooks)
     bot_token = (os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
     channel_id = (os.environ.get("DISCORD_CHANNEL_ID") or "").strip()
     has_webhook = webhook_url.startswith("https://discord.com/api/webhooks/") or webhook_url.startswith(
@@ -263,13 +309,39 @@ def get_discord_env_config(env_path: Path | None = None) -> dict[str, Any]:
     )
     has_bot = bool(bot_token and channel_id)
     masked_webhook = (webhook_url[:38] + "..." + webhook_url[-6:]) if len(webhook_url) > 48 else ""
+
+    sport_webhooks_status: dict[str, dict[str, Any]] = {}
+    for sp_cat, env_keys in SPORT_DISCORD_ENV_KEYS.items():
+        sp_url = ""
+        source = "global_fallback"
+        if custom_sport_webhooks and isinstance(custom_sport_webhooks, dict):
+            cand_ui = str(custom_sport_webhooks.get(sp_cat) or "").strip()
+            if cand_ui.startswith("https://discord"):
+                sp_url = cand_ui
+                source = "settings_ui"
+        if not sp_url:
+            for ek in env_keys:
+                cand_env = (os.environ.get(ek) or "").strip()
+                if cand_env.startswith("https://discord"):
+                    sp_url = cand_env
+                    source = ek
+                    break
+        eff_url = sp_url or webhook_url
+        sport_webhooks_status[sp_cat] = {
+            "env_keys": list(env_keys),
+            "has_dedicated": bool(sp_url),
+            "source": source if sp_url else ("DISCORD_WEBHOOK_URL" if has_webhook else "unconfigured"),
+            "masked_webhook": (eff_url[:38] + "..." + eff_url[-6:]) if len(eff_url) > 48 else "",
+        }
+
     return {
-        "configured": bool(has_webhook or has_bot),
+        "configured": bool(has_webhook or has_bot or any(v["has_dedicated"] for v in sport_webhooks_status.values())),
         "mode": "webhook" if has_webhook else ("bot" if has_bot else "unconfigured"),
         "has_webhook": has_webhook,
         "masked_webhook": masked_webhook,
         "has_bot": has_bot,
         "channel_id": channel_id,
+        "sport_webhooks": sport_webhooks_status,
     }
 
 
@@ -315,13 +387,20 @@ def send_discord_message(
     channel_id: str | None = None,
     dry_run: bool = False,
     env_path: Path | None = None,
+    sport: str | None = None,
+    custom_sport_webhooks: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Post a Markdown-formatted message to a Discord channel via Webhook URL or Bot Token + Channel ID."""
+    """Post a Markdown-formatted message to a Discord channel via Webhook URL (supporting per-sport webhook routing) or Bot Token + Channel ID."""
     load_dotenv(env_path=env_path, override=True)
     md_text = html_to_discord_markdown(text)
     chunks = _chunk_discord_text(md_text, max_len=1950)
 
-    wh_url = (webhook_url or os.environ.get("DISCORD_WEBHOOK_URL") or "").strip()
+    wh_url = resolve_discord_webhook_for_sport(
+        sport_or_league=sport,
+        explicit_webhook_url=webhook_url,
+        env_path=env_path,
+        custom_sport_webhooks=custom_sport_webhooks,
+    )
     b_tok = (bot_token or os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
     ch_id = (channel_id or os.environ.get("DISCORD_CHANNEL_ID") or "").strip()
     configured = bool(wh_url or (b_tok and ch_id))
@@ -490,7 +569,32 @@ def notify_new_settlements_to_discord(
             )
 
         msg = "\n".join(lines)
-        res = send_discord_message(msg, webhook_url=webhook_url, dry_run=dry_run)
+        res = send_discord_message(msg, webhook_url=webhook_url, dry_run=dry_run, env_path=None)
+        # Also route sport-specific settlement alerts to any dedicated per-sport Discord webhooks configured in .env
+        if not webhook_url:
+            global_wh = resolve_discord_webhook_for_sport(None)
+            by_sp_unnotified: dict[str, list[dict[str, Any]]] = {}
+            for r in unnotified:
+                sp_c = _league_to_sport_cat(r["league"])
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                if sp_wh and sp_wh != global_wh:
+                    by_sp_unnotified.setdefault(sp_c, []).append(r)
+            for sp_c, sp_rows in by_sp_unnotified.items():
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                sp_lines = [
+                    f"🔔 **VEKTORPULSE ({sp_c.upper()}) — NEW SETTLED PAPER-BET ALERT ({len(sp_rows)} Resolved)**",
+                    "",
+                ]
+                for r in sp_rows:
+                    pnl_v = float(r.get("pnl_best") or 0.0)
+                    badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
+                    sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
+                    pick_name = r["home"] if r["side"] == "H" else r["away"]
+                    sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
+                    sp_lines.append(
+                        f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — *{r['home']} vs {r['away']}* [`{sc_str}`]"
+                    )
+                send_discord_message("\n".join(sp_lines), webhook_url=sp_wh, dry_run=dry_run)
         if not dry_run and not res.get("ok"):
             # Release claim so a future retry can send if network/webhook failed
             c_rel = sqlite3.connect(db_path, timeout=15.0)
@@ -587,6 +691,13 @@ def notify_inplay_rebound_edges_to_discord(
                     f"Shots `{mom.get('shots_diff',0):+d}` · Corners `{mom.get('corners_diff',0):+d}` · Possession **`{mom.get('poss_pct',50):.0f}%`**"
                 )
         res = send_discord_message("\n".join(lines), webhook_url=webhook_url, dry_run=dry_run)
+        if not webhook_url:
+            global_wh = resolve_discord_webhook_for_sport(None)
+            for r, mom in to_notify:
+                sp_c = "tennis" if (mom.get("sport") == "tennis" or r["league"].lower() in ("atp", "wta")) else _league_to_sport_cat(r["league"])
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                if sp_wh and sp_wh != global_wh:
+                    send_discord_message("\n".join(lines), webhook_url=sp_wh, dry_run=dry_run)
         return {**res, "notified_count": len(to_notify)}
 
 

@@ -1499,6 +1499,7 @@ def generate_dashboard_html(
       <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live</button>
       <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Full Pipeline</button>
       <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share Picks</button>
+      <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open VektorPulse Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
     </div>
   </header>
 
@@ -1521,6 +1522,110 @@ def generate_dashboard_html(
         <button class="btn-export" type="button" onclick="document.getElementById('matchupInspectorModal').style.display='none'">Close ✕</button>
       </div>
       <div id="miBody" class="muted">Loading H2H, Last-6 Form, and Exact-Score Breakdown...</div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-card" style="max-width:740px;">
+      <div class="card-head" style="margin-bottom:12px;">
+        <div>
+          <b style="font-size:15px; color:var(--accent);">⚙️ VektorPulse Settings &amp; Per-Sport Discord Webhook Routing</b>
+          <div class="muted">Tweaked settings apply immediately and persist in <code>data/webapp_settings.json</code> &amp; browser storage</div>
+        </div>
+        <button class="btn-export" type="button" onclick="document.getElementById('settingsModal').style.display='none'">Close ✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:14px; font-size:12px;">
+        <div style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">
+          <div style="font-weight:700; color:var(--green); margin-bottom:8px;">💰 Bankroll, Stake &amp; Filter Defaults</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Default Bankroll (€):</span>
+            <input id="cfgBankrollInput" type="number" min="50" max="1000000" step="50" value="1000" style="width:95px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-weight:700;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Default Ready-to-Bet (€):</span>
+            <input id="cfgBetBudgetInput" type="number" min="5" max="100000" step="5" value="100" style="width:95px; background:#111827; color:var(--green); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-weight:700;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Default Slip Risk Mode:</span>
+            <select id="cfgRiskModeSelect" style="background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+              <option value="balanced">⚖️ Balanced</option>
+              <option value="fortress">🛡️ Ultra-Safe Fortress</option>
+              <option value="upside">🚀 Max Return Multiplier</option>
+            </select>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Soft Min-Odds Threshold:</span>
+            <input id="cfgMinOddsInput" type="number" min="1.05" max="2.50" step="0.05" value="1.10" style="width:95px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+          </div>
+        </div>
+
+        <div style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">
+          <div style="font-weight:700; color:var(--accent); margin-bottom:8px;">🎯 Model Thresholds &amp; Alert Toggles</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Mispricing Min Edge (pp):</span>
+            <input id="cfgMispricingEdgeInput" type="number" min="0.5" max="15.0" step="0.5" value="2.0" style="width:85px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Mispricing Min EV (%):</span>
+            <input id="cfgMispricingEvInput" type="number" min="0.5" max="25.0" step="0.5" value="2.0" style="width:85px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Live In-Play Alerts (Global):</span>
+            <input id="cfgInplayAlertsChk" type="checkbox">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span>Settled Bet Discord Alerts:</span>
+            <input id="cfgSettlementAlertsChk" type="checkbox" checked>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Auto Daily Digest Hour (0–23):</span>
+            <input id="cfgDigestHourInput" type="text" placeholder="Off (e.g. 9)" style="width:85px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
+        <div style="font-weight:700; color:var(--amber); margin-bottom:4px;">💬 Global &amp; Per-Sport Discord Webhooks (Env Vars + Optional UI Overrides)</div>
+        <div class="muted" style="margin-bottom:10px;">
+          Configure per-sport webhooks in <code>model/.env</code> (<code>DISCORD_WEBHOOK_URL_SOCCER</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_NFL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
+        </div>
+        <div style="display:grid; grid-template-columns:1fr; gap:7px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🌐 <b>Global Default</b> (<code>DISCORD_WEBHOOK_URL</code>):</span>
+            <input id="cfgWhGlobal" type="password" placeholder="Uses DISCORD_WEBHOOK_URL from model/.env" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">⚽ <b>Football</b> (<code>..._SOCCER</code>):</span>
+            <input id="cfgWhSoccer" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🎾 <b>Tennis</b> (<code>..._TENNIS</code>):</span>
+            <input id="cfgWhTennis" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🏒 <b>Hockey / NHL</b> (<code>..._HOCKEY</code>):</span>
+            <input id="cfgWhHockey" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🏀 <b>Basketball / NBA</b> (<code>..._NBA</code>):</span>
+            <input id="cfgWhBasketball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🏈 <b>NFL</b> (<code>..._NFL</code>):</span>
+            <input id="cfgWhFootball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">⚾ <b>Baseball / MLB</b> (<code>..._MLB</code>):</span>
+            <input id="cfgWhBaseball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn-export" type="button" onclick="document.getElementById('settingsModal').style.display='none'">Cancel</button>
+        <button class="btn-export btn-telegram" type="button" onclick="saveSettingsModal()">💾 Save &amp; Apply Settings</button>
+      </div>
     </div>
   </div>
 
@@ -2845,7 +2950,10 @@ def generate_dashboard_html(
       return lines.join('\\n');
     }}
 
+    let currentShareSportCat = null;
+
     function openTelegramPanel() {{
+      currentShareSportCat = currentSportFilter;
       const modal = document.getElementById('telegramModal');
       modal.style.display = 'block';
       document.getElementById('tgMessagePreview').value = buildBrowserTelegramDigest();
@@ -2853,6 +2961,7 @@ def generate_dashboard_html(
     }}
 
     function shareSinglePick(matchStr, pickStr, oddsStr, dateLocalStr, sportCat) {{
+      currentShareSportCat = sportCat || currentSportFilter;
       const modal = document.getElementById('telegramModal');
       modal.style.display = 'block';
       const icon = getSportEmoji(sportCat || matchStr);
@@ -3082,6 +3191,127 @@ def generate_dashboard_html(
 
     let currentInplayAlertsEnabled = false;
     let currentInplayAlertItems = {{}};
+    let currentAppSettings = {{}};
+
+    async function openSettingsModal() {{
+      const modal = document.getElementById('settingsModal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      if (window.location.protocol.startsWith('http')) {{
+        try {{
+          const r = await fetch('/api/settings');
+          const d = await r.json();
+          if (d.settings) currentAppSettings = d.settings;
+          const swStatus = d.discord?.sport_webhooks || {{}};
+          const mapIds = {{
+            soccer: 'cfgWhSoccer',
+            tennis: 'cfgWhTennis',
+            hockey: 'cfgWhHockey',
+            basketball: 'cfgWhBasketball',
+            football: 'cfgWhFootball',
+            baseball: 'cfgWhBaseball'
+          }};
+          Object.keys(mapIds).forEach(sp => {{
+            const inp = document.getElementById(mapIds[sp]);
+            const st = swStatus[sp];
+            if (inp && st && st.masked_webhook) {{
+              inp.placeholder = st.source + ': ' + st.masked_webhook;
+            }}
+          }});
+          const gInp = document.getElementById('cfgWhGlobal');
+          if (gInp && d.discord?.masked_webhook) {{
+            gInp.placeholder = 'DISCORD_WEBHOOK_URL: ' + d.discord.masked_webhook;
+          }}
+        }} catch (_) {{}}
+      }}
+      const s = currentAppSettings || {{}};
+      const bankVal = document.getElementById('bankrollInput')?.value || s.bankroll_eur || 1000;
+      const budVal = document.getElementById('betAmountInput')?.value || s.default_bet_budget_eur || 100;
+      const riskVal = document.getElementById('betRiskProfileSelect')?.value || s.default_risk_mode || 'balanced';
+      const minOddsVal = document.getElementById('minOddsSlider')?.value || s.min_odds || 1.10;
+      if (document.getElementById('cfgBankrollInput')) document.getElementById('cfgBankrollInput').value = String(bankVal);
+      if (document.getElementById('cfgBetBudgetInput')) document.getElementById('cfgBetBudgetInput').value = String(budVal);
+      if (document.getElementById('cfgRiskModeSelect')) document.getElementById('cfgRiskModeSelect').value = String(riskVal);
+      if (document.getElementById('cfgMinOddsInput')) document.getElementById('cfgMinOddsInput').value = String(minOddsVal);
+      if (document.getElementById('cfgMispricingEdgeInput')) document.getElementById('cfgMispricingEdgeInput').value = String(s.mispricing_min_edge_pp ?? 2.0);
+      if (document.getElementById('cfgMispricingEvInput')) document.getElementById('cfgMispricingEvInput').value = String(s.mispricing_min_ev_pct ?? 2.0);
+      if (document.getElementById('cfgInplayAlertsChk')) document.getElementById('cfgInplayAlertsChk').checked = Boolean(currentInplayAlertsEnabled);
+      if (document.getElementById('cfgSettlementAlertsChk')) document.getElementById('cfgSettlementAlertsChk').checked = s.settlement_alerts_enabled !== false;
+      if (document.getElementById('cfgDigestHourInput')) document.getElementById('cfgDigestHourInput').value = String(s.daily_digest_hour ?? '');
+    }}
+
+    async function saveSettingsModal() {{
+      const bankVal = parseFloat(document.getElementById('cfgBankrollInput')?.value || '1000') || 1000;
+      const budVal = parseFloat(document.getElementById('cfgBetBudgetInput')?.value || '100') || 100;
+      const riskVal = document.getElementById('cfgRiskModeSelect')?.value || 'balanced';
+      const minOddsVal = parseFloat(document.getElementById('cfgMinOddsInput')?.value || '1.10') || 1.10;
+      const mpEdgeVal = parseFloat(document.getElementById('cfgMispricingEdgeInput')?.value || '2.0') || 2.0;
+      const mpEvVal = parseFloat(document.getElementById('cfgMispricingEvInput')?.value || '2.0') || 2.0;
+      const inplayChk = Boolean(document.getElementById('cfgInplayAlertsChk')?.checked);
+      const settleChk = Boolean(document.getElementById('cfgSettlementAlertsChk')?.checked);
+      const digHour = (document.getElementById('cfgDigestHourInput')?.value || '').trim();
+
+      const sportWh = {{}};
+      const whFields = {{
+        global: 'cfgWhGlobal',
+        soccer: 'cfgWhSoccer',
+        tennis: 'cfgWhTennis',
+        hockey: 'cfgWhHockey',
+        basketball: 'cfgWhBasketball',
+        football: 'cfgWhFootball',
+        baseball: 'cfgWhBaseball'
+      }};
+      Object.keys(whFields).forEach(k => {{
+        const v = (document.getElementById(whFields[k])?.value || '').trim();
+        if (v) sportWh[k] = v;
+      }});
+
+      if (document.getElementById('bankrollInput')) {{
+        document.getElementById('bankrollInput').value = String(bankVal);
+        applyBankrollCalculator(bankVal);
+      }}
+      if (document.getElementById('betAmountInput')) document.getElementById('betAmountInput').value = String(budVal);
+      if (document.getElementById('betRiskProfileSelect')) document.getElementById('betRiskProfileSelect').value = riskVal;
+      if (document.getElementById('minOddsSlider')) {{
+        document.getElementById('minOddsSlider').value = String(minOddsVal);
+        applyOddsFilter(minOddsVal);
+      }}
+      renderInplayAlertsBtn(inplayChk);
+      buildSmartBetPlan();
+
+      const payload = {{
+        bankroll_eur: bankVal,
+        default_bet_budget_eur: budVal,
+        default_risk_mode: riskVal,
+        min_odds: minOddsVal,
+        mispricing_min_edge_pp: mpEdgeVal,
+        mispricing_min_ev_pct: mpEvVal,
+        inplay_alerts_enabled: inplayChk,
+        settlement_alerts_enabled: settleChk,
+        daily_digest_hour: digHour,
+        sport_webhooks: Object.keys(sportWh).length ? sportWh : undefined
+      }};
+      try {{
+        localStorage.setItem('vp_app_settings', JSON.stringify(payload));
+        localStorage.setItem('vp_inplay_alerts_enabled', inplayChk ? '1' : '0');
+      }} catch (_) {{}}
+
+      if (window.location.protocol.startsWith('http')) {{
+        try {{
+          const r = await fetch('/api/settings', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(payload)
+          }});
+          const d = await r.json();
+          if (d.settings) currentAppSettings = d.settings;
+          updateSocialEnvBadges(d);
+        }} catch (_) {{}}
+      }}
+      const modal = document.getElementById('settingsModal');
+      if (modal) modal.style.display = 'none';
+      showToast('✅ VektorPulse settings & per-sport Discord webhook routes saved!');
+    }}
 
     function renderInplayAlertsBtn(enabled) {{
       currentInplayAlertsEnabled = Boolean(enabled);
@@ -3299,6 +3529,7 @@ def generate_dashboard_html(
             headers: {{ 'Content-Type': 'application/json' }},
             body: JSON.stringify({{
               text,
+              sport: currentShareSportCat || currentSportFilter || 'all',
               webhook_url: webhookUrl || undefined
             }})
           }});

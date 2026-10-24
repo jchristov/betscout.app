@@ -280,8 +280,17 @@ Every pick in VektorPulse must pass a strict sequence of out-of-sample validated
 
 ### Environment Variables (`model/.env`)
 ```ini
-# Primary Social Publisher (Zscaler-compatible)
+# Primary Social Publisher (Zscaler-compatible) — Global Fallback Webhook
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+
+# Optional: Per-Sport Dedicated Discord Webhooks (override DISCORD_WEBHOOK_URL for specific sports!)
+# DISCORD_WEBHOOK_URL_SOCCER="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_TENNIS="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_HOCKEY="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_BASKETBALL="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_NFL="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_BASEBALL="https://discord.com/api/webhooks/..."
+# DISCORD_WEBHOOK_URL_US_SPORTS="https://discord.com/api/webhooks/..."
 
 # Optional: Live In-Play Discord Alerts default (default is false / OFF)
 INPLAY_ALERTS_ENABLED="false"
