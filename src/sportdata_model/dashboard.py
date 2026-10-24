@@ -938,7 +938,7 @@ def generate_dashboard_html(
     by_sport_list = ledger.get("by_sport") or []
     live_ledger_analytics_html = ""
     if len(settled_cum) >= 2 or by_sport_list:
-        lw, lh = 520, 130
+        lw, lh = 760, 155
         pts_live = [0.0] + list(settled_cum)
         pts_kelly = [0.0] + list(ledger.get("kelly_cum_pnl") or settled_cum)
         l_min = min(0.0, min(pts_live), min(pts_kelly))
@@ -1001,7 +1001,7 @@ def generate_dashboard_html(
         )
         tier_card_html = (
             f"""
-          <div class="card">
+          <div class="card" style="margin:0;">
             <div class="card-head" style="margin-bottom:8px;">
               <div><b>Calibration &amp; Tier / CLV Attribution (Predicted vs Realized Win Rate)</b></div>
             </div>
@@ -1025,22 +1025,22 @@ def generate_dashboard_html(
             else ""
         )
         live_ledger_analytics_html = f"""
-        <div class="cards" style="margin-bottom: 18px;">
-          <div class="card">
-            <div class="card-head">
-              <div><b>Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
-              <div class="muted">Flat 1u PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{kelly_str}{esc_summary_str}</div>
-            </div>
-            <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:130px; margin-top:8px;">
-              <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
-              <polyline fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4,3" points="{' '.join(k_poly)}"/>
-              <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
-            </svg>
-            <div class="muted" style="font-size:10.5px; margin-top:2px;">
-              <span style="color:#38bdf8;">━━ Flat 1.0u Curve</span> &nbsp;·&nbsp; <span style="color:#22c55e;">┅┅ ¼-Kelly Compounding Curve</span>
-            </div>
+        <div class="card" style="margin-bottom: 14px;">
+          <div class="card-head">
+            <div><b>Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
+            <div class="muted">Flat 1u PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{kelly_str}{esc_summary_str}</div>
           </div>
-          <div class="card">
+          <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:155px; margin-top:8px;">
+            <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
+            <polyline fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4,3" points="{' '.join(k_poly)}"/>
+            <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
+          </svg>
+          <div class="muted" style="font-size:10.5px; margin-top:2px;">
+            <span style="color:#38bdf8;">━━ Flat 1.0u Curve</span> &nbsp;·&nbsp; <span style="color:#22c55e;">┅┅ ¼-Kelly Compounding Curve</span>
+          </div>
+        </div>
+        <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); margin-bottom: 18px;">
+          <div class="card" style="margin:0;">
             <div class="card-head" style="margin-bottom:8px;">
               <div><b>Settled Paper-Betting Performance by Sport</b></div>
             </div>
