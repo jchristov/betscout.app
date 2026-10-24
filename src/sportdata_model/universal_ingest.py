@@ -50,6 +50,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     {"sport": "basketball", "league": "ncaam", "name": "NCAA Men's Basketball", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "basketball", "league": "ncaaw", "name": "NCAA Women's Basketball", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "basketball", "league": "nbl", "name": "NBL (Australia)", "enabled": True, "default_years": [2025, 2026]},
+    {"sport": "basketball", "league": "fiba", "name": "FIBA Basketball", "enabled": True, "default_years": [2023, 2024, 2025, 2026]},
     {"sport": "volleyball", "league": "wvolleyball", "name": "NCAA Women's Volleyball", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "volleyball", "league": "mvolleyball", "name": "NCAA Men's Volleyball", "enabled": True, "default_years": [2025, 2026]},
     {"sport": "hockey", "league": "nhl", "name": "NHL", "enabled": True, "default_years": [2025, 2026]},

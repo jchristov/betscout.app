@@ -8,7 +8,7 @@
 ---
 
 ## 📑 Table of Contents
-1. [Sports & Championships Covered in Database (`59,026` Matches)](#0-sports--championships-covered-in-database-59026-matches)
+1. [Sports & Championships Covered in Database (`59,062` Matches)](#0-sports--championships-covered-in-database-59062-matches)
 2. [Quick Start & Launching the WebApp](#1-quick-start--launching-the-webapp)
 2. [Header Bar & Global Live Controls](#2-header-bar--global-live-controls)
 3. [Day, Sport, Timezone, Bankroll & Min-Odds Filter Bar](#3-day-sport-timezone-bankroll--min-odds-filter-bar)
@@ -28,9 +28,9 @@
 
 ---
 
-## 0. Sports & Championships Covered in Database (`59,026` Matches)
+## 0. Sports & Championships Covered in Database (`59,062` Matches)
 
-All historical and live records are stored in a single canonical SQLite database: **`model/data/matches.sqlite`** (`0` quality errors across `59,026` verified matches and `26` active championships across **7 sports**).
+All historical and live records are stored in a single canonical SQLite database: **`model/data/matches.sqlite`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
 
 | Sport | League Key | ESPN Slug | Championship / Competition Name | Verified Matches | Date Range |
 | :--- | :--- | :--- | :--- | :---: | :--- |
@@ -55,12 +55,13 @@ All historical and live records are stored in a single canonical SQLite database
 | **🏀 Basketball** | `nba` | `nba` | **NBA** (National Basketball Association) | `521` | `2026-03` – Present |
 | **🏀 Basketball** | `ncaaw` | `womens-college-basketball` | **NCAA Women's Basketball** | `218` | `2026-03` – `2026-04` |
 | **🏀 Basketball** | `ncaam` | `mens-college-basketball` | **NCAA Men's Basketball** | `152` | `2026-03` – `2026-04` |
+| **🏀 Basketball** | `fiba` | `fiba` | **FIBA Basketball** (FIBA World Cup / Qualifiers) | `36` | `2026-09` – Present |
 | **🏀 Basketball** | `nbl` | `nbl` | **NBL** (Australian National Basketball League) | `34` | `2026-09` – Present |
 | **🏀 Basketball** | `wnba` | `wnba` | **WNBA** (Women's National Basketball Association) | `25` | `2026-09` – Present |
 | **🏒 Ice Hockey** | `nhl` | `nhl` | **NHL** (National Hockey League) | `678` | `2026-03` – Present |
 | **🏈 American Football**| `nfl` | `nfl` | **NFL** (National Football League) | `479` | `2025-01` – Present |
 | **⚾ Baseball** | `mlb` | `mlb` | **MLB** (Major League Baseball) | `156` | `2026-09` – Present |
-| **TOTAL (7 Sports)** | **26 Leagues** | — | **All Configured Championships** | **`59,026`** | **`0` Quality Errors** |
+| **TOTAL (7 Sports)** | **27 Leagues** | — | **All Configured Championships** | **`59,062`** | **`0` Quality Errors** |
 
 ---
 

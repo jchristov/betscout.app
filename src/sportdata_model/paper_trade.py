@@ -1442,8 +1442,8 @@ def scan_upcoming_other_sports(
     box_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
     last_dt: dict[tuple[str, str], datetime] = {}
     hist_feats_by_lg: dict[str, list[list[float]]] = defaultdict(list)
-    sport_home_adv = {"nba": 45.0, "wnba": 40.0, "ncaam": 55.0, "ncaaw": 50.0, "nbl": 45.0, "wvolleyball": 35.0, "mvolleyball": 35.0, "nhl": 25.0, "nfl": 40.0, "mlb": 20.0}
-    margin_scale = {"nba": 12.0, "wnba": 11.0, "ncaam": 11.5, "ncaaw": 12.0, "nbl": 11.0, "wvolleyball": 1.5, "mvolleyball": 1.5, "nhl": 2.5, "nfl": 14.0, "mlb": 3.5}
+    sport_home_adv = {"nba": 45.0, "wnba": 40.0, "ncaam": 55.0, "ncaaw": 50.0, "nbl": 45.0, "fiba": 30.0, "wvolleyball": 35.0, "mvolleyball": 35.0, "nhl": 25.0, "nfl": 40.0, "mlb": 20.0}
+    margin_scale = {"nba": 12.0, "wnba": 11.0, "ncaam": 11.5, "ncaaw": 12.0, "nbl": 11.0, "fiba": 11.5, "wvolleyball": 1.5, "mvolleyball": 1.5, "nhl": 2.5, "nfl": 14.0, "mlb": 3.5}
 
     for r in rows:
         lg = r["league"]

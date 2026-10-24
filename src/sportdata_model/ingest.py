@@ -421,7 +421,7 @@ def parse_day(
                         yield m
 
 
-PROBE_DATES = ("0115", "0515", "0615", "0915", "1015")
+PROBE_DATES = ("0115", "0315", "0515", "0615", "0905", "0915", "1015")
 
 
 def season_start(year: int) -> str:
