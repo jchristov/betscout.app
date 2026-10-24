@@ -190,7 +190,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     conn.close()
     rec_json = tmp_path / "rec.json"
     rec_json.write_text(
-        '{"generated_at": "2026-10-22T06:00:00Z", '
+        '{"generated_at": "2026-10-22T06:00:00Z", "backtest_risk": {"post25_bets": 4, "post25_cum_pnl": [0.0, 0.5, 1.2, 2.0]}, '
         '"qualifying_picks": ['
         '  {"league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "tier": "top_10pct", "action": "PAPER_BET", "kickoff": "2026-10-25T19:45Z", "score": 0.33, "p_mkt": 0.57, "p_model": 0.63, "ev_pct": 3.95, "quarter_kelly_pct": 0.46, "best_odds": 1.65, "primary_odds": 1.65, "synthetic_dc_odds": 1.15, "factors_tanh_z": {"sot_d": 0.85, "dom_rebound": 0.62}}'
         '], '
@@ -599,6 +599,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "exactScoreSplitterSection" in html_text and "recalcStandaloneDutchSplitter" in html_text
     assert "settingsModal" in html_text and "openSettingsModal" in html_text
     assert "EMBEDDED_MATCHUP_DETAILS" in html_text
+    assert "Monthly Walk-Forward Profit &amp; Consistency" in html_text
+
 
 
     # Test per-sport Discord webhook resolution via .env and UI overrides

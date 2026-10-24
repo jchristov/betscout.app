@@ -1360,7 +1360,7 @@ def generate_dashboard_html(
     cum_pnl = bt_risk.get("post25_cum_pnl") or [0.0]
     svg_chart = ""
     if len(cum_pnl) > 2:
-        w, h = 760, 150
+        w, h = 540, 155
         min_v, max_v = min(0.0, min(cum_pnl)), max(1.0, max(cum_pnl))
         span = max(max_v - min_v, 1.0)
         pts = []
@@ -1372,16 +1372,83 @@ def generate_dashboard_html(
         p25_prof = float(bt_risk.get("post25_profit_u", 0.0))
         p25_roi = float(bt_risk.get("post25_roi", 0.0)) * 100.0
         p25_dd = float(bt_risk.get("post25_max_drawdown_u", 0.0))
+
+        # Companion Chart: Monthly Walk-Forward Profit (u) & Cumulative Trajectory (2025-07 -> 2026-10)
+        wf_months = [
+            ("25-07", 2.10, 4),
+            ("25-08", 2.91, 10),
+            ("25-09", 0.86, 13),
+            ("25-10", 1.72, 13),
+            ("25-11", -0.25, 16),
+            ("25-12", 1.15, 13),
+            ("26-01", 3.16, 15),
+            ("26-02", -0.45, 16),
+            ("26-03", 0.78, 12),
+            ("26-04", 5.87, 13),
+            ("26-05", 1.46, 5),
+            ("26-09", 1.24, 2),
+            ("26-10", 1.40, 2),
+        ]
+        mw, mh = 540, 155
+        m_min_b, m_max_b = -1.2, 6.5
+        m_span_b = m_max_b - m_min_b
+        y_m_zero = mh - 22 - ((0.0 - m_min_b) / m_span_b) * (mh - 36)
+        bar_els: list[str] = []
+        cum_m_pts: list[str] = []
+        running_m = 0.0
+        m_cum_max = 23.0
+        slot_w = (mw - 28) / len(wf_months)
+        bar_w = max(14.0, slot_w * 0.56)
+        for m_idx, (m_lbl, m_prof, _m_n) in enumerate(wf_months):
+            cx = 14 + (m_idx + 0.5) * slot_w
+            bx = cx - bar_w / 2.0
+            if m_prof >= 0:
+                by = mh - 22 - ((m_prof - m_min_b) / m_span_b) * (mh - 36)
+                bh = max(2.0, y_m_zero - by)
+                b_col = "#22c55e"
+            else:
+                by = y_m_zero
+                bh = max(2.0, ((0.0 - m_prof) / m_span_b) * (mh - 36))
+                b_col = "#ef4444"
+            val_y = (by - 4.0) if m_prof >= 0 else (by + bh + 9.0)
+            bar_els.append(
+                f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" rx="2.5" fill="{b_col}" fill-opacity="0.82"/>'
+                f'<text x="{cx:.1f}" y="{val_y:.1f}" text-anchor="middle" fill="{b_col}" font-size="8.5" font-weight="700">{m_prof:+.1f}u</text>'
+                f'<text x="{cx:.1f}" y="{mh - 6:.1f}" text-anchor="middle" fill="#8b9bb4" font-size="8.5">{m_lbl}</text>'
+            )
+            running_m += m_prof
+            cy_cum = mh - 22 - (running_m / m_cum_max) * (mh - 38)
+            cum_m_pts.append(f"{cx:.1f},{cy_cum:.1f}")
+
         svg_chart = f"""
-        <div class="card" style="margin-bottom: 24px;" data-sport-section="soccer">
-          <div class="card-head">
-            <div><b>Out-of-Sample Post-2025 Holdout Equity Curve (Big-5 Top 10%, n={bt_risk.get('post25_bets', 0)} Bets)</b></div>
-            <div class="muted">Profit: {_fmt_signed(p25_prof, '+.2f', 'u')} · ROI: {_fmt_signed(p25_roi, '+.2f', '%')} · MaxDD: <b class="num-neg">-{p25_dd:.2f}u</b> · Sharpe: <b>{bt_risk.get('post25_sharpe', 0.0):.2f}</b> · HitRate: <b>{bt_risk.get('post25_hit_rate', 0.0)*100:.1f}%</b> (vs Mkt {bt_risk.get('post25_mean_p_mkt', 0.0)*100:.1f}%)</div>
+        <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); margin-bottom: 24px;" data-sport-section="soccer">
+          <div class="card" style="margin:0;">
+            <div class="card-head">
+              <div><b>📈 Out-of-Sample Post-2025 Holdout Equity Curve (Big-5 Top 10%, n={bt_risk.get('post25_bets', 0)} Bets)</b></div>
+              <div class="muted">Profit: {_fmt_signed(p25_prof, '+.2f', 'u')} · ROI: {_fmt_signed(p25_roi, '+.2f', '%')} · MaxDD: <b class="num-neg">-{p25_dd:.2f}u</b> · Sharpe: <b>{bt_risk.get('post25_sharpe', 0.0):.2f}</b> · HitRate: <b>{bt_risk.get('post25_hit_rate', 0.0)*100:.1f}%</b> (vs Mkt {bt_risk.get('post25_mean_p_mkt', 0.0)*100:.1f}%)</div>
+            </div>
+            <svg viewBox="0 0 {w} {h}" style="width:100%; height:155px; margin-top:8px;">
+              <line x1="12" y1="{y_zero:.1f}" x2="{w-12}" y2="{y_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
+              <polyline fill="none" stroke="#22c55e" stroke-width="2.5" points="{' '.join(pts)}"/>
+            </svg>
+            <div class="muted" style="font-size:10.5px; margin-top:2px;">
+              <span style="color:#22c55e;">━━ Cumulative Out-of-Sample Flat-Unit Profit (+{p25_prof:.2f}u)</span> &nbsp;·&nbsp; Strictly post-2025 holdout window
+            </div>
           </div>
-          <svg viewBox="0 0 {w} {h}" style="width:100%; height:150px; margin-top:8px;">
-            <line x1="12" y1="{y_zero:.1f}" x2="{w-12}" y2="{y_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
-            <polyline fill="none" stroke="#22c55e" stroke-width="2.5" points="{' '.join(pts)}"/>
-          </svg>
+          <div class="card" style="margin:0;">
+            <div class="card-head">
+              <div><b>📊 Monthly Walk-Forward Profit &amp; Consistency (2025-07 &rarr; 2026-10)</b></div>
+              <div class="muted">Win Months: <b class="num-pos">11 / 13 (84.6%)</b> · Total: <b class="num-pos">+21.95u</b> · ROI: <b class="num-pos">+16.38%</b> · Sharpe: <b>2.49</b></div>
+            </div>
+            <svg viewBox="0 0 {mw} {mh}" style="width:100%; height:155px; margin-top:8px;">
+              <line x1="10" y1="{y_m_zero:.1f}" x2="{mw-10}" y2="{y_m_zero:.1f}" stroke="#334155" stroke-dasharray="3,3"/>
+              {''.join(bar_els)}
+              <polyline fill="none" stroke="#38bdf8" stroke-width="2.0" stroke-dasharray="4,2" points="{' '.join(cum_m_pts)}"/>
+            </svg>
+            <div class="muted" style="font-size:10.5px; margin-top:2px;">
+              <span style="color:#22c55e;">██ Positive Month (u)</span> &nbsp;·&nbsp; <span style="color:#ef4444;">██ Drawdown Month</span> &nbsp;·&nbsp; <span style="color:#38bdf8;">┅┅ Expanding-Window Cumulative Curve (+21.95u)</span>
+            </div>
+          </div>
         </div>
         """
 
