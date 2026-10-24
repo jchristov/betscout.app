@@ -600,6 +600,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "settingsModal" in html_text and "openSettingsModal" in html_text
     assert "EMBEDDED_MATCHUP_DETAILS" in html_text
     assert "Monthly Walk-Forward Profit &amp; Consistency" in html_text
+    assert "pageLoadingOverlay" in html_text and "topLoadingBar" in html_text and "showPageLoader" in html_text
+
 
 
 

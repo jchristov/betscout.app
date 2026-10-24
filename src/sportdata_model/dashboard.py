@@ -1697,9 +1697,41 @@ def generate_dashboard_html(
   .progress-bar-fill {{ width: 38%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 99px; animation: indet 1.25s ease-in-out infinite; }}
   @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
   @keyframes indet {{ 0% {{ transform: translateX(-100%); }} 100% {{ transform: translateX(280%); }} }}
+  @keyframes vpPulseGlow {{ 0%, 100% {{ transform: scale(1); filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.35)); }} 50% {{ transform: scale(1.06); filter: drop-shadow(0 0 22px rgba(34, 197, 94, 0.55)); }} }}
+  @keyframes vpWaveDash {{ 0% {{ stroke-dashoffset: 120; }} 50% {{ stroke-dashoffset: 0; }} 100% {{ stroke-dashoffset: -120; }} }}
+  .page-loader-overlay {{ position: fixed; inset: 0; z-index: 2000; background: rgba(11, 15, 23, 0.88); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; transition: opacity 0.32s ease, visibility 0.32s ease; }}
+  .page-loader-overlay.is-hidden {{ opacity: 0; visibility: hidden; pointer-events: none; }}
+  .page-loader-card {{ background: linear-gradient(145deg, #131b29 0%, #0f172a 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-radius: 16px; padding: 24px 32px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 30px rgba(56, 189, 248, 0.14); max-width: 420px; width: 90%; text-align: center; }}
+  .page-loader-ring-wrap {{ position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center; animation: vpPulseGlow 2s ease-in-out infinite; }}
+  .page-loader-ring {{ position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid rgba(56, 189, 248, 0.18); border-top-color: var(--accent); border-right-color: var(--green); animation: spin 0.95s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite; }}
+  .page-loader-wave {{ stroke-dasharray: 120; stroke-dashoffset: 120; animation: vpWaveDash 1.8s ease-in-out infinite; }}
+  .top-loading-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 2100; background: rgba(15, 23, 42, 0.4); overflow: hidden; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }}
+  .top-loading-bar.is-active {{ opacity: 1; }}
+  .top-loading-bar-fill {{ width: 35%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--green), var(--accent)); animation: indet 1.1s ease-in-out infinite; box-shadow: 0 0 10px var(--accent); }}
 </style>
 </head>
 <body>
+  <div id="topLoadingBar" class="top-loading-bar is-active">
+    <div class="top-loading-bar-fill"></div>
+  </div>
+  <div id="pageLoadingOverlay" class="page-loader-overlay" role="status" aria-live="polite">
+    <div class="page-loader-card">
+      <div class="page-loader-ring-wrap">
+        <div class="page-loader-ring"></div>
+        <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="#0f172a" stroke="#38bdf8" stroke-width="2.6" stroke-linejoin="round"/>
+          <path class="page-loader-wave" d="M12 33 L20 33 L26 46 L35 16 L41 34 L51 20" stroke="#22c55e" stroke-width="4.0" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="35" cy="16" r="2.6" fill="#38bdf8"/>
+          <circle cx="51" cy="20" r="2.8" fill="#22c55e"/>
+        </svg>
+      </div>
+      <div>
+        <div id="pageLoaderTitle" style="font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--text);">Loading VektorPulse Intelligence...</div>
+        <div id="pageLoaderSub" class="muted" style="margin-top:4px; font-size:11.5px;">Hydrating 59,000+ matches, calibrated odds, H2H form &amp; live SSE feed</div>
+      </div>
+      <div class="progress-bar-track" style="width:100%;"><div class="progress-bar-fill"></div></div>
+    </div>
+  </div>
   <header>
     <div class="brand-wrap">
       <div class="brand-logo" title="VektorPulse — Sports Edge &amp; Score Intelligence">
@@ -2299,6 +2331,7 @@ def generate_dashboard_html(
       titleEl.textContent = '🔍 ' + home + ' vs ' + away;
       bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from VektorPulse store...</div>';
       modal.style.display = 'flex';
+      document.getElementById('topLoadingBar')?.classList.add('is-active');
       try {{
         let d = null;
         if (window.location.protocol.startsWith('http')) {{
@@ -2414,6 +2447,8 @@ def generate_dashboard_html(
           scHtml;
       }} catch (err) {{
         bodyEl.innerHTML = '<div class="num-neg">Failed to load matchup details: ' + escHtml(String(err)) + '</div>';
+      }} finally {{
+        if (!isActionBusy) document.getElementById('topLoadingBar')?.classList.remove('is-active');
       }}
     }}
 
@@ -2866,6 +2901,7 @@ def generate_dashboard_html(
         box.innerHTML = '<span class="muted">Start the VektorPulse WebApp server (<code>uv run vektorpulse --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
         return;
       }}
+      document.getElementById('topLoadingBar')?.classList.add('is-active');
       try {{
         const r = await fetch('/api/analyze-live?q=' + encodeURIComponent(q));
         const d = await r.json();
@@ -2916,6 +2952,8 @@ def generate_dashboard_html(
           warnHtml;
       }} catch (err) {{
         box.innerHTML = '<span class="num-neg">Analyzer error: ' + escHtml(String(err)) + '</span>';
+      }} finally {{
+        if (!isActionBusy) document.getElementById('topLoadingBar')?.classList.remove('is-active');
       }}
     }}
 
@@ -3420,6 +3458,8 @@ def generate_dashboard_html(
       if (isActionBusy) {{
         if (txtEl && labelText) txtEl.textContent = labelText;
         if (banner) banner.style.display = 'flex';
+        document.getElementById('topLoadingBar')?.classList.add('is-active');
+        showPageLoader(labelText || 'Synchronizing VektorPulse data...', 'Communicating with ESPN, SofaScore & SQLite store...');
         const t0 = performance.now();
         if (elapsedEl) elapsedEl.textContent = '0.0s';
         progressTimer = setInterval(() => {{
@@ -3431,6 +3471,8 @@ def generate_dashboard_html(
         }}
       }} else {{
         if (banner) banner.style.display = 'none';
+        document.getElementById('topLoadingBar')?.classList.remove('is-active');
+        hidePageLoader();
         document.querySelectorAll('.js-action-btn').forEach(b => {{
           if (b.dataset.origHtml) {{
             b.innerHTML = b.dataset.origHtml;
@@ -3438,6 +3480,24 @@ def generate_dashboard_html(
           }}
         }});
       }}
+    }}
+
+    function showPageLoader(titleText, subText) {{
+      const ov = document.getElementById('pageLoadingOverlay');
+      const tEl = document.getElementById('pageLoaderTitle');
+      const sEl = document.getElementById('pageLoaderSub');
+      const topBar = document.getElementById('topLoadingBar');
+      if (tEl && titleText) tEl.textContent = titleText;
+      if (sEl && subText) sEl.textContent = subText;
+      if (ov) ov.classList.remove('is-hidden');
+      if (topBar) topBar.classList.add('is-active');
+    }}
+
+    function hidePageLoader() {{
+      const ov = document.getElementById('pageLoadingOverlay');
+      const topBar = document.getElementById('topLoadingBar');
+      if (ov) ov.classList.add('is-hidden');
+      if (topBar && !isActionBusy) topBar.classList.remove('is-active');
     }}
 
     function updateSocialEnvBadges(payload) {{
@@ -3765,6 +3825,10 @@ def generate_dashboard_html(
     restoreSlipPrefsFromStorage();
     buildSmartBetPlan();
     populateDutchMatchSelect();
+    setTimeout(() => hidePageLoader(), 260);
+    window.addEventListener('beforeunload', () => {{
+      showPageLoader('Refreshing VektorPulse Dashboard...', 'Loading updated predictions, live scores & paper-bet ledger...');
+    }});
 
     function copyTelegramPreview() {{
       const ta = document.getElementById('tgMessagePreview');
