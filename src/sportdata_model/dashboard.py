@@ -810,7 +810,7 @@ def generate_dashboard_html(
         b_kelly_pill = f' <span class="pill badge-bet kelly-stake" data-kelly-pct="{b_qk_pct:.3f}" title="Recommended Quarter-Kelly Stake">{b_qk_pct:.2f}% (€{b_qk_pct * 10.0:.2f})</span>'
         best_bets_rows.append(
             f"""
-            <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
+            <tr data-odds="{b['odds']:.3f}" data-win-prob="{b_win_pct/100.0:.4f}" data-fair-odds="{b_fair:.3f}" data-tier="{html.escape(b_tier_str)}" data-comp="{html.escape(b_comp)}" data-pick-name="{b_pick_name}" data-exact-score="{esc_col}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
               <td class="col-icon" data-sort="{html.escape(b['sport_cat'])}"><span class="sport-icon" title="{html.escape(b['sport_cat'].capitalize())}">{b_ico}</span></td>
               <td data-sort="{html.escape(b_comp)}"><span class="pill">{b_comp_img}{html.escape(b_comp)}</span></td>
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
@@ -1404,6 +1404,33 @@ def generate_dashboard_html(
     <div class="kpi"><span>Total Best Bets (&gt;{min_odds:.2f})</span><b id="visibleBestBetsKpi" class="pos">{len(best_bets)}</b></div>
   </section>
 
+  <section class="card" id="smartBetPlannerSection" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.45); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
+    <div class="card-head" style="margin-bottom:10px;">
+      <div>
+        <b style="font-size:14.5px; color:var(--accent);">🎯 Smart Bet Slip &amp; Stake Allocation Optimizer</b>
+        <span class="muted" style="margin-left:8px;">Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid 60/40 Split</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <b>Ready to Bet (€):</b>
+        <input id="betAmountInput" type="number" min="5" max="100000" step="5" value="100" oninput="buildSmartBetPlan()" style="width:88px; background:#0b0f17; color:var(--green); border:1px solid var(--accent); border-radius:6px; padding:5px 8px; font-size:13px; font-weight:800;">
+        <div class="sport-btn-group">
+          <button type="button" class="sport-btn" onclick="setBetBudget(25)">€25</button>
+          <button type="button" class="sport-btn" onclick="setBetBudget(50)">€50</button>
+          <button type="button" class="sport-btn active" id="budgetBtn100" onclick="setBetBudget(100)">€100</button>
+          <button type="button" class="sport-btn" onclick="setBetBudget(250)">€250</button>
+          <button type="button" class="sport-btn" onclick="setBetBudget(500)">€500</button>
+        </div>
+        <b>Mode:</b>
+        <select id="betRiskProfileSelect" onchange="buildSmartBetPlan()" style="background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;">
+          <option value="balanced" selected>⚖️ Balanced (Safe 2-Leg + Top 4 Singles)</option>
+          <option value="fortress">🛡️ Ultra-Safe Fortress (Max Hit Rate &ge;72%)</option>
+          <option value="upside">🚀 Max Return Multiplier (3-Leg Booster + Value Singles)</option>
+        </select>
+      </div>
+    </div>
+    <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
+  </section>
+
   {svg_chart}
 
   <div data-sport-section="soccer">
@@ -1675,6 +1702,7 @@ def generate_dashboard_html(
       const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
       const kpi = document.getElementById('visibleBestBetsKpi');
       if (kpi) kpi.textContent = String(visibleRows.length);
+      if (typeof buildSmartBetPlan === 'function') buildSmartBetPlan();
     }}
 
     function applyDayFilter(dayKey) {{
@@ -1765,13 +1793,249 @@ def generate_dashboard_html(
           date_local: r.getAttribute('data-date-local') || '',
           sport_cat: r.getAttribute('data-sport-cat') || 'soccer',
           sport_league: r.getAttribute('data-sport') || '',
+          comp: r.getAttribute('data-comp') || r.getAttribute('data-sport') || '',
           match: r.getAttribute('data-match') || '',
           pick: r.getAttribute('data-pick') || '',
+          pick_name: r.getAttribute('data-pick-name') || r.getAttribute('data-pick') || '',
+          tier: r.getAttribute('data-tier') || '',
+          win_prob: parseFloat(r.getAttribute('data-win-prob') || '0.68'),
+          fair_odds: parseFloat(r.getAttribute('data-fair-odds') || '1.45'),
+          exact_score: r.getAttribute('data-exact-score') || '',
           odds: parseFloat(r.getAttribute('data-odds') || '0'),
           odds_display: r.getAttribute('data-odds-display') || ''
         }});
       }});
       return items;
+    }}
+
+    function setBetBudget(amount) {{
+      const inp = document.getElementById('betAmountInput');
+      if (inp) inp.value = String(amount);
+      buildSmartBetPlan();
+    }}
+
+    function shareStrategyTicket(titleStr, summaryStr, legsText) {{
+      const modal = document.getElementById('telegramModal');
+      if (!modal) return;
+      modal.style.display = 'block';
+      const msg = [
+        '🎯 **VEKTORPULSE — ' + titleStr.toUpperCase() + '**',
+        '💰 *' + summaryStr + '*',
+        '',
+        legsText,
+        '',
+        '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
+      ].join('\\n');
+      document.getElementById('tgMessagePreview').value = msg;
+      modal.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+    }}
+
+    function buildSmartBetPlan() {{
+      const grid = document.getElementById('smartBetPlanGrid');
+      if (!grid) return;
+      const budget = Math.max(5, parseFloat(document.getElementById('betAmountInput')?.value || '100') || 100);
+      const profile = document.getElementById('betRiskProfileSelect')?.value || 'balanced';
+      let pool = collectVisibleBestBets();
+      if (!pool.length) {{
+        const allRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]');
+        allRows.forEach(r => {{
+          pool.push({{
+            date: r.getAttribute('data-date') || '',
+            date_local: r.getAttribute('data-date-local') || '',
+            sport_cat: r.getAttribute('data-sport-cat') || 'soccer',
+            sport_league: r.getAttribute('data-sport') || '',
+            comp: r.getAttribute('data-comp') || r.getAttribute('data-sport') || '',
+            match: r.getAttribute('data-match') || '',
+            pick: r.getAttribute('data-pick') || '',
+            pick_name: r.getAttribute('data-pick-name') || r.getAttribute('data-pick') || '',
+            tier: r.getAttribute('data-tier') || '',
+            win_prob: parseFloat(r.getAttribute('data-win-prob') || '0.68'),
+            fair_odds: parseFloat(r.getAttribute('data-fair-odds') || '1.45'),
+            exact_score: r.getAttribute('data-exact-score') || '',
+            odds: parseFloat(r.getAttribute('data-odds') || '0'),
+            odds_display: r.getAttribute('data-odds-display') || ''
+          }});
+        }});
+      }}
+      if (!pool.length) {{
+        grid.innerHTML = '<div class="muted">No qualifying picks available for the selected filter.</div>';
+        return;
+      }}
+
+      // Score each pick by safety, Kelly edge, and tier
+      const scored = pool.map(it => {{
+        const p = Math.min(Math.max(it.win_prob || 0.65, 0.50), 0.96);
+        const o = Math.max(it.odds || 1.20, 1.08);
+        const ev = p * o - 1.0;
+        const kellyW = Math.max((p * Math.min(o, 2.20) - 0.82) / Math.max(o - 1.0, 0.12), 0.10);
+        const safetyRank = p * 1.15 + Math.max(ev, -0.04) * 0.45 + (o >= 1.16 && o <= 1.68 ? 0.08 : 0.0);
+        const upsideRank = p * 0.85 + Math.max(ev, 0.0) * 0.85 + (o >= 1.28 && o <= 1.85 ? 0.10 : 0.0);
+        return {{ ...it, p, o, ev, kellyW, safetyRank, upsideRank }};
+      }});
+
+      // 1. Strategy A: Safe Combo / Parlay Optimizer (Uncorrelated across competitions/sports)
+      const comboSorted = [...scored].sort((a, b) =>
+        profile === 'upside' ? (b.upsideRank - a.upsideRank) : (b.safetyRank - a.safetyRank)
+      );
+      const targetComboLegs = profile === 'upside' ? 3 : 2;
+      const comboLegs = [];
+      const usedMatches = new Set();
+      const usedComps = new Set();
+      for (const cand of comboSorted) {{
+        if (comboLegs.length >= targetComboLegs) break;
+        if (usedMatches.has(cand.match)) continue;
+        if (cand.o < 1.12 || cand.o > 1.88) continue;
+        if (profile === 'fortress' && cand.p < 0.72) continue;
+        if (usedComps.has(cand.comp) && comboSorted.length > targetComboLegs + 2) continue;
+        comboLegs.push(cand);
+        usedMatches.add(cand.match);
+        usedComps.add(cand.comp);
+      }}
+      while (comboLegs.length < Math.min(2, scored.length)) {{
+        const fallback = comboSorted.find(c => !usedMatches.has(c.match));
+        if (!fallback) break;
+        comboLegs.push(fallback);
+        usedMatches.add(fallback.match);
+      }}
+
+      const comboOdds = comboLegs.reduce((acc, x) => acc * x.o, 1.0);
+      const comboProb = comboLegs.reduce((acc, x) => acc * x.p, 1.0);
+      const comboReturn = budget * comboOdds;
+      const comboNetProfit = comboReturn - budget;
+
+      // 2. Strategy B: Kelly-Weighted Separate Individual Bets (Portfolio of 3–5 Singles)
+      const targetSinglesCount = profile === 'fortress' ? 3 : (budget >= 150 ? 5 : 4);
+      const singlesSorted = [...scored].sort((a, b) => (b.p * 0.7 + b.kellyW * 0.3) - (a.p * 0.7 + a.kellyW * 0.3));
+      const singlePicks = [];
+      const seenSingleMatches = new Set();
+      for (const cand of singlesSorted) {{
+        if (singlePicks.length >= targetSinglesCount) break;
+        if (seenSingleMatches.has(cand.match)) continue;
+        if (cand.o < 1.14) continue;
+        singlePicks.push(cand);
+        seenSingleMatches.add(cand.match);
+      }}
+      if (!singlePicks.length) singlePicks.push(...scored.slice(0, Math.min(3, scored.length)));
+
+      const sumKellyW = singlePicks.reduce((s, x) => s + x.kellyW, 0.0) || 1.0;
+      let allocatedSum = 0.0;
+      const singleAllocs = singlePicks.map((x, idx) => {{
+        const rawStake = idx === singlePicks.length - 1
+          ? Math.max(0, budget - allocatedSum)
+          : Math.round((budget * (x.kellyW / sumKellyW)) * 2.0) / 2.0;
+        allocatedSum += rawStake;
+        const retIfWin = rawStake * x.o;
+        const netIfWin = retIfWin - rawStake;
+        const expNet = rawStake * (x.p * x.o - 1.0);
+        return {{ ...x, stake: rawStake, retIfWin, netIfWin, expNet }};
+      }});
+
+      const singlesMaxReturn = singleAllocs.reduce((s, x) => s + x.retIfWin, 0.0);
+      const singlesMaxNet = singlesMaxReturn - budget;
+      const singlesExpReturn = singleAllocs.reduce((s, x) => s + x.stake * x.p * x.o + x.stake * (1.0 - x.p) * 0.0, 0.0);
+      // Probability at least (N-1) singles win (so portfolio finishes in profit or near breakeven)
+      const avgSingleP = singleAllocs.reduce((s, x) => s + x.p, 0.0) / Math.max(singleAllocs.length, 1);
+      const probMajorityHit = Math.min(0.98, 1.0 - Math.pow(1.0 - avgSingleP, 2));
+
+      // 3. Strategy C: Hybrid "Core Singles + Combo Booster" Split (65% Singles / 35% Safe 2-Leg Combo)
+      const hybridSinglesBudget = Math.round(budget * 0.65 * 2.0) / 2.0;
+      const hybridComboBudget = Math.max(0, budget - hybridSinglesBudget);
+      const top2Singles = singleAllocs.slice(0, 2);
+      const top2Weight = top2Singles.reduce((s, x) => s + x.kellyW, 0.0) || 1.0;
+      let hAllocSum = 0.0;
+      const hybridSingles = top2Singles.map((x, idx) => {{
+        const st = idx === top2Singles.length - 1
+          ? Math.max(0, hybridSinglesBudget - hAllocSum)
+          : Math.round((hybridSinglesBudget * (x.kellyW / top2Weight)) * 2.0) / 2.0;
+        hAllocSum += st;
+        return {{ ...x, hStake: st, hRet: st * x.o, hNet: st * (x.o - 1.0) }};
+      }});
+      const hybrid2Legs = comboLegs.slice(0, 2);
+      const hybridComboOdds = hybrid2Legs.reduce((acc, x) => acc * x.o, 1.0);
+      const hybridComboRet = hybridComboBudget * hybridComboOdds;
+      const hybridTotalMaxReturn = hybridSingles.reduce((s, x) => s + x.hRet, 0.0) + hybridComboRet;
+      const hybridTotalMaxNet = hybridTotalMaxReturn - budget;
+      const singlesFloorReturn = hybridSingles.reduce((s, x) => s + x.hRet, 0.0);
+
+      // Build HTML for the 3 Strategy Cards
+      const comboLegsHtml = comboLegs.map((l, idx) => {{
+        const ico = getSportEmoji(l.sport_cat || l.sport_league);
+        const tm = currentTzMode === 'utc' ? l.date : (l.date_local || l.date);
+        return '<div style="padding:5px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+          '<div><b>Leg ' + (idx + 1) + ':</b> ' + ico + ' <b>' + escHtml(l.match) + '</b> <span class="muted">(' + escHtml(tm) + ')</span></div>' +
+          '<div style="margin-top:2px;">&rarr; Pick: <b class="num-pos">' + escHtml(l.pick_name) + '</b> @ <b>' + l.o.toFixed(2) + '</b> · WinProb: <b class="num-pos">' + (l.p * 100).toFixed(1) + '%</b></div>' +
+        '</div>';
+      }}).join('');
+
+      const singlesRowsHtml = singleAllocs.map((s, idx) => {{
+        const ico = getSportEmoji(s.sport_cat || s.sport_league);
+        return '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+          '<div>' + (idx + 1) + '. ' + ico + ' <b>' + escHtml(s.pick_name) + '</b> <span class="muted">(' + escHtml(s.match) + ')</span> @ <b>' + s.o.toFixed(2) + '</b> <span class="muted">(' + (s.p * 100).toFixed(0) + '%)</span></div>' +
+          '<div style="white-space:nowrap; margin-left:8px;"><span class="pill badge-bet">Stake €' + s.stake.toFixed(2) + '</span> &rarr; <b class="num-pos">+€' + s.netIfWin.toFixed(2) + '</b></div>' +
+        '</div>';
+      }}).join('');
+
+      const hybridRowsHtml = hybridSingles.map((s, idx) => {{
+        const ico = getSportEmoji(s.sport_cat || s.sport_league);
+        return '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+          '<div>🛡️ Single #' + (idx + 1) + ': ' + ico + ' <b>' + escHtml(s.pick_name) + '</b> @ <b>' + s.o.toFixed(2) + '</b> <span class="muted">(' + (s.p * 100).toFixed(0) + '%)</span></div>' +
+          '<div><span class="pill tier">€' + s.hStake.toFixed(2) + '</span> &rarr; <b class="num-pos">€' + s.hRet.toFixed(2) + '</b></div>' +
+        '</div>';
+      }}).join('') +
+      '<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:11.5px;">' +
+        '<div>🚀 <b>2-Leg Booster:</b> ' + hybrid2Legs.map(x => escHtml(x.pick_name)).join(' + ') + ' @ <b>' + hybridComboOdds.toFixed(2) + '</b></div>' +
+        '<div><span class="pill badge-bet">€' + hybridComboBudget.toFixed(2) + '</span> &rarr; <b class="num-pos">€' + hybridComboRet.toFixed(2) + '</b></div>' +
+      '</div>';
+
+      // Share strings
+      const comboShareLegs = comboLegs.map((l, i) => (i + 1) + '. ' + getSportEmoji(l.sport_cat) + ' **' + l.match + '** -> **' + l.pick_name + '** @ **' + l.o.toFixed(2) + '** (' + (l.p * 100).toFixed(1) + '%)').join('\\n');
+      const singlesShareLegs = singleAllocs.map((s, i) => (i + 1) + '. ' + getSportEmoji(s.sport_cat) + ' **' + s.match + '** -> **' + s.pick_name + '** @ **' + s.o.toFixed(2) + '** · Stake: **€' + s.stake.toFixed(2) + '** (Profit +€' + s.netIfWin.toFixed(2) + ')').join('\\n');
+      const hybridShareLegs = hybridSingles.map((s, i) => '• Single #' + (i + 1) + ': **' + s.pick_name + '** (' + s.match + ') @ **' + s.o.toFixed(2) + '** · Stake **€' + s.hStake.toFixed(2) + '**').join('\\n') +
+        '\\n• 2-Leg Booster: **' + hybrid2Legs.map(x => x.pick_name).join(' + ') + '** @ **' + hybridComboOdds.toFixed(2) + '** · Stake **€' + hybridComboBudget.toFixed(2) + '**';
+
+      const recBadgeA = (budget <= 40 || profile === 'upside') ? ' <span class="pill badge-bet">★ RECOMMENDED FOR BUDGET</span>' : '';
+      const recBadgeB = (budget >= 120 && profile === 'fortress') ? ' <span class="pill badge-bet">★ LOWEST VARIANCE</span>' : '';
+      const recBadgeC = (budget >= 40 && profile === 'balanced') ? ' <span class="pill badge-bet">★ OPTIMAL SHARPE SPLIT</span>' : '';
+
+      grid.innerHTML =
+        '<div class="card" style="margin:0; border-color:rgba(34,197,94,0.45);">' +
+          '<div class="card-head">' +
+            '<div><b>Option A · Safe ' + comboLegs.length + '-Leg Multiplier Combo</b>' + recBadgeA + '</div>' +
+            '<button type="button" class="btn-mini" title="Share this Combo Ticket" onclick="shareStrategyTicket(\\'Safe ' + comboLegs.length + '-Leg Combo Ticket\\', \\'Stake: €' + budget.toFixed(2) + ' · Combined Odds: ' + comboOdds.toFixed(2) + ' · Potential Return: €' + comboReturn.toFixed(2) + ' (+€' + comboNetProfit.toFixed(2) + ')\\', ' + escHtml(JSON.stringify(comboShareLegs)) + ')">📣</button>' +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0 8px;">Uncorrelated cross-league parlay maximizing total return on a single ticket</div>' +
+          '<div>' + comboLegsHtml + '</div>' +
+          '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Stake: <b>€' + budget.toFixed(2) + '</b> · Combined Odds: <b class="num-pos">' + comboOdds.toFixed(2) + 'x</b> (' + (comboProb * 100).toFixed(1) + '% Hit)</span>' +
+            '<span>Return: <b class="num-pos">€' + comboReturn.toFixed(2) + ' (+€' + comboNetProfit.toFixed(2) + ')</b></span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card" style="margin:0; border-color:rgba(56,189,248,0.45);">' +
+          '<div class="card-head">' +
+            '<div><b>Option B · ' + singleAllocs.length + ' Separate Individual Bets (Kelly Portfolio)</b>' + recBadgeB + '</div>' +
+            '<button type="button" class="btn-mini" title="Share this Singles Portfolio" onclick="shareStrategyTicket(\\'Kelly Singles Portfolio (' + singleAllocs.length + ' Bets)\\', \\'Total Budget: €' + budget.toFixed(2) + ' · All-Hit Return: €' + singlesMaxReturn.toFixed(2) + ' (+€' + singlesMaxNet.toFixed(2) + ')\\', ' + escHtml(JSON.stringify(singlesShareLegs)) + ')">📣</button>' +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0 8px;">Splits €' + budget.toFixed(2) + ' across ' + singleAllocs.length + ' independent singles — one upset never wipes out your stake</div>' +
+          '<div>' + singlesRowsHtml + '</div>' +
+          '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Safety: <b class="num-pos">' + (probMajorityHit * 100).toFixed(1) + '%</b> (&ge;N-1 hit)</span>' +
+            '<span>All-Hit Return: <b class="num-pos">€' + singlesMaxReturn.toFixed(2) + ' (+€' + singlesMaxNet.toFixed(2) + ')</b></span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card" style="margin:0; border-color:rgba(245,158,11,0.5);">' +
+          '<div class="card-head">' +
+            '<div><b>Option C · 65/35 Core Singles + Combo Booster</b>' + recBadgeC + '</div>' +
+            '<button type="button" class="btn-mini" title="Share Hybrid Strategy" onclick="shareStrategyTicket(\\'65/35 Core Singles + Combo Booster\\', \\'Total Budget: €' + budget.toFixed(2) + ' · Max Return: €' + hybridTotalMaxReturn.toFixed(2) + ' (+€' + hybridTotalMaxNet.toFixed(2) + ')\\', ' + escHtml(JSON.stringify(hybridShareLegs)) + ')">📣</button>' +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0 8px;">65% (€' + hybridSinglesBudget.toFixed(2) + ') on Top 2 Singles protects your floor (€' + singlesFloorReturn.toFixed(2) + ') + 35% (€' + hybridComboBudget.toFixed(2) + ') on 2-Leg Combo for upside</div>' +
+          '<div>' + hybridRowsHtml + '</div>' +
+          '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Singles Floor: <b>€' + singlesFloorReturn.toFixed(2) + '</b> (Covers ' + Math.round((singlesFloorReturn / budget) * 100) + '% of stake)</span>' +
+            '<span>Full Sweep: <b class="num-pos">€' + hybridTotalMaxReturn.toFixed(2) + ' (+€' + hybridTotalMaxNet.toFixed(2) + ')</b></span>' +
+          '</div>' +
+        '</div>';
     }}
 
     function applyTimezoneMode(mode) {{
@@ -2169,6 +2433,7 @@ def generate_dashboard_html(
     }}
 
     initLiveEventStream();
+    buildSmartBetPlan();
 
     function copyTelegramPreview() {{
       const ta = document.getElementById('tgMessagePreview');
