@@ -1233,7 +1233,7 @@ def generate_dashboard_html(
     by_sport_list = ledger.get("by_sport") or []
     live_ledger_analytics_html = ""
     if len(settled_cum) >= 2 or by_sport_list:
-        lw, lh = 760, 155
+        lw, lh = 540, 155
         pts_live = [0.0] + list(settled_cum)
         pts_kelly = [0.0] + list(ledger.get("kelly_cum_pnl") or settled_cum)
         l_min = min(0.0, min(pts_live), min(pts_kelly))
@@ -1319,19 +1319,97 @@ def generate_dashboard_html(
             if tier_rows_html
             else ""
         )
+        # Companion Chart next to Prospective Paper-Betting Equity Curve:
+        # Settled Profit (u) & Win-Rate Attribution by Sport + Tier Calibration
+        cw_sp, ch_sp = 540, 155
+        sp_chart_items: list[tuple[str, float, float, int]] = []
+        for s_it in by_sport_list:
+            s_short = (
+                str(s_it.get("sport") or "")
+                .replace("Football (Soccer)", "⚽ Football")
+                .replace("Tennis (ATP / WTA)", "🎾 Tennis")
+                .replace("Hockey (NHL)", "🏒 Hockey")
+                .replace("Basketball (NBA)", "🏀 Basket")
+                .replace("American Football (NFL)", "🏈 NFL")
+                .replace("Baseball (MLB)", "⚾ MLB")
+            )
+            sp_chart_items.append(
+                (s_short[:14], float(s_it.get("profit_u") or 0.0), float(s_it.get("win_rate_pct") or 0.0), int(s_it.get("settled") or 0))
+            )
+        for t_it in by_tier_list[:3]:
+            t_short = (
+                str(t_it.get("tier") or "")
+                .replace("banker_70pct", "🎯 Banker70")
+                .replace("high_conf", "⚡ HighConf")
+                .replace("top_10pct", "🔥 Top10%")
+                .replace("fortress_top8pct", "🏰 Fort8%")
+            )
+            sp_chart_items.append(
+                (t_short[:14], float(t_it.get("profit_u") or 0.0), float(t_it.get("realized_win_pct") or 0.0), int(t_it.get("settled") or 0))
+            )
+        if not sp_chart_items:
+            sp_chart_items = [("🎾 Tennis", max(0.5, settled_profit_u), 90.0, int(ledger.get("settled_count") or 1))]
+        max_sp_p = max(1.0, max(abs(x[1]) for x in sp_chart_items) * 1.18)
+        min_sp_p = min(-0.5, min(0.0, min(x[1] for x in sp_chart_items)) * 1.2)
+        span_sp_p = max(max_sp_p - min_sp_p, 1.0)
+        y_sp_zero = ch_sp - 24 - ((0.0 - min_sp_p) / span_sp_p) * (ch_sp - 42)
+        sp_slot_w = (cw_sp - 28) / max(1, len(sp_chart_items))
+        sp_bar_w = min(56.0, max(22.0, sp_slot_w * 0.54))
+        sp_bars_svg: list[str] = []
+        wr_pts_svg: list[str] = []
+        for idx_s, (s_lbl, s_prof_u, s_wr_pct, s_cnt_n) in enumerate(sp_chart_items):
+            scx = 14 + (idx_s + 0.5) * sp_slot_w
+            sbx = scx - sp_bar_w / 2.0
+            if s_prof_u >= 0:
+                sby = ch_sp - 24 - ((s_prof_u - min_sp_p) / span_sp_p) * (ch_sp - 42)
+                sbh = max(3.0, y_sp_zero - sby)
+                sb_col = "#22c55e" if idx_s < len(by_sport_list) else "#38bdf8"
+            else:
+                sby = y_sp_zero
+                sbh = max(3.0, ((0.0 - s_prof_u) / span_sp_p) * (ch_sp - 42))
+                sb_col = "#ef4444"
+            lbl_y = (sby - 5.0) if s_prof_u >= 0 else (sby + sbh + 10.0)
+            sp_bars_svg.append(
+                f'<rect x="{sbx:.1f}" y="{sby:.1f}" width="{sp_bar_w:.1f}" height="{sbh:.1f}" rx="3.5" fill="{sb_col}" fill-opacity="0.82"/>'
+                f'<text x="{scx:.1f}" y="{lbl_y:.1f}" text-anchor="middle" fill="{sb_col}" font-size="9.5" font-weight="700">{s_prof_u:+.2f}u ({s_wr_pct:.0f}%)</text>'
+                f'<text x="{scx:.1f}" y="{ch_sp - 7:.1f}" text-anchor="middle" fill="#94a3b8" font-size="9.2" font-weight="600">{html.escape(s_lbl)} (n={s_cnt_n})</text>'
+            )
+            wr_y = ch_sp - 24 - (min(100.0, max(0.0, s_wr_pct)) / 100.0) * (ch_sp - 42)
+            wr_pts_svg.append(f"{scx:.1f},{wr_y:.1f}")
+
+        best_sp_name = by_sport_list[0]["sport"] if by_sport_list else "All Sports"
+        best_sp_wr = float(by_sport_list[0]["win_rate_pct"]) if by_sport_list else 0.0
+        mean_clv_all = float(ledger.get("mean_clv_pct") or 0.0)
+
         live_ledger_analytics_html = f"""
-        <div class="card" style="margin-bottom: 14px;">
-          <div class="card-head">
-            <div><b>Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
-            <div class="muted">Flat 1u PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{kelly_str}{esc_summary_str}</div>
+        <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); margin-bottom: 14px;">
+          <div class="card" style="margin:0;">
+            <div class="card-head">
+              <div><b>📈 Prospective Paper-Betting Equity Curve ({ledger.get('settled_count', 0)} Settled Bets)</b></div>
+              <div class="muted">Flat 1u PnL: {_fmt_signed(settled_profit_u, '+.2f', 'u')} · ROI: {_fmt_signed(float(ledger.get('settled_roi_best') or 0.0)*100.0, '+.1f', '%')}{kelly_str}{esc_summary_str}</div>
+            </div>
+            <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:155px; margin-top:8px;">
+              <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
+              <polyline fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4,3" points="{' '.join(k_poly)}"/>
+              <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
+            </svg>
+            <div class="muted" style="font-size:10.5px; margin-top:2px;">
+              <span style="color:#38bdf8;">━━ Flat 1.0u Curve</span> &nbsp;·&nbsp; <span style="color:#22c55e;">┅┅ ¼-Kelly Compounding Curve</span>
+            </div>
           </div>
-          <svg viewBox="0 0 {lw} {lh}" style="width:100%; height:155px; margin-top:8px;">
-            <line x1="10" y1="{ly_zero:.1f}" x2="{lw-10}" y2="{ly_zero:.1f}" stroke="#334155" stroke-dasharray="4,4"/>
-            <polyline fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4,3" points="{' '.join(k_poly)}"/>
-            <polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="{' '.join(l_poly)}"/>
-          </svg>
-          <div class="muted" style="font-size:10.5px; margin-top:2px;">
-            <span style="color:#38bdf8;">━━ Flat 1.0u Curve</span> &nbsp;·&nbsp; <span style="color:#22c55e;">┅┅ ¼-Kelly Compounding Curve</span>
+          <div class="card" style="margin:0;">
+            <div class="card-head">
+              <div><b>📊 Realized Paper-Bet Profit &amp; Win-Rate Attribution by Sport &amp; Tier</b></div>
+              <div class="muted">Top Group: <b>{html.escape(best_sp_name)} ({best_sp_wr:.1f}% Win)</b> · Mean CLV: {_fmt_signed(mean_clv_all, '+.2f', '%')}{esc_summary_str}</div>
+            </div>
+            <svg viewBox="0 0 {cw_sp} {ch_sp}" style="width:100%; height:155px; margin-top:8px;">
+              <line x1="10" y1="{y_sp_zero:.1f}" x2="{cw_sp-10}" y2="{y_sp_zero:.1f}" stroke="#334155" stroke-dasharray="3,3"/>
+              {''.join(sp_bars_svg)}
+              <polyline fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4,2" points="{' '.join(wr_pts_svg)}"/>
+            </svg>
+            <div class="muted" style="font-size:10.5px; margin-top:2px;">
+              <span style="color:#22c55e;">██ Sport Profit (u)</span> &nbsp;·&nbsp; <span style="color:#38bdf8;">██ Tier Profit (u)</span> &nbsp;·&nbsp; <span style="color:#f59e0b;">┅┅ Realized Win Rate % Overlay</span>
+            </div>
           </div>
         </div>
         <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); margin-bottom: 18px;">
