@@ -513,12 +513,15 @@ def notify_inplay_rebound_edges_to_discord(
     db_path: Path,
     webhook_url: str | None = None,
     dry_run: bool = False,
+    global_enabled: bool = True,
+    item_overrides: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
     """Check `paper_trades` for any active in-play (`status = 'PENDING' AND is_live = 1`) match
     whose `live_momentum_json` has `is_rebound_edge == True` and `notified_live_edge == False`,
     post a one-time Halftime / In-Play Dominance Rebound alert to Discord, and stamp `notified_live_edge = True`."""
     if not db_path.exists():
         return {"ok": True, "notified_count": 0}
+    overrides = {str(k).lower(): bool(v) for k, v in (item_overrides or {}).items()}
 
     with _SETTLEMENT_NOTIFY_LOCK:
         conn = sqlite3.connect(db_path, timeout=30.0, isolation_level=None)
@@ -533,6 +536,10 @@ def notify_inplay_rebound_edges_to_discord(
             ]
             to_notify: list[tuple[dict[str, Any], dict[str, Any]]] = []
             for r in rows:
+                item_k = f"{r['league']}:{r['event_id']}".lower()
+                is_allowed = overrides.get(item_k, global_enabled)
+                if not is_allowed:
+                    continue
                 try:
                     mom = json.loads(r["live_momentum_json"] or "{}")
                 except Exception:

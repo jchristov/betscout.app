@@ -56,6 +56,7 @@ _PIPELINE_STATUS: dict[str, Any] = {
     "step": "Idle",
     "updated_at": None,
     "inplay_alerts_enabled": False,
+    "inplay_alert_items": {},
 }
 
 
@@ -66,25 +67,45 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
     if cfg_file.exists():
         try:
             d = json.loads(cfg_file.read_text(encoding="utf-8"))
-            if "inplay_alerts_enabled" in d:
-                _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(d["inplay_alerts_enabled"])
-                return d
+            _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(d.get("inplay_alerts_enabled", env_default))
+            raw_items = d.get("inplay_alert_items")
+            _PIPELINE_STATUS["inplay_alert_items"] = dict(raw_items) if isinstance(raw_items, dict) else {}
+            return {
+                "inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"],
+                "inplay_alert_items": _PIPELINE_STATUS["inplay_alert_items"],
+            }
         except Exception:
             pass
     _PIPELINE_STATUS["inplay_alerts_enabled"] = env_default
-    return {"inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"]}
+    _PIPELINE_STATUS["inplay_alert_items"] = {}
+    return {
+        "inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"],
+        "inplay_alert_items": _PIPELINE_STATUS["inplay_alert_items"],
+    }
 
 
-def _save_webapp_settings(data_dir: Path, inplay_alerts_enabled: bool) -> dict[str, Any]:
-    _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(inplay_alerts_enabled)
+def _save_webapp_settings(
+    data_dir: Path,
+    inplay_alerts_enabled: bool | None = None,
+    item_key: str | None = None,
+    item_enabled: bool | None = None,
+) -> dict[str, Any]:
+    cur = _load_webapp_settings(data_dir)
+    if inplay_alerts_enabled is not None:
+        cur["inplay_alerts_enabled"] = bool(inplay_alerts_enabled)
+    items_map = dict(cur.get("inplay_alert_items") or {})
+    if item_key:
+        items_map[str(item_key).lower()] = bool(item_enabled)
+    cur["inplay_alert_items"] = items_map
+    _PIPELINE_STATUS["inplay_alerts_enabled"] = cur["inplay_alerts_enabled"]
+    _PIPELINE_STATUS["inplay_alert_items"] = items_map
     cfg_file = data_dir / "webapp_settings.json"
-    payload = {"inplay_alerts_enabled": bool(inplay_alerts_enabled)}
     try:
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
-        cfg_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        cfg_file.write_text(json.dumps(cur, indent=2), encoding="utf-8")
     except Exception:
         pass
-    return payload
+    return cur
 
 
 def _build_live_snapshot(
@@ -491,8 +512,13 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
             try:
                 settled_n = settle_pending_paper_trades(db_path)
                 vetoes = refresh_t60_starting_xi_gates(db_path)
-                if _PIPELINE_STATUS.get("inplay_alerts_enabled", False):
-                    notify_inplay_rebound_edges_to_discord(db_path)
+                cfg_now = _load_webapp_settings(data_dir)
+                if cfg_now.get("inplay_alerts_enabled") or any(cfg_now.get("inplay_alert_items", {}).values()):
+                    notify_inplay_rebound_edges_to_discord(
+                        db_path,
+                        global_enabled=bool(cfg_now.get("inplay_alerts_enabled", False)),
+                        item_overrides=cfg_now.get("inplay_alert_items") or {},
+                    )
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 if vetoes:
@@ -603,11 +629,12 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status"):
-                _load_webapp_settings(data_dir)
+                cfg_s = _load_webapp_settings(data_dir)
                 self._send_json({
                     "discord": get_discord_env_config(),
                     "telegram": get_telegram_env_config(),
-                    "inplay_alerts_enabled": bool(_PIPELINE_STATUS.get("inplay_alerts_enabled", False)),
+                    "inplay_alerts_enabled": bool(cfg_s.get("inplay_alerts_enabled", False)),
+                    "inplay_alert_items": cfg_s.get("inplay_alert_items") or {},
                 })
                 return
 
@@ -669,8 +696,11 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 body = {}
 
             if parsed.path == "/api/settings/inplay-alerts":
-                enabled_v = bool(body.get("enabled", False))
-                saved = _save_webapp_settings(data_dir, enabled_v)
+                item_k = body.get("item_key")
+                if item_k:
+                    saved = _save_webapp_settings(data_dir, item_key=str(item_k), item_enabled=bool(body.get("enabled", False)))
+                else:
+                    saved = _save_webapp_settings(data_dir, inplay_alerts_enabled=bool(body.get("enabled", False)))
                 self._send_json({"ok": True, **saved})
                 return
 

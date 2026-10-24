@@ -587,10 +587,13 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     from sportdata_model.webapp import _load_webapp_settings, _save_webapp_settings
     assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
-    _save_webapp_settings(tmp_path, True)
+    _save_webapp_settings(tmp_path, inplay_alerts_enabled=True)
     assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is True
-    _save_webapp_settings(tmp_path, False)
-    assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
+    _save_webapp_settings(tmp_path, inplay_alerts_enabled=False, item_key="ger.1:401884763", item_enabled=True)
+    cfg_after = _load_webapp_settings(tmp_path)
+    assert cfg_after["inplay_alerts_enabled"] is False and cfg_after["inplay_alert_items"]["ger.1:401884763"] is True
+    assert "toggleInplayItemAlert" in html_text
+
 
 
 

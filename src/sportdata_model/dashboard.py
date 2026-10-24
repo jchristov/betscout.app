@@ -1038,6 +1038,9 @@ def generate_dashboard_html(
                 )
             )
             esc_badge_l = f' <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>' if esc_short else ""
+            item_k_l = html.escape(f"{tr['league']}:{tr['event_id']}".lower())
+            item_k_js = html.escape(json.dumps(f"{tr['league']}:{tr['event_id']}".lower()))
+            live_alert_btn = f' <button type="button" class="btn-mini inplay-item-alert-btn" data-item-key="{item_k_l}" onclick="toggleInplayItemAlert({item_k_js}, this)" title="Toggle Live In-Play Discord Alert for this match">🔕</button>'
             live_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
@@ -1048,7 +1051,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="{l_pnl_f:.3f}">{l_badge}</td>
+                  <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}</td>
                 </tr>
                 """
             )
@@ -2123,6 +2126,11 @@ def generate_dashboard_html(
         if (savedInplay !== null) {{
           renderInplayAlertsBtn(savedInplay === '1');
         }}
+        const savedInplayItems = JSON.parse(localStorage.getItem('vp_inplay_alert_items') || '{{}}');
+        if (savedInplayItems && typeof savedInplayItems === 'object') {{
+          currentInplayAlertItems = savedInplayItems;
+          refreshAllInplayItemButtons();
+        }}
         const savedMatches = JSON.parse(localStorage.getItem('vp_custom_matches') || '[]');
         if (Array.isArray(savedMatches) && savedMatches.length) {{
           const validDomMatches = new Set();
@@ -2685,6 +2693,10 @@ def generate_dashboard_html(
           const lBadge = lPnl > 0
             ? '<span class="pill badge-bet">LIVE · LEADING (+' + lPnl.toFixed(2) + 'u)</span>'
             : (lPnl < 0 ? '<span class="pill badge-veto">LIVE · TRAILING (' + lPnl.toFixed(2) + 'u)</span>' : '<span class="pill tier">LIVE · LEVEL (0.00u)</span>');
+          const itemKey = String((tr.league || '') + ':' + (tr.event_id || '')).toLowerCase();
+          const isItemOn = (itemKey in currentInplayAlertItems) ? Boolean(currentInplayAlertItems[itemKey]) : currentInplayAlertsEnabled;
+          const itemBtnStyle = isItemOn ? 'border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.14);' : '';
+          const itemBtnHtml = ' <button type="button" class="btn-mini inplay-item-alert-btn" data-item-key="' + escHtml(itemKey) + '" style="' + itemBtnStyle + '" onclick="toggleInplayItemAlert(' + escHtml(JSON.stringify(itemKey)) + ', this)" title="Toggle Live In-Play Discord Alert for this match">' + (isItemOn ? '🔔' : '🔕') + '</button>';
           liveRows.push(
             '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
@@ -2694,7 +2706,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(lSc) + '"><b>' + escHtml(lSc) + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + '</td>' +
+              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + '</td>' +
             '</tr>'
           );
         }} else {{
@@ -2794,13 +2806,19 @@ def generate_dashboard_html(
           badge.textContent = 'Telegram: Optional';
         }}
       }}
+      const ipItems = payload?.inplay_alert_items ?? payload?.pipeline_status?.inplay_alert_items;
+      if (ipItems && typeof ipItems === 'object') {{
+        currentInplayAlertItems = {{ ...currentInplayAlertItems, ...ipItems }};
+      }}
       const ipEnabled = payload?.inplay_alerts_enabled ?? payload?.pipeline_status?.inplay_alerts_enabled;
       if (ipEnabled !== undefined) {{
         renderInplayAlertsBtn(Boolean(ipEnabled));
       }}
+      refreshAllInplayItemButtons();
     }}
 
     let currentInplayAlertsEnabled = false;
+    let currentInplayAlertItems = {{}};
 
     function renderInplayAlertsBtn(enabled) {{
       currentInplayAlertsEnabled = Boolean(enabled);
@@ -2812,6 +2830,40 @@ def generate_dashboard_html(
       }} else {{
         btn.className = 'btn-export';
         btn.textContent = '🔕 Live Alerts: OFF';
+      }}
+      refreshAllInplayItemButtons();
+    }}
+
+    function refreshAllInplayItemButtons() {{
+      document.querySelectorAll('.inplay-item-alert-btn').forEach(btn => {{
+        const k = (btn.getAttribute('data-item-key') || '').toLowerCase();
+        const isOn = (k in currentInplayAlertItems) ? Boolean(currentInplayAlertItems[k]) : currentInplayAlertsEnabled;
+        btn.textContent = isOn ? '🔔' : '🔕';
+        btn.style.borderColor = isOn ? 'var(--green)' : '';
+        btn.style.color = isOn ? 'var(--green)' : '';
+        btn.style.background = isOn ? 'rgba(34,197,94,0.14)' : '';
+      }});
+    }}
+
+    async function toggleInplayItemAlert(itemKey, btnEl) {{
+      const k = String(itemKey || '').toLowerCase();
+      if (!k) return;
+      const curVal = (k in currentInplayAlertItems) ? Boolean(currentInplayAlertItems[k]) : currentInplayAlertsEnabled;
+      const nextVal = !curVal;
+      currentInplayAlertItems[k] = nextVal;
+      refreshAllInplayItemButtons();
+      try {{ localStorage.setItem('vp_inplay_alert_items', JSON.stringify(currentInplayAlertItems)); }} catch (_) {{}}
+      if (window.location.protocol.startsWith('http')) {{
+        try {{
+          await fetch('/api/settings/inplay-alerts', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify({{ item_key: k, enabled: nextVal }})
+          }});
+          showToast(nextVal ? ('🔔 Live Alert enabled for ' + k.toUpperCase() + '!') : ('🔕 Live Alert muted for ' + k.toUpperCase() + '.'));
+        }} catch (_) {{}}
+      }} else {{
+        showToast(nextVal ? ('🔔 Live Alert enabled for ' + k.toUpperCase() + '.') : ('🔕 Live Alert muted for ' + k.toUpperCase() + '.'));
       }}
     }}
 
