@@ -176,9 +176,14 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
 
 def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
     """On-demand live matchup analyzer (`GET /api/analyze-live?q=Player1 vs Player2`).
-    Works for ANY Tennis or Football matchup (even sub-70% non-bankers), combining local SQLite H2H/form
-    with live SofaScore bookmaker odds, all-level (ATP/WTA/Challenger) Last-5 form, and rest/turnaround hours."""
-    from .paper_trade import _fetch_live_json, _fetch_sofascore_tennis_odds
+    Works for ANY Tennis or Football matchup (even sub-70% non-bankers), combining live 8-Feature Tennis Elo /
+    7-Factor Football state from `matches.sqlite` with live SofaScore bookmaker odds, all-level (ATP/WTA/Challenger)
+    Last-5 form, rest/turnaround hours, and 3 explicit market verdicts (Moneyline/1X2, Handicap/Shield, Totals)."""
+    import math
+    from collections import defaultdict, deque
+    from .elo import Elo
+    from .exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
+    from .paper_trade import _fetch_sofascore_tennis_odds
 
     raw_q = (query or "").strip()
     if " vs " in raw_q.lower():
@@ -194,30 +199,98 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     if not p1_q or not p2_q:
         return {"ok": False, "error": "Enter two players or teams separated by 'vs' (e.g. 'Medvedev vs Bublik')"}
 
-    # Resolve full canonical names from DB if partial last names were given
     h_name, a_name = p1_q, p2_q
+    detected_sport = "tennis"
+    detected_league = "atp"
     if db_path.exists():
         conn = sqlite3.connect(db_path)
         for idx_s, tok in ((0, p1_q), (1, p2_q)):
             row_n = conn.execute(
-                "SELECT home FROM matches WHERE lower(home) LIKE ? ORDER BY kickoff DESC LIMIT 1",
+                "SELECT home, league FROM matches WHERE lower(home) LIKE ? ORDER BY kickoff DESC LIMIT 1",
                 (f"%{tok.lower()}%",),
             ).fetchone()
             if not row_n:
                 row_n = conn.execute(
-                    "SELECT away FROM matches WHERE lower(away) LIKE ? ORDER BY kickoff DESC LIMIT 1",
+                    "SELECT away, league FROM matches WHERE lower(away) LIKE ? ORDER BY kickoff DESC LIMIT 1",
                     (f"%{tok.lower()}%",),
                 ).fetchone()
             if row_n and row_n[0]:
                 if idx_s == 0:
                     h_name = str(row_n[0])
+                    detected_league = str(row_n[1] or "atp").lower()
+                    detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
                 else:
                     a_name = str(row_n[0])
         conn.close()
 
-    base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name)
-    sf_odds = _fetch_sofascore_tennis_odds(h_name, a_name, datetime.now(timezone.utc).strftime("%Y%m%d"))
-    o1, o2 = sf_odds.get("odds_p1"), sf_odds.get("odds_p2")
+    base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name, detected_league)
+    pk_existing = base_detail.get("pick_detail") or {}
+
+    # Compute live Elo & rolling stats from matches.sqlite for the detected sport
+    elo_diff_1 = 0.0
+    game_elo_diff_1 = 0.0
+    game_share_diff_1 = 0.0
+    sot_diff_1 = 0.0
+    if db_path.exists():
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            has_details = bool(conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='match_details'").fetchone())
+            if detected_sport == "tennis":
+                ea = Elo(k=28.0, home_adv=0.0)
+                eg = Elo(k=28.0, home_adv=0.0)
+                gh: dict[str, deque] = defaultdict(lambda: deque(maxlen=10))
+                q_sql = (
+                    "SELECT m.home, m.away, m.outcome, d.home_games, d.away_games FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
+                    if has_details
+                    else "SELECT home, away, outcome, NULL as home_games, NULL as away_games FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
+                )
+                for r in conn.execute(q_sql, (detected_league,)):
+                    wh = 1.0 if r["outcome"] == "H" else 0.0
+                    ea.update(r["home"], r["away"], wh)
+                    hg, ag = r["home_games"], r["away_games"]
+                    if hg is not None and ag is not None and (hg + ag) > 0:
+                        gs = float(hg) / float(hg + ag)
+                        eg.update(r["home"], r["away"], 1.0 / (1.0 + math.exp(-6.0 * (gs - 0.5))))
+                        gh[r["home"]].append(gs)
+                        gh[r["away"]].append(1.0 - gs)
+                    else:
+                        eg.update(r["home"], r["away"], wh)
+                elo_diff_1 = round(ea.ratings[h_name] - ea.ratings[a_name], 1)
+                game_elo_diff_1 = round(eg.ratings[h_name] - eg.ratings[a_name], 1)
+                g1 = float(sum(gh[h_name]) / len(gh[h_name])) if gh[h_name] else 0.50
+                g2 = float(sum(gh[a_name]) / len(gh[a_name])) if gh[a_name] else 0.50
+                game_share_diff_1 = round(g1 - g2, 3)
+            else:
+                es = Elo(k=20.0, home_adv=55.0)
+                sot_q: dict[str, deque] = defaultdict(lambda: deque(maxlen=6))
+                q_sql = (
+                    "SELECT m.home, m.away, m.outcome, d.home_sot, d.away_sot FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
+                    if has_details
+                    else "SELECT home, away, outcome, NULL as home_sot, NULL as away_sot FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
+                )
+                for r in conn.execute(q_sql, (detected_league,)):
+                    sc = {"H": 1.0, "D": 0.5, "A": 0.0}.get(r["outcome"], 0.5)
+                    es.update(r["home"], r["away"], sc)
+                    if r["home_sot"] is not None and r["away_sot"] is not None:
+                        sd = float(r["home_sot"]) - float(r["away_sot"])
+                        sot_q[r["home"]].append(sd)
+                        sot_q[r["away"]].append(-sd)
+                elo_diff_1 = round(es.ratings[h_name] - es.ratings[a_name], 1)
+                s1 = float(sum(sot_q[h_name]) / len(sot_q[h_name])) if sot_q[h_name] else 0.0
+                s2 = float(sum(sot_q[a_name]) / len(sot_q[a_name])) if sot_q[a_name] else 0.0
+                sot_diff_1 = round(s1 - s2, 2)
+            conn.close()
+        except Exception:
+            pass
+
+    sf_odds = (
+        _fetch_sofascore_tennis_odds(h_name, a_name, datetime.now(timezone.utc).strftime("%Y%m%d"))
+        if detected_sport == "tennis"
+        else {}
+    )
+    o1 = sf_odds.get("odds_p1") or (pk_existing.get("best_odds") if pk_existing.get("side") == "H" else None)
+    o2 = sf_odds.get("odds_p2") or (pk_existing.get("best_odds") if pk_existing.get("side") == "A" else None)
     p1_f5 = sf_odds.get("p1_last5_win_rate")
     p2_f5 = sf_odds.get("p2_last5_win_rate")
     p1_rest = sf_odds.get("p1_rest_hours")
@@ -225,12 +298,10 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     p1_tourn = sf_odds.get("p1_last_tourn")
     p2_tourn = sf_odds.get("p2_last_tourn")
 
-    # Compute H2H summary
     h2h_list = base_detail.get("h2h") or []
     h_wins = sum(1 for m in h2h_list if (m["home"] == h_name and m["outcome"] == "H") or (m["away"] == h_name and m["outcome"] == "A"))
     a_wins = sum(1 for m in h2h_list if (m["home"] == a_name and m["outcome"] == "H") or (m["away"] == a_name and m["outcome"] == "A"))
 
-    # Compute DB form win rates if SofaScore all-level form wasn't found
     if p1_f5 is None and base_detail.get("form_home"):
         fh = base_detail["form_home"]
         p1_f5 = round(sum(1 for x in fh if x["result"] == "W") / len(fh), 3)
@@ -238,44 +309,106 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         fa = base_detail["form_away"]
         p2_f5 = round(sum(1 for x in fa if x["result"] == "W") / len(fa), 3)
 
-    # Blend implied market probability + H2H + all-level form
-    if o1 and o2 and o1 > 1.01 and o2 > 1.01:
+    p_elo_1 = 1.0 / (1.0 + 10.0 ** (-(0.6 * elo_diff_1 + 0.4 * game_elo_diff_1) / 400.0))
+    if o1 and o2 and float(o1) > 1.01 and float(o2) > 1.01:
         i1, i2 = 1.0 / float(o1), 1.0 / float(o2)
         p_mkt_1 = i1 / (i1 + i2)
     else:
-        p_mkt_1 = 0.50
+        p_mkt_1 = p_elo_1
 
     f_diff = (float(p1_f5 if p1_f5 is not None else 0.5) - float(p2_f5 if p2_f5 is not None else 0.5))
     h2h_diff = ((h_wins + 1.0) / (h_wins + a_wins + 2.0)) - 0.5
-    p_model_1 = min(max(0.70 * p_mkt_1 + 0.18 * (0.5 + 0.45 * f_diff) + 0.12 * (0.5 + 0.60 * h2h_diff), 0.08), 0.92)
+    p_model_1 = min(
+        max(0.50 * p_mkt_1 + 0.26 * p_elo_1 + 0.14 * (0.5 + 0.45 * f_diff) + 0.10 * (0.5 + 0.60 * h2h_diff), 0.08),
+        0.92,
+    )
     fav_is_1 = p_model_1 >= 0.50
     fav_name = h_name if fav_is_1 else a_name
     dog_name = a_name if fav_is_1 else h_name
     fav_prob = p_model_1 if fav_is_1 else (1.0 - p_model_1)
+    fav_mkt_prob = p_mkt_1 if fav_is_1 else (1.0 - p_mkt_1)
     fav_odds = (o1 if fav_is_1 else o2)
+    fav_edge_pp = round((fav_prob - fav_mkt_prob) * 100.0, 2)
+    fav_ev_pct = round((fav_prob * float(fav_odds) - 1.0) * 100.0, 2) if fav_odds and float(fav_odds) > 1.01 else None
+    is_mispriced_live = bool(fav_ev_pct is not None and fav_ev_pct >= 2.0 and fav_edge_pp >= 2.0)
     fav_f5 = p1_f5 if fav_is_1 else p2_f5
     opp_f5 = p2_f5 if fav_is_1 else p1_f5
     fav_rest = p1_rest if fav_is_1 else p2_rest
+    sgn_fav = 1.0 if fav_is_1 else -1.0
 
     warnings: list[str] = []
+    if is_mispriced_live:
+        warnings.append(
+            f"💎 CONFIRMED BOOKMAKER MISPRICING: Model gives {fav_name} {fav_prob*100:.1f}% vs Market {fav_mkt_prob*100:.1f}% ({fav_edge_pp:+.1f}pp Edge · EV {fav_ev_pct:+.1f}% @ {float(fav_odds):.2f} vs Fair {1.0/fav_prob:.2f})!"
+        )
     if fav_f5 is not None and opp_f5 is not None and fav_f5 <= 0.25 and opp_f5 >= 0.60:
-        warnings.append(f"⚠️ Form Divergence Alert: {fav_name} is {int(fav_f5*5)}-{5-int(fav_f5*5)} in Last 5 while {dog_name} is {int(opp_f5*5)}-{5-int(opp_f5*5)}!")
+        warnings.append(f"⚠️ Form Divergence Alert: {fav_name} is {int(round(fav_f5*5))}-{5-int(round(fav_f5*5))} in Last 5 while {dog_name} is {int(round(opp_f5*5))}-{5-int(round(opp_f5*5))}!")
     if isinstance(fav_rest, (int, float)) and fav_rest <= 36.0:
         warnings.append(f"⚠️ Short Turnaround Alert: {fav_name} played just {fav_rest:.0f}h ago ({p1_tourn if fav_is_1 else p2_tourn}).")
 
-    if warnings or fav_prob < 0.58:
-        verdict = f"⚠️ NO-BET / HIGH VARIANCE — Skip {fav_name} ML or prefer Over {sf_odds.get('games_line') or 22.5} Total Games / {dog_name} +1.5 Sets"
-    elif fav_prob >= 0.70:
-        verdict = f"✅ STRONG BANKER — {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+    # Build 3 Explicit Market Recommendations (1: Moneyline/1X2, 2: Handicap/Shield, 3: Totals/Exact Score)
+    if detected_sport == "tennis":
+        set_pred = predict_tennis_set_scores(
+            win_prob=fav_prob,
+            side="H" if fav_is_1 else "A",
+            game_win_pct_diff=sgn_fav * game_share_diff_1,
+            form_6m_diff=sgn_fav * f_diff,
+            best_of=3,
+        )
+        p_plus15_fav = round(min(0.97, fav_prob + (1.0 - fav_prob) * 0.52), 3)
+        p_plus15_dog = round(min(0.88, (1.0 - fav_prob) + set_pred["decider_sets_prob"]), 3)
+        g_line = sf_odds.get("games_line") or (21.5 if fav_prob >= 0.74 else 22.5)
+        is_dogfight = bool(warnings or fav_prob < 0.64)
+        mkt_1 = (
+            f"Skip {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+            if warnings or fav_prob < 0.58
+            else f"{fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+        )
+        mkt_2 = (
+            f"{dog_name} +1.5 Sets ({p_plus15_dog*100:.1f}% HitProb, Fair @{1.0/max(p_plus15_dog,0.1):.2f})"
+            if is_dogfight
+            else f"{fav_name} {set_pred['straight_sets_score']} Straight Sets ({set_pred['straight_sets_prob']*100:.1f}%, Fair @{set_pred['straight_sets_fair_odds']:.2f}) | Safe Shield: {fav_name} +1.5 Sets ({p_plus15_fav*100:.1f}%)"
+        )
+        mkt_3 = (
+            f"Over {g_line} Total Games (3-Set Dogfight Profile · Decider Prob {(set_pred['decider_sets_prob']+0.18)*100:.0f}%)"
+            if is_dogfight
+            else f"Under {g_line} Total Games (Straight-Sets Share {(set_pred['straight_sets_prob']/max(fav_prob,0.5))*100:.0f}%)"
+        )
     else:
-        verdict = f"✅ SOLID VALUE LEAN — {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+        sc_pred = predict_soccer_exact_scores(
+            ph=p_model_1 * 0.78,
+            pd=0.22,
+            pa=(1.0 - p_model_1) * 0.78,
+            side="H" if fav_is_1 else "A",
+            line_total=2.5,
+            p_model=fav_prob,
+            sot_z=max(-1.0, min(1.0, sgn_fav * sot_diff_1 / 3.0)),
+        )
+        dc_lbl = f"{fav_name} or Draw ({'1X' if fav_is_1 else 'X2'})"
+        dc_prob = min(0.95, fav_prob + 0.18)
+        mkt_1 = f"{fav_name} 1X2 Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+        mkt_2 = f"Double Chance Shield: {dc_lbl} ({dc_prob*100:.1f}% HitProb, Fair @{1.0/dc_prob:.2f})"
+        mkt_3 = f"Over 1.5 Goals & 3-Score Dutch Cluster [{sc_pred['cluster_3_scores']}] ({sc_pred['cluster_3_prob']*100:.1f}%, Fair @{sc_pred['cluster_3_fair_odds']:.2f})"
+
+    if warnings or fav_prob < 0.58:
+        verdict = f"⚠️ NO-BET / HIGH VARIANCE — {mkt_2} or {mkt_3}"
+    elif fav_prob >= 0.70:
+        verdict = f"✅ STRONG BANKER — {mkt_1}"
+    else:
+        verdict = f"✅ SOLID VALUE LEAN — {mkt_1}"
 
     return {
         **base_detail,
         "ok": True,
+        "sport": detected_sport,
+        "league": detected_league,
         "home": h_name,
         "away": a_name,
         "h2h_summary": f"{h_name} {h_wins} – {a_wins} {a_name}",
+        "elo_diff_home": elo_diff_1,
+        "game_elo_diff_home": game_elo_diff_1,
+        "game_share_diff_home": game_share_diff_1,
+        "sot_diff_home": sot_diff_1,
         "odds_home": o1,
         "odds_away": o2,
         "games_line": sf_odds.get("games_line"),
@@ -287,8 +420,17 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "p2_last_tourn": p2_tourn,
         "fav_name": fav_name,
         "fav_prob_pct": round(fav_prob * 100.0, 1),
+        "fav_mkt_prob_pct": round(fav_mkt_prob * 100.0, 1),
+        "fav_edge_pp": fav_edge_pp,
+        "fav_ev_pct": fav_ev_pct,
+        "is_mispriced": is_mispriced_live,
         "fav_fair_odds": round(1.0 / max(fav_prob, 0.05), 2),
         "fav_book_odds": fav_odds,
+        "market_recommendations": {
+            "moneyline": mkt_1,
+            "handicap_shield": mkt_2,
+            "totals_cluster": mkt_3,
+        },
         "warnings": warnings,
         "verdict": verdict,
     }

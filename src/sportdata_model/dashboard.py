@@ -243,8 +243,18 @@ def build_best_bets_summary(
             else "—"
         )
         p_win_val = float(p.get("p_model") or p.get("p_mkt") or 0.5)
+        p_mkt_val = float(p.get("p_mkt") or (1.0 / max(odds_val, 1.05)))
         f_odds_val = round(1.0 / max(p_win_val, 0.05), 2)
         p_clv = float(p.get("clv_pct") or 0.0)
+        p_ev_pct = round(float(p.get("ev_pct") if p.get("ev_pct") is not None else (p_win_val * odds_val - 1.0) * 100.0), 2)
+        p_edge_pp = round((p_win_val - p_mkt_val) * 100.0, 2)
+        fz = p.get("factors_tanh_z") or {}
+        top_drivers = sorted(
+            [(k, float(v)) for k, v in fz.items() if k != "p_mkt" and float(v) > 0.25],
+            key=lambda x: -x[1],
+        )[:3]
+        driver_str = ", ".join(f"{k}={v:+.2f}z" for k, v in top_drivers) if top_drivers else "Orthogonal 7-Factor Composite"
+        is_mispriced = bool(p_ev_pct >= 2.0 and p_edge_pp >= 2.0)
         best_bets.append({
             "date": p["kickoff"],
             "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
@@ -264,11 +274,16 @@ def build_best_bets_summary(
             "tier": p["tier"],
             "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
             "win_prob": round(p_win_val, 4),
+            "p_mkt": round(p_mkt_val, 4),
+            "edge_pp": p_edge_pp,
+            "ev_pct": p_ev_pct,
+            "is_mispriced": is_mispriced,
+            "mispricing_drivers": driver_str,
             "min_fair_odds": f_odds_val,
             "exact_score_pick": esc_str,
             "odds": round(odds_val, 3),
             "clv_pct": round(p_clv, 2),
-            "odds_display": f"{odds_val:.2f}",
+            "odds_display": f"{odds_val:.2f} (Fair {f_odds_val:.2f}, EV {p_ev_pct:+.1f}%)",
         })
 
     for tp in raw_tennis_picks:
@@ -290,6 +305,19 @@ def build_best_bets_summary(
         )
         t_comp_lbl = f"{tp['tour']} · {tp.get('tournament') or tp['surface'].capitalize()} ({tp['surface'].capitalize()})"
         tp_clv = float(tp.get("clv_pct") or 0.0)
+        tp_win = float(tp["win_prob"])
+        tp_mkt = round((1.0 / float(live_book)) * 0.955, 4) if live_book and float(live_book) > 1.01 else round(tp_win, 4)
+        tp_ev = round(float(tp["ev_pct"]) if tp.get("ev_pct") is not None else ((tp_win * float(live_book) - 1.0) * 100.0 if live_book else 0.0), 2)
+        tp_edge_pp = round((tp_win - tp_mkt) * 100.0, 2) if live_book else 0.0
+        tf = tp.get("factors") or {}
+        t_drv_parts = []
+        if float(tf.get("surf_elo_diff") or 0) >= 60:
+            t_drv_parts.append(f"SurfElo {float(tf['surf_elo_diff']):+.0f}")
+        if float(tf.get("game_elo_diff") or 0) >= 50:
+            t_drv_parts.append(f"GameElo {float(tf['game_elo_diff']):+.0f}")
+        if float(tf.get("form_6m_diff") or 0) >= 0.15:
+            t_drv_parts.append(f"Form {float(tf['form_6m_diff'])*100:+.0f}%")
+        t_driver_str = ", ".join(t_drv_parts) if t_drv_parts else "Surface + Game-Share Elo"
         best_bets.append({
             "date": tp["kickoff"],
             "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
@@ -311,7 +339,12 @@ def build_best_bets_summary(
             "pick_flag": tp.get("home_flag") if tp["pick"] == tp["player_1"] else tp.get("away_flag"),
             "tier": tp.get("tier") or "banker_70pct",
             "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
-            "win_prob": round(float(tp["win_prob"]), 4),
+            "win_prob": round(tp_win, 4),
+            "p_mkt": tp_mkt,
+            "edge_pp": tp_edge_pp,
+            "ev_pct": tp_ev,
+            "is_mispriced": bool(live_book and tp_ev >= 2.0 and tp_edge_pp >= 2.0),
+            "mispricing_drivers": t_driver_str,
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
             "exact_score_pick": set_str,
             "odds": round(odds_val, 3),
@@ -327,6 +360,9 @@ def build_best_bets_summary(
         if norm_sport not in ("all", sp_cat):
             continue
         op_win = float(op.get("p_model") or op.get("p_mkt") or 0.5)
+        op_mkt = float(op.get("p_mkt") or (1.0 / max(odds_val, 1.05)))
+        op_ev = round(float(op.get("ev_pct") if op.get("ev_pct") is not None else (op_win * odds_val - 1.0) * 100.0), 2)
+        op_edge_pp = round((op_win - op_mkt) * 100.0, 2)
         op_clv = float(op.get("clv_pct") or 0.0)
         best_bets.append({
             "date": op["kickoff"],
@@ -347,11 +383,16 @@ def build_best_bets_summary(
             "tier": op.get("tier") or "high_conf",
             "pick": f"{op['pick']} ({op['side']}) (Win {op['p_model']*100:.1f}%)",
             "win_prob": round(op_win, 4),
+            "p_mkt": round(op_mkt, 4),
+            "edge_pp": op_edge_pp,
+            "ev_pct": op_ev,
+            "is_mispriced": bool(op_ev >= 2.0 and op_edge_pp >= 2.0),
+            "mispricing_drivers": f"Elo + Boxscore + Rest Gate (Composite {float(op.get('composite_score') or 0):+.2f})",
             "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
             "exact_score_pick": "—",
             "odds": round(odds_val, 3),
             "clv_pct": round(op_clv, 2),
-            "odds_display": f"{odds_val:.2f}",
+            "odds_display": f"{odds_val:.2f} (Fair {1.0/max(op_win,0.05):.2f}, EV {op_ev:+.1f}%)",
         })
 
     best_bets.sort(key=lambda b: (b["date"], b["sport_league"]))
@@ -776,6 +817,77 @@ def generate_dashboard_html(
     all_best_bets_for_html = build_best_bets_summary(rec, min_odds=min_odds, sport_filter="all")
 
     best_bets_rows = []
+    mispriced_rows = []
+    for b in sorted(all_best_bets_for_html, key=lambda x: -float(x.get("ev_pct") or 0.0)):
+        if b.get("is_mispriced"):
+            mp_day = (b.get("date_local") or _format_local_time(b["date"]))[:10]
+            mp_ico = b.get("sport_icon") or _sport_icon(b["sport_cat"])
+            mp_comp = b.get("competition") or b["sport_league"]
+            mp_comp_img = _img_tag(b.get("competition_logo"), mp_comp, "comp-logo")
+            mp_is_ten = b["sport_cat"] == "tennis"
+            mp_match_html = (
+                _matchup_html(
+                    b["home"], b["away"], b.get("home_logo"), b.get("away_logo"),
+                    is_tennis=mp_is_ten, home_flag=b.get("home_flag"), away_flag=b.get("away_flag"),
+                )
+                if (b.get("home") and b.get("away"))
+                else html.escape(b["match"])
+            )
+            mp_pick_name = html.escape(str(b.get("pick_name") or b["pick"]))
+            mp_pick_img = _img_tag(b.get("pick_logo"), mp_pick_name, "player-avatar" if mp_is_ten else "team-logo", fallback_url=b.get("pick_flag"))
+            mp_win_pct = float(b.get("win_prob") or 0.5) * 100.0
+            mp_mkt_pct = float(b.get("p_mkt") or (1.0 / max(float(b["odds"]), 1.05))) * 100.0
+            mp_edge_pp = float(b.get("edge_pp") or (mp_win_pct - mp_mkt_pct))
+            mp_ev_pct = float(b.get("ev_pct") or 0.0)
+            mp_fair = float(b.get("min_fair_odds") or round(100.0 / max(mp_win_pct, 5.0), 2))
+            mp_drv = html.escape(str(b.get("mispricing_drivers") or "Orthogonal Model Edge"))
+            mispriced_rows.append(
+                f"""
+                <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(mp_day)}" data-search="{html.escape((b['match'] + ' ' + mp_comp + ' ' + b['pick'] + ' ' + mp_drv).lower())}">
+                  <td class="col-icon" data-sort="{html.escape(b['sport_cat'])}"><span class="sport-icon">{mp_ico}</span></td>
+                  <td data-sort="{html.escape(mp_comp)}"><span class="pill">{mp_comp_img}{html.escape(mp_comp)}</span></td>
+                  <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
+                  <td data-sort="{html.escape(b['match'])}">{mp_match_html}</td>
+                  <td data-sort="{mp_pick_name}"><span class="matchup-inline">{mp_pick_img}<b class="num-pos">{mp_pick_name}</b> <span class="pill badge-bet">💎 MISPRICED</span></span></td>
+                  <td data-sort="{mp_win_pct:.2f}"><b class="num-pos">{mp_win_pct:.1f}%</b> vs {mp_mkt_pct:.1f}% (<b class="num-pos">{mp_edge_pp:+.1f}pp</b>)</td>
+                  <td data-sort="{b['odds']:.3f}"><b>{b['odds']:.2f}</b> vs Fair <b>{mp_fair:.2f}</b></td>
+                  <td data-sort="{mp_ev_pct:.2f}"><span class="pill badge-bet">EV {mp_ev_pct:+.1f}%</span></td>
+                  <td data-sort="{mp_drv}"><span style="color:var(--accent); font-weight:600;">{mp_drv}</span></td>
+                </tr>
+                """
+            )
+
+    mispricing_radar_html = (
+        f"""
+        <section class="card" id="mispricingRadarSection" style="margin-bottom:20px; border:1px solid rgba(34,197,94,0.48);">
+          <div class="card-head" style="margin-bottom:8px;">
+            <div>
+              <b style="font-size:14px; color:var(--green);">💎 Bookmaker Odds Mispricing &amp; Unpriced Edge Detector ({len(mispriced_rows)} Confirmed Dislocations)</b>
+              <span class="muted" style="margin-left:8px;">Matches where VektorPulse confirms a &ge;+2.0pp probability edge &amp; &ge;+2.0% EV not yet priced in by bookmakers</span>
+            </div>
+          </div>
+          <table id="mispricingRadarTable" class="sortable-table" style="margin-bottom:0;">
+            <thead>
+              <tr>
+                <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Model vs Market Prob (Edge)</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Book vs Fair Odds</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Expected Value</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Unpriced Edge Drivers</th>
+              </tr>
+            </thead>
+            <tbody>{''.join(mispriced_rows)}</tbody>
+          </table>
+        </section>
+        """
+        if mispriced_rows
+        else ""
+    )
+
     for b in all_best_bets_for_html:
         b_match_js = html.escape(json.dumps(b["match"]))
         b_pick_with_sc = b["pick"] + (f" · [{b['exact_score_pick']}]" if b.get("exact_score_pick") and b["exact_score_pick"] != "—" else "")
@@ -808,6 +920,14 @@ def generate_dashboard_html(
         b_ev_raw = max((b_win_pct / 100.0) * float(b["odds"]) - 1.0, 0.015)
         b_qk_pct = min(max(0.25 * (b_ev_raw / max(float(b["odds"]) - 1.0, 0.05)) * 100.0, 0.50), 2.50)
         b_kelly_pill = f' <span class="pill badge-bet kelly-stake" data-kelly-pct="{b_qk_pct:.3f}" title="Recommended Quarter-Kelly Stake">{b_qk_pct:.2f}% (€{b_qk_pct * 10.0:.2f})</span>'
+        b_drv_esc = html.escape(str(b.get("mispricing_drivers") or ""))
+        b_edge_v = float(b.get("edge_pp") or 0.0)
+        b_ev_v = float(b.get("ev_pct") or 0.0)
+        b_mp_pill = (
+            f' <span class="pill badge-bet" title="Unpriced Edge Drivers: {b_drv_esc}">💎 EDGE {b_edge_v:+.1f}pp (EV {b_ev_v:+.1f}%)</span>'
+            if b.get("is_mispriced")
+            else ""
+        )
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-win-prob="{b_win_pct/100.0:.4f}" data-fair-odds="{b_fair:.3f}" data-tier="{html.escape(b_tier_str)}" data-comp="{html.escape(b_comp)}" data-pick-name="{b_pick_name}" data-exact-score="{esc_col}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
@@ -816,7 +936,7 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(b_comp)}"><span class="pill">{b_comp_img}{html.escape(b_comp)}</span></td>
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
               <td data-sort="{html.escape(b['match'])}">{b_match_html}</td>
-              <td data-sort="{b_pick_name}"><span class="matchup-inline">{b_pick_img}<b class="num-pos">{b_pick_name}</b>{b_tier_pill}</span></td>
+              <td data-sort="{b_pick_name}"><span class="matchup-inline">{b_pick_img}<b class="num-pos">{b_pick_name}</b>{b_tier_pill}{b_mp_pill}</span></td>
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
@@ -1427,6 +1547,7 @@ def generate_dashboard_html(
           <option value="fortress">🛡️ Ultra-Safe Fortress (Max Hit Rate &ge;72%)</option>
           <option value="upside">🚀 Max Return Multiplier (3-Leg Booster + Value Singles)</option>
         </select>
+        <button type="button" class="btn-export" onclick="printSmartBetTicket()" title="Open printable / Save-as-PDF ticket for your current Smart Bet Slip">🖨️ Print / PDF Slip</button>
       </div>
     </div>
     <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
@@ -1448,6 +1569,8 @@ def generate_dashboard_html(
     </div>
     <div id="liveAnalyzeResultBox" style="display:none; margin-top:8px; padding:10px 12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;"></div>
   </section>
+
+  {mispricing_radar_html}
 
   <details class="card" id="walkForwardAuditPanel" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.35);">
     <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
@@ -1872,6 +1995,7 @@ def generate_dashboard_html(
 
     function applyBankrollCalculator(val) {{
       const bank = Math.max(0, parseFloat(val) || 1000);
+      try {{ localStorage.setItem('vp_bankroll_eur', String(bank)); }} catch (_) {{}}
       document.querySelectorAll('.kelly-stake').forEach(el => {{
         const pct = parseFloat(el.getAttribute('data-kelly-pct') || '0');
         const eur = (bank * (pct / 100.0)).toFixed(2);
@@ -1948,6 +2072,72 @@ def generate_dashboard_html(
       }});
     }}
 
+    function saveSlipPrefsToStorage() {{
+      try {{
+        localStorage.setItem('vp_custom_matches', JSON.stringify(Array.from(customSelectedMatches)));
+        const bVal = document.getElementById('betAmountInput')?.value;
+        const mVal = document.getElementById('betRiskProfileSelect')?.value;
+        if (bVal) localStorage.setItem('vp_bet_budget_eur', String(bVal));
+        if (mVal) localStorage.setItem('vp_bet_risk_mode', String(mVal));
+      }} catch (_) {{}}
+    }}
+
+    function restoreSlipPrefsFromStorage() {{
+      try {{
+        const savedBank = localStorage.getItem('vp_bankroll_eur');
+        if (savedBank && document.getElementById('bankrollInput')) {{
+          document.getElementById('bankrollInput').value = savedBank;
+          applyBankrollCalculator(savedBank);
+        }}
+        const savedBudget = localStorage.getItem('vp_bet_budget_eur');
+        if (savedBudget && document.getElementById('betAmountInput')) {{
+          document.getElementById('betAmountInput').value = savedBudget;
+        }}
+        const savedMode = localStorage.getItem('vp_bet_risk_mode');
+        if (savedMode && document.getElementById('betRiskProfileSelect')) {{
+          document.getElementById('betRiskProfileSelect').value = savedMode;
+        }}
+        const savedMatches = JSON.parse(localStorage.getItem('vp_custom_matches') || '[]');
+        if (Array.isArray(savedMatches) && savedMatches.length) {{
+          const validDomMatches = new Set();
+          document.querySelectorAll('.custom-bet-chk').forEach(c => {{
+            const m = c.getAttribute('data-match') || '';
+            if (m && savedMatches.includes(m)) {{
+              c.checked = true;
+              validDomMatches.add(m);
+            }}
+          }});
+          validDomMatches.forEach(m => customSelectedMatches.add(m));
+          const clrBtn = document.getElementById('clearCustomSlipBtn');
+          const cntSpan = document.getElementById('customSelectedCountSpan');
+          if (cntSpan) cntSpan.textContent = String(customSelectedMatches.size);
+          if (clrBtn) clrBtn.style.display = customSelectedMatches.size > 0 ? 'inline-block' : 'none';
+        }}
+      }} catch (_) {{}}
+    }}
+
+    function printSmartBetTicket() {{
+      const grid = document.getElementById('smartBetPlanGrid');
+      const budget = document.getElementById('betAmountInput')?.value || '100';
+      if (!grid) return;
+      const w = window.open('', '_blank', 'width=880,height=720');
+      if (!w) {{ window.print(); return; }}
+      w.document.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>VektorPulse Bet Slip (€' + escHtml(budget) + ')</title>' +
+        '<style>body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:24px;color:#0f172a;background:#fff;}}' +
+        '.hdr{{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;}}' +
+        '.card{{border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-bottom:14px;page-break-inside:avoid;}}' +
+        '.num-pos{{color:#15803d;font-weight:700;}} .muted{{color:#475569;font-size:12px;}} .btn-mini{{display:none;}}' +
+        '.pill{{display:inline-block;padding:2px 6px;border-radius:4px;border:1px solid #94a3b8;font-size:11px;font-weight:600;margin-left:4px;}}' +
+        '</style></head><body>' +
+        '<div class="hdr"><div><h2 style="margin:0;">⚡ VektorPulse — Smart Bet Slip &amp; Stake Allocation Ticket</h2>' +
+        '<div class="muted">Generated: ' + new Date().toLocaleString() + ' · Ready to Bet Budget: <b>€' + escHtml(budget) + '</b></div></div></div>' +
+        grid.innerHTML +
+        '<script>window.onload=function(){{window.print();}}<\\/script></body></html>'
+      );
+      w.document.close();
+    }}
+
     function toggleCustomBetPick(chkEl) {{
       const m = chkEl?.getAttribute('data-match') || '';
       if (!m) return;
@@ -1957,6 +2147,7 @@ def generate_dashboard_html(
       const cntSpan = document.getElementById('customSelectedCountSpan');
       if (cntSpan) cntSpan.textContent = String(customSelectedMatches.size);
       if (clrBtn) clrBtn.style.display = customSelectedMatches.size > 0 ? 'inline-block' : 'none';
+      saveSlipPrefsToStorage();
       buildSmartBetPlan();
     }}
 
@@ -1967,6 +2158,7 @@ def generate_dashboard_html(
       const cntSpan = document.getElementById('customSelectedCountSpan');
       if (cntSpan) cntSpan.textContent = '0';
       if (clrBtn) clrBtn.style.display = 'none';
+      saveSlipPrefsToStorage();
       buildSmartBetPlan();
     }}
 
@@ -2001,18 +2193,30 @@ def generate_dashboard_html(
         const f2Str = d.p2_last5_pct !== null && d.p2_last5_pct !== undefined ? d.p2_last5_pct + '%' : '—';
         const r1Str = d.p1_rest_hours ? (Math.round(d.p1_rest_hours) + 'h (' + escHtml(d.p1_last_tourn || '') + ')') : 'Rested';
         const r2Str = d.p2_rest_hours ? (Math.round(d.p2_rest_hours) + 'h (' + escHtml(d.p2_last_tourn || '') + ')') : 'Rested';
+        const eloStr = d.sport === 'tennis'
+          ? ('Elo Diff: <b>' + (Number(d.elo_diff_home||0) >= 0 ? '+' : '') + Number(d.elo_diff_home||0).toFixed(0) + '</b> · Game Elo Diff: <b>' + (Number(d.game_elo_diff_home||0) >= 0 ? '+' : '') + Number(d.game_elo_diff_home||0).toFixed(0) + '</b>')
+          : ('Elo Diff: <b>' + (Number(d.elo_diff_home||0) >= 0 ? '+' : '') + Number(d.elo_diff_home||0).toFixed(0) + '</b> · Rolling SoT Diff: <b>' + (Number(d.sot_diff_home||0) >= 0 ? '+' : '') + Number(d.sot_diff_home||0).toFixed(1) + '</b>');
+        const mkts = d.market_recommendations || {{}};
+        const mktsHtml = mkts.moneyline
+          ? '<div style="margin-top:8px; display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:8px;">' +
+              '<div style="padding:6px 8px; border:1px solid rgba(34,197,94,0.35); border-radius:6px;"><b>1️⃣ Moneyline / 1X2:</b><br><span class="num-pos">' + escHtml(mkts.moneyline) + '</span></div>' +
+              '<div style="padding:6px 8px; border:1px solid rgba(56,189,248,0.35); border-radius:6px;"><b>2️⃣ Handicap / Shield:</b><br><span style="color:var(--accent);">' + escHtml(mkts.handicap_shield || '—') + '</span></div>' +
+              '<div style="padding:6px 8px; border:1px solid rgba(245,158,11,0.35); border-radius:6px;"><b>3️⃣ Totals / Score Cluster:</b><br><span style="color:var(--amber);">' + escHtml(mkts.totals_cluster || '—') + '</span></div>' +
+            '</div>'
+          : '';
         const warnHtml = (d.warnings && d.warnings.length)
           ? '<div style="margin-top:6px; color:var(--amber); font-weight:600;">' + d.warnings.map(w => '<div>' + escHtml(w) + '</div>').join('') + '</div>'
           : '';
         box.innerHTML =
           '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">' +
-            '<div><b style="font-size:13px;">' + escHtml(d.home) + ' vs ' + escHtml(d.away) + '</b> · <span class="pill">H2H: ' + escHtml(d.h2h_summary || '0-0') + '</span></div>' +
+            '<div><b style="font-size:13px;">' + escHtml(d.home) + ' vs ' + escHtml(d.away) + '</b> · <span class="pill">H2H: ' + escHtml(d.h2h_summary || '0-0') + '</span> · <span class="muted">' + eloStr + '</span></div>' +
             '<div><b class="num-pos">' + escHtml(d.verdict || '') + '</b> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
           '</div>' +
           '<div style="margin-top:6px; display:flex; gap:16px; flex-wrap:wrap;" class="muted">' +
             '<span><b>' + escHtml(d.home) + ':</b> Odds <b>' + o1Str + '</b> · All-Level Last-5 WinRate: <b>' + f1Str + '</b> · Turnaround: ' + r1Str + '</span>' +
             '<span><b>' + escHtml(d.away) + ':</b> Odds <b>' + o2Str + '</b> · All-Level Last-5 WinRate: <b>' + f2Str + '</b> · Turnaround: ' + r2Str + '</span>' +
           '</div>' +
+          mktsHtml +
           warnHtml;
       }} catch (err) {{
         box.innerHTML = '<span class="num-neg">Analyzer error: ' + escHtml(String(err)) + '</span>';
@@ -2042,6 +2246,7 @@ def generate_dashboard_html(
     }}
 
     function buildSmartBetPlan() {{
+      saveSlipPrefsToStorage();
       const grid = document.getElementById('smartBetPlanGrid');
       if (!grid) return;
       const budget = Math.max(5, parseFloat(document.getElementById('betAmountInput')?.value || '100') || 100);
@@ -2650,6 +2855,7 @@ def generate_dashboard_html(
     }}
 
     initLiveEventStream();
+    restoreSlipPrefsFromStorage();
     buildSmartBetPlan();
 
     function copyTelegramPreview() {{

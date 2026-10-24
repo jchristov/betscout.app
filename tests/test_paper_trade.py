@@ -192,7 +192,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     rec_json.write_text(
         '{"generated_at": "2026-10-22T06:00:00Z", '
         '"qualifying_picks": ['
-        '  {"league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "tier": "top_10pct", "action": "PAPER_BET", "kickoff": "2026-10-25T19:45Z", "score": 0.33, "p_mkt": 0.57, "p_model": 0.61, "ev_pct": 1.2, "quarter_kelly_pct": 0.46, "best_odds": 1.65, "primary_odds": 1.65, "synthetic_dc_odds": 1.15, "factors_tanh_z": {}}'
+        '  {"league": "ita.1", "home": "Udinese", "away": "AC Milan", "side": "A", "tier": "top_10pct", "action": "PAPER_BET", "kickoff": "2026-10-25T19:45Z", "score": 0.33, "p_mkt": 0.57, "p_model": 0.63, "ev_pct": 3.95, "quarter_kelly_pct": 0.46, "best_odds": 1.65, "primary_odds": 1.65, "synthetic_dc_odds": 1.15, "factors_tanh_z": {"sot_d": 0.85, "dom_rebound": 0.62}}'
         '], '
         '"tennis_picks": ['
         '  {"tour": "WTA", "tournament": "Tokyo", "surface": "hard", "kickoff": "2026-10-22T11:00Z", "player_1": "Rybakina", "player_2": "Kudermetova", "pick": "Rybakina", "tier": "banker_70pct", "win_prob": 0.92, "min_fair_odds": 1.08, "target_ev3_odds": 1.12, "factors": {}},'
@@ -578,7 +578,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         "p1_last_tourn": "Almaty", "p2_last_tourn": "Almaty",
     }):
         an_res = _analyze_live_matchup(db, rec_json, "Udinese vs AC Milan")
-        assert an_res["ok"] is True and "verdict" in an_res
+        assert an_res["ok"] is True and "verdict" in an_res and "market_recommendations" in an_res
+    assert "mispricingRadarSection" in html_text and "printSmartBetTicket" in html_text and "saveSlipPrefsToStorage" in html_text
+
 
 
 
