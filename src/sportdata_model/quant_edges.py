@@ -497,3 +497,263 @@ def evaluate_us_major_sports_composite(db_path: Path) -> dict[str, dict[str, flo
             "mkt_implied": float(np.mean([x["p_mkt"] for x in all_p15])),
         }
     return out
+
+
+def evaluate_walk_forward_backtest(db_path: Path) -> dict[str, Any]:
+    """Perform strict monthly expanding-window forward-walking backtesting across Football, Tennis, and US Sports.
+    At each month `M` from `2025-07` through `2026-10`, fits scalers, quantile thresholds, and logistic calibrators
+    strictly on matches `< M` and evaluates out-of-sample on month `M`."""
+    from .enrich import infer_surface
+
+    # 1. Soccer Monthly Walk-Forward (Big-5 & All 9 Domestic Leagues w/ Secondary Gate)
+    soccer_wf: dict[str, Any] = {}
+    all_dom_leagues = ("eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "ned.1", "por.1", "eng.2", "aut.1")
+    for scope_key, lgs, is_ext in (("big5", BIG5_LEAGUES, False), ("all_9_domestic", all_dom_leagues, True)):
+        ready = build_soccer_feature_rows(db_path, leagues=lgs)
+        samples: list[dict[str, Any]] = []
+        for idx_m, r in enumerate(ready):
+            inv = [1.0 / r["odds_home"], 1.0 / r["odds_draw"], 1.0 / r["odds_away"]]
+            s = sum(inv)
+            ph, _, pa = inv[0] / s, inv[1] / s, inv[2] / s
+            best_h = r["best_home"] or r["odds_home"]
+            best_a = r["best_away"] or r["odds_away"]
+            best_d = r["best_draw"] or r["odds_draw"]
+            vig_neg = 1.0 - (1.0 / best_h + 1.0 / best_d + 1.0 / best_a)
+            for side in ("H", "A"):
+                sgn = 1.0 if side == "H" else -1.0
+                o_bst = best_h if side == "H" else best_a
+                if not (1.35 <= o_bst <= 3.40):
+                    continue
+                p_mkt = ph if side == "H" else pa
+                sot_d = sgn * r["d_sot_d"]
+                poss_d = sgn * r["d_poss"]
+                s_gd_neg = max(0.0, -sgn * r["d_s_gd"])
+                dom_rebound = (max(0.0, sot_d) + max(0.0, poss_d / 3.0)) * s_gd_neg
+                discipline = -sgn * r["d_fouls"]
+                h2h_adv = sgn * (r["h2h_h"] - 0.5) - 0.5 * r["h2h_draw_rate"]
+                recent_draws = r["h_draw"] if side == "H" else r["a_draw"]
+                won = 1.0 if r["outcome"] == side else 0.0
+                samples.append({
+                    "match_idx": idx_m,
+                    "ym": r["kickoff"][:7],
+                    "league": r["league"],
+                    "o_bst": o_bst,
+                    "p_mkt": p_mkt,
+                    "won": won,
+                    "pnl_bst": (o_bst - 1.0) if won else -1.0,
+                    "feats": [p_mkt, vig_neg, sot_d, discipline, h2h_adv, dom_rebound, recent_draws],
+                })
+        months = sorted({x["ym"] for x in samples if x["ym"] >= "2025-07"})
+        wf_8: list[dict[str, Any]] = []
+        wf_10: list[dict[str, Any]] = []
+        wf_15: list[dict[str, Any]] = []
+        monthly_10: list[dict[str, Any]] = []
+        for ym in months:
+            tr = [x for x in samples if x["ym"] < ym]
+            te = [x for x in samples if x["ym"] == ym]
+            if len(tr) < 500 or not te:
+                continue
+            scaler = StandardScaler().fit(np.array([x["feats"] for x in tr]))
+            tr_z = np.tanh(scaler.transform(np.array([x["feats"] for x in tr])))
+            tr_sc = tr_z.mean(axis=1)
+            thr8, thr10, thr15 = float(np.percentile(tr_sc, 92)), float(np.percentile(tr_sc, 90)), float(np.percentile(tr_sc, 85))
+            p_clip = np.clip([x["p_mkt"] for x in tr], 1e-5, 1.0 - 1e-5)
+            logits_tr = np.log(p_clip / (1.0 - p_clip))
+            cal = LogisticRegression(C=1.0).fit(np.column_stack([logits_tr, tr_sc]), np.array([x["won"] for x in tr]))
+            by_m: dict[int, dict[str, Any]] = {}
+            for x in te:
+                z = np.tanh(scaler.transform([x["feats"]])[0])
+                sc = float(z.mean())
+                p_c = min(max(x["p_mkt"], 1e-5), 1.0 - 1e-5)
+                p_mod = float(cal.predict_proba([[math.log(p_c / (1.0 - p_c)), sc]])[0, 1])
+                ev_pct = (p_mod * x["o_bst"] - 1.0) * 100.0
+                cand = {**x, "score": sc, "sot_z": float(z[2]), "dom_z": float(z[5]), "ev_pct": ev_pct}
+                if x["match_idx"] not in by_m or sc > by_m[x["match_idx"]]["score"]:
+                    by_m[x["match_idx"]] = cand
+            m_10_list = []
+            for c in [by_m[k] for k in sorted(by_m)]:
+                is_sec = is_ext and c["league"] in ("ned.1", "por.1", "eng.2", "aut.1")
+                if c["score"] >= thr8:
+                    wf_8.append(c)
+                if c["score"] >= thr10 and (not is_sec or c["sot_z"] >= 0.0):
+                    wf_10.append(c)
+                    m_10_list.append(c)
+                if c["score"] >= thr15 and (not is_sec or (c["sot_z"] > 0.20 and c["dom_z"] > 0.0 and c["ev_pct"] >= 1.5)):
+                    wf_15.append(c)
+            if m_10_list:
+                monthly_10.append({
+                    "month": ym,
+                    "bets": len(m_10_list),
+                    "win_rate": round(float(np.mean([p["won"] for p in m_10_list])), 4),
+                    "profit_u": round(float(np.sum([p["pnl_bst"] for p in m_10_list])), 2),
+                    "roi": round(float(np.mean([p["pnl_bst"] for p in m_10_list])), 4),
+                })
+
+        def _tier_metrics(arr: list[dict[str, Any]]) -> dict[str, float]:
+            if not arr:
+                return {"bets": 0, "win_rate": 0.0, "profit_u": 0.0, "roi": 0.0, "sharpe": 0.0, "max_dd_u": 0.0}
+            pnls = np.array([x["pnl_bst"] for x in arr])
+            cum = np.cumsum(pnls)
+            peaks = np.maximum.accumulate(np.insert(cum, 0, 0.0))[1:]
+            mdd = float(np.max(peaks - cum))
+            sh = float(pnls.mean() / pnls.std(ddof=1) * math.sqrt(len(pnls))) if len(pnls) > 1 else 0.0
+            return {
+                "bets": len(arr),
+                "win_rate": round(float(np.mean([x["won"] for x in arr])), 4),
+                "profit_u": round(float(pnls.sum()), 2),
+                "roi": round(float(pnls.mean()), 4),
+                "sharpe": round(sh, 2),
+                "max_dd_u": round(mdd, 2),
+            }
+
+        soccer_wf[scope_key] = {
+            "top_8pct": _tier_metrics(wf_8),
+            "top_10pct": _tier_metrics(wf_10),
+            "top_15pct": _tier_metrics(wf_15),
+            "monthly_top_10pct": monthly_10,
+        }
+
+    # 2. Tennis Monthly Walk-Forward (ATP & WTA w/ Form, Decider, Court-Acclimatization & Qualifying Gates)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    t_rows = [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT m.*, d.surface, d.is_major, d.round_name, d.home_games, d.away_games
+            FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
+            WHERE m.sport = 'tennis' AND m.outcome IS NOT NULL
+            ORDER BY m.kickoff
+            """
+        ).fetchall()
+    ]
+    conn.close()
+
+    elo_all: dict[str, Elo] = {}
+    elo_surf: dict[tuple[str, str], Elo] = {}
+    elo_games: dict[str, Elo] = {}
+    game_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    win6_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
+    decider_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    tourn_wins: dict[tuple[str, str, str], int] = defaultdict(int)
+    last_match: dict[tuple[str, str], tuple[datetime, str, float]] = {}
+    h2h: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0])
+    t_samps: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for r in t_rows:
+        lg = r["league"]
+        raw_surf = r["surface"] or "hard"
+        surf = infer_surface(r.get("venue") or "") if raw_surf == "hard" else raw_surf
+        dt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
+        yw = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
+        ea = elo_all.setdefault(lg, Elo(k=28, home_adv=0.0))
+        es = elo_surf.setdefault((lg, surf), Elo(k=28, home_adv=0.0))
+        eg = elo_games.setdefault(lg, Elo(k=28, home_adv=0.0))
+        h, a = r["home"], r["away"]
+        hk, ak = (lg, h), (lg, a)
+        d_elo_all = (ea.ratings[h] - ea.ratings[a]) / 400.0
+        d_elo_surf = (es.ratings[h] - es.ratings[a]) / 400.0
+        d_elo_games = (eg.ratings[h] - eg.ratings[a]) / 400.0
+        gh, ga = game_hist[hk], game_hist[ak]
+        d_game_pct = (float(np.mean(gh)) if len(gh) >= 3 else 0.5) - (float(np.mean(ga)) if len(ga) >= 3 else 0.5)
+        wh, wa = win6_hist[hk], win6_hist[ak]
+        d_win6 = (float(np.mean(wh)) if len(wh) >= 3 else 0.5) - (float(np.mean(wa)) if len(wa) >= 3 else 0.5)
+        dh_q, da_q = decider_hist[hk], decider_hist[ak]
+        d_decider = (float(np.mean(dh_q)) if len(dh_q) >= 3 else 0.5) - (float(np.mean(da_q)) if len(da_q) >= 3 else 0.5)
+        t_wins_d = tourn_wins[(lg, h, yw)] - tourn_wins[(lg, a, yw)]
+
+        def _tf_w(k: tuple[str, str]) -> tuple[float, float]:
+            if k not in last_match:
+                return 0.0, 0.0
+            p_dt, p_surf, p_gms = last_match[k]
+            days = (dt - p_dt).total_seconds() / 86400.0
+            return (1.0 if (days <= 12.0 and p_surf != surf) else 0.0), ((p_gms / 30.0) if days <= 2.0 else 0.0)
+
+        th, fh = _tf_w(hk)
+        ta, fa = _tf_w(ak)
+        pair = (lg, min(h, a), max(h, a))
+        pts_p, n_p = h2h[pair]
+        h2h_p = ((pts_p + 1.0) / (n_p + 2.0)) if h < a else (((n_p - pts_p) + 1.0) / (n_p + 2.0))
+        won_h = 1 if r["outcome"] == "H" else 0
+        t_samps[lg].append({
+            "ym": r["kickoff"][:7],
+            "round_name": r.get("round_name") or "",
+            "feats": [d_elo_all, d_elo_surf, d_elo_games, d_game_pct, d_win6, ta - th, fa - fh, h2h_p - 0.5],
+            "d_game_pct": d_game_pct,
+            "d_win6": d_win6,
+            "d_decider": d_decider,
+            "t_wins_d": t_wins_d,
+            "won_h": won_h,
+        })
+        ea.update(h, a, float(won_h))
+        es.update(h, a, float(won_h))
+        win6_hist[hk].append(float(won_h))
+        win6_hist[ak].append(float(1 - won_h))
+        if won_h:
+            tourn_wins[(lg, h, yw)] += 1
+        else:
+            tourn_wins[(lg, a, yw)] += 1
+        hg, ag = r["home_games"], r["away_games"]
+        if hg is not None and ag is not None and (hg + ag) > 0:
+            g_share = hg / (hg + ag)
+            eg.update(h, a, 1.0 / (1.0 + math.exp(-6.0 * (g_share - 0.5))))
+            game_hist[hk].append(g_share)
+            game_hist[ak].append(1.0 - g_share)
+            tot_gms = hg + ag
+            if tot_gms >= 26:
+                decider_hist[hk].append(float(won_h))
+                decider_hist[ak].append(float(1 - won_h))
+        else:
+            eg.update(h, a, float(won_h))
+            tot_gms = 20.0
+        last_match[hk] = (dt, surf, tot_gms)
+        last_match[ak] = (dt, surf, tot_gms)
+        h2h[pair][0] += float(won_h) if h < a else float(1 - won_h)
+        h2h[pair][1] += 1
+
+    tennis_wf: dict[str, Any] = {}
+    for lg in ("atp", "wta"):
+        s_list = t_samps[lg]
+        months = sorted({x["ym"] for x in s_list if x["ym"] >= "2025-07"})
+        wf_70: list[tuple[float, int]] = []
+        wf_75: list[tuple[float, int]] = []
+        wf_80: list[tuple[float, int]] = []
+        for ym in months:
+            tr = [x for x in s_list if x["ym"] < ym]
+            te = [x for x in s_list if x["ym"] == ym]
+            if len(tr) < 1000 or not te:
+                continue
+            clf = LogisticRegression(C=1.0).fit(np.array([x["feats"] for x in tr]), np.array([x["won_h"] for x in tr]))
+            for x in te:
+                p = float(clf.predict_proba([x["feats"]])[0, 1])
+                sgn = 1.0 if p >= 0.5 else -1.0
+                conf = p if p >= 0.5 else (1.0 - p)
+                won_pick = x["won_h"] if p >= 0.5 else (1 - x["won_h"])
+                g_diff = sgn * x["d_game_pct"]
+                f_diff = sgn * x["d_win6"]
+                dec_diff = sgn * x["d_decider"]
+                tw_diff = sgn * x["t_wins_d"]
+                is_quali = "qualifying" in x["round_name"].lower()
+                if f_diff < -0.15:
+                    continue
+                if conf < 0.80 and (dec_diff < -0.20 or tw_diff <= -1):
+                    continue
+                if is_quali and conf < 0.82 and (g_diff <= 0.0 or f_diff <= 0.0):
+                    continue
+                if conf >= 0.70:
+                    wf_70.append((conf, won_pick))
+                if conf >= 0.75:
+                    wf_75.append((conf, won_pick))
+                if conf >= 0.80:
+                    wf_80.append((conf, won_pick))
+        tennis_wf[lg] = {
+            "banker_70_n": len(wf_70),
+            "banker_70_acc": round(float(np.mean([w for _, w in wf_70])), 4) if wf_70 else 0.0,
+            "banker_75_n": len(wf_75),
+            "banker_75_acc": round(float(np.mean([w for _, w in wf_75])), 4) if wf_75 else 0.0,
+            "banker_80_n": len(wf_80),
+            "banker_80_acc": round(float(np.mean([w for _, w in wf_80])), 4) if wf_80 else 0.0,
+        }
+
+    return {"soccer": soccer_wf, "tennis": tennis_wf}
+

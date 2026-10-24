@@ -14,6 +14,7 @@ from sportdata_model.quant_edges import (  # noqa: E402
     evaluate_invariant_soccer_composite,
     evaluate_tennis_surface_game_model,
     evaluate_us_major_sports_composite,
+    evaluate_walk_forward_backtest,
 )
 
 def main() -> None:
@@ -54,6 +55,22 @@ def main() -> None:
         print(
             f"  {lg.upper():<6} (n={int(m['n_test_picks']):<3}) | ROI={m['roi_top15']:+.4f} | "
             f"HitRate={m['hit_rate']:.1%} vs MktImplied={m['mkt_implied']:.1%} ({m['hit_rate']-m['mkt_implied']:+.1%})"
+        )
+
+    print("\n=== Expanding-Window Monthly Forward-Walking Backtest (2025-07 to 2026-10) ===")
+    wf = evaluate_walk_forward_backtest(db)
+    for scope, d in wf["soccer"].items():
+        t8, t10, t15 = d["top_8pct"], d["top_10pct"], d["top_15pct"]
+        print(
+            f"  SOCCER [{scope:<14}] | Top 8%: ROI={t8['roi']*100:+.2f}% (n={t8['bets']}, Win={t8['win_rate']*100:.1f}%, Sharpe={t8['sharpe']:.2f}) | "
+            f"Top 10%: ROI={t10['roi']*100:+.2f}% (n={t10['bets']}, Profit={t10['profit_u']:+.2f}u, Sharpe={t10['sharpe']:.2f}) | "
+            f"Top 15%: ROI={t15['roi']*100:+.2f}% (n={t15['bets']})"
+        )
+    for tour, td in wf["tennis"].items():
+        print(
+            f"  TENNIS [{tour.upper():<14}] | >=70% Acc={td['banker_70_acc']*100:.2f}% (n={td['banker_70_n']}) | "
+            f">=75% Acc={td['banker_75_acc']*100:.2f}% (n={td['banker_75_n']}) | "
+            f">=80% Acc={td['banker_80_acc']*100:.2f}% (n={td['banker_80_n']})"
         )
 
 
