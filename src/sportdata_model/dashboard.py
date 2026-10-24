@@ -1454,6 +1454,7 @@ def generate_dashboard_html(
         <span id="streamDot" class="stream-dot"></span>
         <span id="streamStatusText">Live Stream: Connecting...</span>
       </span>
+      <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
       <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle</button>
       <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live</button>
       <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Full Pipeline</button>
@@ -2117,6 +2118,10 @@ def generate_dashboard_html(
         const savedMode = localStorage.getItem('vp_bet_risk_mode');
         if (savedMode && document.getElementById('betRiskProfileSelect')) {{
           document.getElementById('betRiskProfileSelect').value = savedMode;
+        }}
+        const savedInplay = localStorage.getItem('vp_inplay_alerts_enabled');
+        if (savedInplay !== null) {{
+          renderInplayAlertsBtn(savedInplay === '1');
         }}
         const savedMatches = JSON.parse(localStorage.getItem('vp_custom_matches') || '[]');
         if (Array.isArray(savedMatches) && savedMatches.length) {{
@@ -2788,6 +2793,43 @@ def generate_dashboard_html(
           badge.className = 'pill';
           badge.textContent = 'Telegram: Optional';
         }}
+      }}
+      const ipEnabled = payload?.inplay_alerts_enabled ?? payload?.pipeline_status?.inplay_alerts_enabled;
+      if (ipEnabled !== undefined) {{
+        renderInplayAlertsBtn(Boolean(ipEnabled));
+      }}
+    }}
+
+    let currentInplayAlertsEnabled = false;
+
+    function renderInplayAlertsBtn(enabled) {{
+      currentInplayAlertsEnabled = Boolean(enabled);
+      const btn = document.getElementById('inplayAlertsToggleBtn');
+      if (!btn) return;
+      if (currentInplayAlertsEnabled) {{
+        btn.className = 'btn-export btn-telegram';
+        btn.textContent = '🔔 Live Alerts: ON';
+      }} else {{
+        btn.className = 'btn-export';
+        btn.textContent = '🔕 Live Alerts: OFF';
+      }}
+    }}
+
+    async function toggleInplayDiscordAlerts() {{
+      const nextState = !currentInplayAlertsEnabled;
+      renderInplayAlertsBtn(nextState);
+      try {{ localStorage.setItem('vp_inplay_alerts_enabled', nextState ? '1' : '0'); }} catch (_) {{}}
+      if (window.location.protocol.startsWith('http')) {{
+        try {{
+          await fetch('/api/settings/inplay-alerts', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify({{ enabled: nextState }})
+          }});
+          showToast(nextState ? '🔔 Live In-Play Discord Alerts enabled!' : '🔕 Live In-Play Discord Alerts muted (OFF).');
+        }} catch (_) {{}}
+      }} else {{
+        showToast(nextState ? '🔔 Live In-Play Alerts enabled locally.' : '🔕 Live In-Play Alerts muted (OFF).');
       }}
     }}
 

@@ -55,7 +55,36 @@ _PIPELINE_STATUS: dict[str, Any] = {
     "running": False,
     "step": "Idle",
     "updated_at": None,
+    "inplay_alerts_enabled": False,
 }
+
+
+def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
+    import os
+    cfg_file = data_dir / "webapp_settings.json"
+    env_default = (os.environ.get("INPLAY_ALERTS_ENABLED") or "").strip().lower() in ("1", "true", "yes", "on")
+    if cfg_file.exists():
+        try:
+            d = json.loads(cfg_file.read_text(encoding="utf-8"))
+            if "inplay_alerts_enabled" in d:
+                _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(d["inplay_alerts_enabled"])
+                return d
+        except Exception:
+            pass
+    _PIPELINE_STATUS["inplay_alerts_enabled"] = env_default
+    return {"inplay_alerts_enabled": _PIPELINE_STATUS["inplay_alerts_enabled"]}
+
+
+def _save_webapp_settings(data_dir: Path, inplay_alerts_enabled: bool) -> dict[str, Any]:
+    _PIPELINE_STATUS["inplay_alerts_enabled"] = bool(inplay_alerts_enabled)
+    cfg_file = data_dir / "webapp_settings.json"
+    payload = {"inplay_alerts_enabled": bool(inplay_alerts_enabled)}
+    try:
+        cfg_file.parent.mkdir(parents=True, exist_ok=True)
+        cfg_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+    return payload
 
 
 def _build_live_snapshot(
@@ -450,6 +479,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
     rec_path = data_dir / "recommendations.json"
     dash_path = data_dir / "dashboard.html"
     last_digest_ymd: list[str] = [""]
+    _load_webapp_settings(data_dir)
 
     def _loop() -> None:
         import os
@@ -461,7 +491,8 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
             try:
                 settled_n = settle_pending_paper_trades(db_path)
                 vetoes = refresh_t60_starting_xi_gates(db_path)
-                notify_inplay_rebound_edges_to_discord(db_path)
+                if _PIPELINE_STATUS.get("inplay_alerts_enabled", False):
+                    notify_inplay_rebound_edges_to_discord(db_path)
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 if vetoes:
@@ -572,9 +603,11 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status"):
+                _load_webapp_settings(data_dir)
                 self._send_json({
                     "discord": get_discord_env_config(),
                     "telegram": get_telegram_env_config(),
+                    "inplay_alerts_enabled": bool(_PIPELINE_STATUS.get("inplay_alerts_enabled", False)),
                 })
                 return
 
@@ -634,6 +667,12 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 body = json.loads(raw_body) if raw_body.strip() else {}
             except Exception:
                 body = {}
+
+            if parsed.path == "/api/settings/inplay-alerts":
+                enabled_v = bool(body.get("enabled", False))
+                saved = _save_webapp_settings(data_dir, enabled_v)
+                self._send_json({"ok": True, **saved})
+                return
 
             if parsed.path in ("/api/settle", "/api/sync", "/api/pipeline"):
                 is_full_pipeline = parsed.path == "/api/pipeline" or bool(body.get("full_pipeline", False))

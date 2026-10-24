@@ -583,6 +583,15 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         an_res = _analyze_live_matchup(db, rec_json, "Udinese vs AC Milan")
         assert an_res["ok"] is True and "verdict" in an_res and "market_recommendations" in an_res
     assert "mispricingRadarSection" in html_text and "printSmartBetTicket" in html_text and "saveSlipPrefsToStorage" in html_text
+    assert "inplayAlertsToggleBtn" in html_text and "🔕 Live Alerts: OFF" in html_text
+
+    from sportdata_model.webapp import _load_webapp_settings, _save_webapp_settings
+    assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
+    _save_webapp_settings(tmp_path, True)
+    assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is True
+    _save_webapp_settings(tmp_path, False)
+    assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
+
 
 
 
