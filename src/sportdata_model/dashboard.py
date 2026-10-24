@@ -21,6 +21,24 @@ BEST_BETS_CSV_COLUMNS = ("date", "date_local", "sport_league", "match", "pick", 
 DEFAULT_LOCAL_TZ = "Europe/Vienna"
 
 
+def _match_day_key(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ) -> str:
+    """Return the local betting-slate date ('YYYY-MM-DD') for a match kickoff.
+    Applies a 04:00 AM local slate cutoff (`timedelta(hours=4)`) so late-night US Major League games
+    (e.g. NHL/NBA/NFL/MLB starting between 00:00 and 03:59 CEST) stay grouped with that evening's slate
+    ('Today') rather than disappearing into Tomorrow's calendar date."""
+    if not utc_iso or utc_iso == "—":
+        return ""
+    try:
+        from datetime import timedelta
+        dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        loc = dt.astimezone(ZoneInfo(tz_name))
+        return (loc - timedelta(hours=4)).strftime("%Y-%m-%d")
+    except Exception:
+        return _format_local_time(utc_iso, tz_name)[:10]
+
+
 def _format_local_time(utc_iso: str, tz_name: str = DEFAULT_LOCAL_TZ, time_valid: bool | None = None) -> str:
     """Convert a UTC ISO timestamp ('2026-10-22T19:00Z') into local display string ('2026-10-22 21:00 CEST').
     If the start time is not yet confirmed by the tournament/league (`time_valid is False` or ESPN's
@@ -258,6 +276,7 @@ def build_best_bets_summary(
         best_bets.append({
             "date": p["kickoff"],
             "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
+            "day_key": _match_day_key(p["kickoff"]),
             "time_valid": p.get("time_valid", True),
             "sport_cat": "soccer",
             "sport_icon": _sport_icon("soccer"),
@@ -321,6 +340,7 @@ def build_best_bets_summary(
         best_bets.append({
             "date": tp["kickoff"],
             "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
+            "day_key": _match_day_key(tp["kickoff"]),
             "time_valid": tp.get("time_valid", True),
             "sport_cat": "tennis",
             "sport_icon": _sport_icon("tennis"),
@@ -367,6 +387,7 @@ def build_best_bets_summary(
         best_bets.append({
             "date": op["kickoff"],
             "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
+            "day_key": _match_day_key(op["kickoff"]),
             "time_valid": op.get("time_valid", True),
             "sport_cat": sp_cat,
             "sport_icon": _sport_icon(sp_cat),
@@ -565,7 +586,7 @@ def generate_dashboard_html(
         sh_pick = html.escape(json.dumps(sh_pick_str))
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
         sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"], time_valid=p.get("time_valid"))))
-        p_day_loc = _format_local_time(p["kickoff"])[:10]
+        p_day_loc = _match_day_key(p["kickoff"])
         p_comp_logo = _img_tag(_resolve_comp_logo(p["league"], p.get("competition_logo")), lg_label, "comp-logo")
         p_home_logo = _img_tag(p.get("home_logo"), p["home"], "team-logo-lg")
         p_away_logo = _img_tag(p.get("away_logo"), p["away"], "team-logo-lg")
@@ -626,7 +647,7 @@ def generate_dashboard_html(
             if sp_pred.get("straight_sets_score")
             else "—"
         )
-        tp_day_loc = _format_local_time(tp["kickoff"])[:10]
+        tp_day_loc = _match_day_key(tp["kickoff"])
         t_comp_str = f"{tp['tour']} · {tp['tournament']}"
         t_match_str = f"{tp['player_1']} vs {tp['player_2']}"
         t_comp_img = _img_tag(_resolve_comp_logo(tp["tour"], tp.get("competition_logo")), tp["tour"], "comp-logo")
@@ -671,7 +692,7 @@ def generate_dashboard_html(
             if inj_g.get("backed_out_count") is not None
             else ""
         )
-        op_day_loc = _format_local_time(op["kickoff"])[:10]
+        op_day_loc = _match_day_key(op["kickoff"])
         op_comp = op.get("league_name") or op["league"]
         op_match = f"{op['home']} vs {op['away']}"
         op_comp_img = _img_tag(_resolve_comp_logo(op["league"], op.get("competition_logo")), op_comp, "comp-logo")
@@ -705,7 +726,7 @@ def generate_dashboard_html(
         d_cards = []
         for idx_d, d in enumerate(doubles_list, start=1):
             l1, l2 = d["leg_1"], d["leg_2"]
-            d1_loc = _format_local_time(l1["kickoff"])[:10]
+            d1_loc = _match_day_key(l1["kickoff"])
             c_lbl = d.get("combo_label") or "Cross-Sport Banker ML"
             m1_pill = f' <span class="pill tier">{html.escape(str(l1.get("market")))}</span>' if l1.get("market") else ""
             m2_pill = f' <span class="pill tier">{html.escape(str(l2.get("market")))}</span>' if l2.get("market") else ""
@@ -755,7 +776,7 @@ def generate_dashboard_html(
         combo_table_rows = []
         for c in (ledger.get("combos") or []):
             cl1, cl2 = c["leg_1"], c["leg_2"]
-            c_day = _format_local_time(c["kickoff"])[:10]
+            c_day = _match_day_key(c["kickoff"])
             ico_c1 = _sport_icon(_league_to_sport_cat(cl1.get("sport_cat") or cl1.get("league") or ""))
             ico_c2 = _sport_icon(_league_to_sport_cat(cl2.get("sport_cat") or cl2.get("league") or ""))
             b1 = ' <span class="pill badge-bet">✅ HIT</span>' if c.get("leg1_hit") == 1 else (' <span class="pill badge-veto">❌ MISS</span>' if c.get("leg1_hit") == 0 else "")
@@ -820,7 +841,7 @@ def generate_dashboard_html(
     mispriced_rows = []
     for b in sorted(all_best_bets_for_html, key=lambda x: -float(x.get("ev_pct") or 0.0)):
         if b.get("is_mispriced"):
-            mp_day = (b.get("date_local") or _format_local_time(b["date"]))[:10]
+            mp_day = _match_day_key(b["date"])
             mp_ico = b.get("sport_icon") or _sport_icon(b["sport_cat"])
             mp_comp = b.get("competition") or b["sport_league"]
             mp_comp_img = _img_tag(b.get("competition_logo"), mp_comp, "comp-logo")
@@ -896,7 +917,7 @@ def generate_dashboard_html(
         b_time_js = html.escape(json.dumps(b["date_local"]))
         b_cat_js = html.escape(json.dumps(b["sport_cat"]))
         esc_col = html.escape(b.get("exact_score_pick") or "—")
-        b_day_loc = (b.get("date_local") or _format_local_time(b["date"]))[:10]
+        b_day_loc = _match_day_key(b["date"])
         b_comp = b.get("competition") or b["sport_league"]
         b_ico = b.get("sport_icon") or _sport_icon(b["sport_cat"])
         b_win_pct = float(b.get("win_prob") or 0.5) * 100.0
@@ -1032,7 +1053,7 @@ def generate_dashboard_html(
                 """
             )
         else:
-            tr_day_loc = _format_local_time(tr["kickoff"])[:10]
+            tr_day_loc = _match_day_key(tr["kickoff"])
             pend_score_cell = (
                 f'<span class="muted">—</span> <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>'
                 if esc_short
@@ -1221,7 +1242,7 @@ def generate_dashboard_html(
     tom_ymd = (now_loc + timedelta(days=1)).strftime("%Y-%m-%d")
     day_counts: dict[str, int] = {}
     for b in all_best_bets_for_html:
-        d_str = (b.get("date_local") or _format_local_time(b["date"]))[:10]
+        d_str = _match_day_key(b["date"])
         if len(d_str) == 10 and d_str[4] == "-":
             day_counts[d_str] = day_counts.get(d_str, 0) + 1
     sorted_days = sorted(day_counts.keys())
@@ -2197,20 +2218,30 @@ def generate_dashboard_html(
           ? ('Elo Diff: <b>' + (Number(d.elo_diff_home||0) >= 0 ? '+' : '') + Number(d.elo_diff_home||0).toFixed(0) + '</b> · Game Elo Diff: <b>' + (Number(d.game_elo_diff_home||0) >= 0 ? '+' : '') + Number(d.game_elo_diff_home||0).toFixed(0) + '</b>')
           : ('Elo Diff: <b>' + (Number(d.elo_diff_home||0) >= 0 ? '+' : '') + Number(d.elo_diff_home||0).toFixed(0) + '</b> · Rolling SoT Diff: <b>' + (Number(d.sot_diff_home||0) >= 0 ? '+' : '') + Number(d.sot_diff_home||0).toFixed(1) + '</b>');
         const mkts = d.market_recommendations || {{}};
+        const isNoBet = d.verdict_level === 'no_bet' || String(d.verdict || '').includes('NO-BET') || String(mkts.moneyline || '').startsWith('Skip');
+        const isLean = d.verdict_level === 'lean_bet';
+        const verdictPillCls = isNoBet ? 'pill badge-veto' : (isLean ? 'pill tier' : 'pill badge-bet');
+        const mlBorder = isNoBet ? 'rgba(239,68,68,0.45)' : (isLean ? 'rgba(245,158,11,0.45)' : 'rgba(34,197,94,0.45)');
+        const mlColorCls = isNoBet ? 'num-neg' : (isLean ? '' : 'num-pos');
+        const mlStyle = isLean ? 'color:var(--amber);font-weight:700;' : '';
         const mktsHtml = mkts.moneyline
           ? '<div style="margin-top:8px; display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:8px;">' +
-              '<div style="padding:6px 8px; border:1px solid rgba(34,197,94,0.35); border-radius:6px;"><b>1️⃣ Moneyline / 1X2:</b><br><span class="num-pos">' + escHtml(mkts.moneyline) + '</span></div>' +
+              '<div style="padding:6px 8px; border:1px solid ' + mlBorder + '; border-radius:6px;"><b>1️⃣ Moneyline / 1X2:</b><br><span class="' + mlColorCls + '" style="' + mlStyle + '">' + escHtml(mkts.moneyline) + '</span></div>' +
               '<div style="padding:6px 8px; border:1px solid rgba(56,189,248,0.35); border-radius:6px;"><b>2️⃣ Handicap / Shield:</b><br><span style="color:var(--accent);">' + escHtml(mkts.handicap_shield || '—') + '</span></div>' +
               '<div style="padding:6px 8px; border:1px solid rgba(245,158,11,0.35); border-radius:6px;"><b>3️⃣ Totals / Score Cluster:</b><br><span style="color:var(--amber);">' + escHtml(mkts.totals_cluster || '—') + '</span></div>' +
             '</div>'
           : '';
         const warnHtml = (d.warnings && d.warnings.length)
-          ? '<div style="margin-top:6px; color:var(--amber); font-weight:600;">' + d.warnings.map(w => '<div>' + escHtml(w) + '</div>').join('') + '</div>'
+          ? '<div style="margin-top:6px; font-weight:600;">' + d.warnings.map(w => {{
+              const wColor = String(w).includes('MISPRICING') ? 'var(--green)' : 'var(--red)';
+              return '<div style="color:' + wColor + ';">' + escHtml(w) + '</div>';
+            }}).join('') + '</div>'
           : '';
+        box.style.borderColor = isNoBet ? 'rgba(239,68,68,0.55)' : (isLean ? 'rgba(245,158,11,0.55)' : 'rgba(34,197,94,0.55)');
         box.innerHTML =
           '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">' +
             '<div><b style="font-size:13px;">' + escHtml(d.home) + ' vs ' + escHtml(d.away) + '</b> · <span class="pill">H2H: ' + escHtml(d.h2h_summary || '0-0') + '</span> · <span class="muted">' + eloStr + '</span></div>' +
-            '<div><b class="num-pos">' + escHtml(d.verdict || '') + '</b> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
+            '<div><span class="' + verdictPillCls + '" style="font-size:11.5px; padding:3px 9px;">' + escHtml(d.verdict || '') + '</span> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
           '</div>' +
           '<div style="margin-top:6px; display:flex; gap:16px; flex-wrap:wrap;" class="muted">' +
             '<span><b>' + escHtml(d.home) + ':</b> Odds <b>' + o1Str + '</b> · All-Level Last-5 WinRate: <b>' + f1Str + '</b> · Turnaround: ' + r1Str + '</span>' +
@@ -2663,7 +2694,7 @@ def generate_dashboard_html(
           );
         }} else {{
           const closeO = Number(tr.latest_close_odds || o);
-          const trDay = (tr.kickoff_local || tr.kickoff || '').slice(0, 10);
+          const trDay = tr.day_key || (tr.kickoff_local || tr.kickoff || '').slice(0, 10);
           const hideDay = (currentDayFilter !== 'all' && !(currentDaySet ? currentDaySet.has(trDay) : trDay === currentDayFilter)) ? ' hidden-by-day' : '';
           const pendCls = (rowCls + hideDay).trim();
           const pendScCell = escShort

@@ -363,13 +363,16 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
             assert list(xi_fast[k]) == list(xi_full[k]), f"Mismatch on {k}"
 
     # 8. Provisional / Unconfirmed Kickoff Time (`*` indicator + auto-update from provisional to confirmed)
-    from sportdata_model.dashboard import _format_local_time, _time_span
+    from sportdata_model.dashboard import _format_local_time, _match_day_key, _time_span
     from sportdata_model.paper_trade import _upsert_paper_trade, get_paper_ledger_summary
 
     assert _format_local_time("2026-10-23T12:00Z", time_valid=True) == "2026-10-23 14:00 CEST"
     assert _format_local_time("2026-10-24T09:30Z", time_valid=False) == "2026-10-24 11:30 CEST*"
     assert _format_local_time("2026-10-24T04:00Z", time_valid=False) == "2026-10-24 06:00 CEST* (TBD)"
     assert "*" in _time_span("2026-10-24T09:30Z", time_valid=False)
+    # Verify 04:00 AM local slate cutoff keeps Boston Bruins vs San Jose Sharks (2026-10-24T23:00Z -> 2026-10-25 01:00 CEST) on 2026-10-24 ("Today")
+    assert _match_day_key("2026-10-24T23:00Z") == "2026-10-24"
+    assert _match_day_key("2026-10-25T11:30Z") == "2026-10-25"
 
     # First log with provisional time (`time_valid=False`, `2026-10-23T04:00Z`)
     _upsert_paper_trade(

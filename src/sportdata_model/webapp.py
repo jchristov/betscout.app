@@ -28,6 +28,7 @@ from .dashboard import (
     DEFAULT_LOCAL_TZ,
     _format_local_time,
     _league_to_sport_cat,
+    _match_day_key,
     build_best_bets_summary,
     generate_dashboard_html,
 )
@@ -77,6 +78,7 @@ def _build_live_snapshot(
     ledger = get_paper_ledger_summary(db_path) if db_path.exists() else {}
     for tr in ledger.get("trades") or []:
         tr["kickoff_local"] = _format_local_time(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
+        tr["day_key"] = _match_day_key(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["league_label"] = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
         tr["sport_cat"] = _league_to_sport_cat(tr["league"])
     rec["paper_ledger"] = ledger
@@ -391,11 +393,14 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         mkt_3 = f"Over 1.5 Goals & 3-Score Dutch Cluster [{sc_pred['cluster_3_scores']}] ({sc_pred['cluster_3_prob']*100:.1f}%, Fair @{sc_pred['cluster_3_fair_odds']:.2f})"
 
     if warnings or fav_prob < 0.58:
-        verdict = f"⚠️ NO-BET / HIGH VARIANCE — {mkt_2} or {mkt_3}"
+        verdict = f"⛔ NO-BET / HIGH VARIANCE — {mkt_2} or {mkt_3}"
+        verdict_level = "no_bet"
     elif fav_prob >= 0.70:
         verdict = f"✅ STRONG BANKER — {mkt_1}"
+        verdict_level = "strong_bet"
     else:
-        verdict = f"✅ SOLID VALUE LEAN — {mkt_1}"
+        verdict = f"⚖️ SOLID VALUE LEAN — {mkt_1}"
+        verdict_level = "lean_bet"
 
     return {
         **base_detail,
@@ -433,6 +438,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         },
         "warnings": warnings,
         "verdict": verdict,
+        "verdict_level": verdict_level,
     }
 
 
