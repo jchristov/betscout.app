@@ -593,6 +593,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     cfg_after = _load_webapp_settings(tmp_path)
     assert cfg_after["inplay_alerts_enabled"] is False and cfg_after["inplay_alert_items"]["ger.1:401884763"] is True
     assert "toggleInplayItemAlert" in html_text
+    assert "exactScoreSplitterSection" in html_text and "recalcStandaloneDutchSplitter" in html_text
+
 
 
 

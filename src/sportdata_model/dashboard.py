@@ -260,6 +260,16 @@ def build_best_bets_summary(
             if esc_p.get("top_exact_score")
             else "—"
         )
+        score_cluster_items = [
+            {
+                "score": str(item.get("score") or ""),
+                "prob": round(float(item.get("prob") or 0.10), 4),
+                "fair_odds": round(float(item.get("fair_odds") or 8.0), 2),
+                "book_odds": round(max(float(item.get("fair_odds") or 8.0) * 0.88, 3.20), 2),
+            }
+            for item in (esc_p.get("top_3_breakdown") or [])
+            if item.get("score")
+        ]
         p_win_val = float(p.get("p_model") or p.get("p_mkt") or 0.5)
         p_mkt_val = float(p.get("p_mkt") or (1.0 / max(odds_val, 1.05)))
         f_odds_val = round(1.0 / max(p_win_val, 0.05), 2)
@@ -300,6 +310,7 @@ def build_best_bets_summary(
             "mispricing_drivers": driver_str,
             "min_fair_odds": f_odds_val,
             "exact_score_pick": esc_str,
+            "score_cluster_items": score_cluster_items,
             "odds": round(odds_val, 3),
             "clv_pct": round(p_clv, 2),
             "odds_display": f"{odds_val:.2f} (Fair {f_odds_val:.2f}, EV {p_ev_pct:+.1f}%)",
@@ -321,6 +332,24 @@ def build_best_bets_summary(
             f"Sets {sp_pred['straight_sets_score']} ({sp_pred['straight_sets_prob']*100:.1f}%, Fair {sp_pred['straight_sets_fair_odds']:.2f}) / {sp_pred['decider_sets_score']} ({sp_pred['decider_sets_prob']*100:.1f}%)"
             if sp_pred.get("straight_sets_score")
             else "—"
+        )
+        t_score_cluster_items = (
+            [
+                {
+                    "score": f"Sets {sp_pred['straight_sets_score']}",
+                    "prob": round(float(sp_pred.get("straight_sets_prob") or 0.50), 4),
+                    "fair_odds": round(float(sp_pred.get("straight_sets_fair_odds") or 1.85), 2),
+                    "book_odds": round(max(float(sp_pred.get("straight_sets_fair_odds") or 1.85) * 0.92, 1.40), 2),
+                },
+                {
+                    "score": f"Sets {sp_pred['decider_sets_score']}",
+                    "prob": round(float(sp_pred.get("decider_sets_prob") or 0.24), 4),
+                    "fair_odds": round(float(sp_pred.get("decider_sets_fair_odds") or 4.00), 2),
+                    "book_odds": round(max(float(sp_pred.get("decider_sets_fair_odds") or 4.00) * 0.92, 3.20), 2),
+                },
+            ]
+            if sp_pred.get("straight_sets_score")
+            else []
         )
         t_comp_lbl = f"{tp['tour']} · {tp.get('tournament') or tp['surface'].capitalize()} ({tp['surface'].capitalize()})"
         tp_clv = float(tp.get("clv_pct") or 0.0)
@@ -367,6 +396,7 @@ def build_best_bets_summary(
             "mispricing_drivers": t_driver_str,
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
             "exact_score_pick": set_str,
+            "score_cluster_items": t_score_cluster_items,
             "odds": round(odds_val, 3),
             "clv_pct": round(tp_clv, 2),
             "odds_display": odds_disp,
@@ -586,6 +616,7 @@ def generate_dashboard_html(
         sh_pick = html.escape(json.dumps(sh_pick_str))
         sh_odds = html.escape(json.dumps(f"{p['best_odds']:.2f}"))
         sh_time = html.escape(json.dumps(_format_local_time(p["kickoff"], time_valid=p.get("time_valid"))))
+        p_match_plain_js = html.escape(json.dumps(f"{p['home']} vs {p['away']}"))
         p_day_loc = _match_day_key(p["kickoff"])
         p_comp_logo = _img_tag(_resolve_comp_logo(p["league"], p.get("competition_logo")), lg_label, "comp-logo")
         p_home_logo = _img_tag(p.get("home_logo"), p["home"], "team-logo-lg")
@@ -601,7 +632,7 @@ def generate_dashboard_html(
                   <span class="pill {badge_cls}">{html.escape(act)}</span>
                   {live_pill}
                 </div>
-                <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
+                <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Open Exact-Score Investment Splitter for this match" onclick="selectMatchForDutching({p_match_plain_js})">🎲 Split €</button> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
               </div>
               <h3 class="matchup-inline">{p_home_logo}<span>{html.escape(p['home'])}</span> <span class="muted">vs</span> {p_away_logo}<span>{html.escape(p['away'])}</span></h3>
               <div class="meta">Kickoff: {_time_span(p['kickoff'], time_valid=p.get('time_valid'))} · Pick: {p_pick_logo}<b class="num-pos">{html.escape(pick_team)} ({p['side']})</b> · ¼-Kelly: <b class="kelly-stake" data-kelly-pct="{0.0 if is_veto else qk_pct:.3f}">{0.0 if is_veto else qk_pct:.2f}% (€{0.0 if is_veto else qk_pct * 10.0:.2f})</b></div>
@@ -949,9 +980,15 @@ def generate_dashboard_html(
             if b.get("is_mispriced")
             else ""
         )
+        b_sc_json_attr = html.escape(json.dumps(b.get("score_cluster_items") or []))
+        b_dutch_btn = (
+            f' <button type="button" class="btn-mini" title="Open Exact-Score &amp; Set-Score Investment Splitter for this match" onclick="selectMatchForDutching({b_match_js})">🎲 Split €</button>'
+            if b.get("score_cluster_items")
+            else ""
+        )
         best_bets_rows.append(
             f"""
-            <tr data-odds="{b['odds']:.3f}" data-win-prob="{b_win_pct/100.0:.4f}" data-fair-odds="{b_fair:.3f}" data-tier="{html.escape(b_tier_str)}" data-comp="{html.escape(b_comp)}" data-pick-name="{b_pick_name}" data-exact-score="{esc_col}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
+            <tr data-odds="{b['odds']:.3f}" data-win-prob="{b_win_pct/100.0:.4f}" data-fair-odds="{b_fair:.3f}" data-tier="{html.escape(b_tier_str)}" data-comp="{html.escape(b_comp)}" data-pick-name="{b_pick_name}" data-exact-score="{esc_col}" data-score-items="{b_sc_json_attr}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
               <td class="col-icon" style="text-align:center;"><input type="checkbox" class="custom-bet-chk" data-match="{html.escape(b['match'])}" onchange="toggleCustomBetPick(this)" title="Select this match for Custom Smart Bet Slip"></td>
               <td class="col-icon" data-sort="{html.escape(b['sport_cat'])}"><span class="sport-icon" title="{html.escape(b['sport_cat'].capitalize())}">{b_ico}</span></td>
               <td data-sort="{html.escape(b_comp)}"><span class="pill">{b_comp_img}{html.escape(b_comp)}</span></td>
@@ -960,7 +997,7 @@ def generate_dashboard_html(
               <td data-sort="{b_pick_name}"><span class="matchup-inline">{b_pick_img}<b class="num-pos">{b_pick_name}</b>{b_tier_pill}{b_mp_pill}</span></td>
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
-              <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span></td>
+              <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span>{b_dutch_btn}</td>
               <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html}{b_kelly_pill} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
             </tr>
             """
@@ -1578,6 +1615,30 @@ def generate_dashboard_html(
     <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
   </section>
 
+  <section class="card" id="exactScoreSplitterSection" style="margin-bottom:20px; border:1px solid rgba(245,158,11,0.48); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
+    <div class="card-head" style="margin-bottom:10px;">
+      <div>
+        <b style="font-size:14px; color:var(--amber);">🎲 Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
+        <span class="muted" style="margin-left:8px;">Pick any high-conviction match, enter your investment (€), and optionally edit live bookmaker odds — generates 2-Score &amp; 3-Score equal-payout splits</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <b>Match:</b>
+        <select id="dutchMatchSelect" onchange="onDutchMatchSelectChange()" style="max-width:300px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;"></select>
+        <b>Investment (€):</b>
+        <input id="dutchStakeInput" type="number" min="5" max="100000" step="5" value="25" oninput="recalcStandaloneDutchSplitter()" style="width:78px; background:#0b0f17; color:var(--green); border:1px solid var(--amber); border-radius:6px; padding:5px 8px; font-size:12.5px; font-weight:800;">
+        <div class="sport-btn-group">
+          <button type="button" class="sport-btn" onclick="setDutchBudget(10)">€10</button>
+          <button type="button" class="sport-btn" onclick="setDutchBudget(20)">€20</button>
+          <button type="button" class="sport-btn" onclick="setDutchBudget(25)">€25</button>
+          <button type="button" class="sport-btn" onclick="setDutchBudget(50)">€50</button>
+          <button type="button" class="sport-btn" onclick="setDutchBudget(100)">€100</button>
+        </div>
+      </div>
+    </div>
+    <div id="dutchCustomOddsBar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px; padding:8px 10px; background:#0b0f17; border:1px dashed var(--border); border-radius:8px; font-size:11.5px;"></div>
+    <div id="dutchSplitterGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
+  </section>
+
   <section class="card" id="liveMatchupAnalyzerSection" style="margin-bottom:20px; border:1px solid rgba(34,197,94,0.38);">
     <div class="card-head" style="margin-bottom:8px;">
       <div>
@@ -1972,6 +2033,7 @@ def generate_dashboard_html(
       const kpi = document.getElementById('visibleBestBetsKpi');
       if (kpi) kpi.textContent = String(visibleRows.length);
       if (typeof buildSmartBetPlan === 'function') buildSmartBetPlan();
+      if (typeof populateDutchMatchSelect === 'function') populateDutchMatchSelect();
     }}
 
     function applyDayFilter(dayKey) {{
@@ -2071,11 +2133,212 @@ def generate_dashboard_html(
           win_prob: parseFloat(r.getAttribute('data-win-prob') || '0.68'),
           fair_odds: parseFloat(r.getAttribute('data-fair-odds') || '1.45'),
           exact_score: r.getAttribute('data-exact-score') || '',
+          score_items: JSON.parse(r.getAttribute('data-score-items') || '[]'),
           odds: parseFloat(r.getAttribute('data-odds') || '0'),
           odds_display: r.getAttribute('data-odds-display') || ''
         }});
       }});
       return items;
+    }}
+
+    let currentDutchScoreItems = [];
+    let currentDutchMatchObj = null;
+
+    function setDutchBudget(amt) {{
+      const inp = document.getElementById('dutchStakeInput');
+      if (inp) inp.value = String(amt);
+      recalcStandaloneDutchSplitter();
+    }}
+
+    function selectMatchForDutching(matchName) {{
+      const sel = document.getElementById('dutchMatchSelect');
+      const sec = document.getElementById('exactScoreSplitterSection');
+      if (!sel) return;
+      let found = false;
+      Array.from(sel.options).forEach(opt => {{
+        if (opt.value === matchName) {{
+          sel.value = matchName;
+          found = true;
+        }}
+      }});
+      if (!found) {{
+        populateDutchMatchSelect(matchName);
+      }} else {{
+        onDutchMatchSelectChange();
+      }}
+      if (sec) sec.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+    }}
+
+    function populateDutchMatchSelect(forceSelectMatch) {{
+      const sel = document.getElementById('dutchMatchSelect');
+      if (!sel) return;
+      const prevVal = forceSelectMatch || sel.value;
+      let pool = collectVisibleBestBets().filter(x => x.score_items && x.score_items.length >= 2);
+      if (!pool.length) {{
+        document.querySelectorAll('#bestBetsTable tbody tr[data-date]').forEach(r => {{
+          const sItems = JSON.parse(r.getAttribute('data-score-items') || '[]');
+          if (sItems && sItems.length >= 2) {{
+            pool.push({{
+              match: r.getAttribute('data-match') || '',
+              pick_name: r.getAttribute('data-pick-name') || '',
+              sport_cat: r.getAttribute('data-sport-cat') || 'soccer',
+              comp: r.getAttribute('data-comp') || '',
+              win_prob: parseFloat(r.getAttribute('data-win-prob') || '0.68'),
+              odds: parseFloat(r.getAttribute('data-odds') || '1.50'),
+              score_items: sItems
+            }});
+          }}
+        }});
+      }}
+      sel.innerHTML = pool.map(it => {{
+        const ico = getSportEmoji(it.sport_cat);
+        return '<option value="' + escHtml(it.match) + '">' + ico + ' ' + escHtml(it.match) + ' → ' + escHtml(it.pick_name) + ' (' + (it.win_prob * 100).toFixed(0) + '%)</option>';
+      }}).join('');
+      if (prevVal && pool.some(x => x.match === prevVal)) {{
+        sel.value = prevVal;
+      }}
+      onDutchMatchSelectChange();
+    }}
+
+    function onDutchMatchSelectChange() {{
+      const sel = document.getElementById('dutchMatchSelect');
+      const bar = document.getElementById('dutchCustomOddsBar');
+      if (!sel || !bar) return;
+      const matchName = sel.value;
+      let rowEl = null;
+      document.querySelectorAll('#bestBetsTable tbody tr[data-date]').forEach(r => {{
+        if (r.getAttribute('data-match') === matchName) rowEl = r;
+      }});
+      if (!rowEl) return;
+      const sItems = JSON.parse(rowEl.getAttribute('data-score-items') || '[]');
+      currentDutchMatchObj = {{
+        match: matchName,
+        pick_name: rowEl.getAttribute('data-pick-name') || '',
+        sport_cat: rowEl.getAttribute('data-sport-cat') || 'soccer',
+        comp: rowEl.getAttribute('data-comp') || '',
+        win_prob: parseFloat(rowEl.getAttribute('data-win-prob') || '0.68'),
+        odds: parseFloat(rowEl.getAttribute('data-odds') || '1.50')
+      }};
+      currentDutchScoreItems = sItems.map(x => ({{ ...x }}));
+      bar.innerHTML = '<b style="color:var(--accent);">✏️ Editable Bookmaker Score Odds (adjust to your sportsbook):</b> ' +
+        currentDutchScoreItems.map((it, idx) =>
+          '<label style="display:inline-flex; align-items:center; gap:5px;">' +
+            '<b>#' + (idx + 1) + ' ' + escHtml(it.score) + '</b> <span class="muted">(Model ' + (Number(it.prob) * 100).toFixed(1) + '%, Fair @' + Number(it.fair_odds).toFixed(2) + ')</span> Odds:' +
+            '<input type="number" step="0.10" min="1.20" max="100" value="' + Number(it.book_odds || it.fair_odds).toFixed(2) + '" data-dutch-idx="' + idx + '" oninput="onCustomScoreOddsInput(this)" style="width:66px; background:#111827; color:var(--green); border:1px solid var(--border); border-radius:5px; padding:3px 6px; font-weight:700;">' +
+          '</label>'
+        ).join(' &nbsp;·&nbsp; ');
+      recalcStandaloneDutchSplitter();
+    }}
+
+    function onCustomScoreOddsInput(inpEl) {{
+      const idx = parseInt(inpEl.getAttribute('data-dutch-idx') || '0', 10);
+      const val = Math.max(1.05, parseFloat(inpEl.value) || 2.0);
+      if (currentDutchScoreItems[idx]) {{
+        currentDutchScoreItems[idx].book_odds = val;
+        recalcStandaloneDutchSplitter();
+      }}
+    }}
+
+    function recalcStandaloneDutchSplitter() {{
+      const grid = document.getElementById('dutchSplitterGrid');
+      if (!grid || !currentDutchScoreItems.length || !currentDutchMatchObj) return;
+      const totStake = Math.max(2, parseFloat(document.getElementById('dutchStakeInput')?.value || '25') || 25);
+      const mObj = currentDutchMatchObj;
+      const ico = getSportEmoji(mObj.sport_cat);
+
+      // Helper to compute Equal-Payout Dutching split across a subset of score items
+      const computeDutchSet = (itemsSubset) => {{
+        const invSum = itemsSubset.reduce((s, x) => s + (1.0 / Math.max(Number(x.book_odds || x.fair_odds), 1.05)), 0.0);
+        const effOdds = invSum > 0 ? (1.0 / invSum) : 1.0;
+        const totPayout = totStake * effOdds;
+        const netProfit = totPayout - totStake;
+        const combProb = itemsSubset.reduce((s, x) => s + Number(x.prob || 0), 0.0);
+        let runSt = 0.0;
+        const legs = itemsSubset.map((x, i) => {{
+          const o = Math.max(Number(x.book_odds || x.fair_odds), 1.05);
+          const share = (1.0 / o) / invSum;
+          const st = (i === itemsSubset.length - 1) ? Math.max(0, totStake - runSt) : (totStake * share);
+          runSt += st;
+          return {{ ...x, o, sharePct: share * 100.0, stake: st, payout: st * o }};
+        }});
+        return {{ legs, effOdds, totPayout, netProfit, combProb }};
+      }};
+
+      const set2 = computeDutchSet(currentDutchScoreItems.slice(0, 2));
+      const set3 = currentDutchScoreItems.length >= 3 ? computeDutchSet(currentDutchScoreItems.slice(0, 3)) : null;
+
+      // Option 3: Anchor ML + Top-2 Score Booster (70% Main Pick ML + 30% 2-Score Dutch)
+      const mlBudget = Math.round(totStake * 0.65 * 2.0) / 2.0;
+      const boostBudget = Math.max(0, totStake - mlBudget);
+      const mlReturn = mlBudget * mObj.odds;
+      const boostSet2 = computeDutchSet(currentDutchScoreItems.slice(0, 2));
+      const boostPayout = boostBudget * boostSet2.effOdds;
+      const hybridSweepReturn = mlReturn + boostPayout;
+      const hybridSweepNet = hybridSweepReturn - totStake;
+
+      const renderLegsHtml = (dSet) => dSet.legs.map(l =>
+        '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+          '<span>🎯 <b>' + escHtml(l.score) + '</b> @ <b>' + l.o.toFixed(2) + '</b> <span class="muted">(' + l.sharePct.toFixed(1) + '% split · Model ' + (Number(l.prob)*100).toFixed(1) + '%)</span></span>' +
+          '<span>Bet <b class="num-pos">€' + l.stake.toFixed(2) + '</b> &rarr; Payout <b>€' + l.payout.toFixed(2) + '</b></span>' +
+        '</div>'
+      ).join('');
+
+      const share2Txt = set2.legs.map(l => '• **' + l.score + '** @ **' + l.o.toFixed(2) + '** -> Stake: **€' + l.stake.toFixed(2) + '** (Payout €' + l.payout.toFixed(2) + ')').join('\\n');
+      let cardsHtml =
+        '<div class="card" style="margin:0; border-color:rgba(34,197,94,0.48);">' +
+          '<div class="card-head">' +
+            '<div><b>Set A · 2-Score Precision Dutch (' + set2.legs.map(x => escHtml(x.score)).join(' / ') + ')</b> <span class="pill badge-bet">★ HIGHEST PAYOUT</span></div>' +
+            '<button type="button" class="btn-mini" onclick="shareStrategyTicket(\\'2-Score Dutching Split (' + escHtml(mObj.match) + ')\\', \\'Total Stake: €' + totStake.toFixed(2) + ' · Effective Odds: ' + set2.effOdds.toFixed(2) + 'x · Payout: €' + set2.totPayout.toFixed(2) + ' (+€' + set2.netProfit.toFixed(2) + ')\\', ' + escHtml(JSON.stringify(share2Txt)) + ')">📣</button>' +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0 8px;">' + ico + ' <b>' + escHtml(mObj.match) + '</b> — Equal payout whichever of the Top 2 exact scores hits</div>' +
+          renderLegsHtml(set2) +
+          '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Effective Odds: <b class="num-pos">' + set2.effOdds.toFixed(2) + 'x</b> (' + (set2.combProb * 100).toFixed(1) + '% Model Hit)</span>' +
+            '<span>Payout: <b class="num-pos">€' + set2.totPayout.toFixed(2) + ' (+€' + set2.netProfit.toFixed(2) + ')</b></span>' +
+          '</div>' +
+        '</div>';
+
+      if (set3) {{
+        const share3Txt = set3.legs.map(l => '• **' + l.score + '** @ **' + l.o.toFixed(2) + '** -> Stake: **€' + l.stake.toFixed(2) + '** (Payout €' + l.payout.toFixed(2) + ')').join('\\n');
+        cardsHtml +=
+          '<div class="card" style="margin:0; border-color:rgba(56,189,248,0.48);">' +
+            '<div class="card-head">' +
+              '<div><b>Set B · 3-Score Wide Shield (' + set3.legs.map(x => escHtml(x.score)).join(' / ') + ')</b> <span class="pill tier">★ 46% OOS HIT RATE</span></div>' +
+              '<button type="button" class="btn-mini" onclick="shareStrategyTicket(\\'3-Score Dutching Cluster (' + escHtml(mObj.match) + ')\\', \\'Total Stake: €' + totStake.toFixed(2) + ' · Effective Odds: ' + set3.effOdds.toFixed(2) + 'x · Payout: €' + set3.totPayout.toFixed(2) + ' (+€' + set3.netProfit.toFixed(2) + ')\\', ' + escHtml(JSON.stringify(share3Txt)) + ')">📣</button>' +
+            '</div>' +
+            '<div class="muted" style="margin:4px 0 8px;">Covers all 3 primary winning scorelines with identical €' + set3.totPayout.toFixed(2) + ' return</div>' +
+            renderLegsHtml(set3) +
+            '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+              '<span>Effective Odds: <b class="num-pos">' + set3.effOdds.toFixed(2) + 'x</b> (' + (set3.combProb * 100).toFixed(1) + '% Model Hit)</span>' +
+              '<span>Payout: <b class="num-pos">€' + set3.totPayout.toFixed(2) + ' (+€' + set3.netProfit.toFixed(2) + ')</b></span>' +
+            '</div>' +
+          '</div>';
+      }}
+
+      cardsHtml +=
+        '<div class="card" style="margin:0; border-color:rgba(245,158,11,0.48);">' +
+          '<div class="card-head">' +
+            '<div><b>Set C · 65/35 Winner Floor + Exact-Score Booster</b></div>' +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0 8px;">65% (€' + mlBudget.toFixed(2) + ') on <b>' + escHtml(mObj.pick_name) + '</b> @ ' + mObj.odds.toFixed(2) + ' covers any win + 35% (€' + boostBudget.toFixed(2) + ') on 2-Score Dutch</div>' +
+          '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+            '<span>🛡️ <b>' + escHtml(mObj.pick_name) + ' (Main Pick)</b> @ <b>' + mObj.odds.toFixed(2) + '</b></span>' +
+            '<span>Bet <b>€' + mlBudget.toFixed(2) + '</b> &rarr; Floor <b>€' + mlReturn.toFixed(2) + '</b></span>' +
+          '</div>' +
+          set2.legs.map(l => {{
+            const bSt = boostBudget * (l.sharePct / 100.0);
+            return '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+              '<span>🚀 Exact <b>' + escHtml(l.score) + '</b> @ <b>' + l.o.toFixed(2) + '</b></span>' +
+              '<span>Bet <b class="num-pos">€' + bSt.toFixed(2) + '</b> &rarr; Boost <b>+€' + boostPayout.toFixed(2) + '</b></span>' +
+            '</div>';
+          }}).join('') +
+          '<div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Any Other Win: <b>€' + mlReturn.toFixed(2) + '</b></span>' +
+            '<span>If Top-2 Score Hits: <b class="num-pos">€' + hybridSweepReturn.toFixed(2) + ' (+€' + hybridSweepNet.toFixed(2) + ')</b></span>' +
+          '</div>' +
+        '</div>';
+
+      grid.innerHTML = cardsHtml;
     }}
 
     const customSelectedMatches = new Set();
@@ -2982,6 +3245,7 @@ def generate_dashboard_html(
     initLiveEventStream();
     restoreSlipPrefsFromStorage();
     buildSmartBetPlan();
+    populateDutchMatchSelect();
 
     function copyTelegramPreview() {{
       const ta = document.getElementById('tgMessagePreview');
