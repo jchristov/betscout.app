@@ -604,6 +604,7 @@ def scan_upcoming_tennis(
                             game_win_pct_diff=sgn * d_game_pct,
                             form_6m_diff=form_diff_pick,
                             best_of=best_of_sets,
+                            tour=lg.upper(),
                         )
                         # Expected total games for Best-of-3: ~20.2 games on 2:0, ~31.0 games on 2:1
                         p_20_match = min(max(set_pred["straight_sets_prob"] / max(win_prob, 0.5), 0.45), 0.90)
