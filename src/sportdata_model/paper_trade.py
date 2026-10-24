@@ -1201,9 +1201,19 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                             l_pnl = 0.0
                                         else:
                                             l_pnl = -1.0
+                                        t_mom_json = json.dumps(
+                                            _evaluate_inplay_tennis_momentum(
+                                                t_sc=t_sc,
+                                                side=side,
+                                                win_prob=float(row["composite_score"] or 0.72),
+                                                factor_json=str(row["factor_breakdown_json"] or "{}"),
+                                                live_status_desc=st_det,
+                                                prev_mom_json=str(row["live_momentum_json"] or ""),
+                                            )
+                                        )
                                         conn.execute(
-                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                            (l_sc, l_pnl, now_iso, lg, eid),
+                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
                                         )
 
         if outcome in ("H", "D", "A"):
@@ -2461,6 +2471,82 @@ def _evaluate_inplay_soccer_momentum(
         "corners_diff": int(co_diff),
         "poss_pct": round(poss_pick, 1),
     }
+
+
+def _evaluate_inplay_tennis_momentum(
+    t_sc: str,
+    side: str,
+    win_prob: float,
+    factor_json: str = "{}",
+    live_status_desc: str = "LIVE",
+    prev_mom_json: str = "",
+) -> dict[str, Any]:
+    """Evaluate Live In-Play Tennis Set-1 Deficit Rebound Edge (`SET1_DEFICIT_REBOUND_EDGE`).
+    Fires when a tracked high-conviction Tennis banker (`win_prob >= 0.74` and `decider_diff >= 0.0`)
+    drops a close 1st set (`4-6`, `5-7`, or `6-7` -> `set1_games >= 9` and `set1_pick_games >= 4`),
+    where 3-set decider resilience historically produces high-EV comeback wins at 2.10–2.60 live odds."""
+    try:
+        fac = json.loads(factor_json or "{}")
+    except Exception:
+        fac = {}
+    try:
+        prev_mom = json.loads(prev_mom_json or "{}")
+    except Exception:
+        prev_mom = {}
+
+    dec_diff = float(fac.get("decider_diff") or 0.0)
+    g_elo_diff = float(fac.get("game_elo_diff") or 0.0)
+    head_part = (t_sc or "0-0").split("(", 1)[0].strip()
+    s1_sets, s2_sets = (int(x) for x in head_part.split("-", 1)) if "-" in head_part and head_part.replace("-", "").isdigit() else (0, 0)
+    pick_sets = s1_sets if side == "H" else s2_sets
+    opp_sets = s2_sets if side == "H" else s1_sets
+
+    set1_pick_games = 0
+    set1_opp_games = 0
+    if "(" in (t_sc or ""):
+        first_set_str = t_sc.split("(", 1)[1].split(")", 1)[0].split(",")[0].strip()
+        if "-" in first_set_str:
+            p_a, p_b = [x.strip() for x in first_set_str.split("-", 1)]
+            if p_a.isdigit() and p_b.isdigit():
+                g_h, g_a = int(p_a), int(p_b)
+                set1_pick_games = g_h if side == "H" else g_a
+                set1_opp_games = g_a if side == "H" else g_h
+
+    set1_total_games = set1_pick_games + set1_opp_games
+    is_rebound_edge = (
+        pick_sets == 0
+        and opp_sets == 1
+        and set1_pick_games >= 4
+        and set1_total_games >= 9
+        and win_prob >= 0.74
+        and dec_diff >= 0.0
+    )
+    if is_rebound_edge:
+        signal = "SET1_DEFICIT_REBOUND_EDGE"
+    elif pick_sets > opp_sets:
+        signal = "LEADING_IN_CONTROL"
+    elif pick_sets < opp_sets:
+        signal = "TRAILING_SET_DEFICIT"
+    else:
+        signal = "IN_PLAY_NEUTRAL"
+
+    out = {
+        "sport": "tennis",
+        "signal": signal,
+        "is_rebound_edge": is_rebound_edge,
+        "status_detail": live_status_desc,
+        "pick_sets": pick_sets,
+        "opp_sets": opp_sets,
+        "set1_pick_games": set1_pick_games,
+        "set1_opp_games": set1_opp_games,
+        "set1_total_games": set1_total_games,
+        "pre_win_prob_pct": round(win_prob * 100.0, 1),
+        "decider_diff": round(dec_diff, 3),
+        "game_elo_diff": round(g_elo_diff, 1),
+    }
+    if prev_mom.get("notified_live_edge"):
+        out["notified_live_edge"] = True
+    return out
 
 
 def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> None:

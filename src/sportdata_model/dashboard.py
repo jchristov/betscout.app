@@ -811,6 +811,7 @@ def generate_dashboard_html(
         best_bets_rows.append(
             f"""
             <tr data-odds="{b['odds']:.3f}" data-win-prob="{b_win_pct/100.0:.4f}" data-fair-odds="{b_fair:.3f}" data-tier="{html.escape(b_tier_str)}" data-comp="{html.escape(b_comp)}" data-pick-name="{b_pick_name}" data-exact-score="{esc_col}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(b_day_loc)}" data-search="{html.escape((b['match'] + ' ' + b['sport_league'] + ' ' + b_comp + ' ' + b['pick']).lower())}" data-date="{html.escape(b['date'])}" data-date-local="{html.escape(b['date_local'])}" data-sport="{html.escape(b['sport_league'])}" data-match="{html.escape(b['match'])}" data-pick="{html.escape(b_pick_with_sc)}" data-odds-display="{html.escape(b['odds_display'])}">
+              <td class="col-icon" style="text-align:center;"><input type="checkbox" class="custom-bet-chk" data-match="{html.escape(b['match'])}" onchange="toggleCustomBetPick(this)" title="Select this match for Custom Smart Bet Slip"></td>
               <td class="col-icon" data-sort="{html.escape(b['sport_cat'])}"><span class="sport-icon" title="{html.escape(b['sport_cat'].capitalize())}">{b_ico}</span></td>
               <td data-sort="{html.escape(b_comp)}"><span class="pill">{b_comp_img}{html.escape(b_comp)}</span></td>
               <td data-sort="{html.escape(b['date'])}">{_time_span(b['date'], bold=True, time_valid=b.get('time_valid'))}</td>
@@ -1560,8 +1561,9 @@ def generate_dashboard_html(
   </table>
 
   <div class="section-head">
-    <h2>Best Bets Summary Table (Click Any Column Header to Sort · Odds &gt; {min_odds:.2f})</h2>
+    <h2>Best Bets Summary Table (Click Any Column Header to Sort · Check ☑️ Rows to Build a Custom Slip · Odds &gt; {min_odds:.2f})</h2>
     <div class="btn-group">
+      <button id="clearCustomSlipBtn" class="btn-export" type="button" style="display:none;" onclick="clearCustomBetSelection()">✕ Clear Custom Selection (<span id="customSelectedCountSpan">0</span>)</button>
       <button class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share / Post to Discord &amp; Telegram</button>
       <button class="btn-export" type="button" onclick="exportBestBets('csv')">Export CSV (with Header)</button>
       <button class="btn-export" type="button" onclick="exportBestBets('json')">Export JSON</button>
@@ -1570,6 +1572,7 @@ def generate_dashboard_html(
   <table id="bestBetsTable" class="sortable-table">
     <thead>
       <tr>
+        <th class="col-icon" title="Check rows to build a custom combo or singles slip">☑️</th>
         <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
         <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
         <th class="tz-col-head sort-asc" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
@@ -1582,7 +1585,7 @@ def generate_dashboard_html(
       </tr>
     </thead>
     <tbody>
-      {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="9" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
+      {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="10" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
     </tbody>
   </table>
 
@@ -1675,15 +1678,55 @@ def generate_dashboard_html(
         const sp = pk.set_score_prediction || {{}};
         if (esc.top_3_breakdown && esc.top_3_breakdown.length) {{
           const top3 = esc.top_3_breakdown.map(x => '<span class="pill badge-bet">' + escHtml(x.score) + ' (' + (Number(x.prob)*100).toFixed(1) + '%, Fair ' + Number(x.fair_odds).toFixed(2) + ')</span>').join(' ');
+          const dStakeDefault = 20;
+          const sumProbs3 = esc.top_3_breakdown.reduce((acc, x) => acc + Number(x.prob || 0), 0.0) || 0.30;
+          const dutchRowsHtml = esc.top_3_breakdown.map((x, idx) => {{
+            const pSc = Number(x.prob || 0.10);
+            const fOdds = Number(x.fair_odds || (1.0 / pSc));
+            const stSc = (dStakeDefault * (pSc / sumProbs3));
+            const retSc = stSc * fOdds;
+            return '<div class="dutch-row" data-prob="' + pSc.toFixed(4) + '" data-fair-odds="' + fOdds.toFixed(3) + '" style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:11.5px;">' +
+              '<span>Score #' + (idx + 1) + ': <b>' + escHtml(x.score) + '</b> (' + (pSc * 100).toFixed(1) + '% · Fair @<b>' + fOdds.toFixed(2) + '</b>)</span>' +
+              '<span>Place <b class="num-pos dutch-stake-lbl">€' + stSc.toFixed(2) + '</b> &rarr; Return <b class="dutch-ret-lbl">€' + retSc.toFixed(2) + '</b></span>' +
+            '</div>';
+          }}).join('');
           scHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">' +
-            '<div style="margin-bottom:6px;"><b>🎲 Dixon-Coles Score Projection (λ=' + Number(esc.lambda_home||0).toFixed(2) + ', μ=' + Number(esc.mu_away||0).toFixed(2) + ')</b></div>' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">' +
+              '<b>🎲 Dixon-Coles Score Projection (λ=' + Number(esc.lambda_home||0).toFixed(2) + ', μ=' + Number(esc.mu_away||0).toFixed(2) + ')</b>' +
+              '<span style="font-size:11.5px;">Dutching Stake (€): <input id="dutchModalStakeInput" type="number" min="5" max="10000" step="5" value="' + dStakeDefault + '" oninput="recalcModalDutching(this.value)" style="width:68px; background:#111827; color:var(--green); border:1px solid var(--accent); border-radius:5px; padding:2px 6px; font-weight:700;"></span>' +
+            '</div>' +
             '<div>Top Exact Scores: ' + top3 + '</div>' +
             '<div style="margin-top:5px;">3-Score Dutch Cluster: <b class="num-pos">' + escHtml(esc.cluster_3_scores) + '</b> (' + (Number(esc.cluster_3_prob||0)*100).toFixed(1) + '%, Fair @' + Number(esc.cluster_3_fair_odds||0).toFixed(2) + ')</div>' +
+            '<div id="dutchModalBreakdown" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(56,189,248,0.25);">' +
+              '<div class="muted" style="margin-bottom:3px; font-size:11px;">Equal-Payout Dutching Split Across Top 3 Exact Scores:</div>' +
+              dutchRowsHtml +
+            '</div>' +
           '</div>';
         }} else if (sp.straight_sets_score) {{
+          const dStakeTen = 20;
+          const p20 = Number(sp.straight_sets_prob || 0.50);
+          const p21 = Number(sp.decider_sets_prob || 0.25);
+          const pSumT = (p20 + p21) || 0.75;
+          const o20 = Number(sp.straight_sets_fair_odds || (1.0 / p20));
+          const o21 = Number(sp.decider_sets_fair_odds || (1.0 / Math.max(p21, 0.08)));
+          const st20 = dStakeTen * (p20 / pSumT);
+          const st21 = dStakeTen * (p21 / pSumT);
           scHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">' +
-            '<div style="margin-bottom:6px;"><b>🎾 Calibrated Tennis Set-Score Distribution</b></div>' +
-            '<div>Straight Sets: <span class="pill badge-bet">' + escHtml(sp.straight_sets_score) + ' (' + (Number(sp.straight_sets_prob)*100).toFixed(1) + '%, Fair ' + Number(sp.straight_sets_fair_odds).toFixed(2) + ')</span> · Decider: <span class="pill tier">' + escHtml(sp.decider_sets_score) + ' (' + (Number(sp.decider_sets_prob)*100).toFixed(1) + '%)</span></div>' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">' +
+              '<b>🎾 Calibrated Tennis Set-Score Distribution &amp; Dutching Split</b>' +
+              '<span style="font-size:11.5px;">Dutching Stake (€): <input id="dutchModalStakeInput" type="number" min="5" max="10000" step="5" value="' + dStakeTen + '" oninput="recalcModalDutching(this.value)" style="width:68px; background:#111827; color:var(--green); border:1px solid var(--accent); border-radius:5px; padding:2px 6px; font-weight:700;"></span>' +
+            '</div>' +
+            '<div>Straight Sets: <span class="pill badge-bet">' + escHtml(sp.straight_sets_score) + ' (' + (p20*100).toFixed(1) + '%, Fair ' + o20.toFixed(2) + ')</span> · Decider: <span class="pill tier">' + escHtml(sp.decider_sets_score) + ' (' + (p21*100).toFixed(1) + '%, Fair ' + o21.toFixed(2) + ')</span></div>' +
+            '<div id="dutchModalBreakdown" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(56,189,248,0.25);">' +
+              '<div class="dutch-row" data-prob="' + p20.toFixed(4) + '" data-fair-odds="' + o20.toFixed(3) + '" style="display:flex; justify-content:space-between; padding:3px 0; font-size:11.5px;">' +
+                '<span>Sets <b>' + escHtml(sp.straight_sets_score) + '</b> (' + (p20*100).toFixed(1) + '% · Fair @<b>' + o20.toFixed(2) + '</b>)</span>' +
+                '<span>Place <b class="num-pos dutch-stake-lbl">€' + st20.toFixed(2) + '</b> &rarr; Return <b class="dutch-ret-lbl">€' + (st20*o20).toFixed(2) + '</b></span>' +
+              '</div>' +
+              '<div class="dutch-row" data-prob="' + p21.toFixed(4) + '" data-fair-odds="' + o21.toFixed(3) + '" style="display:flex; justify-content:space-between; padding:3px 0; font-size:11.5px;">' +
+                '<span>Sets <b>' + escHtml(sp.decider_sets_score) + '</b> (' + (p21*100).toFixed(1) + '% · Fair @<b>' + o21.toFixed(2) + '</b>)</span>' +
+                '<span>Place <b class="num-pos dutch-stake-lbl">€' + st21.toFixed(2) + '</b> &rarr; Return <b class="dutch-ret-lbl">€' + (st21*o21).toFixed(2) + '</b></span>' +
+              '</div>' +
+            '</div>' +
           '</div>';
         }}
         bodyEl.innerHTML =
@@ -1808,6 +1851,47 @@ def generate_dashboard_html(
       return items;
     }}
 
+    const customSelectedMatches = new Set();
+
+    function recalcModalDutching(val) {{
+      const totStake = Math.max(1, parseFloat(val) || 20);
+      const rows = Array.from(document.querySelectorAll('#dutchModalBreakdown .dutch-row'));
+      if (!rows.length) return;
+      const sumP = rows.reduce((acc, r) => acc + parseFloat(r.getAttribute('data-prob') || '0.1'), 0.0) || 1.0;
+      rows.forEach(r => {{
+        const p = parseFloat(r.getAttribute('data-prob') || '0.1');
+        const fo = parseFloat(r.getAttribute('data-fair-odds') || '5.0');
+        const st = totStake * (p / sumP);
+        const ret = st * fo;
+        const stEl = r.querySelector('.dutch-stake-lbl');
+        const retEl = r.querySelector('.dutch-ret-lbl');
+        if (stEl) stEl.textContent = '€' + st.toFixed(2);
+        if (retEl) retEl.textContent = '€' + ret.toFixed(2);
+      }});
+    }}
+
+    function toggleCustomBetPick(chkEl) {{
+      const m = chkEl?.getAttribute('data-match') || '';
+      if (!m) return;
+      if (chkEl.checked) customSelectedMatches.add(m);
+      else customSelectedMatches.delete(m);
+      const clrBtn = document.getElementById('clearCustomSlipBtn');
+      const cntSpan = document.getElementById('customSelectedCountSpan');
+      if (cntSpan) cntSpan.textContent = String(customSelectedMatches.size);
+      if (clrBtn) clrBtn.style.display = customSelectedMatches.size > 0 ? 'inline-block' : 'none';
+      buildSmartBetPlan();
+    }}
+
+    function clearCustomBetSelection() {{
+      customSelectedMatches.clear();
+      document.querySelectorAll('.custom-bet-chk').forEach(c => {{ c.checked = false; }});
+      const clrBtn = document.getElementById('clearCustomSlipBtn');
+      const cntSpan = document.getElementById('customSelectedCountSpan');
+      if (cntSpan) cntSpan.textContent = '0';
+      if (clrBtn) clrBtn.style.display = 'none';
+      buildSmartBetPlan();
+    }}
+
     function setBetBudget(amount) {{
       const inp = document.getElementById('betAmountInput');
       if (inp) inp.value = String(amount);
@@ -1857,6 +1941,11 @@ def generate_dashboard_html(
           }});
         }});
       }}
+      const isCustomSlip = customSelectedMatches.size > 0;
+      if (isCustomSlip) {{
+        const customPool = pool.filter(x => customSelectedMatches.has(x.match));
+        if (customPool.length > 0) pool = customPool;
+      }}
       if (!pool.length) {{
         grid.innerHTML = '<div class="muted">No qualifying picks available for the selected filter.</div>';
         return;
@@ -1873,20 +1962,20 @@ def generate_dashboard_html(
         return {{ ...it, p, o, ev, kellyW, safetyRank, upsideRank }};
       }});
 
-      // 1. Strategy A: Safe Combo / Parlay Optimizer (Uncorrelated across competitions/sports)
-      const comboSorted = [...scored].sort((a, b) =>
+      // 1. Strategy A: Safe Combo / Parlay Optimizer (Uncorrelated across competitions/sports, or all checked legs in custom mode)
+      const comboSorted = isCustomSlip ? [...scored] : [...scored].sort((a, b) =>
         profile === 'upside' ? (b.upsideRank - a.upsideRank) : (b.safetyRank - a.safetyRank)
       );
-      const targetComboLegs = profile === 'upside' ? 3 : 2;
+      const targetComboLegs = isCustomSlip ? Math.min(scored.length, 6) : (profile === 'upside' ? 3 : 2);
       const comboLegs = [];
       const usedMatches = new Set();
       const usedComps = new Set();
       for (const cand of comboSorted) {{
         if (comboLegs.length >= targetComboLegs) break;
         if (usedMatches.has(cand.match)) continue;
-        if (cand.o < 1.12 || cand.o > 1.88) continue;
-        if (profile === 'fortress' && cand.p < 0.72) continue;
-        if (usedComps.has(cand.comp) && comboSorted.length > targetComboLegs + 2) continue;
+        if (!isCustomSlip && (cand.o < 1.12 || cand.o > 1.88)) continue;
+        if (!isCustomSlip && profile === 'fortress' && cand.p < 0.72) continue;
+        if (!isCustomSlip && usedComps.has(cand.comp) && comboSorted.length > targetComboLegs + 2) continue;
         comboLegs.push(cand);
         usedMatches.add(cand.match);
         usedComps.add(cand.comp);
@@ -1903,15 +1992,15 @@ def generate_dashboard_html(
       const comboReturn = budget * comboOdds;
       const comboNetProfit = comboReturn - budget;
 
-      // 2. Strategy B: Kelly-Weighted Separate Individual Bets (Portfolio of 3–5 Singles)
-      const targetSinglesCount = profile === 'fortress' ? 3 : (budget >= 150 ? 5 : 4);
-      const singlesSorted = [...scored].sort((a, b) => (b.p * 0.7 + b.kellyW * 0.3) - (a.p * 0.7 + a.kellyW * 0.3));
+      // 2. Strategy B: Kelly-Weighted Separate Individual Bets (Portfolio of 3–5 Singles, or all checked matches in custom mode)
+      const targetSinglesCount = isCustomSlip ? scored.length : (profile === 'fortress' ? 3 : (budget >= 150 ? 5 : 4));
+      const singlesSorted = isCustomSlip ? [...scored] : [...scored].sort((a, b) => (b.p * 0.7 + b.kellyW * 0.3) - (a.p * 0.7 + a.kellyW * 0.3));
       const singlePicks = [];
       const seenSingleMatches = new Set();
       for (const cand of singlesSorted) {{
         if (singlePicks.length >= targetSinglesCount) break;
         if (seenSingleMatches.has(cand.match)) continue;
-        if (cand.o < 1.14) continue;
+        if (!isCustomSlip && cand.o < 1.14) continue;
         singlePicks.push(cand);
         seenSingleMatches.add(cand.match);
       }}
@@ -1993,9 +2082,10 @@ def generate_dashboard_html(
       const hybridShareLegs = hybridSingles.map((s, i) => '• Single #' + (i + 1) + ': **' + s.pick_name + '** (' + s.match + ') @ **' + s.o.toFixed(2) + '** · Stake **€' + s.hStake.toFixed(2) + '**').join('\\n') +
         '\\n• 2-Leg Booster: **' + hybrid2Legs.map(x => x.pick_name).join(' + ') + '** @ **' + hybridComboOdds.toFixed(2) + '** · Stake **€' + hybridComboBudget.toFixed(2) + '**';
 
-      const recBadgeA = (budget <= 40 || profile === 'upside') ? ' <span class="pill badge-bet">★ RECOMMENDED FOR BUDGET</span>' : '';
-      const recBadgeB = (budget >= 120 && profile === 'fortress') ? ' <span class="pill badge-bet">★ LOWEST VARIANCE</span>' : '';
-      const recBadgeC = (budget >= 40 && profile === 'balanced') ? ' <span class="pill badge-bet">★ OPTIMAL SHARPE SPLIT</span>' : '';
+      const customBadge = isCustomSlip ? ' <span class="pill tier">☑️ CUSTOM SLIP (' + customSelectedMatches.size + ' Picked)</span>' : '';
+      const recBadgeA = (!isCustomSlip && (budget <= 40 || profile === 'upside')) ? ' <span class="pill badge-bet">★ RECOMMENDED FOR BUDGET</span>' : customBadge;
+      const recBadgeB = (!isCustomSlip && (budget >= 120 && profile === 'fortress')) ? ' <span class="pill badge-bet">★ LOWEST VARIANCE</span>' : customBadge;
+      const recBadgeC = (!isCustomSlip && (budget >= 40 && profile === 'balanced')) ? ' <span class="pill badge-bet">★ OPTIMAL SHARPE SPLIT</span>' : customBadge;
 
       grid.innerHTML =
         '<div class="card" style="margin:0; border-color:rgba(34,197,94,0.45);">' +

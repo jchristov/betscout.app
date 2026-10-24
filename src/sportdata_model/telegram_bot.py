@@ -565,12 +565,20 @@ def notify_inplay_rebound_edges_to_discord(
         for r, mom in to_notify:
             pick_team = r["home"] if r["side"] == "H" else r["away"]
             lg_lbl = LEAGUE_LABELS.get(r["league"], r["league"].upper())
-            lines.append(
-                f"• ⚽ **{r['home']} vs {r['away']}** ({lg_lbl}) — Score: **`{r.get('live_score') or 'LIVE'}`**\n"
-                f"  🎯 Backed Favorite: **{pick_team} ({r['side']})** @ `{r['logged_best_odds']:.2f}` | "
-                f"📊 Live Telemetry: **SoT `{mom.get('sot_for_pick',0)}–{mom.get('sot_opp',0)}` (`{mom.get('sot_diff',0):+d}`)** · "
-                f"Shots `{mom.get('shots_diff',0):+d}` · Corners `{mom.get('corners_diff',0):+d}` · Possession **`{mom.get('poss_pct',50):.0f}%`**"
-            )
+            if mom.get("sport") == "tennis" or r["league"].lower() in ("atp", "wta"):
+                lines.append(
+                    f"• 🎾 **{r['home']} vs {r['away']}** ({lg_lbl}) — Score: **`{r.get('live_score') or 'LIVE'}`**\n"
+                    f"  🎯 Backed Banker: **{pick_team}** (Pre-Match `{mom.get('pre_win_prob_pct',75):.1f}%` @ `{r['logged_best_odds']:.2f}`) | "
+                    f"📊 Set-1 Comeback Trigger: Dropped tight Set 1 (`{mom.get('set1_pick_games',4)}-{mom.get('set1_opp_games',6)}`, `{mom.get('set1_total_games',10)}` games) · "
+                    f"3-Set Decider Edge `{mom.get('decider_diff',0.0):+.2f}` · Game Elo `{mom.get('game_elo_diff',0.0):+.0f}`"
+                )
+            else:
+                lines.append(
+                    f"• ⚽ **{r['home']} vs {r['away']}** ({lg_lbl}) — Score: **`{r.get('live_score') or 'LIVE'}`**\n"
+                    f"  🎯 Backed Favorite: **{pick_team} ({r['side']})** @ `{r['logged_best_odds']:.2f}` | "
+                    f"📊 Live Telemetry: **SoT `{mom.get('sot_for_pick',0)}–{mom.get('sot_opp',0)}` (`{mom.get('sot_diff',0):+d}`)** · "
+                    f"Shots `{mom.get('shots_diff',0):+d}` · Corners `{mom.get('corners_diff',0):+d}` · Possession **`{mom.get('poss_pct',50):.0f}%`**"
+                )
         res = send_discord_message("\n".join(lines), webhook_url=webhook_url, dry_run=dry_run)
         return {**res, "notified_count": len(to_notify)}
 

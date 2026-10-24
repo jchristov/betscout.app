@@ -554,6 +554,21 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     rb_res = notify_inplay_rebound_edges_to_discord(db, dry_run=True)
     assert rb_res["ok"] is True and rb_res["notified_count"] == 1
     assert "smartBetPlannerSection" in html_text and "buildSmartBetPlan" in html_text
+    assert "custom-bet-chk" in html_text and "recalcModalDutching" in html_text
+
+    # 14. Tennis Live Set-1 Deficit Rebound Edge test
+    from sportdata_model.paper_trade import _evaluate_inplay_tennis_momentum
+
+    t_mom = _evaluate_inplay_tennis_momentum(
+        t_sc="1-0 (7-6, 1-1)",
+        side="A",
+        win_prob=0.80,
+        factor_json='{"decider_diff": 0.15, "game_elo_diff": 115.0}',
+        live_status_desc="2nd Set",
+    )
+    assert t_mom["is_rebound_edge"] is True and t_mom["signal"] == "SET1_DEFICIT_REBOUND_EDGE"
+    assert t_mom["set1_pick_games"] == 6 and t_mom["set1_opp_games"] == 7
+
 
 
 
