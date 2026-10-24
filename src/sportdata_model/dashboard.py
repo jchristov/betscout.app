@@ -1432,6 +1432,84 @@ def generate_dashboard_html(
     <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
   </section>
 
+  <section class="card" id="liveMatchupAnalyzerSection" style="margin-bottom:20px; border:1px solid rgba(34,197,94,0.38);">
+    <div class="card-head" style="margin-bottom:8px;">
+      <div>
+        <b style="font-size:13.5px; color:var(--green);">🔍 On-Demand Any-Matchup Live Analyzer</b>
+        <span class="muted" style="margin-left:8px;">Analyze ANY Tennis or Football matchup (even sub-70% non-bankers) — checks live SofaScore odds, Challenger/ATP Last-5 form, H2H &amp; turnaround hours</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input id="liveAnalyzeInput" type="search" placeholder="e.g. Medvedev vs Bublik, Bernet vs Altmaier, Dortmund vs Frankfurt..." onkeydown="if(event.key==='Enter') runLiveMatchupAnalyzer()" style="min-width:290px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
+        <button type="button" class="btn-export btn-primary" onclick="runLiveMatchupAnalyzer()">⚡ Analyze Matchup</button>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Daniil Medvedev vs Alexander Bublik')">Medvedev vs Bublik</button>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Henry Bernet vs Daniel Altmaier')">Bernet vs Altmaier</button>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Borussia Dortmund vs Eintracht Frankfurt')">Dortmund vs Frankfurt</button>
+      </div>
+    </div>
+    <div id="liveAnalyzeResultBox" style="display:none; margin-top:8px; padding:10px 12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;"></div>
+  </section>
+
+  <details class="card" id="walkForwardAuditPanel" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.35);">
+    <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
+      <span>📈 Expanding-Window Monthly Forward-Walking Backtest Audit (2025-07 &rarr; 2026-10 · Zero Lookahead Bias)</span>
+      <span class="pill badge-bet">Big-5 Top 8% ROI: +18.95% (Sharpe 2.54) · ATP &ge;70%: 79.16% · WTA &ge;70%: 79.77%</span>
+    </summary>
+    <div style="margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px;">
+      <div>
+        <div style="margin-bottom:6px; font-weight:700;">⚽ Multi-Sport Walk-Forward Summary (Refit Monthly strictly on &lt; Month M)</div>
+        <table class="sortable-table" style="margin-bottom:0;">
+          <thead>
+            <tr>
+              <th data-sort-type="text" onclick="sortTable(this)">Model / Scope</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Bets (n)</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Win / Acc%</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
+              <th data-sort-type="num" onclick="sortTable(this)">ROI / Sharpe</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td data-sort="Big-5 Top 8%"><b>⚽ Big-5 Football · Top 8%</b></td><td data-sort="99">99</td><td data-sort="73.74"><b class="num-pos">73.7%</b></td><td data-sort="18.76"><b class="num-pos">+18.76u</b></td><td data-sort="18.95"><b class="num-pos">+18.95%</b> (SR 2.54)</td></tr>
+            <tr><td data-sort="Big-5 Top 10%"><b>⚽ Big-5 Football · Top 10%</b></td><td data-sort="134">134</td><td data-sort="71.64"><b class="num-pos">71.6%</b></td><td data-sort="21.95"><b class="num-pos">+21.95u</b></td><td data-sort="16.38"><b class="num-pos">+16.38%</b> (SR 2.49)</td></tr>
+            <tr><td data-sort="All 9 Dom Top 8%"><b>⚽ All 9 Domestic · Top 8%</b></td><td data-sort="174">174</td><td data-sort="72.41"><b class="num-pos">72.4%</b></td><td data-sort="27.37"><b class="num-pos">+27.37u</b></td><td data-sort="15.73"><b class="num-pos">+15.73%</b> (SR 2.81)</td></tr>
+            <tr><td data-sort="All 9 Dom Top 10%"><b>⚽ All 9 Domestic · Top 10%</b></td><td data-sort="230">230</td><td data-sort="70.43"><b class="num-pos">70.4%</b></td><td data-sort="29.69"><b class="num-pos">+29.69u</b></td><td data-sort="12.91"><b class="num-pos">+12.91%</b> (SR 2.59)</td></tr>
+            <tr><td data-sort="ATP Banker 70"><b>🎾 ATP Tennis · Banker &ge;70%</b></td><td data-sort="715">715</td><td data-sort="79.16"><b class="num-pos">79.2%</b> (&ge;80%: 84.2%)</td><td data-sort="45.2">+45.20u*</td><td data-sort="15.8">Brier 0.1609</td></tr>
+            <tr><td data-sort="WTA Banker 70"><b>🎾 WTA Tennis · Banker &ge;70%</b></td><td data-sort="1305">1,305</td><td data-sort="79.77"><b class="num-pos">79.8%</b> (&ge;80%: 83.5%)</td><td data-sort="82.4">+82.40u*</td><td data-sort="16.1">Brier 0.1586</td></tr>
+            <tr><td data-sort="US Sports Pooled"><b>🏀🏒🏈⚾ US Major Sports · Top 15%</b></td><td data-sort="102">102</td><td data-sort="68.63"><b class="num-pos">68.6%</b> (+8.4pp vs Mkt)</td><td data-sort="9.87"><b class="num-pos">+9.87u</b></td><td data-sort="9.68"><b class="num-pos">+9.68%</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="margin-bottom:6px; font-weight:700;">📅 Monthly Forward-Walking Trajectory (Big-5 Football Top 10% · 11/13 Months Profitable)</div>
+        <table class="sortable-table" style="margin-bottom:0;">
+          <thead>
+            <tr>
+              <th data-sort-type="text" onclick="sortTable(this)">Month</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Bets</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Win Rate</th>
+              <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
+              <th data-sort-type="num" onclick="sortTable(this)">ROI%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td data-sort="2025-08">2025-08</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.77"><b class="num-pos">+1.77u</b></td><td data-sort="35.46"><b class="num-pos">+35.5%</b></td></tr>
+            <tr><td data-sort="2025-09">2025-09</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.31"><b class="num-pos">+1.31u</b></td><td data-sort="26.12"><b class="num-pos">+26.1%</b></td></tr>
+            <tr><td data-sort="2025-10">2025-10</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.79"><b class="num-pos">+0.79u</b></td><td data-sort="11.26"><b class="num-pos">+11.3%</b></td></tr>
+            <tr><td data-sort="2025-11">2025-11</td><td data-sort="13">13</td><td data-sort="69.2"><b class="num-pos">69.2%</b></td><td data-sort="1.22"><b class="num-pos">+1.22u</b></td><td data-sort="9.39"><b class="num-pos">+9.4%</b></td></tr>
+            <tr><td data-sort="2025-12">2025-12</td><td data-sort="19">19</td><td data-sort="63.2">63.2%</td><td data-sort="0.07"><b class="num-pos">+0.07u</b></td><td data-sort="0.38">+0.4%</td></tr>
+            <tr><td data-sort="2026-01">2026-01</td><td data-sort="10">10</td><td data-sort="60.0">60.0%</td><td data-sort="-0.90"><b class="num-neg">-0.90u</b></td><td data-sort="-9.00"><b class="num-neg">-9.0%</b></td></tr>
+            <tr><td data-sort="2026-02">2026-02</td><td data-sort="16">16</td><td data-sort="75.0"><b class="num-pos">75.0%</b></td><td data-sort="3.30"><b class="num-pos">+3.30u</b></td><td data-sort="20.60"><b class="num-pos">+20.6%</b></td></tr>
+            <tr><td data-sort="2026-03">2026-03</td><td data-sort="12">12</td><td data-sort="83.3"><b class="num-pos">83.3%</b></td><td data-sort="5.10"><b class="num-pos">+5.10u</b></td><td data-sort="42.46"><b class="num-pos">+42.5%</b></td></tr>
+            <tr><td data-sort="2026-04">2026-04</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.85"><b class="num-pos">+0.85u</b></td><td data-sort="12.10"><b class="num-pos">+12.1%</b></td></tr>
+            <tr><td data-sort="2026-05">2026-05</td><td data-sort="20">20</td><td data-sort="50.0">50.0%</td><td data-sort="-3.49"><b class="num-neg">-3.49u</b></td><td data-sort="-17.43"><b class="num-neg">-17.4%</b></td></tr>
+            <tr><td data-sort="2026-08">2026-08</td><td data-sort="7">7</td><td data-sort="85.7"><b class="num-pos">85.7%</b></td><td data-sort="1.97"><b class="num-pos">+1.97u</b></td><td data-sort="28.09"><b class="num-pos">+28.1%</b></td></tr>
+            <tr><td data-sort="2026-09">2026-09</td><td data-sort="9">9</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="7.00"><b class="num-pos">+7.00u</b></td><td data-sort="77.78"><b class="num-pos">+77.8%</b></td></tr>
+            <tr><td data-sort="2026-10">2026-10</td><td data-sort="4">4</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="2.97"><b class="num-pos">+2.97u</b></td><td data-sort="74.27"><b class="num-pos">+74.3%</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
   {svg_chart}
 
   <div data-sport-section="soccer">
@@ -1890,6 +1968,55 @@ def generate_dashboard_html(
       if (cntSpan) cntSpan.textContent = '0';
       if (clrBtn) clrBtn.style.display = 'none';
       buildSmartBetPlan();
+    }}
+
+    function quickAnalyzePair(pairStr) {{
+      const inp = document.getElementById('liveAnalyzeInput');
+      if (inp) inp.value = pairStr;
+      runLiveMatchupAnalyzer();
+    }}
+
+    async function runLiveMatchupAnalyzer() {{
+      const inp = document.getElementById('liveAnalyzeInput');
+      const box = document.getElementById('liveAnalyzeResultBox');
+      if (!inp || !box) return;
+      const q = inp.value.trim();
+      if (!q) return;
+      box.style.display = 'block';
+      box.innerHTML = '<span class="spinner"></span> Querying VektorPulse store + live SofaScore odds, all-level Challenger/ATP form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
+      if (!window.location.protocol.startsWith('http')) {{
+        box.innerHTML = '<span class="muted">Start the VektorPulse WebApp server (<code>uv run vektorpulse --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
+        return;
+      }}
+      try {{
+        const r = await fetch('/api/analyze-live?q=' + encodeURIComponent(q));
+        const d = await r.json();
+        if (!d.ok) {{
+          box.innerHTML = '<span class="num-neg">' + escHtml(d.error || 'Could not analyze matchup') + '</span>';
+          return;
+        }}
+        const o1Str = d.odds_home ? Number(d.odds_home).toFixed(2) : '—';
+        const o2Str = d.odds_away ? Number(d.odds_away).toFixed(2) : '—';
+        const f1Str = d.p1_last5_pct !== null && d.p1_last5_pct !== undefined ? d.p1_last5_pct + '%' : '—';
+        const f2Str = d.p2_last5_pct !== null && d.p2_last5_pct !== undefined ? d.p2_last5_pct + '%' : '—';
+        const r1Str = d.p1_rest_hours ? (Math.round(d.p1_rest_hours) + 'h (' + escHtml(d.p1_last_tourn || '') + ')') : 'Rested';
+        const r2Str = d.p2_rest_hours ? (Math.round(d.p2_rest_hours) + 'h (' + escHtml(d.p2_last_tourn || '') + ')') : 'Rested';
+        const warnHtml = (d.warnings && d.warnings.length)
+          ? '<div style="margin-top:6px; color:var(--amber); font-weight:600;">' + d.warnings.map(w => '<div>' + escHtml(w) + '</div>').join('') + '</div>'
+          : '';
+        box.innerHTML =
+          '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">' +
+            '<div><b style="font-size:13px;">' + escHtml(d.home) + ' vs ' + escHtml(d.away) + '</b> · <span class="pill">H2H: ' + escHtml(d.h2h_summary || '0-0') + '</span></div>' +
+            '<div><b class="num-pos">' + escHtml(d.verdict || '') + '</b> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
+          '</div>' +
+          '<div style="margin-top:6px; display:flex; gap:16px; flex-wrap:wrap;" class="muted">' +
+            '<span><b>' + escHtml(d.home) + ':</b> Odds <b>' + o1Str + '</b> · All-Level Last-5 WinRate: <b>' + f1Str + '</b> · Turnaround: ' + r1Str + '</span>' +
+            '<span><b>' + escHtml(d.away) + ':</b> Odds <b>' + o2Str + '</b> · All-Level Last-5 WinRate: <b>' + f2Str + '</b> · Turnaround: ' + r2Str + '</span>' +
+          '</div>' +
+          warnHtml;
+      }} catch (err) {{
+        box.innerHTML = '<span class="num-neg">Analyzer error: ' + escHtml(String(err)) + '</span>';
+      }}
     }}
 
     function setBetBudget(amount) {{

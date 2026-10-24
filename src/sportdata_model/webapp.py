@@ -174,6 +174,126 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
     }
 
 
+def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
+    """On-demand live matchup analyzer (`GET /api/analyze-live?q=Player1 vs Player2`).
+    Works for ANY Tennis or Football matchup (even sub-70% non-bankers), combining local SQLite H2H/form
+    with live SofaScore bookmaker odds, all-level (ATP/WTA/Challenger) Last-5 form, and rest/turnaround hours."""
+    from .paper_trade import _fetch_live_json, _fetch_sofascore_tennis_odds
+
+    raw_q = (query or "").strip()
+    if " vs " in raw_q.lower():
+        idx_v = raw_q.lower().index(" vs ")
+        p1_q, p2_q = raw_q[:idx_v].strip(), raw_q[idx_v + 4:].strip()
+    elif "-" in raw_q and len(raw_q.split("-")) == 2:
+        p1_q, p2_q = [x.strip() for x in raw_q.split("-", 1)]
+    else:
+        parts = raw_q.split()
+        mid = max(1, len(parts) // 2)
+        p1_q, p2_q = " ".join(parts[:mid]), " ".join(parts[mid:])
+
+    if not p1_q or not p2_q:
+        return {"ok": False, "error": "Enter two players or teams separated by 'vs' (e.g. 'Medvedev vs Bublik')"}
+
+    # Resolve full canonical names from DB if partial last names were given
+    h_name, a_name = p1_q, p2_q
+    if db_path.exists():
+        conn = sqlite3.connect(db_path)
+        for idx_s, tok in ((0, p1_q), (1, p2_q)):
+            row_n = conn.execute(
+                "SELECT home FROM matches WHERE lower(home) LIKE ? ORDER BY kickoff DESC LIMIT 1",
+                (f"%{tok.lower()}%",),
+            ).fetchone()
+            if not row_n:
+                row_n = conn.execute(
+                    "SELECT away FROM matches WHERE lower(away) LIKE ? ORDER BY kickoff DESC LIMIT 1",
+                    (f"%{tok.lower()}%",),
+                ).fetchone()
+            if row_n and row_n[0]:
+                if idx_s == 0:
+                    h_name = str(row_n[0])
+                else:
+                    a_name = str(row_n[0])
+        conn.close()
+
+    base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name)
+    sf_odds = _fetch_sofascore_tennis_odds(h_name, a_name, datetime.now(timezone.utc).strftime("%Y%m%d"))
+    o1, o2 = sf_odds.get("odds_p1"), sf_odds.get("odds_p2")
+    p1_f5 = sf_odds.get("p1_last5_win_rate")
+    p2_f5 = sf_odds.get("p2_last5_win_rate")
+    p1_rest = sf_odds.get("p1_rest_hours")
+    p2_rest = sf_odds.get("p2_rest_hours")
+    p1_tourn = sf_odds.get("p1_last_tourn")
+    p2_tourn = sf_odds.get("p2_last_tourn")
+
+    # Compute H2H summary
+    h2h_list = base_detail.get("h2h") or []
+    h_wins = sum(1 for m in h2h_list if (m["home"] == h_name and m["outcome"] == "H") or (m["away"] == h_name and m["outcome"] == "A"))
+    a_wins = sum(1 for m in h2h_list if (m["home"] == a_name and m["outcome"] == "H") or (m["away"] == a_name and m["outcome"] == "A"))
+
+    # Compute DB form win rates if SofaScore all-level form wasn't found
+    if p1_f5 is None and base_detail.get("form_home"):
+        fh = base_detail["form_home"]
+        p1_f5 = round(sum(1 for x in fh if x["result"] == "W") / len(fh), 3)
+    if p2_f5 is None and base_detail.get("form_away"):
+        fa = base_detail["form_away"]
+        p2_f5 = round(sum(1 for x in fa if x["result"] == "W") / len(fa), 3)
+
+    # Blend implied market probability + H2H + all-level form
+    if o1 and o2 and o1 > 1.01 and o2 > 1.01:
+        i1, i2 = 1.0 / float(o1), 1.0 / float(o2)
+        p_mkt_1 = i1 / (i1 + i2)
+    else:
+        p_mkt_1 = 0.50
+
+    f_diff = (float(p1_f5 if p1_f5 is not None else 0.5) - float(p2_f5 if p2_f5 is not None else 0.5))
+    h2h_diff = ((h_wins + 1.0) / (h_wins + a_wins + 2.0)) - 0.5
+    p_model_1 = min(max(0.70 * p_mkt_1 + 0.18 * (0.5 + 0.45 * f_diff) + 0.12 * (0.5 + 0.60 * h2h_diff), 0.08), 0.92)
+    fav_is_1 = p_model_1 >= 0.50
+    fav_name = h_name if fav_is_1 else a_name
+    dog_name = a_name if fav_is_1 else h_name
+    fav_prob = p_model_1 if fav_is_1 else (1.0 - p_model_1)
+    fav_odds = (o1 if fav_is_1 else o2)
+    fav_f5 = p1_f5 if fav_is_1 else p2_f5
+    opp_f5 = p2_f5 if fav_is_1 else p1_f5
+    fav_rest = p1_rest if fav_is_1 else p2_rest
+
+    warnings: list[str] = []
+    if fav_f5 is not None and opp_f5 is not None and fav_f5 <= 0.25 and opp_f5 >= 0.60:
+        warnings.append(f"⚠️ Form Divergence Alert: {fav_name} is {int(fav_f5*5)}-{5-int(fav_f5*5)} in Last 5 while {dog_name} is {int(opp_f5*5)}-{5-int(opp_f5*5)}!")
+    if isinstance(fav_rest, (int, float)) and fav_rest <= 36.0:
+        warnings.append(f"⚠️ Short Turnaround Alert: {fav_name} played just {fav_rest:.0f}h ago ({p1_tourn if fav_is_1 else p2_tourn}).")
+
+    if warnings or fav_prob < 0.58:
+        verdict = f"⚠️ NO-BET / HIGH VARIANCE — Skip {fav_name} ML or prefer Over {sf_odds.get('games_line') or 22.5} Total Games / {dog_name} +1.5 Sets"
+    elif fav_prob >= 0.70:
+        verdict = f"✅ STRONG BANKER — {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+    else:
+        verdict = f"✅ SOLID VALUE LEAN — {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+
+    return {
+        **base_detail,
+        "ok": True,
+        "home": h_name,
+        "away": a_name,
+        "h2h_summary": f"{h_name} {h_wins} – {a_wins} {a_name}",
+        "odds_home": o1,
+        "odds_away": o2,
+        "games_line": sf_odds.get("games_line"),
+        "p1_last5_pct": round(p1_f5 * 100.0, 1) if p1_f5 is not None else None,
+        "p2_last5_pct": round(p2_f5 * 100.0, 1) if p2_f5 is not None else None,
+        "p1_rest_hours": p1_rest,
+        "p2_rest_hours": p2_rest,
+        "p1_last_tourn": p1_tourn,
+        "p2_last_tourn": p2_tourn,
+        "fav_name": fav_name,
+        "fav_prob_pct": round(fav_prob * 100.0, 1),
+        "fav_fair_odds": round(1.0 / max(fav_prob, 0.05), 2),
+        "fav_book_odds": fav_odds,
+        "warnings": warnings,
+        "verdict": verdict,
+    }
+
+
 def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> threading.Thread:
     """Start a daemon background thread that periodically settles finished/in-play matches
     and evaluates T-60m starting XI gates for upcoming soccer fixtures."""
@@ -296,6 +416,11 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 away_q = (qs.get("away") or [""])[0]
                 lg_q = (qs.get("league") or [""])[0]
                 self._send_json(_lookup_matchup_detail(db_path, rec_path, home_q, away_q, lg_q))
+                return
+
+            if parsed.path == "/api/analyze-live":
+                q_str = (qs.get("q") or [""])[0]
+                self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
                 return
 
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status"):

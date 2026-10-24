@@ -559,11 +559,12 @@ def scan_upcoming_tennis(
                         book_odds = live_odds["odds_p1"] if p_h >= 0.5 else live_odds["odds_p2"]
                         opp_book_odds = live_odds["odds_p2"] if p_h >= 0.5 else live_odds["odds_p1"]
                         open_book_odds = live_odds["open_p1"] if p_h >= 0.5 else live_odds["open_p2"]
-                        # 4. Market-Blend, Market-Divergence & Challenger/All-Level Form Gate:
+                        # 4. Market-Blend, Market-Divergence, Challenger Form & Cross-Tournament <38h Turnaround Gate:
                         #    - Blend 75% Model + 25% De-Vigged Market when live bookmaker odds exist
                         #    - Veto when Market-Implied Prob is >=15pp lower than Model Prob (meaning the market sees
                         #      Challenger/ITF form or injury data absent from main-tour ESPN, as in Faria vs Brunold!)
                         #    - Veto when SofaScore all-level last-5 win rate is <=20% (1-4 or 0-5) while opponent is >=60% (3-2+)
+                        #    - Veto sub-80% favorites coming off a <38h turnaround from a DIFFERENT tournament city while opponent is rested (>=48h)
                         sf_p1_f5 = live_odds.get("p1_last5_win_rate")
                         sf_p2_f5 = live_odds.get("p2_last5_win_rate")
                         pick_f5 = sf_p1_f5 if p_h >= 0.5 else sf_p2_f5
@@ -572,6 +573,20 @@ def scan_upcoming_tennis(
                             if pick_f5 <= 0.25 and opp_f5 >= 0.60:
                                 continue
                             form_diff_pick = round(pick_f5 - opp_f5, 3)
+                        pick_rest_h = live_odds.get("p1_rest_hours") if p_h >= 0.5 else live_odds.get("p2_rest_hours")
+                        opp_rest_h = live_odds.get("p2_rest_hours") if p_h >= 0.5 else live_odds.get("p1_rest_hours")
+                        pick_last_t = str(live_odds.get("p1_last_tourn") if p_h >= 0.5 else live_odds.get("p2_last_tourn") or "").lower()
+                        cur_t_city = t_name.lower().split()[0] if t_name else ""
+                        if (
+                            win_prob < 0.80
+                            and isinstance(pick_rest_h, (int, float))
+                            and pick_rest_h <= 38.0
+                            and pick_last_t
+                            and cur_t_city
+                            and cur_t_city not in pick_last_t
+                            and (opp_rest_h is None or float(opp_rest_h) >= 48.0)
+                        ):
+                            continue
                         if book_odds and opp_book_odds and book_odds > 1.01 and opp_book_odds > 1.01:
                             inv_pick, inv_opp = 1.0 / book_odds, 1.0 / opp_book_odds
                             p_mkt_devig = inv_pick / (inv_pick + inv_opp)
@@ -716,13 +731,70 @@ def _strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(c)).lower()
 
 
+def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str, Any]:
+    """Fallback live scoreboard & completed result lookup via SofaScore for ATP/WTA Qualifying matches
+    where ESPN's scoreboard API keeps `state == 'pre'` until the entire match finishes."""
+    p1_last = _strip_accents(player_1.split()[-1])
+    p2_last = _strip_accents(player_2.split()[-1])
+    q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")
+    search_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/search/all?q={q}", ttl_sec=45.0)
+    for item in search_data.get("results") or []:
+        ent = item.get("entity") or {}
+        if ((ent.get("tournament") or {}).get("category") or {}).get("sport", {}).get("slug") != "tennis":
+            continue
+        ht = _strip_accents((ent.get("homeTeam") or {}).get("name") or "")
+        at = _strip_accents((ent.get("awayTeam") or {}).get("name") or "")
+        flipped = False
+        if p1_last in ht and p2_last in at:
+            flipped = False
+        elif p1_last in at and p2_last in ht:
+            flipped = True
+        else:
+            continue
+        eid = ent.get("id")
+        if not eid:
+            continue
+        ev_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/event/{eid}", ttl_sec=45.0)
+        ev = ev_data.get("event") or ent
+        st_obj = ev.get("status") or {}
+        st_type = str(st_obj.get("type") or "")
+        st_desc = str(st_obj.get("description") or "LIVE")
+        if st_type not in ("inprogress", "finished"):
+            continue
+        hs_obj = (ev.get("awayScore") if flipped else ev.get("homeScore")) or {}
+        as_obj = (ev.get("homeScore") if flipped else ev.get("awayScore")) or {}
+        s1_sets = int(hs_obj.get("current") or 0)
+        s2_sets = int(as_obj.get("current") or 0)
+        set_parts: list[str] = []
+        for i in range(1, 6):
+            g1, g2 = hs_obj.get(f"period{i}"), as_obj.get(f"period{i}")
+            if g1 is not None and g2 is not None:
+                set_parts.append(f"{int(g1)}-{int(g2)}")
+        score_str = f"{s1_sets}-{s2_sets} ({', '.join(set_parts)})" if set_parts else f"{s1_sets}-{s2_sets}"
+        outcome: str | None = None
+        if st_type == "finished" and ev.get("winnerCode") in (1, 2):
+            w_code = int(ev["winnerCode"])
+            if not flipped:
+                outcome = "H" if w_code == 1 else "A"
+            else:
+                outcome = "A" if w_code == 1 else "H"
+        return {
+            "state": "post" if st_type == "finished" else "in",
+            "status_desc": st_desc,
+            "score_str": score_str,
+            "outcome": outcome,
+        }
+    return {}
+
+
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
     """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc, player headshots,
-    and true 5-match all-level ATP/WTA/Challenger form) for an upcoming tennis match."""
+    true 5-match all-level ATP/WTA/Challenger form, and previous-match tournament/turnaround hours) for an upcoming tennis match."""
     empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
         "p1_img": None, "p2_img": None, "p1_last5_win_rate": None, "p2_last5_win_rate": None,
+        "p1_last_tourn": None, "p2_last_tourn": None, "p1_rest_hours": None, "p2_rest_hours": None,
     }
     p1_last = _strip_accents(player_1.split()[-1])
     p2_last = _strip_accents(player_2.split()[-1])
@@ -765,7 +837,10 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
         out["p1_img"] = f"https://api.sofascore.com/api/v1/team/{p1_tid}/image"
     if p2_tid:
         out["p2_img"] = f"https://api.sofascore.com/api/v1/team/{p2_tid}/image"
-    for key_lbl, tid_v in (("p1_last5_win_rate", p1_tid), ("p2_last5_win_rate", p2_tid)):
+    for key_lbl, t_lbl, r_lbl, tid_v in (
+        ("p1_last5_win_rate", "p1_last_tourn", "p1_rest_hours", p1_tid),
+        ("p2_last5_win_rate", "p2_last_tourn", "p2_rest_hours", p2_tid),
+    ):
         if tid_v:
             ev_hist = _fetch_live_json(f"https://api.sofascore.com/api/v1/team/{tid_v}/events/last/0", ttl_sec=900.0)
             finished_evs = [
@@ -779,6 +854,13 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) ->
                     or (e.get("winnerCode") == 2 and (e.get("awayTeam") or {}).get("id") == tid_v)
                 )
                 out[key_lbl] = round(wins_n / len(finished_evs), 3)
+            if finished_evs:
+                last_e = finished_evs[-1]
+                out[t_lbl] = str((last_e.get("tournament") or {}).get("name") or "")
+                last_ts = last_e.get("startTimestamp")
+                ref_ts = sofascore_start_ts or int(datetime.now(timezone.utc).timestamp())
+                if isinstance(last_ts, (int, float)) and last_ts > 0 and ref_ts > last_ts:
+                    out[r_lbl] = round((ref_ts - float(last_ts)) / 3600.0, 1)
     if isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
         out["start_utc"] = datetime.fromtimestamp(int(sofascore_start_ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for mkt in odds_data.get("markets") or []:
@@ -1185,6 +1267,45 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                     if p1 and p2:
                                         t_sc = _format_tennis_comp_score(p1, p2, comp) or "0-0"
                                         st_det = str(c_st.get("shortDetail") or "LIVE").strip()
+                                        l_sc = f"{t_sc} [{st_det}]" if st_det not in t_sc else t_sc
+                                        head_part = t_sc.split("(", 1)[0].strip()
+                                        s1_v, s2_v = (int(x) for x in head_part.split("-", 1)) if "-" in head_part and head_part.replace("-", "").isdigit() else (0, 0)
+                                        if s1_v == s2_v and "(" in t_sc:
+                                            last_set = t_sc.split("(", 1)[1].split(")", 1)[0].split(",")[-1].strip()
+                                            if "-" in last_set:
+                                                try:
+                                                    s1_v, s2_v = (int(x) for x in last_set.split("-", 1))
+                                                except Exception:
+                                                    pass
+                                        if (side == "H" and s1_v > s2_v) or (side == "A" and s2_v > s1_v):
+                                            l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2)
+                                        elif s1_v == s2_v:
+                                            l_pnl = 0.0
+                                        else:
+                                            l_pnl = -1.0
+                                        t_mom_json = json.dumps(
+                                            _evaluate_inplay_tennis_momentum(
+                                                t_sc=t_sc,
+                                                side=side,
+                                                win_prob=float(row["composite_score"] or 0.72),
+                                                factor_json=str(row["factor_breakdown_json"] or "{}"),
+                                                live_status_desc=st_det,
+                                                prev_mom_json=str(row["live_momentum_json"] or ""),
+                                            )
+                                        )
+                                        conn.execute(
+                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
+                                        )
+                                elif c_st.get("state") == "pre" and was_pending and row["kickoff"] <= now_iso:
+                                    # Fallback to SofaScore live score when ESPN leaves Qualifying matches in state == 'pre' during live play
+                                    sf_live = _fetch_sofascore_tennis_live_state(row["home"], row["away"])
+                                    if sf_live.get("state") == "post" and sf_live.get("outcome") in ("H", "A"):
+                                        outcome = sf_live["outcome"]
+                                        score_str = sf_live.get("score_str")
+                                    elif sf_live.get("state") == "in":
+                                        t_sc = sf_live.get("score_str") or "0-0"
+                                        st_det = str(sf_live.get("status_desc") or "LIVE")
                                         l_sc = f"{t_sc} [{st_det}]" if st_det not in t_sc else t_sc
                                         head_part = t_sc.split("(", 1)[0].strip()
                                         s1_v, s2_v = (int(x) for x in head_part.split("-", 1)) if "-" in head_part and head_part.replace("-", "").isdigit() else (0, 0)
