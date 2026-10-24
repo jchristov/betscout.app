@@ -2,7 +2,7 @@
 
 Isolated quantitative research, data-quality auditing, exact-score projection, and live paper-betting platform across 15 Football competitions (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`, `ned.1`, `por.1`, `eng.2`, `aut.1`, `uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.super_cup`, `uefa.wchampions`, `fifa.world`), ATP & WTA Tennis (`hard`, `hard_indoor`, `clay`, `grass`), and US Major Sports (`nba`, `nhl`, `nfl`, `mlb`).
 
-See **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, discovered data anomalies, falsified hypotheses, verified out-of-sample edges, post-mortem model upgrades, and live prospective ledger performance.
+See **[USER_MANUAL.md](./USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, discovered data anomalies, falsified hypotheses, verified out-of-sample edges, post-mortem model upgrades, and live prospective ledger performance.
 
 ## Quick Commands
 
