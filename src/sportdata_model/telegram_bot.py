@@ -392,8 +392,11 @@ def send_discord_message(
     custom_sport_webhooks: dict[str, str] | None = None,
     image_bytes: bytes | None = None,
     image_filename: str = "vektorpulse_pick.png",
+    also_send_to_global: bool = True,
 ) -> dict[str, Any]:
-    """Post a Markdown-formatted message (and optional PNG card attachment) to a Discord channel via Webhook URL or Bot Token + Channel ID."""
+    """Post a Markdown-formatted message (and optional PNG card attachment) to a Discord channel via Webhook URL or Bot Token + Channel ID.
+    When `sport` resolves to a dedicated per-sport webhook AND `also_send_to_global=True`, the message is sent to the global
+    `DISCORD_WEBHOOK_URL` channel AS WELL AS the dedicated per-sport webhook channel ('on top of the global webhook for everything')."""
     load_dotenv(env_path=env_path, override=True)
     md_text = html_to_discord_markdown(text)
     chunks = _chunk_discord_text(md_text, max_len=1950)
@@ -404,81 +407,103 @@ def send_discord_message(
         env_path=env_path,
         custom_sport_webhooks=custom_sport_webhooks,
     )
+    global_wh_url = resolve_discord_webhook_for_sport(
+        sport_or_league=None,
+        explicit_webhook_url=None,
+        env_path=env_path,
+        custom_sport_webhooks=custom_sport_webhooks,
+    )
+    target_webhooks: list[str] = []
+    if webhook_url and webhook_url.strip():
+        target_webhooks.append(webhook_url.strip())
+    else:
+        if also_send_to_global and global_wh_url:
+            target_webhooks.append(global_wh_url)
+        if wh_url and wh_url not in target_webhooks:
+            target_webhooks.append(wh_url)
+
     b_tok = (bot_token or os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
     ch_id = (channel_id or os.environ.get("DISCORD_CHANNEL_ID") or "").strip()
-    configured = bool(wh_url or (b_tok and ch_id))
+    configured = bool(target_webhooks or (b_tok and ch_id))
 
     if dry_run or not configured:
         return {
             "ok": True,
             "dry_run": True,
             "configured": configured,
-            "channel": ch_id or ("webhook" if wh_url else "<DISCORD_WEBHOOK_URL not set>"),
+            "channel": ch_id or ("webhook" if target_webhooks else "<DISCORD_WEBHOOK_URL not set>"),
+            "webhooks_count": len(target_webhooks),
             "message_length": len(md_text),
             "chunks_count": len(chunks),
             "has_image": bool(image_bytes),
             "preview": md_text,
         }
 
-    if wh_url:
-        sep = "&" if "?" in wh_url else "?"
-        target_url = f"{wh_url}{sep}wait=true"
-        headers = ["-H", "Content-Type: application/json"]
-    else:
-        target_url = f"https://discord.com/api/v10/channels/{ch_id}/messages"
-        headers = [
-            "-H", "Content-Type: application/json",
-            "-H", f"Authorization: Bot {b_tok}",
-        ]
-
     import tempfile
 
     message_ids: list[str] = []
     last_resp: dict[str, Any] = {}
-    for idx_c, chunk in enumerate(chunks):
-        payload: dict[str, Any] = {"content": chunk, "username": "VektorPulse Quant Desk"} if wh_url else {"content": chunk}
-        attach_img = (idx_c == len(chunks) - 1) and bool(image_bytes)
-        if attach_img and image_bytes:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
-                tf.write(image_bytes)
-                tmp_png = Path(tf.name)
-            try:
-                auth_headers = ["-H", f"Authorization: Bot {b_tok}"] if not wh_url else []
+    targets_to_post = target_webhooks if target_webhooks else [""]
+
+    for active_wh in targets_to_post:
+        if active_wh:
+            sep = "&" if "?" in active_wh else "?"
+            target_url = f"{active_wh}{sep}wait=true"
+            headers = ["-H", "Content-Type: application/json"]
+        else:
+            target_url = f"https://discord.com/api/v10/channels/{ch_id}/messages"
+            headers = [
+                "-H", "Content-Type: application/json",
+                "-H", f"Authorization: Bot {b_tok}",
+            ]
+
+        for idx_c, chunk in enumerate(chunks):
+            payload: dict[str, Any] = {"content": chunk, "username": "VektorPulse Quant Desk"} if active_wh else {"content": chunk}
+            attach_img = (idx_c == len(chunks) - 1) and bool(image_bytes)
+            if attach_img and image_bytes:
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                    tf.write(image_bytes)
+                    tmp_png = Path(tf.name)
+                try:
+                    auth_headers = ["-H", f"Authorization: Bot {b_tok}"] if not active_wh else []
+                    proc = subprocess.run(
+                        [
+                            "curl", "-s", "-m", "20", "-X", "POST", target_url,
+                            *auth_headers,
+                            "-F", f"payload_json={json.dumps(payload)}",
+                            "-F", f"files[0]=@{tmp_png};filename={image_filename};type=image/png",
+                        ],
+                        capture_output=True,
+                        text=True,
+                    )
+                finally:
+                    tmp_png.unlink(missing_ok=True)
+            else:
                 proc = subprocess.run(
                     [
-                        "curl", "-s", "-m", "20", "-X", "POST", target_url,
-                        *auth_headers,
-                        "-F", f"payload_json={json.dumps(payload)}",
-                        "-F", f"files[0]=@{tmp_png};filename={image_filename};type=image/png",
+                        "curl", "-s", "-m", "15", "-X", "POST", target_url,
+                        *headers,
+                        "-d", json.dumps(payload),
                     ],
                     capture_output=True,
                     text=True,
                 )
-            finally:
-                tmp_png.unlink(missing_ok=True)
-        else:
-            proc = subprocess.run(
-                [
-                    "curl", "-s", "-m", "15", "-X", "POST", target_url,
-                    *headers,
-                    "-d", json.dumps(payload),
-                ],
-                capture_output=True,
-                text=True,
-            )
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return {"ok": False, "error": proc.stderr or "Empty response from Discord API"}
-        try:
-            resp = json.loads(proc.stdout)
-            if isinstance(resp, dict) and resp.get("id"):
-                message_ids.append(str(resp["id"]))
-                last_resp = resp
-            else:
-                return {"ok": False, "error": resp.get("message") or str(resp), "raw": resp}
-        except Exception as exc:
-            if "Zscaler" in proc.stdout:
-                return {"ok": False, "error": "Blocked by Zscaler corporate proxy"}
-            return {"ok": False, "error": str(exc), "raw": proc.stdout[:300]}
+            if proc.returncode != 0 or not proc.stdout.strip():
+                if not message_ids:
+                    return {"ok": False, "error": proc.stderr or "Empty response from Discord API"}
+                continue
+            try:
+                resp = json.loads(proc.stdout)
+                if isinstance(resp, dict) and resp.get("id"):
+                    message_ids.append(str(resp["id"]))
+                    last_resp = resp
+                elif not message_ids:
+                    return {"ok": False, "error": resp.get("message") or str(resp), "raw": resp}
+            except Exception as exc:
+                if "Zscaler" in proc.stdout:
+                    return {"ok": False, "error": "Blocked by Zscaler corporate proxy"}
+                if not message_ids:
+                    return {"ok": False, "error": str(exc), "raw": proc.stdout[:300]}
 
     return {
         "ok": True,
@@ -486,6 +511,7 @@ def send_discord_message(
         "message_id": message_ids[0] if message_ids else None,
         "message_ids": message_ids,
         "chunks_sent": len(message_ids),
+        "webhooks_sent": len(target_webhooks),
         "has_image": bool(image_bytes),
         "channel_id": last_resp.get("channel_id"),
     }

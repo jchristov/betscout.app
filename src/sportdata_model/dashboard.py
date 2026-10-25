@@ -783,6 +783,10 @@ def generate_dashboard_html(
             "player-avatar",
             fallback_url=(tp.get("home_flag") if t_pick_is_p1 else tp.get("away_flag")),
         )
+        t_sh_match = html.escape(json.dumps(t_match_str))
+        t_sh_pick = html.escape(json.dumps(f"{tp['pick']} [{tp['tier']}]"))
+        t_sh_odds = html.escape(json.dumps(f"{t_odds_attr:.2f}"))
+        t_sh_time = html.escape(json.dumps(_format_local_time(tp["kickoff"], time_valid=tp.get("time_valid"))))
         tennis_rows.append(
             f"""
             <tr data-odds="{t_odds_attr:.3f}" data-sport-cat="tennis" data-day="{html.escape(tp_day_loc)}" data-search="{html.escape((tp['player_1'] + ' ' + tp['player_2'] + ' ' + tp['tournament'] + ' ' + tp['tour']).lower())}">
@@ -795,7 +799,7 @@ def generate_dashboard_html(
               <td data-sort="{sp_pred.get('straight_sets_prob', 0.0)*100:.2f}">{set_cell}</td>
               <td data-sort="{tp['min_fair_odds']:.3f}">{tp['min_fair_odds']:.2f}</td>
               <td data-sort="{t_odds_attr:.3f}">{book_cell}</td>
-              <td data-sort="{g_elo:.1f}">{_fmt_signed(g_elo, '+.0f')} / {_fmt_signed(s_elo, '+.0f')}</td>
+              <td data-sort="{g_elo:.1f}">{_fmt_signed(g_elo, '+.0f')} / {_fmt_signed(s_elo, '+.0f')} <button type="button" class="btn-mini" title="Share this pick + PNG Card to Discord / Telegram" onclick="shareSinglePick({t_sh_match}, {t_sh_pick}, {t_sh_odds}, {t_sh_time}, 'tennis')">📣</button></td>
             </tr>
             """
         )
@@ -819,6 +823,11 @@ def generate_dashboard_html(
         op_comp_img = _img_tag(_resolve_comp_logo(op["league"], op.get("competition_logo")), op_comp, "comp-logo")
         op_match_html = _matchup_html(op["home"], op["away"], op.get("home_logo"), op.get("away_logo"), extra_html=inj_pill)
         op_pick_img = _img_tag(op.get("home_logo") if op["side"] == "H" else op.get("away_logo"), op["pick"], "team-logo")
+        op_sh_match = html.escape(json.dumps(op_match))
+        op_sh_pick = html.escape(json.dumps(f"{op['pick']} ({op['side']}) [{op['tier']}]"))
+        op_sh_odds = html.escape(json.dumps(f"{op['best_odds']:.2f}"))
+        op_sh_time = html.escape(json.dumps(_format_local_time(op["kickoff"], time_valid=op.get("time_valid"))))
+        op_sh_cat = html.escape(json.dumps(sp_cat))
         other_rows.append(
             f"""
             <tr data-odds="{op['best_odds']:.3f}" data-sport-cat="{html.escape(sp_cat)}" data-day="{html.escape(op_day_loc)}" data-search="{html.escape((op['home'] + ' ' + op['away'] + ' ' + op['league']).lower())}">
@@ -830,7 +839,7 @@ def generate_dashboard_html(
               <td data-sort="{op_win*100:.2f}"><b class="num-pos">{op_win*100:.1f}%</b> <span class="muted">(Mkt {op['p_mkt']*100:.1f}%)</span></td>
               <td data-sort="{op_fair:.3f}">{op_fair:.2f}</td>
               <td data-sort="{op['best_odds']:.3f}"><b>{op['best_odds']:.2f}</b></td>
-              <td data-sort="{ev_val:.2f}">{_fmt_signed(ev_val, '+.1f', '%')}</td>
+              <td data-sort="{ev_val:.2f}">{_fmt_signed(ev_val, '+.1f', '%')} <button type="button" class="btn-mini" title="Share this pick + PNG Card to Discord / Telegram" onclick="shareSinglePick({op_sh_match}, {op_sh_pick}, {op_sh_odds}, {op_sh_time}, {op_sh_cat})">📣</button></td>
             </tr>
             """
         )
@@ -884,12 +893,16 @@ def generate_dashboard_html(
                 if len(l2_m_parts) == 2
                 else ""
             )
+            d_sh_match = html.escape(json.dumps(f"{l1['match']} + {l2['match']}"))
+            d_sh_pick = html.escape(json.dumps(f"2-Leg Combo: {l1['pick']} + {l2['pick']}"))
+            d_sh_odds = html.escape(json.dumps(f"{d['combined_odds']:.2f}"))
+            d_sh_time = html.escape(json.dumps(_format_local_time(l1["kickoff"], time_valid=l1.get("time_valid"))))
             d_cards.append(
                 f"""
                 <div class="card" data-day="{html.escape(d1_loc)}">
                   <div class="card-head">
                     <div><span class="pill badge-bet">COMBO #{idx_d}</span> <span class="pill tier">{html.escape(c_lbl)}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span>{c_st_pill}</div>
-                    <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f})</div>
+                    <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f}) <button type="button" class="btn-mini" title="Share this 2-Leg Combo + PNG Card to Discord / Telegram" onclick="shareSinglePick({d_sh_match}, {d_sh_pick}, {d_sh_odds}, {d_sh_time}, 'all')">📣</button></div>
                   </div>
                   <div style="margin-top:8px; font-size:12px;">
                     <div>1️⃣ {ico1} <b {l1_click}>{html.escape(l1['match'])}</b> ({_time_span(l1['kickoff'], time_valid=l1.get('time_valid'))}){m1_pill} &rarr; <b class="num-pos">{html.escape(l1['pick'])}</b> @ <b>{l1['odds']:.2f}</b> ({l1['prob']*100:.1f}%){l1_badge}</div>
@@ -937,6 +950,10 @@ def generate_dashboard_html(
                 if len(cl2_parts) == 2
                 else ""
             )
+            c_sh_match = html.escape(json.dumps(f"{cl1.get('match','')} + {cl2.get('match','')}"))
+            c_sh_pick = html.escape(json.dumps(f"2-Leg Combo: {cl1.get('pick','')} + {cl2.get('pick','')}"))
+            c_sh_odds = html.escape(json.dumps(f"{float(c['combined_odds']):.2f}"))
+            c_sh_time = html.escape(json.dumps(_format_local_time(c["kickoff"])))
             combo_table_rows.append(
                 f"""
                 <tr data-day="{html.escape(c_day)}" data-search="{c_search}">
@@ -946,7 +963,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(cl2.get('match',''))}">{ico_c2} <b {cl2_click}>{html.escape(cl2.get('match',''))}</b> &rarr; <b class="num-pos">{html.escape(cl2.get('pick',''))}</b> @ {float(cl2.get('odds') or 1.0):.2f}{b2}</td>
                   <td data-sort="{float(c['combined_prob'])*100:.1f}"><b class="num-pos">{float(c['combined_prob'])*100:.1f}%</b></td>
                   <td data-sort="{float(c['combined_odds']):.2f}"><b>{float(c['combined_odds']):.2f}</b> (Fair {float(c['min_fair_odds']):.2f})</td>
-                  <td data-sort="{c_pnl_v:.2f}">{c_res_pill}</td>
+                  <td data-sort="{c_pnl_v:.2f}">{c_res_pill} <button type="button" class="btn-mini" title="Share this Combo + PNG Card to Discord / Telegram" onclick="shareSinglePick({c_sh_match}, {c_sh_pick}, {c_sh_odds}, {c_sh_time}, 'all')">📣</button></td>
                 </tr>
                 """
             )
@@ -1007,6 +1024,11 @@ def generate_dashboard_html(
             mp_ev_pct = float(b.get("ev_pct") or 0.0)
             mp_fair = float(b.get("min_fair_odds") or round(100.0 / max(mp_win_pct, 5.0), 2))
             mp_drv = html.escape(str(b.get("mispricing_drivers") or "Orthogonal Model Edge"))
+            mp_sh_match = html.escape(json.dumps(b["match"]))
+            mp_sh_pick = html.escape(json.dumps(f"{b.get('pick_name') or b['pick']} [💎 MISPRICED +{mp_edge_pp:.1f}pp]"))
+            mp_sh_odds = html.escape(json.dumps(f"{b['odds']:.2f}"))
+            mp_sh_time = html.escape(json.dumps(b["date_local"]))
+            mp_sh_cat = html.escape(json.dumps(b["sport_cat"]))
             mispriced_rows.append(
                 f"""
                 <tr data-odds="{b['odds']:.3f}" data-sport-cat="{html.escape(b['sport_cat'])}" data-day="{html.escape(mp_day)}" data-search="{html.escape((b['match'] + ' ' + mp_comp + ' ' + b['pick'] + ' ' + mp_drv).lower())}">
@@ -1018,7 +1040,7 @@ def generate_dashboard_html(
                   <td data-sort="{mp_win_pct:.2f}"><b class="num-pos">{mp_win_pct:.1f}%</b> vs {mp_mkt_pct:.1f}% (<b class="num-pos">{mp_edge_pp:+.1f}pp</b>)</td>
                   <td data-sort="{b['odds']:.3f}"><b>{b['odds']:.2f}</b> vs Fair <b>{mp_fair:.2f}</b></td>
                   <td data-sort="{mp_ev_pct:.2f}"><span class="pill badge-bet">EV {mp_ev_pct:+.1f}%</span></td>
-                  <td data-sort="{mp_drv}"><span style="color:var(--accent); font-weight:600;">{mp_drv}</span></td>
+                  <td data-sort="{mp_drv}"><span style="color:var(--accent); font-weight:600;">{mp_drv}</span> <button type="button" class="btn-mini" title="Share this mispriced edge + PNG Card to Discord / Telegram" onclick="shareSinglePick({mp_sh_match}, {mp_sh_pick}, {mp_sh_odds}, {mp_sh_time}, {mp_sh_cat})">📣</button></td>
                 </tr>
                 """
             )
@@ -1142,6 +1164,12 @@ def generate_dashboard_html(
         search_txt = html.escape(f"{tr['home']} {tr['away']} {lg_name} {pick_team}".lower())
         esc_pred_raw = str(tr.get("exact_score_pred") or "")
         esc_short = esc_pred_raw.split("(", 1)[0].strip() if esc_pred_raw else ""
+        tr_sh_match = html.escape(json.dumps(tr_match))
+        tr_sh_pick = html.escape(json.dumps(f"{pick_team} ({tr['side']}) [{tr['tier']}]"))
+        tr_sh_odds = html.escape(json.dumps(f"{tr['logged_best_odds']:.2f}"))
+        tr_sh_time = html.escape(json.dumps(_format_local_time(tr["kickoff"], time_valid=tr.get("time_valid"))))
+        tr_sh_cat = html.escape(json.dumps(tr_sport_cat))
+        tr_share_btn = f' <button type="button" class="btn-mini" title="Share this event + PNG Card to Discord / Telegram" onclick="shareSinglePick({tr_sh_match}, {tr_sh_pick}, {tr_sh_odds}, {tr_sh_time}, {tr_sh_cat})">📣</button>'
 
         if st == "SETTLED" and pnl_v is not None:
             pnl_f = float(pnl_v)
@@ -1166,7 +1194,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(score_str)}"><b>{html.escape(score_str)}</b>{esc_badge}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="{pnl_f:.3f}">{st_badge}</td>
+                  <td data-sort="{pnl_f:.3f}">{st_badge}{tr_share_btn}</td>
                 </tr>
                 """
             )
@@ -1202,7 +1230,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}</td>
+                  <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}{tr_share_btn}</td>
                 </tr>
                 """
             )
@@ -1223,7 +1251,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(esc_short or '—')}">{pend_score_cell}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>
+                  <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>{tr_share_btn}</td>
                 </tr>
                 """
             )
@@ -1920,44 +1948,46 @@ def generate_dashboard_html(
     </div>
   </div>
 
-  <div id="telegramModal" class="card" style="display:none; margin-bottom:20px; border-color:var(--green);">
-    <div class="card-head" style="margin-bottom:10px;">
-      <div>
-        <b>💬 Discord (Primary) &amp; Telegram (Optional) Social Publisher</b>
-        <span id="discordEnvBadge" class="pill" style="margin-left:6px;">Checking Discord .env...</span>
-        <span id="tgEnvBadge" class="pill" style="margin-left:4px;">Telegram .env</span>
-      </div>
-      <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">Close ✕</button>
-    </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
-      <input id="discordWebhookInput" type="password" placeholder="Discord Webhook URL (https://discord.com/api/webhooks/... or set DISCORD_WEBHOOK_URL in model/.env)" style="flex:2; min-width:300px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:12px;">
-      <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; cursor:pointer; background:#0b0f17; border:1px solid var(--border); border-radius:6px; padding:5px 9px;" title="Attach generated PNG Pick Card / Slate Graphic to Discord &amp; Telegram messages">
-        <input id="attachPngCardChk" type="checkbox" checked> 🖼️ Attach PNG Card
-      </label>
-      <button class="btn-export" type="button" onclick="downloadPickCardPng()" title="Download generated PNG Pick Card image">⬇ Download PNG</button>
-      <button class="btn-export js-action-btn" type="button" onclick="openTelegramPanel()">🔄 Rebuild Digest</button>
-      <button class="btn-export" type="button" onclick="copyTelegramPreview()">📋 Copy Message</button>
-      <button id="discordSendBtn" class="btn-export btn-telegram js-action-btn" type="button" onclick="postToDiscordChannel()">🚀 Send to Discord Channel</button>
-    </div>
-    <div id="pngCardPreviewWrap" style="margin-bottom:10px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-        <canvas id="pickCardCanvas" width="1080" height="580" style="max-width:360px; width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.45); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
+  <div id="telegramModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-card" style="max-width:780px; border-color:var(--green);">
+      <div class="card-head" style="margin-bottom:10px;">
         <div>
-          <div style="font-weight:700; color:var(--accent); font-size:12.5px;">🖼️ High-Resolution PNG Pick Card Preview (1080×580)</div>
-          <div class="muted" style="margin-top:3px; max-width:360px;">Automatically attached as a native PNG graphic when sharing to Discord or Telegram, or click <b>⬇ Download PNG</b> to save locally.</div>
+          <b style="font-size:15px;">💬 Discord (Primary) &amp; Telegram (Optional) Notification Publisher</b>
+          <span id="discordEnvBadge" class="pill" style="margin-left:6px;">Checking Discord .env...</span>
+          <span id="tgEnvBadge" class="pill" style="margin-left:4px;">Telegram .env</span>
+        </div>
+        <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">Close ✕</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
+        <input id="discordWebhookInput" type="password" placeholder="Optional Webhook Override (otherwise sends to Global DISCORD_WEBHOOK_URL + Per-Sport Webhook)" style="flex:2; min-width:260px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:12px;">
+        <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; cursor:pointer; background:#0b0f17; border:1px solid var(--border); border-radius:6px; padding:5px 9px;" title="Attach generated PNG Pick Card / Slate Graphic to Discord &amp; Telegram messages">
+          <input id="attachPngCardChk" type="checkbox" checked> 🖼️ Attach PNG Card
+        </label>
+        <button class="btn-export" type="button" onclick="downloadPickCardPng()" title="Download generated PNG Pick Card image">⬇ Download PNG</button>
+        <button class="btn-export js-action-btn" type="button" onclick="openTelegramPanel()">🔄 Full Slate Digest</button>
+        <button class="btn-export" type="button" onclick="copyTelegramPreview()">📋 Copy</button>
+        <button id="discordSendBtn" class="btn-export btn-telegram js-action-btn" type="button" onclick="postToDiscordChannel()">🚀 Send to Discord</button>
+      </div>
+      <div id="pngCardPreviewWrap" style="margin-bottom:10px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; width:100%;">
+          <canvas id="pickCardCanvas" width="1080" height="580" style="max-width:440px; width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.45); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
+          <div style="flex:1; min-width:220px;">
+            <div style="font-weight:700; color:var(--accent); font-size:12.5px;">🖼️ High-Resolution PNG Pick Card Preview (1080×580)</div>
+            <div class="muted" style="margin-top:4px;">Automatically attached as a crisp PNG graphic when sharing to Discord (posted to both the <b>General Channel</b> and any configured <b>Per-Sport Channel</b>) or Telegram.</div>
+          </div>
         </div>
       </div>
+      <details style="margin-bottom:8px; font-size:12px; color:var(--muted);">
+        <summary style="cursor:pointer;">Optional Telegram Override (for non-Zscaler networks)</summary>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
+          <input id="tgBotToken" type="password" placeholder="Telegram Bot Token (optional if set in model/.env)" style="flex:1; min-width:220px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
+          <input id="tgChatId" type="text" placeholder="Telegram Chat ID (optional if set in model/.env)" style="flex:1; min-width:200px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
+          <button id="tgSendBtn" class="btn-export js-action-btn" type="button" onclick="postToTelegramChannel()">✈️ Send to Telegram</button>
+        </div>
+      </details>
+      <textarea id="tgMessagePreview" rows="9" style="width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:monospace; font-size:12px;"></textarea>
+      <div id="tgStatusMsg" class="muted" style="margin-top:6px;"></div>
     </div>
-    <details style="margin-bottom:8px; font-size:12px; color:var(--muted);">
-      <summary style="cursor:pointer;">Optional Telegram Override (for non-Zscaler networks)</summary>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
-        <input id="tgBotToken" type="password" placeholder="Telegram Bot Token (optional if set in model/.env)" style="flex:1; min-width:220px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
-        <input id="tgChatId" type="text" placeholder="Telegram Chat ID (optional if set in model/.env)" style="flex:1; min-width:200px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
-        <button id="tgSendBtn" class="btn-export js-action-btn" type="button" onclick="postToTelegramChannel()">✈️ Send to Telegram</button>
-      </div>
-    </details>
-    <textarea id="tgMessagePreview" rows="11" style="width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:monospace; font-size:12px;"></textarea>
-    <div id="tgStatusMsg" class="muted" style="margin-top:6px;"></div>
   </div>
 
   <div class="filter-bar">
@@ -3018,7 +3048,24 @@ def generate_dashboard_html(
     function shareStrategyTicket(titleStr, summaryStr, legsText) {{
       const modal = document.getElementById('telegramModal');
       if (!modal) return;
-      modal.style.display = 'block';
+      currentShareSportCat = 'all';
+      currentSharePickCardMeta = {{
+        match: titleStr,
+        pick: summaryStr,
+        pick_name: summaryStr,
+        odds_display: 'Portfolio',
+        date_local: 'Today',
+        sport_cat: 'all',
+        competition: 'SMART BET SLIP & DUTCHING',
+        tier: 'STRATEGY TICKET',
+        win_prob_str: 'Optimized',
+        fair_str: '¼-Kelly',
+        exact_score: 'Multi-Leg Split',
+        comp: 'SMART BET SLIP & DUTCHING',
+        badge: 'STRATEGY TICKET'
+      }};
+      renderCanvasPickCard(currentSharePickCardMeta);
+      modal.style.display = 'flex';
       const msg = [
         '🎯 **VEKTORPULSE — ' + titleStr.toUpperCase() + '**',
         '💰 *' + summaryStr + '*',
@@ -3028,7 +3075,6 @@ def generate_dashboard_html(
         '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
       ].join('\\n');
       document.getElementById('tgMessagePreview').value = msg;
-      modal.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
     }}
 
     function buildSmartBetPlan() {{
@@ -3329,6 +3375,25 @@ def generate_dashboard_html(
     let currentShareSportCat = null;
     let currentSharePickCardMeta = null;
 
+    function fillFittedCanvasText(ctx, text, x, y, maxWidth, startSize, minSize, weight, align) {{
+      const str = String(text ?? '');
+      let sz = startSize;
+      while (sz >= minSize) {{
+        ctx.font = (weight || '700') + ' ' + sz + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        if (ctx.measureText(str).width <= maxWidth) break;
+        sz -= 2;
+      }}
+      let out = str;
+      while (out.length > 4 && ctx.measureText(out).width > maxWidth) {{
+        out = out.slice(0, -1).trimEnd();
+      }}
+      if (out !== str) out += '...';
+      const prevAlign = ctx.textAlign;
+      if (align) ctx.textAlign = align;
+      ctx.fillText(out, x, y);
+      if (align) ctx.textAlign = prevAlign;
+    }}
+
     function renderCanvasPickCard(meta) {{
       const cv = document.getElementById('pickCardCanvas');
       if (!cv || !cv.getContext) return;
@@ -3372,13 +3437,12 @@ def generate_dashboard_html(
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(w - 250, 46, 200, 38, 19);
-      else ctx.rect(w - 250, 46, 200, 38);
+      if (ctx.roundRect) ctx.roundRect(w - 270, 46, 222, 38, 19);
+      else ctx.rect(w - 270, 46, 222, 38);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#22c55e';
-      ctx.font = '700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText(badgeTxt.slice(0, 20), w - 230, 70);
+      fillFittedCanvasText(ctx, badgeTxt, w - 159, 70, 195, 14, 11, '700', 'center');
 
       // Divider
       ctx.strokeStyle = '#223049';
@@ -3389,44 +3453,54 @@ def generate_dashboard_html(
       ctx.stroke();
 
       const compStr = String((meta && meta.comp) || (meta && meta.sport_cat) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
-      const koStr = String((meta && meta.date_local) || 'Today');
+      const koStr = '🕒 ' + String((meta && meta.date_local) || 'Today');
       ctx.fillStyle = '#38bdf8';
-      ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText(compStr.slice(0, 46), 48, 148);
+      fillFittedCanvasText(ctx, compStr, 48, 148, 560, 15, 11, '700', 'left');
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText('🕒 ' + koStr, w - 310, 148);
+      fillFittedCanvasText(ctx, koStr, w - 48, 148, 380, 15, 11, '700', 'right');
 
       // Matchup title
       const matchTitle = String((meta && meta.match) || 'Daily High-Conviction Picks');
       ctx.fillStyle = '#ffffff';
-      ctx.font = '800 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText(matchTitle.slice(0, 42), 48, 202);
+      fillFittedCanvasText(ctx, matchTitle, 48, 200, w - 96, 34, 19, '800', 'left');
 
-      // Main Pick Highlight Box
+      // Main Pick Highlight Box (2 clean lines so long picks + score targets never clip)
       ctx.fillStyle = 'rgba(13, 31, 28, 0.95)';
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(48, 232, w - 96, 112, 14);
-      else ctx.rect(48, 232, w - 96, 112);
+      if (ctx.roundRect) ctx.roundRect(48, 230, w - 96, 120, 14);
+      else ctx.rect(48, 230, w - 96, 120);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#86efac';
-      ctx.font = '700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 264);
+      ctx.font = '700 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 256);
 
-      const pickTitle = String((meta && meta.pick) || 'Top Calibrated Edge');
+      const rawPick = String((meta && meta.pick) || 'Top Calibrated Edge');
+      let mainPick = rawPick;
+      let subPick = '';
+      if (rawPick.includes(' · ')) {{
+        const pts = rawPick.split(' · ');
+        mainPick = pts[0];
+        subPick = pts.slice(1).join(' · ');
+      }}
       ctx.fillStyle = '#22c55e';
-      ctx.font = '800 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText(pickTitle.slice(0, 44), 72, 312);
+      fillFittedCanvasText(ctx, mainPick, 72, 294, w - 144, 28, 17, '800', 'left');
+
+      const subLine = subPick || ((meta && meta.exact_score && meta.exact_score !== 'Moneyline Edge') ? ('Score / Set Target: ' + meta.exact_score) : 'Verified Out-of-Sample Quantitative Signal');
+      ctx.fillStyle = '#cbd5e1';
+      fillFittedCanvasText(ctx, subLine, 72, 328, w - 144, 15, 11, '600', 'left');
 
       // 4 KPI Boxes
+      const rawEsc = String((meta && meta.exact_score) || 'Moneyline Edge');
+      const shortEsc = rawEsc.includes('|') ? rawEsc.split('|')[0].trim() : rawEsc;
       const kpis = [
-        {{ lbl: 'BOOKMAKER ODDS', val: String((meta && meta.odds_display) || '—').slice(0, 14), col: '#22c55e' }},
+        {{ lbl: 'BOOKMAKER ODDS', val: String((meta && meta.odds_display) || '—'), col: '#22c55e' }},
         {{ lbl: 'MODEL WIN PROB', val: String((meta && meta.win_prob_str) || 'High Conf'), col: '#38bdf8' }},
         {{ lbl: 'MIN FAIR ODDS', val: String((meta && meta.fair_str) || 'Calibrated'), col: '#e6edf7' }},
-        {{ lbl: 'SCORE PROJECTION', val: String((meta && meta.exact_score) || 'Moneyline Edge').slice(0, 18), col: '#f59e0b' }}
+        {{ lbl: 'SCORE PROJECTION', val: shortEsc, col: '#f59e0b' }}
       ];
       const bw = Math.floor((w - 96 - 36) / 4);
       kpis.forEach((k, idx) => {{
@@ -3435,24 +3509,23 @@ def generate_dashboard_html(
         ctx.strokeStyle = '#223049';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(bx, 368, bw, 106, 12);
-        else ctx.rect(bx, 368, bw, 106);
+        if (ctx.roundRect) ctx.roundRect(bx, 372, bw, 108, 12);
+        else ctx.rect(bx, 372, bw, 108);
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = '#8b9bb4';
-        ctx.font = '700 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.fillText(k.lbl, bx + 16, 398);
         ctx.fillStyle = k.col;
-        ctx.font = '800 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.fillText(k.val, bx + 16, 442);
+        fillFittedCanvasText(ctx, k.val, bx + 16, 442, bw - 30, 24, 13, '800', 'left');
       }});
 
       // Footer
       ctx.fillStyle = '#8b9bb4';
       ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 48, 524);
+      ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 48, 526);
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText('VektorPulse Quant Desk', w - 210, 524);
+      fillFittedCanvasText(ctx, 'VektorPulse Quant Desk', w - 48, 526, 220, 13.5, 11, '600', 'right');
     }}
 
     function downloadPickCardPng() {{
@@ -3483,9 +3556,8 @@ def generate_dashboard_html(
         badge: items.length + ' ACTIVE PICKS'
       }});
       const modal = document.getElementById('telegramModal');
-      modal.style.display = 'block';
+      modal.style.display = 'flex';
       document.getElementById('tgMessagePreview').value = buildBrowserTelegramDigest();
-      modal.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
     }}
 
     function shareSinglePick(matchStr, pickStr, oddsStr, dateLocalStr, sportCat) {{
@@ -3519,7 +3591,7 @@ def generate_dashboard_html(
       }};
       renderCanvasPickCard(currentSharePickCardMeta);
       const modal = document.getElementById('telegramModal');
-      modal.style.display = 'block';
+      modal.style.display = 'flex';
       const icon = getSportEmoji(sportCat || matchStr);
       const msg = [
         '🎯 **VEKTORPULSE — HIGH-CONVICTION PICK**',
@@ -3532,7 +3604,6 @@ def generate_dashboard_html(
         '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
       ].join('\\n');
       document.getElementById('tgMessagePreview').value = msg;
-      modal.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
     }}
 
     function escHtml(s) {{
@@ -3600,6 +3671,12 @@ def generate_dashboard_html(
         const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
+        const shMatchArg = escHtml(JSON.stringify(matchStr));
+        const shPickArg = escHtml(JSON.stringify(pickTeam + ' (' + tr.side + ') [' + tr.tier + ']'));
+        const shOddsArg = escHtml(JSON.stringify(o.toFixed(2)));
+        const shTimeArg = escHtml(JSON.stringify(tr.kickoff_local || tr.kickoff || ''));
+        const shCatArg = escHtml(JSON.stringify(spCat));
+        const shareBtnHtml = ' <button type="button" class="btn-mini" title="Share this event + PNG Card to Discord / Telegram" onclick="shareSinglePick(' + shMatchArg + ', ' + shPickArg + ', ' + shOddsArg + ', ' + shTimeArg + ', ' + shCatArg + ')">📣</button>';
         if (tr.status === 'SETTLED' && tr.pnl_best !== null && tr.pnl_best !== undefined) {{
           const pnl = Number(tr.pnl_best);
           const badge = pnl > 0
@@ -3614,7 +3691,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(tr.score_str || '—') + '"><b>' + escHtml(tr.score_str || '—') + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="' + pnl.toFixed(3) + '">' + badge + '</td>' +
+              '<td data-sort="' + pnl.toFixed(3) + '">' + badge + shareBtnHtml + '</td>' +
             '</tr>'
           );
         }} else if (tr.is_live || tr.status === 'LIVE') {{
@@ -3637,7 +3714,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(lSc) + '"><b>' + escHtml(lSc) + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + '</td>' +
+              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + shareBtnHtml + '</td>' +
             '</tr>'
           );
         }} else {{
@@ -3657,7 +3734,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(escShort || '—') + '">' + pendScCell + '</td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span></td>' +
+              '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>' + shareBtnHtml + '</td>' +
             '</tr>'
           );
         }}

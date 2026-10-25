@@ -927,6 +927,33 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     custom_sport_webhooks=cfg_d.get("sport_webhooks"),
                     image_bytes=img_bytes,
                 )
+                # Also route daily digest picks per sport to any dedicated sport webhooks configured in .env
+                if sp_f == "all" and not body.get("webhook_url") and not body.get("pick_card"):
+                    from .telegram_bot import resolve_discord_webhook_for_sport
+
+                    global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball"):
+                        sp_wh = resolve_discord_webhook_for_sport(sp_cat_k, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
+                        if sp_wh and sp_wh != global_wh:
+                            sp_bets = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.15), sport_filter=sp_cat_k)
+                            if sp_bets:
+                                sp_msg = format_discord_digest(
+                                    rec=rec,
+                                    db_path=db_path,
+                                    min_odds=float(body.get("min_odds") or 1.15),
+                                    sport_filter=sp_cat_k,
+                                    day_filter=str(body.get("day") or "today"),
+                                    max_picks=int(body.get("max_picks") or 12),
+                                    include_settled=False,
+                                )
+                                sp_img = render_digest_slate_png(sp_bets[:10], title=f"{sp_cat_k.upper()} HIGH-CONVICTION PICKS") if body.get("include_image", True) else None
+                                send_discord_message(
+                                    text=sp_msg,
+                                    webhook_url=sp_wh,
+                                    dry_run=bool(body.get("dry_run", False)),
+                                    image_bytes=sp_img,
+                                    also_send_to_global=False,
+                                )
                 self._send_json({**res, "formatted_message": msg})
                 return
 
