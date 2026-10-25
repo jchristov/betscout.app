@@ -8,7 +8,7 @@ import re
 import subprocess
 import time
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -615,13 +615,97 @@ def evaluate_sportradar_injury_gate(
     }
 
 
+def backfill_sportradar_european_sports_to_db(
+    db_path: Path,
+    days_back: int = 7,
+) -> dict[str, int]:
+    """Backfill completed historical matches for Handball (`sportId=6`), Darts (`sportId=22`), and Table Tennis (`sportId=20`)
+    from `unified_sport_matches` + `unified_sport_matches_markets` into `data/matches.sqlite` for Elo & H2H calibration."""
+    import sqlite3
+
+    target_sports = [
+        (6, "handball"),
+        (22, "darts"),
+        (20, "table_tennis"),
+    ]
+    conn = sqlite3.connect(db_path, timeout=20.0)
+    inserted_by_sport: dict[str, int] = {sp_slug: 0 for _, sp_slug in target_sports}
+    now_utc = datetime.now(timezone.utc)
+
+    for sp_id, sp_slug in target_sports:
+        rows_to_upsert: list[tuple[Any, ...]] = []
+        for d_back in range(1, days_back + 1):
+            ymd = (now_utc - timedelta(days=d_back)).strftime("%Y-%m-%d")
+            u_doc = fetch_statshub_gismo("unified_sport_matches", f"{sp_id}/{ymd}/1", ttl_sec=86400.0) or {}
+            mkt_tip = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sp_id}/{ymd}/1", client_alias="tipico", ttl_sec=86400.0) or {}).get("matches") or {}
+            mkt_uof = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sp_id}/{ymd}/1", client_alias="sportradar", ttl_sec=86400.0) or {}).get("matches") or {}
+
+            for rc in (u_doc.get("sport") or {}).get("realcategories") or []:
+                for t in rc.get("tournaments") or []:
+                    for m in t.get("matches") or []:
+                        st = m.get("status")
+                        st_id = int(st.get("_id") or 0) if isinstance(st, dict) else 0
+                        if st_id not in (100, 110, 120):
+                            continue
+                        mid = str(m.get("_id") or "")
+                        res_obj = m.get("result") or {}
+                        h_sc = res_obj.get("home")
+                        a_sc = res_obj.get("away")
+                        if not mid or h_sc is None or a_sc is None:
+                            continue
+                        teams = m.get("teams") or {}
+                        h_name = (teams.get("home") or {}).get("name") or ""
+                        a_name = (teams.get("away") or {}).get("name") or ""
+                        dt_uts = ((m.get("_dt") or {}).get("uts")) or 0
+                        if not h_name or not a_name or not dt_uts:
+                            continue
+                        ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        h_int, a_int = int(h_sc), int(a_sc)
+                        outcome = "H" if h_int > a_int else ("A" if a_int > h_int else "D")
+
+                        tip_entry = mkt_tip.get(mid) or {}
+                        uof_entry = mkt_uof.get(mid) or {}
+                        raw_mkts = (tip_entry.get("markets") or []) or (uof_entry.get("markets") or [])
+                        parsed_m = parse_tipico_prematch_markets(raw_mkts, flipped=False) if raw_mkts else {}
+                        rows_to_upsert.append((
+                            f"sr_{mid}",
+                            sp_slug,
+                            sp_slug,
+                            ko_iso,
+                            h_name,
+                            a_name,
+                            h_int,
+                            a_int,
+                            outcome,
+                            parsed_m.get("odds_home"),
+                            parsed_m.get("odds_draw"),
+                            parsed_m.get("odds_away"),
+                            "primary" if tip_entry.get("markets") else ("consensus" if uof_entry.get("markets") else None),
+                        ))
+        if rows_to_upsert:
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO matches
+                (event_id, league, sport, kickoff, home, away, home_score, away_score, outcome, odds_home, odds_draw, odds_away, odds_provider)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows_to_upsert,
+            )
+            inserted_by_sport[sp_slug] = len(rows_to_upsert)
+
+    conn.commit()
+    conn.close()
+    return inserted_by_sport
+
+
 def scan_sportradar_european_sports(
     date_ymd: str | None = None,
     min_prob: float = 0.68,
     max_picks_per_sport: int = 5,
+    elo_by_lg: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Scan high-frequency European sports on Sportradar StatsHub (`Handball=6`, `Darts=22`, `Table Tennis=20`, `Snooker=19`, `MMA=117`)
-    combining Tipico (`_bookmakerId=176`) + Sportradar Main UOF (`_bookmakerId=0`) odds with Last-10 Form (`stats_match_form`) and Streak momentum."""
+    combining Tipico (`_bookmakerId=176`) + Sportradar Main UOF (`_bookmakerId=0`) odds with historical SQLite Elo (`elo_by_lg`) and Last-10 Form (`stats_match_form`)."""
     if not date_ymd:
         date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -646,7 +730,8 @@ def scan_sportradar_european_sports(
                 t_name = t.get("name") or ""
                 comp_label = f"{rc_name} · {t_name}".strip(" ·")
                 for m in t.get("matches") or []:
-                    st_id = int(((m.get("status") or {}).get("_id")) or 0)
+                    st = m.get("status")
+                    st_id = int(st.get("_id") or 0) if isinstance(st, dict) else 0
                     if st_id not in (0, 61):  # Skip finished or in-play matches
                         continue
                     mid = str(m.get("_id") or "")
@@ -700,8 +785,9 @@ def scan_sportradar_european_sports(
                         "is_tipico": is_tipico_src,
                     })
 
-        # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form`
+        # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form` + SQLite Elo
         sport_cands.sort(key=lambda x: (1 if x["is_tipico"] else 0, x["p_mkt"]), reverse=True)
+        lg_elo = (elo_by_lg or {}).get(sp_slug)
         for cand in sport_cands[:max_picks_per_sport]:
             mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
             t_forms = mf.get("teams") or {}
@@ -713,7 +799,11 @@ def scan_sportradar_european_sports(
             # Veto if backed favorite has significantly worse rolling form than underdog
             if len(h_f_list) >= 4 and len(a_f_list) >= 4 and form_diff_fav < -0.25:
                 continue
-            p_model = min(0.94, max(0.52, cand["p_mkt"] + 0.06 * form_diff_fav + (0.015 if cand["is_tipico"] else 0.0)))
+            p_elo_fav = cand["p_mkt"]
+            if lg_elo is not None:
+                p_elo_h = float(lg_elo.p_home_win_or_draw_free(cand["home"], cand["away"]))
+                p_elo_fav = p_elo_h if cand["side"] == "H" else (1.0 - p_elo_h)
+            p_model = min(0.94, max(0.52, 0.82 * cand["p_mkt"] + 0.18 * p_elo_fav + 0.05 * form_diff_fav + (0.015 if cand["is_tipico"] else 0.0)))
             if p_model < min_prob:
                 continue
             ev_pct = round((p_model * cand["best_odds"] - 1.0) * 100.0, 2)
@@ -828,6 +918,10 @@ def fetch_live_match_timelinedelta(
 
     return {
         "sr_match_id": mid,
+        "sr_season_id": matched_m.get("_seasonid"),
+        "status_id": st_id,
+        "home_uid": ((matched_m.get("teams") or {}).get("away" if flipped else "home") or {}).get("uid"),
+        "away_uid": ((matched_m.get("teams") or {}).get("home" if flipped else "away") or {}).get("uid"),
         "state": "post" if is_finished else "in",
         "status_desc": st_name,
         "score_str": score_str,
@@ -836,6 +930,49 @@ def fetch_live_match_timelinedelta(
         "periods": period_strs,
         "point_score": pt_str.strip(" ·"),
         "outcome": outcome,
+    }
+
+
+def evaluate_inplay_goal_timing_edge(
+    season_id: int | str | None,
+    h_uid: int | str | None,
+    a_uid: int | str | None,
+    match_id: int | str | None,
+    status_id: int = 0,
+    home_score: int = 0,
+    away_score: int = 0,
+) -> dict[str, Any]:
+    """Combine 15-minute goal interval profiles (`stats_season_teamscoringconceding`) and live dangerous-attack pressure (`match_situations`)
+    to detect 1st-Half Goal (`1H_GOAL_EDGE`) or Late-Goal (`76-90m` `LATE_GOAL_SURGE_EDGE`) opportunities on ongoing Football matches."""
+    if not season_id or not h_uid or not a_uid:
+        return {}
+    gi_h = fetch_team_goal_intervals(season_id, h_uid, limit=10)
+    gi_a = fetch_team_goal_intervals(season_id, a_uid, limit=10)
+    if not gi_h or not gi_a:
+        return {}
+    lp = fetch_live_match_situations_pressure(match_id) if match_id else {}
+    tot_da = int(lp.get("home_dangerous_attacks") or 0) + int(lp.get("away_dangerous_attacks") or 0)
+    h_1h_pct = float(gi_h.get("scoring_in_1h_pct") or 0.0)
+    a_1h_pct = float(gi_a.get("scoring_in_1h_pct") or 0.0)
+    comb_1h_pct = round(100.0 * (1.0 - (1.0 - h_1h_pct / 100.0) * (1.0 - a_1h_pct / 100.0)), 1)
+    comb_late_avg = round(float(gi_h.get("late_76_90_total_avg") or 0.0) + float(gi_a.get("late_76_90_total_avg") or 0.0), 2)
+
+    signal = None
+    badge_label = ""
+    # Status 6 = 1st half, Status 31 = Halftime, Status 7 = 2nd half
+    if status_id == 6 and (home_score + away_score == 0) and comb_1h_pct >= 78.0:
+        signal = "1H_GOAL_EDGE"
+        badge_label = f"⏱️ 1H GOAL EDGE ({comb_1h_pct:.0f}% 1H Rate)"
+    elif status_id in (7, 31) and abs(home_score - away_score) <= 1 and comb_late_avg >= 0.85:
+        signal = "LATE_GOAL_SURGE_EDGE"
+        da_str = f" · {tot_da} Danger Att" if tot_da > 0 else ""
+        badge_label = f"🔥 76–90m LATE GOAL EDGE ({comb_late_avg:.2f}g Avg{da_str})"
+    return {
+        "signal": signal,
+        "badge_label": badge_label,
+        "combined_1h_goal_pct": comb_1h_pct,
+        "combined_76_90_goal_avg": comb_late_avg,
+        "total_dangerous_attacks": tot_da,
     }
 
 

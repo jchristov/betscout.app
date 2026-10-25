@@ -1264,6 +1264,8 @@ def generate_dashboard_html(
                 mom_badge = f' <span class="pill badge-bet" title="SoT: {l_mom.get("sot_for_pick",0)}-{l_mom.get("sot_opp",0)}, Poss: {l_mom.get("poss_pct",50)}%">🔥 REBOUND EDGE (SoT {l_mom.get("sot_diff",0):+d}, {l_mom.get("poss_pct",50):.0f}% Poss)</span>'
             elif l_mom.get("sot_diff") is not None and tr_sport_cat == "soccer":
                 mom_badge = f' <span class="pill">SoT {l_mom.get("sot_for_pick",0)}-{l_mom.get("sot_opp",0)} ({l_mom.get("poss_pct",50):.0f}% Poss)</span>'
+            if l_mom.get("goal_timing_badge"):
+                mom_badge += f' <span class="pill badge-bet">{html.escape(str(l_mom["goal_timing_badge"]))}</span>'
             l_badge = (
                 f'<span class="pill badge-bet">LIVE · LEADING ({l_pnl_f:+.2f}u)</span>'
                 if l_pnl_f > 0
@@ -1277,6 +1279,11 @@ def generate_dashboard_html(
             item_k_l = html.escape(f"{tr['league']}:{tr['event_id']}".lower())
             item_k_js = html.escape(json.dumps(f"{tr['league']}:{tr['event_id']}".lower()))
             live_alert_btn = f' <button type="button" class="btn-mini inplay-item-alert-btn" data-item-key="{item_k_l}" onclick="toggleInplayItemAlert({item_k_js}, this)" title="Toggle Live In-Play Discord Alert for this match">🔕</button>'
+            untrack_btn_html = (
+                f' <button type="button" class="btn-mini" style="border-color:rgba(239,68,68,0.5);color:var(--red);" onclick="untrackLiveMatchup({html.escape(json.dumps(str(tr["league"])))}, {html.escape(json.dumps(str(tr["event_id"])))})" title="Remove ad-hoc tracked match">✕</button>'
+                if tr.get("tier") == "tracked_live"
+                else ""
+            )
             live_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-search="{search_txt}">
@@ -1287,7 +1294,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(l_sc_disp)}"><span class="event-stream-dot" data-event-key="{item_k_l}" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
-                  <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}{tr_share_btn}</td>
+                  <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}{tr_share_btn}{untrack_btn_html}</td>
                 </tr>
                 """
             )
@@ -1693,14 +1700,16 @@ def generate_dashboard_html(
   }}
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; padding: 20px 24px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; }}
-  header {{ display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
-  .brand-wrap {{ display: flex; align-items: center; gap: 14px; }}
-  .brand-logo {{ width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28)); transition: transform 0.2s ease; }}
+  header {{ display: flex; align-items: flex-start; gap: 12px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
+  .brand-logo {{ width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28)); transition: transform 0.2s ease; margin-top: 2px; }}
   .brand-logo:hover {{ transform: scale(1.05); }}
+  .header-body {{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }}
+  .header-top-row {{ display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }}
+  .header-bottom-row {{ display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }}
   .brand-title-row {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
-  h1 {{ margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+  h1 {{ margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; }}
   .brand-tagline {{ font-size: 12px; color: #cbd5e1; font-weight: 500; }}
-  .brand-meta {{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 11px; color: var(--muted); }}
+  .brand-meta {{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }}
   .meta-chip {{ display: inline-flex; align-items: center; gap: 4px; background: rgba(15, 22, 35, 0.85); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-size: 10.5px; color: var(--muted); }}
   .meta-chip b {{ color: var(--text); }}
   h2 {{ font-size: 15px; margin: 22px 0 10px; color: var(--accent); }}
@@ -1842,77 +1851,71 @@ def generate_dashboard_html(
     </div>
   </div>
   <header>
-    <div class="brand-wrap">
-      <div class="brand-logo" title="BetScout — Sports Edge &amp; Score Intelligence">
-        <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="vpShieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#0f172a"/>
-              <stop offset="55%" stop-color="#131b29"/>
-              <stop offset="100%" stop-color="#0b2436"/>
-            </linearGradient>
-            <linearGradient id="vpRim" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#38bdf8"/>
-              <stop offset="50%" stop-color="#10b981"/>
-              <stop offset="100%" stop-color="#22c55e"/>
-            </linearGradient>
-            <linearGradient id="vpPulse" x1="0%" y1="80%" x2="100%" y2="15%">
-              <stop offset="0%" stop-color="#38bdf8"/>
-              <stop offset="55%" stop-color="#34d399"/>
-              <stop offset="100%" stop-color="#22c55e"/>
-            </linearGradient>
-            <linearGradient id="bsSweep" x1="32" y1="32" x2="50" y2="14" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.04"/>
-              <stop offset="100%" stop-color="#22c55e" stop-opacity="0.26"/>
-            </linearGradient>
-            <filter id="vpGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="2.0" result="blur"/>
-              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-            </filter>
-          </defs>
-          <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="url(#vpShieldBg)" stroke="url(#vpRim)" stroke-width="2.4" stroke-linejoin="round"/>
-          <path d="M32 32 L32 13 A19 19 0 0 1 49.5 24 Z" fill="url(#bsSweep)"/>
-          <circle cx="32" cy="32" r="19" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="1.2" stroke-dasharray="3 3"/>
-          <circle cx="32" cy="32" r="11" stroke="#38bdf8" stroke-opacity="0.30" stroke-width="1.1"/>
-          <line x1="32" y1="8.5" x2="32" y2="13.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="32" y1="50.5" x2="32" y2="55.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="8.5" y1="32" x2="13.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="50.5" y1="32" x2="55.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M16 44 L27 33 L33 38 L46 18" stroke="url(#vpPulse)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#vpGlow)"/>
-          <path d="M39.5 17.5 L46.5 17.5 L46.5 24.5" stroke="#22c55e" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="27" cy="33" r="2.5" fill="#38bdf8"/>
-          <circle cx="46" cy="18" r="5.6" stroke="#22c55e" stroke-opacity="0.45" stroke-width="1.3"/>
-          <circle cx="46" cy="18" r="2.8" fill="#22c55e"/>
-        </svg>
-      </div>
-      <div>
+    <div class="brand-logo" title="BetScout — Sports Edge &amp; Score Intelligence">
+      <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="vpShieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0f172a"/>
+            <stop offset="55%" stop-color="#131b29"/>
+            <stop offset="100%" stop-color="#0b2436"/>
+          </linearGradient>
+          <linearGradient id="vpRim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38bdf8"/>
+            <stop offset="50%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#22c55e"/>
+          </linearGradient>
+          <linearGradient id="vpPulse" x1="0%" y1="80%" x2="100%" y2="15%">
+            <stop offset="0%" stop-color="#38bdf8"/>
+            <stop offset="55%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#22c55e"/>
+          </linearGradient>
+          <linearGradient id="bsSweep" x1="32" y1="32" x2="50" y2="14" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.04"/>
+            <stop offset="100%" stop-color="#22c55e" stop-opacity="0.26"/>
+          </linearGradient>
+          <filter id="vpGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2.0" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
+        <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="url(#vpShieldBg)" stroke="url(#vpRim)" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M32 32 L32 13 A19 19 0 0 1 49.5 24 Z" fill="url(#bsSweep)"/>
+        <circle cx="32" cy="32" r="19" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <circle cx="32" cy="32" r="11" stroke="#38bdf8" stroke-opacity="0.30" stroke-width="1.1"/>
+        <line x1="32" y1="8.5" x2="32" y2="13.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="32" y1="50.5" x2="32" y2="55.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="8.5" y1="32" x2="13.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="50.5" y1="32" x2="55.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M16 44 L27 33 L33 38 L46 18" stroke="url(#vpPulse)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#vpGlow)"/>
+        <path d="M39.5 17.5 L46.5 17.5 L46.5 24.5" stroke="#22c55e" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="27" cy="33" r="2.5" fill="#38bdf8"/>
+        <circle cx="46" cy="18" r="5.6" stroke="#22c55e" stroke-opacity="0.45" stroke-width="1.3"/>
+        <circle cx="46" cy="18" r="2.8" fill="#22c55e"/>
+      </svg>
+    </div>
+    <div class="header-body">
+      <div class="header-top-row">
         <div class="brand-title-row">
           <h1>BetScout</h1>
           <span class="pill badge-bet" style="font-size:10px;">LIVE AI</span>
           <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence</span>
         </div>
+        <span class="stream-pill" style="padding:3px 10px; font-size:11px; flex-shrink:0;" title="Real-Time Server-Sent Events (SSE) Connection Status">
+          <span id="streamDot" class="stream-dot"></span>
+          <span id="streamStatusText">Connecting...</span>
+        </span>
+      </div>
+      <div class="header-bottom-row">
         <div class="brand-meta">
           <span class="meta-chip">🕒 Updated: {_time_span(gen_at, bold=True)}</span>
           <span class="meta-chip">🗄️ <b>{total_matches:,}</b> Verified Matches</span>
           <span class="meta-chip">📡 <span id="lastStreamTick">Ready</span></span>
           <span class="meta-chip" title="Provisional / unconfirmed start times (e.g. awaiting official court Order of Play) are marked with * and update automatically"><b>*</b> = Provisional Time</span>
         </div>
-      </div>
-    </div>
-    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; margin-left:auto;">
-      <div style="display:flex; align-items:center; justify-content:flex-end; min-height:26px;">
-        <span class="stream-pill" style="padding:3px 10px; font-size:11px;" title="Real-Time Server-Sent Events (SSE) Connection Status">
-          <span id="streamDot" class="stream-dot"></span>
-          <span id="streamStatusText">Connecting...</span>
-        </span>
-      </div>
-      <div class="btn-group" style="align-items:center; justify-content:flex-end;">
-        <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Data Synchronization &amp; Pipeline Controls">
+        <div class="btn-group" style="align-items:center;">
           <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
           <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
           <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
-        </div>
-        <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Notifications, Social Sharing &amp; App Preferences">
           <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
           <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
           <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
@@ -1986,7 +1989,7 @@ def generate_dashboard_html(
             <input id="cfgMinOddsInput" type="number" min="1.05" max="2.50" step="0.05" value="1.10" style="width:95px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Default Global Sorting:</span>
+            <span>Default Sorting:</span>
             <select id="cfgDefaultSortSelect" style="background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
               <option value="time" selected>🕒 By Kickoff Time (Soonest First)</option>
               <option value="odds_asc">🎯 By Odds (Lowest / Safest First)</option>
@@ -2433,7 +2436,13 @@ def generate_dashboard_html(
     </tbody>
   </table>
 
-  <h2>🔴 Live In-Play Paper-Bets (Ongoing Events: <span id="liveCountSpan">{len(live_html_rows)}</span>)</h2>
+  <div class="section-head">
+    <h2>🔴 Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: <span id="liveCountSpan">{len(live_html_rows)}</span>)</h2>
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+      <input id="trackLiveQuickInput" type="search" placeholder="+ Track any live/upcoming match (e.g. Mpetshi Perricard vs Kovacevic)..." onkeydown="if(event.key==='Enter') trackArbitraryLiveMatchup()" style="min-width:295px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11.5px;">
+      <button type="button" class="btn-export btn-primary js-action-btn" onclick="trackArbitraryLiveMatchup()">📌 Track &amp; Analyze Live</button>
+    </div>
+  </div>
   <table id="liveTradesTable" class="sortable-table ledger-grid-table">
     <colgroup>
       <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
@@ -3295,6 +3304,62 @@ def generate_dashboard_html(
       runLiveMatchupAnalyzer();
     }}
 
+    async function trackArbitraryLiveMatchup(optionalQuery) {{
+      const inp = document.getElementById('trackLiveQuickInput');
+      const q = (optionalQuery || (inp ? inp.value : '') || '').trim();
+      if (!q) {{
+        showToast('⚠️ Enter a matchup like "Mpetshi Perricard vs Kovacevic" or "Arsenal vs Chelsea" to track live.');
+        return;
+      }}
+      if (!window.location.protocol.startsWith('http')) {{
+        showToast('⚠️ Start the BetScout WebApp server (`uv run betscout --port 8090`) to track live matches.');
+        return;
+      }}
+      document.getElementById('topLoadingBar')?.classList.add('is-active');
+      try {{
+        const r = await fetch('/api/track-live', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ query: q }})
+        }});
+        const d = await r.json();
+        if (!d.ok) {{
+          showToast('⚠️ ' + (d.error || 'Could not track matchup'));
+          return;
+        }}
+        if (inp && !optionalQuery) inp.value = '';
+        applyLiveStreamPayload(d);
+        if (d.analysis && d.analysis.home && d.analysis.away) {{
+          const aInp = document.getElementById('liveAnalyzeInput');
+          if (aInp) {{
+            aInp.value = d.analysis.home + ' vs ' + d.analysis.away;
+            runLiveMatchupAnalyzer();
+          }}
+        }}
+        showToast('📌 Added "' + (d.analysis ? (d.analysis.home + ' vs ' + d.analysis.away) : q) + '" to Live In-Play Tracker!');
+      }} catch (err) {{
+        showToast('⚠️ Failed to track match: ' + String(err));
+      }} finally {{
+        if (!isActionBusy) document.getElementById('topLoadingBar')?.classList.remove('is-active');
+      }}
+    }}
+
+    async function untrackLiveMatchup(league, eventId) {{
+      if (!window.location.protocol.startsWith('http')) return;
+      try {{
+        const r = await fetch('/api/untrack-live', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ action: 'untrack', league, event_id: eventId }})
+        }});
+        const d = await r.json();
+        if (d.ok) {{
+          applyLiveStreamPayload(d);
+          showToast('🗑️ Removed tracked event from Live In-Play.');
+        }}
+      }} catch (_) {{}}
+    }}
+
     async function runLiveMatchupAnalyzer() {{
       const inp = document.getElementById('liveAnalyzeInput');
       const box = document.getElementById('liveAnalyzeResultBox');
@@ -3348,7 +3413,7 @@ def generate_dashboard_html(
         box.innerHTML =
           '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">' +
             '<div><b style="font-size:13px;">' + escHtml(d.home) + ' vs ' + escHtml(d.away) + '</b> · <span class="pill">H2H: ' + escHtml(d.h2h_summary || '0-0') + '</span> · <span class="muted">' + eloStr + '</span></div>' +
-            '<div><span class="' + verdictPillCls + '" style="font-size:11.5px; padding:3px 9px;">' + escHtml(d.verdict || '') + '</span> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
+            '<div><span class="' + verdictPillCls + '" style="font-size:11.5px; padding:3px 9px;">' + escHtml(d.verdict || '') + '</span> <button type="button" class="btn-mini" style="border-color:var(--green);color:var(--green);" onclick="trackArbitraryLiveMatchup(' + escHtml(JSON.stringify(d.home + ' vs ' + d.away)) + ')" title="Pin this event to the Live In-Play Tracker for 3-second real-time streaming">📌 Track Live</button> <button type="button" class="btn-mini" onclick="openMatchupInspector(' + escHtml(JSON.stringify(d.home)) + ', ' + escHtml(JSON.stringify(d.away)) + ', \\'\\')">🔍 Full H2H &amp; Dutching</button></div>' +
           '</div>' +
           '<div style="margin-top:6px; display:flex; gap:16px; flex-wrap:wrap;" class="muted">' +
             '<span><b>' + escHtml(d.home) + ':</b> Odds <b>' + o1Str + '</b> · All-Level Last-5 WinRate: <b>' + f1Str + '</b> · Turnaround: ' + r1Str + '</span>' +
@@ -4055,6 +4120,19 @@ def generate_dashboard_html(
           const isItemOn = (itemKey in currentInplayAlertItems) ? Boolean(currentInplayAlertItems[itemKey]) : currentInplayAlertsEnabled;
           const itemBtnStyle = isItemOn ? 'border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.14);' : '';
           const itemBtnHtml = ' <button type="button" class="btn-mini inplay-item-alert-btn" data-item-key="' + escHtml(itemKey) + '" style="' + itemBtnStyle + '" onclick="toggleInplayItemAlert(' + escHtml(JSON.stringify(itemKey)) + ', this)" title="Toggle Live In-Play Discord Alert for this match">' + (isItemOn ? '🔔' : '🔕') + '</button>';
+          const untrackBtnHtml = tr.tier === 'tracked_live'
+            ? ' <button type="button" class="btn-mini" style="border-color:rgba(239,68,68,0.5);color:var(--red);" onclick="untrackLiveMatchup(' + escHtml(JSON.stringify(tr.league || '')) + ', ' + escHtml(JSON.stringify(tr.event_id || '')) + ')" title="Remove ad-hoc tracked match">✕</button>'
+            : '';
+          const lMom = tr.live_momentum || {{}};
+          let momBadgeHtml = '';
+          if (lMom.is_rebound_edge) {{
+            momBadgeHtml += ' <span class="pill badge-bet">🔥 REBOUND EDGE (SoT ' + (lMom.sot_diff >= 0 ? '+' : '') + (lMom.sot_diff || 0) + ')</span>';
+          }} else if (lMom.sot_diff !== undefined && spCat === 'soccer') {{
+            momBadgeHtml += ' <span class="pill">SoT ' + (lMom.sot_for_pick || 0) + '-' + (lMom.sot_opp || 0) + ' (' + Math.round(lMom.poss_pct || 50) + '% Poss)</span>';
+          }}
+          if (lMom.goal_timing_badge) {{
+            momBadgeHtml += ' <span class="pill badge-bet">' + escHtml(lMom.goal_timing_badge) + '</span>';
+          }}
           liveRows.push(
             '<tr class="' + rowCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
@@ -4062,9 +4140,9 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
-              '<td data-sort="' + escHtml(lSc) + '"><span class="event-stream-dot' + pulseCls + '" data-event-key="' + escHtml(itemKey) + '" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>' + escHtml(lSc) + '</b></td>' +
+              '<td data-sort="' + escHtml(lSc) + '"><span class="event-stream-dot' + pulseCls + '" data-event-key="' + escHtml(itemKey) + '" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>' + escHtml(lSc) + '</b>' + momBadgeHtml + '</td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
-              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + shareBtnHtml + '</td>' +
+              '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + shareBtnHtml + untrackBtnHtml + '</td>' +
             '</tr>'
           );
         }} else {{

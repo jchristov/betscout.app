@@ -1440,7 +1440,7 @@ def scan_upcoming_other_sports(
                    d.home_corners, d.away_corners, d.home_fouls, d.away_fouls
             FROM matches m
             LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
-            WHERE m.sport IN ('basketball', 'volleyball', 'hockey', 'football', 'baseball')
+            WHERE m.sport IN ('basketball', 'volleyball', 'hockey', 'football', 'baseball', 'handball', 'darts', 'table_tennis', 'snooker', 'mma')
                   AND m.outcome IS NOT NULL AND m.home_score IS NOT NULL
             ORDER BY m.kickoff
             """
@@ -1639,7 +1639,12 @@ def scan_upcoming_other_sports(
 
         for offset_d in range(min(days_ahead, 2)):
             d_ymd = (base_dt + timedelta(days=offset_d)).strftime("%Y-%m-%d")
-            sr_euro_picks = scan_sportradar_european_sports(date_ymd=d_ymd, min_prob=max(min_prob, 0.68), max_picks_per_sport=4)
+            sr_euro_picks = scan_sportradar_european_sports(
+                date_ymd=d_ymd,
+                min_prob=max(min_prob, 0.68),
+                max_picks_per_sport=4,
+                elo_by_lg=elo_by_lg,
+            )
             picks.extend(sr_euro_picks)
     except Exception:
         pass

@@ -579,17 +579,17 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
 
 def _refresh_inplay_timelinedelta(db_path: Path) -> int:
     """Fast 5-second delta poller for active in-play matches (`status = 'PENDING' AND is_live = 1`).
-    Queries Sportradar's 3-second `match_timelinedelta/{matchId}` stream so point-by-point tennis scores (`gamescore: 15-30`, server `🎾`)
-    and live soccer goals update in real time over the SSE `/api/stream` without waiting for the 90-second full scoreboard cycle."""
+    Queries Sportradar's 3-second `match_timelinedelta/{matchId}` stream so point-by-point tennis scores (`gamescore: 15-30`, server `🎾`),
+    live soccer goals, and 1st-Half / Late-Goal (`76-90m`) timing edges update in real time over the SSE `/api/stream`."""
     if not db_path.exists():
         return 0
-    from .sportradar_statshub import fetch_live_match_timelinedelta
+    from .sportradar_statshub import evaluate_inplay_goal_timing_edge, fetch_live_match_timelinedelta
 
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
     live_rows = [
         dict(r)
-        for r in conn.execute("SELECT league, event_id, home, away, side, live_score FROM paper_trades WHERE status = 'PENDING' AND is_live = 1").fetchall()
+        for r in conn.execute("SELECT league, event_id, home, away, side, live_score, live_momentum_json FROM paper_trades WHERE status = 'PENDING' AND is_live = 1").fetchall()
     ]
     conn.close()
     if not live_rows:
@@ -603,13 +603,30 @@ def _refresh_inplay_timelinedelta(db_path: Path) -> int:
         if not delta:
             continue
         new_sc = delta.get("score_str")
-        if new_sc and new_sc != r.get("live_score"):
-            h_sc = int(delta.get("home_score") or 0)
-            a_sc = int(delta.get("away_score") or 0)
+        mom_dict: dict[str, Any] = {}
+        try:
+            mom_dict = json.loads(r.get("live_momentum_json") or "{}")
+        except Exception:
+            mom_dict = {}
+        if sp == "soccer" and delta.get("sr_season_id") and delta.get("home_uid") and delta.get("away_uid"):
+            gt_edge = evaluate_inplay_goal_timing_edge(
+                season_id=delta["sr_season_id"],
+                h_uid=delta["home_uid"],
+                a_uid=delta["away_uid"],
+                match_id=delta.get("sr_match_id"),
+                status_id=int(delta.get("status_id") or 0),
+                home_score=int(delta.get("home_score") or 0),
+                away_score=int(delta.get("away_score") or 0),
+            )
+            if gt_edge.get("badge_label"):
+                mom_dict["goal_timing_badge"] = gt_edge["badge_label"]
+                mom_dict["goal_timing_signal"] = gt_edge["signal"]
+        new_mom_json = json.dumps(mom_dict) if mom_dict else r.get("live_momentum_json")
+        if (new_sc and new_sc != r.get("live_score")) or (new_mom_json != r.get("live_momentum_json")):
             c_up = sqlite3.connect(db_path, timeout=10.0)
             c_up.execute(
-                "UPDATE paper_trades SET live_score = ? WHERE league = ? AND event_id = ?",
-                (new_sc, r["league"], r["event_id"]),
+                "UPDATE paper_trades SET live_score = ?, live_momentum_json = ? WHERE league = ? AND event_id = ?",
+                (new_sc or r.get("live_score"), new_mom_json, r["league"], r["event_id"]),
             )
             c_up.commit()
             c_up.close()
@@ -1012,6 +1029,109 @@ self.addEventListener('fetch', (event) => {{
                     "discord": get_discord_env_config(custom_sport_webhooks=saved.get("sport_webhooks")),
                     **saved,
                 })
+                return
+
+            if parsed.path in ("/api/track-live", "/api/untrack-live"):
+                if parsed.path == "/api/untrack-live" or body.get("action") == "untrack":
+                    ev_id = str(body.get("event_id") or "")
+                    lg_id = str(body.get("league") or "")
+                    c_del = sqlite3.connect(db_path, timeout=10.0)
+                    if ev_id and lg_id:
+                        c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND tier = 'tracked_live'", (lg_id, ev_id))
+                    elif ev_id:
+                        c_del.execute("DELETE FROM paper_trades WHERE event_id = ? AND tier = 'tracked_live'", (ev_id,))
+                    c_del.commit()
+                    c_del.close()
+                    snap = _build_live_snapshot(rec_path, db_path, min_odds=1.10, sport="all", run_settle=False)
+                    self._send_json({"ok": True, **snap})
+                    return
+
+                q_str = str(body.get("query") or "").strip()
+                h_in = str(body.get("home") or "").strip()
+                a_in = str(body.get("away") or "").strip()
+                sp_in = str(body.get("sport") or "").strip()
+                if q_str and not (h_in and a_in):
+                    for sep in (" vs. ", " vs ", " v ", " - ", " @ ", "/"):
+                        if sep in q_str.lower():
+                            idx = q_str.lower().find(sep)
+                            h_in = q_str[:idx].strip()
+                            a_in = q_str[idx + len(sep) :].strip()
+                            break
+                if not h_in or not a_in:
+                    self._send_json({"ok": False, "error": "Please enter 'Home vs Away' (e.g. 'Mpetshi Perricard vs Kovacevic' or 'Arsenal vs Chelsea')."}, status=400)
+                    return
+
+                from .paper_trade import _ensure_paper_table
+                from .sportradar_statshub import evaluate_inplay_goal_timing_edge, fetch_live_match_timelinedelta
+
+                res_a = _analyze_live_matchup(db_path, h_in, a_in, sport=sp_in)
+                if not res_a.get("ok"):
+                    self._send_json(res_a, status=400)
+                    return
+
+                sp_cat = str(res_a.get("sport") or "tennis").lower()
+                h_canon = str(res_a.get("home") or h_in)
+                a_canon = str(res_a.get("away") or a_in)
+                lg_code = "atp" if sp_cat == "tennis" else ("eng.1" if sp_cat == "soccer" else sp_cat)
+                ev_id = f"tracked_{re.sub(r'[^a-z0-9]+', '_', (h_canon + '_' + a_canon).lower()).strip('_')}"
+
+                delta = fetch_live_match_timelinedelta(h_canon, a_canon, sport=sp_cat)
+                is_live_flag = 1 if (delta and delta.get("state") == "in") else 1
+                live_sc = (delta or {}).get("score_str") or ("Live Tracking" if is_live_flag else "")
+                rec_mkt = (res_a.get("market_recommendations") or {}).get("moneyline") or f"{res_a.get('fav_name', h_canon)} Match Winner"
+                fav_prob = float(res_a.get("fav_prob_pct") or 55.0) / 100.0
+                fav_odds = float(res_a.get("fav_book_odds") or res_a.get("fav_fair_odds") or 1.80)
+                now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+                mom_dict: dict[str, Any] = {
+                    "signal": "TRACKED_LIVE",
+                    "action": f"📌 Ad-Hoc Tracked · {res_a.get('verdict', 'Live Telemetry Active')}",
+                    "score": live_sc,
+                }
+                if sp_cat == "soccer" and delta and delta.get("sr_season_id") and delta.get("home_uid") and delta.get("away_uid"):
+                    gt_edge = evaluate_inplay_goal_timing_edge(
+                        season_id=delta["sr_season_id"],
+                        h_uid=delta["home_uid"],
+                        a_uid=delta["away_uid"],
+                        match_id=delta.get("sr_match_id"),
+                        status_id=int(delta.get("status_id") or 0),
+                        home_score=int(delta.get("home_score") or 0),
+                        away_score=int(delta.get("away_score") or 0),
+                    )
+                    if gt_edge.get("badge_label"):
+                        mom_dict["goal_timing_badge"] = gt_edge["badge_label"]
+                        mom_dict["goal_timing_signal"] = gt_edge["signal"]
+
+                c_ins = sqlite3.connect(db_path, timeout=10.0)
+                _ensure_paper_table(c_ins)
+                c_ins.execute(
+                    """
+                    INSERT OR REPLACE INTO paper_trades
+                    (created_at, league, event_id, match_date, home, away, market_group, side,
+                     prob, fair_odds, book_odds, tier, status, is_live, live_score, live_momentum_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'tracked_live', 'PENDING', ?, ?, ?)
+                    """,
+                    (
+                        now_iso,
+                        lg_code,
+                        ev_id,
+                        now_iso,
+                        h_canon,
+                        a_canon,
+                        "Tracked Live",
+                        rec_mkt,
+                        round(fav_prob, 4),
+                        round(float(res_a.get("fav_fair_odds") or 1.80), 2),
+                        round(fav_odds, 2),
+                        is_live_flag,
+                        live_sc,
+                        json.dumps(mom_dict),
+                    ),
+                )
+                c_ins.commit()
+                c_ins.close()
+                snap = _build_live_snapshot(rec_path, db_path, min_odds=1.10, sport="all", run_settle=False)
+                self._send_json({"ok": True, "tracked_event_id": ev_id, "analysis": res_a, **snap})
                 return
 
             if parsed.path in ("/api/settle", "/api/sync", "/api/pipeline"):
