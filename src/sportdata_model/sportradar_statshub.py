@@ -480,6 +480,266 @@ def lookup_tipico_correct_score_and_1x2(home: str, away: str, date_ymd: str | No
     return merged
 
 
+def fetch_team_goal_intervals(season_id: int | str, team_uid: int | str, limit: int = 10) -> dict[str, Any]:
+    """Query `stats_season_teamscoringconceding/{seasonId}/{teamUid}/{limit}` and return 15-minute goal scoring/conceding rates,
+    1st-half scoring rate (`scoringathalftimeaverage`), and late-goal (`76-90'`) intensity."""
+    data = fetch_statshub_gismo("stats_season_teamscoringconceding", f"{season_id}/{team_uid}/{limit}", client_alias="common", ttl_sec=1800.0)
+    if not isinstance(data, dict) or "stats" not in data:
+        return {}
+    st = data["stats"] or {}
+    sc = st.get("scoring") or {}
+    co = st.get("conceding") or {}
+    sc_mins = sc.get("goalsbyminutes") or {}
+    co_mins = co.get("goalsbyminutes") or {}
+    intervals: dict[str, dict[str, float]] = {}
+    for bucket in ("0-15", "16-30", "31-45", "46-60", "61-75", "76-90"):
+        s_v = float((sc_mins.get(bucket) or {}).get("total") or 0.0)
+        c_v = float((co_mins.get(bucket) or {}).get("total") or 0.0)
+        intervals[bucket] = {
+            "scored_per_match": round(s_v, 3),
+            "conceded_per_match": round(c_v, 3),
+            "combined_per_match": round(s_v + c_v, 3),
+        }
+    fh_scored = float((sc.get("goalsscoredfirsthalfaverage") or {}).get("total") or 0.0)
+    fh_conceded = float((co.get("goalsconcededfirsthalfaverage") or {}).get("total") or 0.0)
+    ht_score_rate = float((sc.get("scoringathalftimeaverage") or {}).get("total") or 0.0)
+    btts_rate = float((sc.get("bothteamsscoredaverage") or {}).get("total") or 0.0)
+    late_76_90_scored = intervals.get("76-90", {}).get("scored_per_match", 0.0)
+    late_76_90_conceded = intervals.get("76-90", {}).get("conceded_per_match", 0.0)
+    return {
+        "matches_sampled": int((st.get("totalmatches") or {}).get("total") or 0),
+        "first_half_scored_avg": round(fh_scored, 2),
+        "first_half_conceded_avg": round(fh_conceded, 2),
+        "scoring_in_1h_pct": round(ht_score_rate * 100.0, 1),
+        "btts_pct": round(btts_rate * 100.0, 1),
+        "late_76_90_scored_avg": round(late_76_90_scored, 2),
+        "late_76_90_conceded_avg": round(late_76_90_conceded, 2),
+        "late_76_90_total_avg": round(late_76_90_scored + late_76_90_conceded, 2),
+        "intervals": intervals,
+    }
+
+
+def fetch_live_match_situations_pressure(match_id: int | str) -> dict[str, Any]:
+    """Query `match_situations/{matchId}` and compute live attack / dangerous-attack territorial pressure for both sides."""
+    data = fetch_statshub_gismo("match_situations", str(match_id), client_alias="common", ttl_sec=45.0)
+    if not isinstance(data, dict) or not data.get("situations"):
+        return {}
+    sits = data.get("situations") or []
+    cnt: dict[str, dict[str, int]] = {
+        "home": {"attack": 0, "dangerous_attack": 0, "safe": 0},
+        "away": {"attack": 0, "dangerous_attack": 0, "safe": 0},
+    }
+    for s in sits:
+        tm = str(s.get("team") or "")
+        st_type = str(s.get("situation") or "")
+        if tm in cnt and st_type in cnt[tm]:
+            cnt[tm][st_type] += 1
+    h_da = cnt["home"]["dangerous_attack"]
+    a_da = cnt["away"]["dangerous_attack"]
+    tot_da = max(1, h_da + a_da)
+    return {
+        "home_attacks": cnt["home"]["attack"],
+        "away_attacks": cnt["away"]["attack"],
+        "home_dangerous_attacks": h_da,
+        "away_dangerous_attacks": a_da,
+        "home_danger_share_pct": round((h_da / tot_da) * 100.0, 1),
+        "away_danger_share_pct": round((a_da / tot_da) * 100.0, 1),
+    }
+
+
+def evaluate_sportradar_injury_gate(
+    season_id: int | str | None,
+    backed_uid: int | str | None,
+    opp_uid: int | str | None,
+) -> dict[str, Any]:
+    """Evaluate pre-match Sportradar `stats_season_injuries` for a Football match before T-60m lineups drop.
+    Counts missing forwards (`FWD`/`F`), midfielders (`MID`/`M`), defenders (`DEF`/`D`), and goalkeepers (`GK`/`G`),
+    and computes a net injury impact score (`injury_penalty_prob`) and warning status."""
+    if not season_id or not backed_uid:
+        return {"status": "NO_SEASON_DATA", "backed_out": [], "opp_out": [], "veto_recommended": False, "prob_adjustment": 0.0}
+    inj_list = fetch_statshub_gismo("stats_season_injuries", str(season_id), ttl_sec=1800.0) or []
+    if not isinstance(inj_list, list):
+        return {"status": "NO_INJURY_FEED", "backed_out": [], "opp_out": [], "veto_recommended": False, "prob_adjustment": 0.0}
+
+    backed_out: list[str] = []
+    opp_out: list[str] = []
+    backed_fwd_out = 0
+    backed_gk_out = 0
+    opp_fwd_out = 0
+
+    for item in inj_list:
+        ut_id = (item.get("uniqueteam") or {}).get("_id")
+        if ut_id not in (backed_uid, opp_uid):
+            continue
+        p_obj = item.get("player") or {}
+        p_nm = p_obj.get("name") or ""
+        pos_s = ((p_obj.get("position") or {}).get("shortname")) or ""
+        st_obj = item.get("status") or {}
+        st_nm = st_obj.get("name") or st_obj.get("status") or "Out"
+        if not p_nm:
+            continue
+        entry = f"{p_nm} ({pos_s}, {st_nm})" if pos_s else f"{p_nm} ({st_nm})"
+        if ut_id == backed_uid:
+            backed_out.append(entry)
+            if pos_s in ("FWD", "F"):
+                backed_fwd_out += 1
+            elif pos_s in ("GK", "G"):
+                backed_gk_out += 1
+        elif ut_id == opp_uid:
+            opp_out.append(entry)
+            if pos_s in ("FWD", "F"):
+                opp_fwd_out += 1
+
+    net_out_diff = len(backed_out) - len(opp_out)
+    # Penalize win probability when backed club has >=2 forwards missing or >=4 more players out than opponent
+    prob_adj = 0.0
+    if backed_fwd_out >= 2 or net_out_diff >= 3:
+        prob_adj -= min(0.06, 0.015 * backed_fwd_out + 0.008 * max(0, net_out_diff))
+    elif opp_fwd_out >= 2 or net_out_diff <= -3:
+        prob_adj += min(0.04, 0.012 * opp_fwd_out + 0.006 * max(0, -net_out_diff))
+
+    veto_rec = bool(backed_fwd_out >= 3 or (backed_fwd_out >= 2 and backed_gk_out >= 1) or net_out_diff >= 5)
+    status = (
+        f"ALERT_DEPLETED_SQUAD ({len(backed_out)} Out, {backed_fwd_out} FWD)"
+        if veto_rec
+        else (f"TRACKED ({len(backed_out)} Out vs {len(opp_out)} Opp)" if (backed_out or opp_out) else "CLEAN_SQUAD")
+    )
+    return {
+        "status": status,
+        "backed_out": backed_out[:8],
+        "opp_out": opp_out[:8],
+        "backed_fwd_out": backed_fwd_out,
+        "backed_gk_out": backed_gk_out,
+        "prob_adjustment": round(prob_adj, 4),
+        "veto_recommended": veto_rec,
+    }
+
+
+def scan_sportradar_european_sports(
+    date_ymd: str | None = None,
+    min_prob: float = 0.68,
+    max_picks_per_sport: int = 5,
+) -> list[dict[str, Any]]:
+    """Scan high-frequency European sports on Sportradar StatsHub (`Handball=6`, `Darts=22`, `Table Tennis=20`, `Snooker=19`, `MMA=117`)
+    combining Tipico (`_bookmakerId=176`) + Sportradar Main UOF (`_bookmakerId=0`) odds with Last-10 Form (`stats_match_form`) and Streak momentum."""
+    if not date_ymd:
+        date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    target_sports = [
+        (6, "handball", "Handball"),
+        (22, "darts", "Darts"),
+        (20, "table_tennis", "Table Tennis"),
+        (19, "snooker", "Snooker"),
+        (117, "mma", "MMA"),
+    ]
+    picks_out: list[dict[str, Any]] = []
+
+    for sp_id, sp_slug, sp_label in target_sports:
+        u_matches = fetch_statshub_gismo("unified_sport_matches", f"{sp_id}/{date_ymd}/0", ttl_sec=600.0) or {}
+        mkt_tip = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sp_id}/{date_ymd}/0", client_alias="tipico", ttl_sec=600.0) or {}).get("matches") or {}
+        mkt_uof = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sp_id}/{date_ymd}/0", client_alias="sportradar", ttl_sec=600.0) or {}).get("matches") or {}
+
+        sport_cands: list[dict[str, Any]] = []
+        for rc in (u_matches.get("sport") or {}).get("realcategories") or []:
+            rc_name = rc.get("name") or ""
+            for t in rc.get("tournaments") or []:
+                t_name = t.get("name") or ""
+                comp_label = f"{rc_name} · {t_name}".strip(" ·")
+                for m in t.get("matches") or []:
+                    st_id = int(((m.get("status") or {}).get("_id")) or 0)
+                    if st_id not in (0, 61):  # Skip finished or in-play matches
+                        continue
+                    mid = str(m.get("_id") or "")
+                    if not mid:
+                        continue
+                    tip_entry = mkt_tip.get(mid) or {}
+                    uof_entry = mkt_uof.get(mid) or {}
+                    raw_mkts = (tip_entry.get("markets") or []) or (uof_entry.get("markets") or [])
+                    if not raw_mkts:
+                        continue
+                    is_tipico_src = bool(tip_entry.get("markets"))
+                    parsed_m = parse_tipico_prematch_markets(raw_mkts, flipped=False)
+                    oh = parsed_m.get("odds_home")
+                    oa = parsed_m.get("odds_away")
+                    od = parsed_m.get("odds_draw")
+                    if not oh or not oa or min(oh, oa) < 1.12 or min(oh, oa) > 1.72:
+                        continue
+
+                    # Compute vig-free market probability
+                    inv_h = 1.0 / float(oh)
+                    inv_a = 1.0 / float(oa)
+                    inv_d = (1.0 / float(od)) if od else 0.0
+                    overround = inv_h + inv_a + inv_d
+                    p_mkt_h = inv_h / overround
+                    p_mkt_a = inv_a / overround
+                    side = "H" if p_mkt_h >= p_mkt_a else "A"
+                    p_mkt_fav = p_mkt_h if side == "H" else p_mkt_a
+                    best_o = float(oh if side == "H" else oa)
+                    if p_mkt_fav < min_prob - 0.04:
+                        continue
+
+                    teams = m.get("teams") or {}
+                    h_name = (teams.get("home") or {}).get("name") or ""
+                    a_name = (teams.get("away") or {}).get("name") or ""
+                    dt_uts = ((m.get("_dt") or {}).get("uts")) or 0
+                    if not h_name or not a_name or not dt_uts:
+                        continue
+                    ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+                    sport_cands.append({
+                        "mid": mid,
+                        "sp_slug": sp_slug,
+                        "sp_label": sp_label,
+                        "comp_label": comp_label,
+                        "kickoff": ko_iso,
+                        "home": h_name,
+                        "away": a_name,
+                        "side": side,
+                        "pick": h_name if side == "H" else a_name,
+                        "p_mkt": round(p_mkt_fav, 4),
+                        "best_odds": round(best_o, 2),
+                        "is_tipico": is_tipico_src,
+                    })
+
+        # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form`
+        sport_cands.sort(key=lambda x: (1 if x["is_tipico"] else 0, x["p_mkt"]), reverse=True)
+        for cand in sport_cands[:max_picks_per_sport]:
+            mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
+            t_forms = mf.get("teams") or {}
+            h_f_list = (t_forms.get("home") or {}).get("form") or []
+            a_f_list = (t_forms.get("away") or {}).get("form") or []
+            h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
+            a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
+            form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
+            # Veto if backed favorite has significantly worse rolling form than underdog
+            if len(h_f_list) >= 4 and len(a_f_list) >= 4 and form_diff_fav < -0.25:
+                continue
+            p_model = min(0.94, max(0.52, cand["p_mkt"] + 0.06 * form_diff_fav + (0.015 if cand["is_tipico"] else 0.0)))
+            if p_model < min_prob:
+                continue
+            ev_pct = round((p_model * cand["best_odds"] - 1.0) * 100.0, 2)
+            picks_out.append({
+                "sport": sp_slug,
+                "league": sp_slug,
+                "league_name": f"{cand['sp_label']} · {cand['comp_label']}",
+                "event_id": f"sr_{cand['mid']}",
+                "kickoff": cand["kickoff"],
+                "time_valid": True,
+                "home": cand["home"],
+                "away": cand["away"],
+                "side": cand["side"],
+                "pick": cand["pick"],
+                "tier": "tipico_banker" if cand["is_tipico"] else "sr_uof_banker",
+                "p_model": round(p_model, 4),
+                "p_mkt": cand["p_mkt"],
+                "best_odds": cand["best_odds"],
+                "ev_pct": ev_pct,
+                "composite_score": round(p_model, 4),
+                "bookmaker_source": "Tipico #176" if cand["is_tipico"] else "Sportradar UOF",
+                "form_diff_fav": round(form_diff_fav, 3),
+            })
+    return picks_out
+
+
 def lookup_statshub_match_intel(
     home: str,
     away: str,
@@ -594,8 +854,11 @@ def lookup_statshub_match_intel(
                         "indoor_wl": f"{indoor_rec.get('wins', 0)}-{indoor_rec.get('losses', 0)}",
                     }
 
-    # 3. Fetch team streaks (`stats_team_streaks`) for soccer/team sports
+    # 3. Fetch team streaks (`stats_team_streaks`), 15-minute goal intervals (`stats_season_teamscoringconceding`), and live attack situations (`match_situations`)
     streaks_summary: dict[str, list[str]] = {"home": [], "away": []}
+    goal_intervals: dict[str, Any] = {}
+    live_pressure: dict[str, Any] = {}
+    injury_gate: dict[str, Any] = {}
     if sport_id != 5:
         for side_lbl, t_uid in (("home", h_uid), ("away", a_uid)):
             if t_uid:
@@ -607,6 +870,15 @@ def lookup_statshub_match_intel(
                             tot_v = (scope_obj.get("total") or scope_obj.get(side_lbl) or {}).get("value")
                             if tot_v and int(tot_v) >= 3:
                                 streaks_summary[side_lbl].append(f"{st_type}: {tot_v} matches")
+        if sport_id == 1 and season_id and h_uid and a_uid:
+            goal_intervals = {
+                "home": fetch_team_goal_intervals(season_id, h_uid, limit=10),
+                "away": fetch_team_goal_intervals(season_id, a_uid, limit=10),
+            }
+            injury_gate = evaluate_sportradar_injury_gate(season_id, h_uid, a_uid)
+            st_code = int(((matched_m.get("status") or {}).get("_id")) or 0)
+            if 0 < st_code < 90:
+                live_pressure = fetch_live_match_situations_pressure(mid)
 
     return {
         "ok": True,
@@ -618,6 +890,9 @@ def lookup_statshub_match_intel(
         "sportradar_uof_markets": sr_uof_parsed,
         "home_injuries": home_injuries,
         "away_injuries": away_injuries,
+        "injury_gate": injury_gate,
+        "goal_intervals": goal_intervals,
+        "live_pressure": live_pressure,
         "streaks": streaks_summary,
         "tennis_surface_records": tennis_surface_records,
     }

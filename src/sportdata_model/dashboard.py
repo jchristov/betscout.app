@@ -83,6 +83,9 @@ SPORT_FILTER_LABELS: dict[str, str] = {
     "hockey": "Hockey (NHL)",
     "football": "American Football (NFL)",
     "baseball": "Baseball (MLB)",
+    "handball": "Handball",
+    "darts": "Darts",
+    "table_tennis": "Table Tennis",
 }
 
 SPORT_ICONS: dict[str, str] = {
@@ -93,6 +96,11 @@ SPORT_ICONS: dict[str, str] = {
     "hockey": "🏒",
     "football": "🏈",
     "baseball": "⚾",
+    "handball": "🤾",
+    "darts": "🎯",
+    "table_tennis": "🏓",
+    "snooker": "🎱",
+    "mma": "🥊",
 }
 
 COMPETITION_FALLBACK_LOGOS: dict[str, str] = {
@@ -179,6 +187,16 @@ def _league_to_sport_cat(league_or_sport: str) -> str:
         return "football"
     if low in ("mlb", "baseball"):
         return "baseball"
+    if "handball" in low:
+        return "handball"
+    if "darts" in low:
+        return "darts"
+    if "table_tennis" in low or "table tennis" in low:
+        return "table_tennis"
+    if "snooker" in low:
+        return "snooker"
+    if "mma" in low or "ufc" in low:
+        return "mma"
     return "soccer"
 
 
@@ -265,11 +283,16 @@ def build_best_bets_summary(
             else "—"
         )
         tipico_cs_map: dict[str, float] = {}
+        tipico_1x2_pick: float | None = None
+        sr_uof_1x2_pick: float | None = None
         try:
             from .sportradar_statshub import lookup_tipico_correct_score_and_1x2
 
             t_mkts = lookup_tipico_correct_score_and_1x2(p["home"], p["away"], date_ymd=str(p["kickoff"])[:10], sport="soccer")
             tipico_cs_map = t_mkts.get("correct_score_odds") or {}
+            t_side_key = "odds_home" if p["side"] == "H" else "odds_away"
+            if t_mkts.get(t_side_key):
+                tipico_1x2_pick = float(t_mkts[t_side_key])
         except Exception:
             tipico_cs_map = {}
         score_cluster_items = [
@@ -298,6 +321,12 @@ def build_best_bets_summary(
             key=lambda x: -x[1],
         )[:3]
         driver_str = ", ".join(f"{k}={v:+.2f}z" for k, v in top_drivers) if top_drivers else "Orthogonal 7-Factor Composite"
+        if tipico_1x2_pick and tipico_1x2_pick > odds_val + 0.02:
+            driver_str += f" · Tipico TopPrice @{tipico_1x2_pick:.2f} (+{(tipico_1x2_pick - odds_val):.2f} vs Book)"
+            odds_val = tipico_1x2_pick
+            p_ev_pct = round((p_win_val * odds_val - 1.0) * 100.0, 2)
+        elif tipico_1x2_pick:
+            driver_str += f" · Tipico @{tipico_1x2_pick:.2f}"
         is_mispriced = bool(p_ev_pct >= 2.0 and p_edge_pp >= 2.0)
         best_bets.append({
             "date": p["kickoff"],
@@ -2524,6 +2553,26 @@ def generate_dashboard_html(
           }}
           const injH = (sh.home_injuries && sh.home_injuries.length) ? ('<div><b>🚑 ' + escHtml(home) + ' Missing (' + sh.home_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.home_injuries.join(', ')) + '</span></div>') : '';
           const injA = (sh.away_injuries && sh.away_injuries.length) ? ('<div><b>🚑 ' + escHtml(away) + ' Missing (' + sh.away_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.away_injuries.join(', ')) + '</span></div>') : '';
+          const ig = sh.injury_gate || {{}};
+          const igRow = ig.status && ig.status !== 'NO_SEASON_DATA'
+            ? ('<div style="margin-top:3px;"><b>🛡️ Pre-Match Sportradar Injury Gate:</b> <span class="pill ' + (ig.veto_recommended ? 'badge-veto' : 'badge-bet') + '">' + escHtml(ig.status) + ' (Prob Adj: ' + (Number(ig.prob_adjustment||0)>=0?'+':'') + (Number(ig.prob_adjustment||0)*100).toFixed(1) + 'pp)</span></div>')
+            : '';
+          const gi = sh.goal_intervals || {{}};
+          let giRow = '';
+          if (gi.home && gi.home.intervals && gi.away && gi.away.intervals) {{
+            const h1h = gi.home.scoring_in_1h_pct || 0;
+            const a1h = gi.away.scoring_in_1h_pct || 0;
+            const hLate = gi.home.late_76_90_total_avg || 0;
+            const aLate = gi.away.late_76_90_total_avg || 0;
+            giRow = '<div style="margin-top:4px;"><b>⏱️ 15-Min Goal Timing &amp; Late-Goal Profile:</b> ' +
+              escHtml(home) + ' 1H Goal Rate: <b>' + h1h + '%</b> (76–90m Avg: <b class="num-pos">' + hLate.toFixed(2) + 'g</b>) · ' +
+              escHtml(away) + ' 1H Goal Rate: <b>' + a1h + '%</b> (76–90m Avg: <b class="num-pos">' + aLate.toFixed(2) + 'g</b>)' +
+            '</div>';
+          }}
+          const lp = sh.live_pressure || {{}};
+          const lpRow = (lp.home_dangerous_attacks !== undefined)
+            ? ('<div style="margin-top:4px;"><b>🔥 Live Pitch Dangerous Attacks:</b> ' + escHtml(home) + ' <b>' + lp.home_dangerous_attacks + '</b> (' + lp.home_danger_share_pct + '%) vs ' + escHtml(away) + ' <b>' + lp.away_dangerous_attacks + '</b> (' + lp.away_danger_share_pct + '%)</div>')
+            : '';
           const tSurf = sh.tennis_surface_records || {{}};
           const surfRow = (tSurf.home || tSurf.away)
             ? ('<div style="margin-top:4px;"><b>🎾 Sportradar Season &amp; Surface W–L:</b> ' +
@@ -2532,9 +2581,9 @@ def generate_dashboard_html(
               '</div>')
             : '';
           shHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid rgba(56,189,248,0.45); border-radius:8px; font-size:11.5px;">' +
-            '<div style="margin-bottom:5px; color:var(--accent);"><b>📡 Sportradar StatsHub (Tipico) Live Intelligence &amp; Markets</b></div>' +
+            '<div style="margin-bottom:5px; color:var(--accent);"><b>📡 Sportradar StatsHub (Tipico + UOF) Live Intelligence &amp; Markets</b></div>' +
             (mBits.length ? ('<div style="margin-bottom:4px;">' + mBits.join(' &nbsp;|&nbsp; ') + '</div>') : '') +
-            injH + injA + surfRow +
+            injH + injA + igRow + giRow + lpRow + surfRow +
           '</div>';
         }}
         bodyEl.innerHTML =

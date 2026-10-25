@@ -1625,6 +1625,17 @@ def scan_upcoming_other_sports(
                     "injury_gate": inj_gate,
                 })
 
+    # Also include high-conviction European sports picks from Sportradar StatsHub (Handball, Darts, Table Tennis, Snooker, MMA)
+    try:
+        from .sportradar_statshub import scan_sportradar_european_sports
+
+        for offset_d in range(min(days_ahead, 2)):
+            d_ymd = (base_dt + timedelta(days=offset_d)).strftime("%Y-%m-%d")
+            sr_euro_picks = scan_sportradar_european_sports(date_ymd=d_ymd, min_prob=max(min_prob, 0.68), max_picks_per_sport=4)
+            picks.extend(sr_euro_picks)
+    except Exception:
+        pass
+
     picks.sort(key=lambda x: (-x["composite_score"], -x["p_model"]))
     return picks
 

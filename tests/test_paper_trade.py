@@ -643,6 +643,50 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert parsed_sr["odds_home"] == 1.32 and parsed_sr["double_chance_1x"] == 1.03 and parsed_sr["draw_no_bet_home"] == 1.10
     assert parsed_sr["correct_score_odds"]["1:0"] == 12.0 and parsed_sr["correct_score_odds"]["2:0"] == 8.2 and parsed_sr["correct_score_odds"]["2:1"] == 7.8
 
+    # Test Sportradar Injury Gate, 15-Min Goal Intervals & European Sports Scanner
+    from sportdata_model.sportradar_statshub import (
+        evaluate_sportradar_injury_gate,
+        fetch_live_match_situations_pressure,
+        fetch_team_goal_intervals,
+    )
+    with patch("sportdata_model.sportradar_statshub.fetch_statshub_gismo") as mock_gismo:
+        mock_gismo.return_value = [
+            {"uniqueteam": {"_id": 100}, "player": {"name": "Star Striker 1", "position": {"shortname": "FWD"}}, "status": {"name": "Injured"}},
+            {"uniqueteam": {"_id": 100}, "player": {"name": "Star Striker 2", "position": {"shortname": "FWD"}}, "status": {"name": "Injured"}},
+            {"uniqueteam": {"_id": 100}, "player": {"name": "Starting GK", "position": {"shortname": "GK"}}, "status": {"name": "Injured"}},
+        ]
+        ig_res = evaluate_sportradar_injury_gate(140782, 100, 200)
+        assert ig_res["veto_recommended"] is True and ig_res["backed_fwd_out"] == 2 and ig_res["prob_adjustment"] < 0
+
+        mock_gismo.return_value = {
+            "stats": {
+                "totalmatches": {"total": 7},
+                "scoring": {
+                    "goalsscoredfirsthalfaverage": {"total": 1.25},
+                    "scoringathalftimeaverage": {"total": 0.72},
+                    "bothteamsscoredaverage": {"total": 0.65},
+                    "goalsbyminutes": {"76-90": {"total": 0.75}, "0-15": {"total": 0.40}},
+                },
+                "conceding": {
+                    "goalsconcededfirsthalfaverage": {"total": 0.50},
+                    "goalsbyminutes": {"76-90": {"total": 0.25}, "0-15": {"total": 0.20}},
+                },
+            }
+        }
+        gi_res = fetch_team_goal_intervals(140782, 100, limit=10)
+        assert gi_res["scoring_in_1h_pct"] == 72.0 and gi_res["late_76_90_total_avg"] == 1.0
+
+        mock_gismo.return_value = {
+            "situations": [
+                {"team": "home", "situation": "dangerous_attack"},
+                {"team": "home", "situation": "dangerous_attack"},
+                {"team": "away", "situation": "dangerous_attack"},
+            ]
+        }
+        lp_res = fetch_live_match_situations_pressure(71945334)
+        assert lp_res["home_dangerous_attacks"] == 2 and lp_res["home_danger_share_pct"] == 66.7
+
+
 
 
 
