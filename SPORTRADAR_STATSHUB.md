@@ -170,10 +170,78 @@ In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct sc
 
 ---
 
-## 5. Python Usage Examples in BetScout
+## 5. Real-Time Live Streaming Architecture (`_maxage` Adaptive HTTP/2 Delta Stream)
+
+### Why Sportradar StatsHub Uses `_maxage` Delta Streaming Instead of Stateful WebSockets
+Inspecting an ongoing live match page (e.g. `https://statshub.sportradar.com/sportradar/en/match/75992888` — *Giovanni Mpetshi Perricard vs. Aleksandar Kovacevic*) and its client bundles (`/assets/query-Csf7PvLX.js`, `/assets/getLatestMatch-D9YBx4ON.js`, `/assets/matchRadarWrapper-BIfNZ5BR.js`) reveals how Sportradar delivers sub-3-second live updates at global scale:
+
+1. **Server-Controlled `_maxage` & `_dob` Metadata (`doc[0]`):**
+   Every Gismo JSON response includes `_maxage` (cache TTL in seconds) and `_dob` (UNIX timestamp of birth):
+   ```json
+   {
+     "queryUrl": "match_timelinedelta/75992888",
+     "doc": [
+       {
+         "event": "match_timelinedelta",
+         "_dob": 1792936605,
+         "_maxage": 3,
+         "data": { ... }
+       }
+     ]
+   }
+   ```
+2. **Adaptive `refetchInterval` in `useFeedQuery` (`query-Csf7PvLX.js`):**
+   The frontend's React Query wrapper reads `data.meta.maxage` (in milliseconds) and schedules the next fetch at `Math.max(meta.maxage, 3000)`:
+   * **`match_timelinedelta/{matchId}` (`_maxage: 3` $\rightarrow$ `3,000ms` tick):** Returns a lightweight (~2 KB) payload containing the current `match` header plus only the **rolling delta of events (`events[]`) from the last few seconds** (`score_change_tennis`, `service_taken`, `periodscore`, `goal`, `card`).
+   * **`match_info_statshub/{matchId}` (`_maxage: 10` $\rightarrow$ `10,000ms` tick):** Full match header & period scores.
+   * **`event_get/{sportId}` (`_maxage: 10` $\rightarrow$ `10,000ms` tick):** Global live event ticker across all in-play matches in `sportId` (`1`=Soccer, `5`=Tennis, etc.), used by `matchRadarWrapper-BIfNZ5BR.js` to fire live score/card toast notifications.
+   * **`match_timeline/{matchId}` (`_maxage: 20` $\rightarrow$ `20,000ms` tick):** Full point-by-point / play-by-play historical event log for the match.
+3. **Client Delta Merger (`getLatestMatch-D9YBx4ON.js`):**
+   ```javascript
+   function getLatestMatch({ match, timelineDelta }) {
+     if (!(timelineDelta != null && timelineDelta.data.match)) return match;
+     const s = timelineDelta.data.match;
+     return typeof s.updated_uts == "number" &&
+       (typeof match.updated_uts != "number" || s.updated_uts > match.updated_uts)
+       ? s : match;
+   }
+   ```
+
+### Live `match_timelinedelta/{matchId}` Payload Structure (Tennis Example: Match `75992888`)
+Calling `GET https://stats.fn.sportradar.com/sportradar/en/Europe:Berlin/gismo/match_timelinedelta/75992888` during an active match returns:
+* **`match.status`:** `{"_doc": "status", "_id": 8, "name": "1st set", "shortName": "S1"}` (`_id: 8/9/10` = 1st/2nd/3rd set; `_id: 6/7` = 1st/2nd half in Soccer; `_id: 100` = Ended)
+* **`match.result`:** `{"home": 0, "away": 0, "winner": null}` (sets won in Tennis, or goals in Soccer)
+* **`match.periods`:** `{"p1": {"home": 6, "away": 5}}` (games won in each set `p1`..`p5`)
+* **`match.gamescore`:** `{"home": 0, "away": 15, "service": "2"}` (live current game points `0`, `15`, `30`, `40`, `A` and active server `"1"` = home, `"2"` = away)
+* **`events` (Delta Array):**
+  ```json
+  [
+    {
+      "_doc": "event",
+      "_doctype": "scorechangetennis",
+      "type": "score_change_tennis",
+      "matchid": 75992888,
+      "uts": 1792936643,
+      "team": "away",
+      "set_score": {"home": "0", "away": "0"},
+      "game_score": {"home": "6", "away": "5"},
+      "game_points": {"home": "0", "away": "15"},
+      "service": "2"
+    }
+  ]
+  ```
+
+### How BetScout Uses `match_timelinedelta`
+* **`fetch_live_match_timelinedelta(home, away, sport, date_ymd)`** in [`src/betscout/sportradar_statshub.py`](./src/betscout/sportradar_statshub.py) resolves the active match and queries `match_timelinedelta/{matchId}` (`ttl_sec=3.0`), formatting the live score with set scores, current point score, and serving indicator (e.g. `0-0 (6-5 · Pt 0-15🎾)`).
+* **`_refresh_inplay_timelinedelta(db_path)`** in [`src/betscout/webapp.py`](./src/betscout/webapp.py) runs on every 6-second SSE tick of `GET /api/stream`, pushing real-time point-by-point and goal-by-goal updates to all connected browsers in the **🔴 Live In-Play Paper-Bets** table.
+
+---
+
+## 6. Python Usage Examples in BetScout
 
 ```python
 from betscout.sportradar_statshub import (
+    fetch_live_match_timelinedelta,
     fetch_statshub_gismo,
     list_all_sportradar_sports,
     lookup_statshub_match_intel,
@@ -187,4 +255,8 @@ intel_soccer = lookup_statshub_match_intel("Inter", "Fiorentina", sport="soccer"
 
 # 3. Fetch Tipico Winner/Totals odds + ATP Surface W-L records (All, Hard, Indoor, Clay) for a Tennis match
 intel_tennis = lookup_statshub_match_intel("Daniil Medvedev", "Nikoloz Basilashvili", sport="tennis", date_ymd="2026-10-25")
+
+# 4. Stream 3-second real-time point-by-point score & active server via match_timelinedelta
+live_delta = fetch_live_match_timelinedelta("Giovanni Mpetshi Perricard", "Aleksandar Kovacevic", sport="tennis")
+# -> {'state': 'in', 'status_desc': '1st set', 'score_str': '0-0 (6-5 · Pt 0-15🎾)', ...}
 ```
