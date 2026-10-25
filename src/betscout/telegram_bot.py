@@ -1,6 +1,6 @@
 """Discord & Telegram Social Publisher (`src/betscout/telegram_bot.py`).
 
-Primary Social Integration: **Discord** (100% reachable through Zscaler via `https://discord.com/api/...`)
+Primary Social Integration: **Discord** (`https://discord.com/api/...`)
   - Supports **Discord Incoming Webhook** (`DISCORD_WEBHOOK_URL` — simplest 1-step setup in Discord Channel -> Integrations -> Webhooks)
   - Or **Discord Bot Token + Channel ID** (`DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID` -> `POST /api/v10/channels/{id}/messages`)
 
@@ -500,8 +500,8 @@ def send_discord_message(
                 elif not message_ids:
                     return {"ok": False, "error": resp.get("message") or str(resp), "raw": resp}
             except Exception as exc:
-                if "Zscaler" in proc.stdout:
-                    return {"ok": False, "error": "Blocked by Zscaler corporate proxy"}
+                if "<!DOCTYPE html>" in proc.stdout or "<html" in proc.stdout.lower():
+                    return {"ok": False, "error": "Network proxy blocked request to Discord API"}
                 if not message_ids:
                     return {"ok": False, "error": str(exc), "raw": proc.stdout[:300]}
 
@@ -898,10 +898,10 @@ def send_telegram_message(
                 tmp_png.unlink(missing_ok=True)
     if proc.returncode != 0 or not proc.stdout.strip():
         return {"ok": False, "error": proc.stderr or "Empty response from Telegram API"}
-    if "Zscaler" in proc.stdout or "Internet Security by Zscaler" in proc.stdout:
+    if "<!DOCTYPE html>" in proc.stdout or "<html" in proc.stdout.lower():
         return {
             "ok": False,
-            "error": "api.telegram.org is blocked by Zscaler on this network. Switch to Discord (DISCORD_WEBHOOK_URL in model/.env)!",
+            "error": "api.telegram.org is unreachable on this network. Use Discord (DISCORD_WEBHOOK_URL in .env)!",
         }
     try:
         resp = json.loads(proc.stdout)

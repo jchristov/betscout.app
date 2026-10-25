@@ -1697,6 +1697,7 @@ def generate_dashboard_html(
   .pill.tier {{ background: rgba(245, 158, 11, 0.12); color: var(--amber); border-color: rgba(245, 158, 11, 0.42); }}
   .pill.badge-bet {{ background: rgba(34, 197, 94, 0.14); color: var(--green); border-color: rgba(34, 197, 94, 0.42); }}
   .pill.badge-veto {{ background: rgba(239, 68, 68, 0.16); color: var(--red); border-color: rgba(239, 68, 68, 0.45); }}
+  .pill.badge-disabled {{ background: rgba(148, 163, 184, 0.08); color: #64748b; border-color: rgba(100, 116, 139, 0.32); opacity: 0.78; cursor: default; }}
   .meta {{ color: var(--muted); font-size: 11.5px; margin-bottom: 8px; }}
   .odds-strip {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: #0e1522; padding: 6px 8px; border-radius: 6px; margin-bottom: 10px; }}
   .odds-strip span {{ display: block; font-size: 10px; color: var(--muted); }}
@@ -2003,44 +2004,69 @@ def generate_dashboard_html(
   </div>
 
   <div id="telegramModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
-    <div class="modal-card" style="max-width:780px; border-color:var(--green);">
-      <div class="card-head" style="margin-bottom:10px;">
-        <div>
-          <b style="font-size:15px;">💬 Discord (Primary) &amp; Telegram (Optional) Notification Publisher</b>
-          <span id="discordEnvBadge" class="pill" style="margin-left:6px;">Checking Discord .env...</span>
-          <span id="tgEnvBadge" class="pill" style="margin-left:4px;">Telegram .env</span>
+    <div class="modal-card" style="max-width:840px; border-color:rgba(56, 189, 248, 0.55); padding:20px 22px;">
+      <div class="card-head" style="padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <b style="font-size:15.5px; color:var(--text);">📣 Share Pick &amp; Notification Publisher</b>
+            <div class="muted" style="margin-top:2px;">Publish formatted picks + high-resolution 1080×580 PNG Pick Card to your channels</div>
+          </div>
+          <span id="discordEnvBadge" class="pill badge-disabled" style="margin-left:4px;">● Discord: Checking...</span>
+          <span id="tgEnvBadge" class="pill badge-disabled">● Telegram: Disabled</span>
         </div>
-        <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">Close ✕</button>
+        <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">✕ Close</button>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
-        <input id="discordWebhookInput" type="password" placeholder="Optional Webhook Override (otherwise sends to Global DISCORD_WEBHOOK_URL + Per-Sport Webhook)" style="flex:2; min-width:260px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:12px;">
-        <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; cursor:pointer; background:#0b0f17; border:1px solid var(--border); border-radius:6px; padding:5px 9px;" title="Attach generated PNG Pick Card / Slate Graphic to Discord &amp; Telegram messages">
-          <input id="attachPngCardChk" type="checkbox" checked> 🖼️ Attach PNG Card
-        </label>
-        <button class="btn-export" type="button" onclick="downloadPickCardPng()" title="Download generated PNG Pick Card image">⬇ Download PNG</button>
-        <button class="btn-export js-action-btn" type="button" onclick="openTelegramPanel()">🔄 Full Slate Digest</button>
-        <button class="btn-export" type="button" onclick="copyTelegramPreview()">📋 Copy</button>
-        <button id="discordSendBtn" class="btn-export btn-telegram js-action-btn" type="button" onclick="postToDiscordChannel()">🚀 Send to Discord</button>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; align-items:stretch; margin-bottom:14px;">
+        <div id="pngCardPreviewWrap" style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:10px; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span style="font-weight:700; color:var(--accent); font-size:12px;">🖼️ 1080×580 PNG Pick Card</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:11px; cursor:pointer; color:var(--text);" title="Attach generated PNG Pick Card / Slate Graphic to notifications">
+                <input id="attachPngCardChk" type="checkbox" checked> Attach PNG
+              </label>
+              <button class="btn-export" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="downloadPickCardPng()" title="Download PNG Pick Card image">⬇ Save PNG</button>
+            </div>
+          </div>
+          <canvas id="pickCardCanvas" width="1080" height="580" style="width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.4); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
+          <div class="muted" style="font-size:11px;">Automatically routes to both the <b>General Channel</b> and any configured <b>Per-Sport Channel</b>.</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:700; color:var(--text); font-size:12px;">📝 Notification Message Payload</span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-export js-action-btn" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="openTelegramPanel()" title="Switch to full daily slate digest">🔄 Full Slate</button>
+              <button class="btn-export" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="copyTelegramPreview()" title="Copy Markdown text to clipboard">📋 Copy Text</button>
+            </div>
+          </div>
+          <textarea id="tgMessagePreview" rows="10" style="flex:1; width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px; line-height:1.45; resize:vertical;"></textarea>
+        </div>
       </div>
-      <div id="pngCardPreviewWrap" style="margin-bottom:10px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; width:100%;">
-          <canvas id="pickCardCanvas" width="1080" height="580" style="max-width:440px; width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.45); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
-          <div style="flex:1; min-width:220px;">
-            <div style="font-weight:700; color:var(--accent); font-size:12.5px;">🖼️ High-Resolution PNG Pick Card Preview (1080×580)</div>
-            <div class="muted" style="margin-top:4px;">Automatically attached as a crisp PNG graphic when sharing to Discord (posted to both the <b>General Channel</b> and any configured <b>Per-Sport Channel</b>) or Telegram.</div>
+
+      <details style="margin-bottom:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:11.5px; color:var(--muted);">
+        <summary style="cursor:pointer; font-weight:600; color:var(--text);">⚙️ Optional Channel &amp; Credentials Override (Discord Webhook / Telegram Bot)</summary>
+        <div style="display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span style="min-width:130px; font-weight:600;">Discord Webhook:</span>
+            <input id="discordWebhookInput" type="password" placeholder="Uses DISCORD_WEBHOOK_URL (+ per-sport webhooks) from .env unless overridden here" style="flex:1; min-width:240px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span style="min-width:130px; font-weight:600;">Telegram Bot:</span>
+            <input id="tgBotToken" type="password" placeholder="TELEGRAM_BOT_TOKEN (optional)" oninput="onTelegramOverrideInput()" style="flex:1; min-width:180px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11.5px;">
+            <input id="tgChatId" type="text" placeholder="TELEGRAM_CHAT_ID (optional)" oninput="onTelegramOverrideInput()" style="flex:1; min-width:160px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11.5px;">
           </div>
         </div>
-      </div>
-      <details style="margin-bottom:8px; font-size:12px; color:var(--muted);">
-        <summary style="cursor:pointer;">Optional Telegram Override (for non-Zscaler networks)</summary>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
-          <input id="tgBotToken" type="password" placeholder="Telegram Bot Token (optional if set in model/.env)" style="flex:1; min-width:220px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
-          <input id="tgChatId" type="text" placeholder="Telegram Chat ID (optional if set in model/.env)" style="flex:1; min-width:200px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
-          <button id="tgSendBtn" class="btn-export js-action-btn" type="button" onclick="postToTelegramChannel()">✈️ Send to Telegram</button>
-        </div>
       </details>
-      <textarea id="tgMessagePreview" rows="9" style="width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:monospace; font-size:12px;"></textarea>
-      <div id="tgStatusMsg" class="muted" style="margin-top:6px;"></div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding-top:10px; border-top:1px solid var(--border);">
+        <div id="tgStatusMsg" class="muted" style="font-size:11.5px;">Ready to publish.</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">Cancel</button>
+          <button id="tgSendBtn" class="btn-export js-action-btn" type="button" onclick="postToTelegramChannel()" disabled title="Configure TELEGRAM_BOT_TOKEN &amp; TELEGRAM_CHAT_ID in .env or in the override section above">✈️ Send to Telegram</button>
+          <button id="discordSendBtn" class="btn-export btn-telegram js-action-btn" type="button" style="padding:6px 14px; font-size:12px;" onclick="postToDiscordChannel()">🚀 Send to Discord</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3899,23 +3925,26 @@ def generate_dashboard_html(
       if (dBadge && dEnv) {{
         if (dEnv.configured) {{
           dBadge.className = 'pill badge-bet';
-          dBadge.textContent = '✅ Discord .env Ready (' + (dEnv.mode === 'webhook' ? 'Webhook' : ('Bot ' + dEnv.channel_id)) + ')';
+          dBadge.textContent = '● Discord: Ready (' + (dEnv.mode === 'webhook' ? 'Webhook' : ('Bot ' + dEnv.channel_id)) + ')';
           if (whInput && !whInput.value && dEnv.masked_webhook) whInput.placeholder = 'From .env: ' + dEnv.masked_webhook;
         }} else {{
-          dBadge.className = 'pill tier';
-          dBadge.textContent = '⚠️ Set DISCORD_WEBHOOK_URL in model/.env (or paste below)';
+          dBadge.className = 'pill badge-disabled';
+          dBadge.textContent = '● Discord: Not Configured';
         }}
       }}
       const badge = document.getElementById('tgEnvBadge');
       const chatInput = document.getElementById('tgChatId');
+      const tgBtn = document.getElementById('tgSendBtn');
       if (badge && tEnv && tEnv.configured !== undefined) {{
         if (tEnv.configured) {{
           badge.className = 'pill badge-bet';
-          badge.textContent = 'Telegram .env (' + (tEnv.chat_id || 'Ready') + ')';
+          badge.textContent = '● Telegram: Ready (' + (tEnv.chat_id || 'Configured') + ')';
           if (chatInput && !chatInput.value && tEnv.chat_id) chatInput.placeholder = 'From .env: ' + tEnv.chat_id;
+          if (tgBtn) tgBtn.disabled = false;
         }} else {{
-          badge.className = 'pill';
-          badge.textContent = 'Telegram: Optional';
+          badge.className = 'pill badge-disabled';
+          badge.textContent = '● Telegram: Disabled';
+          onTelegramOverrideInput();
         }}
       }}
       const ipItems = payload?.inplay_alert_items ?? payload?.pipeline_status?.inplay_alert_items;
@@ -3927,6 +3956,17 @@ def generate_dashboard_html(
         renderInplayAlertsBtn(Boolean(ipEnabled));
       }}
       refreshAllInplayItemButtons();
+    }}
+
+    function onTelegramOverrideInput() {{
+      const tok = (document.getElementById('tgBotToken')?.value || '').trim();
+      const cid = (document.getElementById('tgChatId')?.value || '').trim();
+      const tgBtn = document.getElementById('tgSendBtn');
+      const badge = document.getElementById('tgEnvBadge');
+      const hasCustom = Boolean(tok && cid);
+      if (tgBtn && badge && !badge.classList.contains('badge-bet')) {{
+        tgBtn.disabled = !hasCustom;
+      }}
     }}
 
     let currentInplayAlertsEnabled = false;
@@ -4285,14 +4325,15 @@ def generate_dashboard_html(
             const partsInfo = (d.chunks_sent && d.chunks_sent > 1) ? (' in ' + d.chunks_sent + ' messages') : '';
             const imgInfo = d.has_image ? ' + 🖼️ PNG Pick Card' : '';
             statusEl.textContent = '✅ Published to Discord channel' + partsInfo + imgInfo + ' (Message ID: ' + (d.message_id || 'OK') + ')!';
+            document.getElementById('telegramModal').style.display = 'none';
             showToast('✅ Successfully published to Discord channel' + partsInfo + imgInfo + '!');
           }} else {{
-            statusEl.textContent = '⚠️ Not sent: ' + (d.error || 'Set DISCORD_WEBHOOK_URL in model/.env (or paste your Discord Webhook URL above).');
+            statusEl.textContent = '⚠️ Not sent: ' + (d.error || 'Set DISCORD_WEBHOOK_URL in .env (or paste your Discord Webhook URL above).');
           }}
           return;
         }}
         if (!webhookUrl) {{
-          statusEl.textContent = '⚠️ Paste your Discord Webhook URL above (or run scripts/webapp.py to use DISCORD_WEBHOOK_URL from model/.env).';
+          statusEl.textContent = '⚠️ Paste your Discord Webhook URL above (or run `uv run betscout` to use DISCORD_WEBHOOK_URL from .env).';
           return;
         }}
         const chunks = splitDiscordBlocks(text, 1900);
@@ -4311,10 +4352,13 @@ def generate_dashboard_html(
           lastId = resJson.id;
         }}
         statusEl.textContent = '✅ Published full digest to Discord (' + chunks.length + ' message(s), ID: ' + lastId + ')!';
+        document.getElementById('telegramModal').style.display = 'none';
+        showToast('✅ Successfully published full digest to Discord (' + chunks.length + ' message(s))!');
       }} catch (err) {{
         statusEl.textContent = '❌ Request failed: ' + err;
       }} finally {{
         setActionBusy(false);
+        onTelegramOverrideInput();
       }}
     }}
 
@@ -4345,14 +4389,15 @@ def generate_dashboard_html(
           const d = await r.json();
           if (d.ok && !d.dry_run) {{
             statusEl.textContent = '✅ Published to Telegram channel (' + (d.result?.chat?.title || d.result?.chat?.username || chatId || 'from .env') + ')!';
+            document.getElementById('telegramModal').style.display = 'none';
             showToast('✅ Successfully published digest to Telegram channel!');
           }} else {{
-            statusEl.textContent = '⚠️ Not sent: ' + (d.description || d.error || 'Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to model/.env (or enter them above).');
+            statusEl.textContent = '⚠️ Not sent: ' + (d.description || d.error || 'Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env (or enter them above).');
           }}
           return;
         }}
         if (!token || !chatId) {{
-          statusEl.textContent = '⚠️ Enter both Bot Token and Channel/Chat ID above (or run scripts/webapp.py to use model/.env).';
+          statusEl.textContent = '⚠️ Enter both Bot Token and Channel/Chat ID above (or run `uv run betscout` to use .env).';
           return;
         }}
         const resp = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {{
@@ -4361,11 +4406,18 @@ def generate_dashboard_html(
           body: JSON.stringify({{ chat_id: chatId, text: text, parse_mode: 'HTML', disable_web_page_preview: true }})
         }});
         const resJson = await resp.json();
-        statusEl.textContent = resJson.ok ? '✅ Published to Telegram channel ' + chatId + '!' : ('❌ Telegram error: ' + (resJson.description || 'Unknown error'));
+        if (resJson.ok) {{
+          statusEl.textContent = '✅ Published to Telegram channel ' + chatId + '!';
+          document.getElementById('telegramModal').style.display = 'none';
+          showToast('✅ Successfully published to Telegram channel ' + chatId + '!');
+        }} else {{
+          statusEl.textContent = '❌ Telegram error: ' + (resJson.description || 'Unknown error');
+        }}
       }} catch (err) {{
         statusEl.textContent = '❌ Request failed: ' + err;
       }} finally {{
         setActionBusy(false);
+        onTelegramOverrideInput();
       }}
     }}
 
