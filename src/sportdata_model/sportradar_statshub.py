@@ -318,9 +318,13 @@ def list_all_sportradar_sports(service_id: int = 69, client_alias: str = "sportr
 
 
 def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool = False) -> dict[str, Any]:
-    """Parse Sportradar Tipico prematch markets (`1x2`, `Double chance`, `Draw no bet`, `Total`, `Correct score [41]`, `Winner [186/219]`)."""
+    """Parse Sportradar prematch markets from either Tipico (`_bookmakerId: 176`) or Sportradar UOF (`_bookmakerId: 0`)."""
+    bk_label = "Tipico (Sportradar)"
+    if markets and isinstance(markets[0], dict):
+        if markets[0].get("_bookmakerId") == 0 or "UOF" in str(markets[0].get("source") or ""):
+            bk_label = "Sportradar UOF Consensus"
     out: dict[str, Any] = {
-        "bookmaker": "Tipico (Sportradar)",
+        "bookmaker": bk_label,
         "odds_home": None,
         "odds_draw": None,
         "odds_away": None,
@@ -328,6 +332,9 @@ def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool =
         "double_chance_x2": None,
         "draw_no_bet_home": None,
         "draw_no_bet_away": None,
+        "asian_handicap_line": None,
+        "asian_handicap_home": None,
+        "asian_handicap_away": None,
         "total_line": None,
         "odds_over": None,
         "odds_under": None,
@@ -369,6 +376,17 @@ def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool =
                     out["draw_no_bet_away" if flipped else "draw_no_bet_home"] = val
                 elif "competitor2" in nm:
                     out["draw_no_bet_home" if flipped else "draw_no_bet_away"] = val
+        elif mid in (16, 223):  # 2-Way Asian Handicap / Point Spread
+            out["asian_handicap_line"] = spec.get("hcp")
+            for o in outcomes:
+                nm = str(o.get("name") or "").lower()
+                val = float(o["odds"]) if o.get("odds") else None
+                if not val:
+                    continue
+                if "competitor1" in nm:
+                    out["asian_handicap_away" if flipped else "asian_handicap_home"] = val
+                elif "competitor2" in nm:
+                    out["asian_handicap_home" if flipped else "asian_handicap_away"] = val
         elif mid in (18, 189, 225):  # Total goals / games / points
             t_str = spec.get("total")
             try:
@@ -384,18 +402,24 @@ def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool =
                     out["odds_over"] = val
                 elif nm.startswith("under"):
                     out["odds_under"] = val
-        elif mid == 41:  # Correct score (28 outcomes)
+        elif mid in (41, 45):  # Correct score (28 outcomes)
+            if out["correct_score_odds"] and mid == 45:
+                continue
             cs_map: dict[str, float] = {}
             for o in outcomes:
                 oid = str(o.get("_id") or "")
+                nm_sc = str(o.get("name") or "").strip()
                 val = float(o["odds"]) if o.get("odds") else None
-                if oid in SR_CORRECT_SCORE_OUTCOMES and val:
-                    raw_sc = SR_CORRECT_SCORE_OUTCOMES[oid]
+                if not val:
+                    continue
+                raw_sc = nm_sc if (":" in nm_sc and len(nm_sc) <= 5) else SR_CORRECT_SCORE_OUTCOMES.get(oid, "")
+                if raw_sc and ":" in raw_sc:
                     if flipped:
-                        p_h, p_a = raw_sc.split(":")
+                        p_h, p_a = raw_sc.split(":", 1)
                         raw_sc = f"{p_a}:{p_h}"
                     cs_map[raw_sc] = val
-            out["correct_score_odds"] = cs_map
+            if cs_map:
+                out["correct_score_odds"] = cs_map
     return out
 
 
@@ -452,9 +476,27 @@ def lookup_statshub_match_intel(
     h_uid = h_team.get("uid") or h_team.get("_id")
     a_uid = a_team.get("uid") or a_team.get("_id")
 
-    # 1. Fetch Tipico prematch markets (including 28 Correct Score odds, Double Chance, DNB, Totals)
-    mm_data = fetch_statshub_gismo("match_markets", f"{mid}/prematch") or {}
-    markets_parsed = parse_tipico_prematch_markets(mm_data.get("markets") or [], flipped=flipped)
+    # 1. Fetch Tipico prematch markets (`client_alias="tipico"`, `_bookmakerId: 176`) + Sportradar Main Site UOF (`client_alias="sportradar"`, `_bookmakerId: 0`)
+    mm_tipico = fetch_statshub_gismo("match_markets", f"{mid}/prematch", client_alias="tipico") or {}
+    mm_sr_main = fetch_statshub_gismo("match_markets", f"{mid}/prematch", client_alias="sportradar") or {}
+    tipico_parsed = parse_tipico_prematch_markets(mm_tipico.get("markets") or [], flipped=flipped)
+    sr_uof_parsed = parse_tipico_prematch_markets(mm_sr_main.get("markets") or [], flipped=flipped)
+
+    # Merge: prefer real Tipico retail odds (`_bookmakerId: 176`) whenever available, and automatically fill any missing markets (e.g. Asian Handicap or unpriced matches) from Sportradar Main Site UOF!
+    markets_parsed = dict(tipico_parsed)
+    has_tipico = bool(tipico_parsed.get("odds_home") or tipico_parsed.get("correct_score_odds"))
+    has_sr_uof = bool(sr_uof_parsed.get("odds_home") or sr_uof_parsed.get("correct_score_odds"))
+    for k, v in sr_uof_parsed.items():
+        if k == "bookmaker":
+            continue
+        if not markets_parsed.get(k) and v:
+            markets_parsed[k] = v
+    if has_tipico and has_sr_uof:
+        markets_parsed["bookmaker"] = "Tipico + Sportradar UOF"
+    elif has_tipico:
+        markets_parsed["bookmaker"] = "Tipico (Bookmaker #176)"
+    elif has_sr_uof:
+        markets_parsed["bookmaker"] = "Sportradar Main (UOF)"
 
     # 2. Fetch season injuries or tennis surface stats
     home_injuries: list[str] = []
@@ -516,6 +558,7 @@ def lookup_statshub_match_intel(
         "sr_season_id": season_id,
         "tournament": matched_tourn,
         "tipico_markets": markets_parsed,
+        "sportradar_uof_markets": sr_uof_parsed,
         "home_injuries": home_injuries,
         "away_injuries": away_injuries,
         "streaks": streaks_summary,

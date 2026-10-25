@@ -2500,8 +2500,15 @@ def generate_dashboard_html(
           if (shMkts.draw_no_bet_home && shMkts.draw_no_bet_away) {{
             mBits.push('Draw No Bet: 1 @<b>' + Number(shMkts.draw_no_bet_home).toFixed(2) + '</b> · 2 @<b>' + Number(shMkts.draw_no_bet_away).toFixed(2) + '</b>');
           }}
+          if (shMkts.asian_handicap_line && shMkts.asian_handicap_home && shMkts.asian_handicap_away) {{
+            mBits.push('Asian Hcp (' + escHtml(shMkts.asian_handicap_line) + '): 1 @<b>' + Number(shMkts.asian_handicap_home).toFixed(2) + '</b> · 2 @<b>' + Number(shMkts.asian_handicap_away).toFixed(2) + '</b>');
+          }}
           if (shMkts.total_line && shMkts.odds_over && shMkts.odds_under) {{
             mBits.push('Total (' + shMkts.total_line + '): Over @<b>' + Number(shMkts.odds_over).toFixed(2) + '</b> · Under @<b>' + Number(shMkts.odds_under).toFixed(2) + '</b>');
+          }}
+          const uofMkts = sh.sportradar_uof_markets || {{}};
+          if (uofMkts.odds_home && shMkts.odds_home && Math.abs(Number(uofMkts.odds_home) - Number(shMkts.odds_home)) >= 0.01) {{
+            mBits.push('Sportradar UOF 1X2: <b>' + Number(uofMkts.odds_home).toFixed(2) + '</b>' + (uofMkts.odds_draw ? (' / <b>' + Number(uofMkts.odds_draw).toFixed(2) + '</b>') : '') + ' / <b>' + Number(uofMkts.odds_away).toFixed(2) + '</b>');
           }}
           const injH = (sh.home_injuries && sh.home_injuries.length) ? ('<div><b>🚑 ' + escHtml(home) + ' Missing (' + sh.home_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.home_injuries.join(', ')) + '</span></div>') : '';
           const injA = (sh.away_injuries && sh.away_injuries.length) ? ('<div><b>🚑 ' + escHtml(away) + ' Missing (' + sh.away_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.away_injuries.join(', ')) + '</span></div>') : '';

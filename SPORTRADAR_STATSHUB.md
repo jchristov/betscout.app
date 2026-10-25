@@ -15,10 +15,16 @@ When you open `https://statshub.sportradar.com/tipico/en/` or `https://statshub.
 https://{host}/{clientAlias}/{language}/{timezone}/gismo/{endpoint}/{params}
 ```
 
-### Key Discovery: Tokenless Direct API (`https://stats.fn.sportradar.com`)
-While `https://sh.fn.sportradar.com` requires a signed `?T=exp=...~acl=/*~hmac=...` query parameter scraped from the HTML page, Sportradar's companion Fishnet cluster **`https://stats.fn.sportradar.com` serves the exact same Gismo JSON endpoints (including live Tipico bookmaker odds, 28-outcome Correct Score matrices, player injuries, H2H, and ATP/WTA surface records) directly without any token or HTML page parsing!**
+### Key Discovery: Tokenless Direct API (`https://stats.fn.sportradar.com`) & Dual Odds Feeds (`Tipico` + `Sportradar Main UOF`)
+While `https://sh.fn.sportradar.com` requires a signed `?T=exp=...~acl=/*~hmac=...` query parameter scraped from the HTML page, Sportradar's companion Fishnet cluster **`https://stats.fn.sportradar.com` serves the exact same Gismo JSON endpoints directly without any token or HTML page parsing!**
 
-`fetch_statshub_gismo()` in [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py) therefore calls **`https://stats.fn.sportradar.com` directly as its primary zero-scraping transport**, and only falls back to `https://sh.fn.sportradar.com?T=...` if needed.
+Even better, querying `stats.fn.sportradar.com` with `clientAlias="tipico"` vs `clientAlias="sportradar"` gives us **two complementary live bookmaker feeds** that [`lookup_statshub_match_intel()`](./src/sportdata_model/sportradar_statshub.py) automatically merges:
+1. **`clientAlias="tipico"` (`_bookmakerId: 176`, `source: "sr:crawler_odds:176"`):**
+   - Genuine **Tipico retail bookmaker odds** (`616` Soccer matches/day, `11` markets per match including 1X2, Double Chance, Draw No Bet, 3-Way Handicap, Over/Under Totals, and the 28-outcome Correct Score matrix).
+2. **`clientAlias="sportradar"` (`_bookmakerId: 0`, `source: "OS_SR:OP_SR:OF_3:OF_UOF"`):**
+   - **Sportradar Main Site Unified Odds Feed (UOF)** (`980` Soccer matches/day, **`17` markets per match** — adding **2-Way Asian Handicap (`_marketId: 16`, e.g. `-1.5`)**, **Quarter-Goal Asian Totals (`3.25`)**, **Explicitly Named Correct Score (`_marketId: 45`)**, **2nd Half Handicaps (`_marketId: 87/88`)**, and **Tennis Set-by-Set Winner (`_marketId: 202`)**, plus full odds coverage for lower-tier leagues and Challenger matches not priced by Tipico).
+
+`lookup_statshub_match_intel()` queries **both** `clientAlias="tipico"` and `clientAlias="sportradar"`: it prioritizes **Tipico (`_bookmakerId: 176`)** whenever available and automatically fills any missing markets or unpriced matches from **Sportradar Main UOF (`_bookmakerId: 0`)**!
 
 | Parameter | Values | Description |
 | :--- | :--- | :--- |
