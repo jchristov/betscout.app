@@ -577,24 +577,20 @@ def scan_upcoming_tennis(
                         opp_rest_h = live_odds.get("p2_rest_hours") if p_h >= 0.5 else live_odds.get("p1_rest_hours")
                         pick_last_t = str(live_odds.get("p1_last_tourn") if p_h >= 0.5 else live_odds.get("p2_last_tourn") or "").lower()
                         cur_t_city = t_name.lower().split()[0] if t_name else ""
-                        if (
-                            win_prob < 0.80
-                            and isinstance(pick_rest_h, (int, float))
-                            and pick_rest_h <= 38.0
-                            and pick_last_t
-                            and cur_t_city
-                            and cur_t_city not in pick_last_t
-                            and (opp_rest_h is None or float(opp_rest_h) >= 48.0)
-                        ):
-                            continue
-                        if book_odds and opp_book_odds and book_odds > 1.01 and opp_book_odds > 1.01:
-                            inv_pick, inv_opp = 1.0 / book_odds, 1.0 / opp_book_odds
-                            p_mkt_devig = inv_pick / (inv_pick + inv_opp)
-                            if (win_prob - p_mkt_devig) >= 0.15 and p_mkt_devig < 0.60:
-                                continue
-                            win_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
-                        ev_pct = round((win_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
-                        if ev_pct is not None and ev_pct < 0.0 and win_prob < 0.80:
+                        from .sport_models import evaluate_tennis_gate
+
+                        t_passed, win_prob, ev_pct, _t_reason = evaluate_tennis_gate(
+                            win_prob=win_prob,
+                            book_odds=book_odds,
+                            opp_book_odds=opp_book_odds,
+                            game_win_pct_diff=sgn * d_game_pct,
+                            form_6m_diff=form_diff_pick,
+                            pick_rest_h=pick_rest_h,
+                            opp_rest_h=opp_rest_h,
+                            pick_last_tourn=pick_last_t,
+                            cur_tourn_city=cur_t_city,
+                        )
+                        if not t_passed:
                             continue
                         t_side = "H" if p_h >= 0.5 else "A"
                         best_of_sets = 5 if any(gs in t_name.lower() for gs in ("australian open", "roland garros", "french open", "wimbledon", "us open")) and lg == "atp" else 3
@@ -1168,7 +1164,27 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         if (outcome is None or score_str is None or needs_tennis_detail or needs_logos) and (row["kickoff"] < now_iso or is_unconfirmed_time or needs_logos or (was_pending and lg.lower() in ("atp", "wta"))):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
-            if sp != "tennis":
+            if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
+                try:
+                    from .sportradar_statshub import fetch_live_match_timelinedelta
+
+                    sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=lg.lower(), date_ymd=row["kickoff"][:10])
+                    if sr_delta.get("state") == "post" and sr_delta.get("outcome") in ("H", "D", "A"):
+                        outcome = sr_delta["outcome"]
+                        score_str = sr_delta.get("score_str")
+                    elif sr_delta.get("state") == "in" and was_pending:
+                        l_sc = sr_delta.get("score_str") or "LIVE"
+                        hs_v = int(sr_delta.get("home_score") or 0)
+                        as_v = int(sr_delta.get("away_score") or 0)
+                        cur_out = "H" if hs_v > as_v else ("A" if as_v > hs_v else "D")
+                        l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2) if cur_out == side else (0.0 if cur_out == "D" else -1.0)
+                        conn.execute(
+                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            (l_sc, l_pnl, now_iso, lg, eid),
+                        )
+                except Exception:
+                    pass
+            elif sp != "tennis":
                 s_url = f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}"
                 sd = _fetch_live_json(s_url)
                 hdr_comps = (sd.get("header") or {}).get("competitions") or []
@@ -1597,35 +1613,22 @@ def scan_upcoming_other_sports(
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
-                if p_mod < min_prob or odds_pick <= 1.10 or comp_score < -0.05:
+                from .sport_models import route_major_league_gate
+
+                if not route_major_league_gate(
+                    league=lg,
+                    p_mod=p_mod,
+                    p_mkt=p_mkt,
+                    p_elo=p_elo,
+                    comp_score=comp_score,
+                    sot_f=sot_f,
+                    vol_f=vol_f,
+                    rest_for_pick=rest_for_pick,
+                    side=side,
+                    odds_pick=odds_pick,
+                    min_prob=min_prob,
+                ):
                     continue
-                # 1. NHL Rested + Save% & Shot-Volume Alignment Gate:
-                #    - All NHL picks must have positive rolling Save% diff (sot_f > 0), positive Shot-Volume diff (vol_f > 0), and non-negative rest (rest_for_pick >= 0)
-                #    - Road NHL picks must also clear the strict Dual-Dominance threshold (vol_f >= 12.0 and sot_f >= 12.0)
-                if lg == "nhl":
-                    if sot_f <= 0.0 or vol_f <= 0.0 or rest_for_pick < 0.0:
-                        continue
-                    if side == "A" and (vol_f < 12.0 or sot_f < 12.0):
-                        continue
-                # 2. NBA Elo + Rest + Shooting-Efficiency Alignment Gate:
-                #    - Require Elo confirmation (p_elo >= p_mkt - 0.02), non-negative rest (rest_for_pick >= 0), and positive FG% diff (sot_f > 0)
-                if lg == "nba":
-                    if p_elo < (p_mkt - 0.02) or rest_for_pick < 0.0 or sot_f <= 0.0:
-                        continue
-                # 3. NFL Trench-Dominance, Efficiency & Elo Confirmation Gate:
-                #    - Require strong composite score (comp_score >= 0.35), Yards-Per-Play edge (sot_f >= 0.80),
-                #      Total-Yards edge (vol_f >= 60.0 yds/g), Elo confirmation within 8pp of market (p_elo >= p_mkt - 0.08),
-                #      and odds in the 1.25–1.75 sweet spot (avoids negative-EV <1.25 chalk traps & under-performing road/home favorites)
-                if lg == "nfl":
-                    if (
-                        comp_score < 0.35
-                        or sot_f < 0.80
-                        or vol_f < 60.0
-                        or p_elo < (p_mkt - 0.08)
-                        or odds_pick < 1.25
-                        or odds_pick > 1.75
-                    ):
-                        continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(
                     summary, home, away, side, decision_backend=decision_backend
                 )
@@ -2154,43 +2157,16 @@ def scan_upcoming_and_log_paper_trades(
                 if best_candidate is None:
                     continue
 
-                sc = best_candidate["score"]
-                sot_z_val = float(best_candidate["factors_tanh_z"].get("sot_d", 0.0))
-                dom_z_val = float(best_candidate["factors_tanh_z"].get("dom_rebound", 0.0))
-                disc_z_val = float(best_candidate["factors_tanh_z"].get("discipline", 0.0))
-                draws_z_val = float(best_candidate["factors_tanh_z"].get("recent_draws", 0.0))
-                p_mkt_raw = float(best_candidate.get("p_mkt") or 0.5)
-                ev_c_val = float(best_candidate.get("ev_pct") or 0.0)
-                is_uefa = lg.key.startswith("uefa.") or lg.key.startswith("fifa.")
-                is_secondary_dom = lg.key in ("ned.1", "por.1", "eng.2", "aut.1")
-                # Stalemate-Draw & Foul-Trouble Veto Gate:
-                # When a sub-62% favorite has extreme recent draw propensity (recent_draws_z > 0.80),
-                # negative dominance rebound (dom_rebound_z < -0.30), and poor foul discipline (discipline_z < -0.60),
-                # 0-0 / 1-1 stalemates are significantly elevated (e.g. Toulouse 0-0 Troyes).
-                is_stalemate_trap = (
-                    p_mkt_raw < 0.62
-                    and draws_z_val > 0.80
-                    and dom_z_val < -0.30
-                    and disc_z_val < -0.60
+                from .sport_models import evaluate_soccer_gate
+
+                tier = evaluate_soccer_gate(
+                    league=lg.key,
+                    score= float(best_candidate["score"]),
+                    thresholds=thresholds,
+                    p_mkt=float(best_candidate.get("p_mkt") or 0.5),
+                    ev_pct=float(best_candidate.get("ev_pct") or 0.0),
+                    factors_tanh_z=best_candidate["factors_tanh_z"],
                 )
-                tier = "pass"
-                if is_stalemate_trap:
-                    tier = "pass"
-                elif sc >= thresholds["top_8pct"]:
-                    tier = "top_8pct"
-                elif sc >= thresholds["top_10pct"]:
-                    if not is_secondary_dom or sot_z_val >= 0.0:
-                        tier = "top_10pct"
-                elif sc >= thresholds["top_15pct"]:
-                    # Secondary domestic leagues have wider bookmaker vig (~6%); require sot_z >= 0.20 and positive EV at top_15pct
-                    if not is_secondary_dom or (sot_z_val >= 0.20 and ev_c_val > 0.0):
-                        tier = "top_15pct"
-                elif sc >= thresholds["top_25pct"]:
-                    # Restrict top_25pct to Big-5 leagues only (or secondary domestic with strong sot_z >= 0.40 & EV >= +2.0%)
-                    if not is_secondary_dom or (sot_z_val >= 0.40 and ev_c_val >= 2.0):
-                        tier = "top_25pct"
-                elif is_uefa and sot_z_val >= 0.0 and (sc >= 0.02 or dom_z_val > 0.20):
-                    tier = "uefa_edge"
                 best_candidate["tier"] = tier
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
@@ -2355,7 +2331,7 @@ def scan_upcoming_and_log_paper_trades(
         ko_p = str(r_pend["kickoff"])
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
-        elif lg_p in ("nba", "nhl", "nfl", "mlb") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
+        elif lg_p in ("nba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))

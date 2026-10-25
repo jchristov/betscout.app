@@ -478,7 +478,9 @@ def calendar_days(client: EspnClient, league: League, year: int) -> list[str]:
 
 def open_store(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=30000;")
     conn.executescript(SCHEMA)
     return conn
 

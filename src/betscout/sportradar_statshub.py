@@ -785,10 +785,14 @@ def scan_sportradar_european_sports(
                         "is_tipico": is_tipico_src,
                     })
 
-        # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form` + SQLite Elo
+        # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form` + SQLite Elo + Per-Sport Gate
+        from .sport_models import evaluate_european_sport_gate
+
         sport_cands.sort(key=lambda x: (1 if x["is_tipico"] else 0, x["p_mkt"]), reverse=True)
         lg_elo = (elo_by_lg or {}).get(sp_slug)
-        for cand in sport_cands[:max_picks_per_sport]:
+        for cand in sport_cands[: max_picks_per_sport * 3]:
+            if len([p for p in picks_out if p["sport"] == sp_slug]) >= max_picks_per_sport:
+                break
             mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
             t_forms = mf.get("teams") or {}
             h_f_list = (t_forms.get("home") or {}).get("form") or []
@@ -796,17 +800,23 @@ def scan_sportradar_european_sports(
             h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
             a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
             form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
-            # Veto if backed favorite has significantly worse rolling form than underdog
-            if len(h_f_list) >= 4 and len(a_f_list) >= 4 and form_diff_fav < -0.25:
-                continue
-            p_elo_fav = cand["p_mkt"]
+            p_elo_fav = 0.50
             if lg_elo is not None:
                 p_elo_h = float(lg_elo.p_home_win_or_draw_free(cand["home"], cand["away"]))
                 p_elo_fav = p_elo_h if cand["side"] == "H" else (1.0 - p_elo_h)
-            p_model = min(0.94, max(0.52, 0.82 * cand["p_mkt"] + 0.18 * p_elo_fav + 0.05 * form_diff_fav + (0.015 if cand["is_tipico"] else 0.0)))
-            if p_model < min_prob:
+            passed, p_model, ev_pct = evaluate_european_sport_gate(
+                sport_slug=sp_slug,
+                p_mkt=cand["p_mkt"],
+                p_elo_fav=p_elo_fav,
+                form_diff_fav=form_diff_fav,
+                best_odds=cand["best_odds"],
+                is_tipico=cand["is_tipico"],
+                n_form_home=len(h_f_list),
+                n_form_away=len(a_f_list),
+                min_prob=min_prob,
+            )
+            if not passed:
                 continue
-            ev_pct = round((p_model * cand["best_odds"] - 1.0) * 100.0, 2)
             picks_out.append({
                 "sport": sp_slug,
                 "league": sp_slug,

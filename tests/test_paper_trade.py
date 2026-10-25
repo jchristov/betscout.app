@@ -742,6 +742,72 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     load_dotenv(override=True)
 
 
+def test_per_sport_isolated_gates():
+    from betscout.sport_models import (
+        evaluate_european_sport_gate,
+        evaluate_nfl_gate,
+        evaluate_soccer_gate,
+        evaluate_tennis_gate,
+    )
+
+    thrs = {"top_8pct": 0.3661, "top_10pct": 0.3246, "top_15pct": 0.2565, "top_25pct": 0.1579}
+
+    # 1. Soccer: Toulouse vs Troyes stalemate-draw trap is vetoed ('pass')
+    assert (
+        evaluate_soccer_gate(
+            "fra.1",
+            0.344,
+            thrs,
+            0.5914,
+            1.5,
+            {"p_mkt": 0.908, "vig_neg": 0.286, "sot_d": 0.584, "discipline": -0.79, "h2h_adv": 0.941, "dom_rebound": -0.408, "recent_draws": 0.887},
+        )
+        == "pass"
+    )
+    # 2. Soccer: Sporting CP vs Académico de Viseu (por.1 secondary domestic with negative h2h_adv=-0.189) is vetoed ('pass') even at top_8pct score
+    assert (
+        evaluate_soccer_gate(
+            "por.1",
+            0.4572,
+            thrs,
+            0.7558,
+            -1.2,
+            {"p_mkt": 0.993, "vig_neg": -0.8, "sot_d": 0.924, "discipline": 0.889, "h2h_adv": -0.189, "dom_rebound": 0.944, "recent_draws": 0.438},
+        )
+        == "pass"
+    )
+    # 3. Soccer: Bayern Munich at Freiburg (ger.1) passes at top_10pct
+    assert (
+        evaluate_soccer_gate(
+            "ger.1",
+            0.3261,
+            thrs,
+            0.6886,
+            2.1,
+            {"p_mkt": 0.914, "vig_neg": -0.965, "sot_d": 0.934, "discipline": -0.459, "h2h_adv": 0.984, "dom_rebound": 0.437, "recent_draws": 0.438},
+        )
+        == "top_10pct"
+    )
+
+    # 4. Tennis: Samsonova vs Watson (game_win_pct_diff=-0.01, form_6m_diff=0.0) is vetoed by stale-form gate
+    t_ok, _, _, t_reason = evaluate_tennis_gate(0.80, 1.30, 3.50, game_win_pct_diff=-0.01, form_6m_diff=0.0)
+    assert t_ok is False and t_reason == "VETO_STALE_TENNIS_FORM"
+
+    # 5. NFL: Steelers (+69.2 yds, +1.22 ypp, comp=0.425) and Vikings (+68.7 yds, +1.20 ypp, comp=0.595) pass;
+    #    Texans (1.20 odds, +18 yds, -14.9pp Elo gap) and Jets (-11.4pp Elo gap) are vetoed
+    assert evaluate_nfl_gate(0.60, 0.593, 0.589, 0.425, 1.22, 69.2, 1.571) is True
+    assert evaluate_nfl_gate(0.72, 0.741, 0.690, 0.595, 1.20, 68.7, 1.360) is True
+    assert evaluate_nfl_gate(0.77, 0.804, 0.655, 0.503, 0.98, 18.0, 1.200) is False
+    assert evaluate_nfl_gate(0.64, 0.657, 0.543, 0.378, 1.08, 72.0, 1.420) is False
+
+    # 6. Table Tennis: <1.28 negative-EV chalk is vetoed; 1.35 favorite with +0.30 form diff & Elo edge passes
+    tt_bad, _, _ = evaluate_european_sport_gate("table_tennis", 0.78, 0.50, 0.0, 1.20, False, 5, 5)
+    tt_good, p_mod_tt, ev_tt = evaluate_european_sport_gate("table_tennis", 0.72, 0.62, 0.30, 1.36, True, 5, 5)
+    assert tt_bad is False
+    assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
+
+
+
 
 
 
