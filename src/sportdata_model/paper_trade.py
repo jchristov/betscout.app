@@ -788,9 +788,11 @@ def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str
     return {}
 
 
-def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str) -> dict[str, Any]:
+def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | None = None) -> dict[str, Any]:
     """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc, player headshots,
     true 5-match all-level ATP/WTA/Challenger form, and previous-match tournament/turnaround hours) for an upcoming tennis match."""
+    if not date_ymd:
+        date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,

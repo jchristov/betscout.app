@@ -112,6 +112,17 @@ def resolve_league(spec: str) -> League:
     raise ValueError(f"Unknown league '{spec}'. Use 'sport/league' (e.g. 'basketball/wnba') or a known key: {sorted(by_key)}")
 
 
+def fetch_json(url: str, timeout: int = 20) -> dict[str, Any]:
+    """Fetch JSON from an arbitrary URL without requiring a persistent cache directory."""
+    raw = subprocess.run(
+        ["curl", "-sS", "-L", "--fail", "--max-time", str(timeout), url],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return json.loads(raw)
+
+
 class EspnClient:
     """Fetches JSON via curl (system Python has a broken CA bundle) and caches to disk."""
 
