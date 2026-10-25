@@ -691,6 +691,24 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "pwaInstallBtn" in html_text and "triggerPwaInstall" in html_text
     assert "pwaUpdateToast" in html_text and "applyPwaUpdateNow" in html_text and "initPwaAndVersionWatcher" in html_text
 
+    # Test 3-second real-time match_timelinedelta parser (sets, games, point score & serving indicator)
+    from betscout.sportradar_statshub import fetch_live_match_timelinedelta
+    with patch("betscout.sportradar_statshub.get_daily_tipico_match_index", return_value=[
+        {"home": "Mpetshi Perricard, Giovanni", "away": "Kovacevic, Aleksandar", "tournament": "ATP Basel", "match_obj": {"_id": 75992888}}
+    ]), patch("betscout.sportradar_statshub.fetch_statshub_gismo", return_value={
+        "match": {
+            "_id": 75992888,
+            "status": {"_id": 8, "name": "1st set", "shortName": "S1"},
+            "result": {"home": 0, "away": 0, "winner": None},
+            "periods": {"p1": {"home": 6, "away": 5}},
+            "gamescore": {"home": 0, "away": 15, "service": "2"},
+        },
+        "events": [{"type": "score_change_tennis"}],
+    }):
+        td_live = fetch_live_match_timelinedelta("Giovanni Mpetshi Perricard", "Aleksandar Kovacevic", sport="tennis")
+        assert td_live["state"] == "in" and "6-5" in td_live["score_str"] and "Pt 0-15🎾" in td_live["score_str"]
+
+
 
 
 

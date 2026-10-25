@@ -733,8 +733,16 @@ def _strip_accents(s: str) -> str:
 
 
 def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str, Any]:
-    """Fallback live scoreboard & completed result lookup via SofaScore for ATP/WTA Qualifying matches
-    where ESPN's scoreboard API keeps `state == 'pre'` until the entire match finishes."""
+    """Live scoreboard, point-by-point `gamescore`, & completed result lookup via Sportradar's 3-second
+    `match_timelinedelta` stream (primary) with SofaScore fallback for ATP/WTA Qualifying matches."""
+    try:
+        from .sportradar_statshub import fetch_live_match_timelinedelta
+
+        sr_live = fetch_live_match_timelinedelta(player_1, player_2, sport="tennis")
+        if sr_live and sr_live.get("state") in ("in", "post"):
+            return sr_live
+    except Exception:
+        pass
     p1_last = _strip_accents(player_1.split()[-1])
     p2_last = _strip_accents(player_2.split()[-1])
     q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")

@@ -575,6 +575,46 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     }
 
 
+def _refresh_inplay_timelinedelta(db_path: Path) -> int:
+    """Fast 5-second delta poller for active in-play matches (`status = 'PENDING' AND is_live = 1`).
+    Queries Sportradar's 3-second `match_timelinedelta/{matchId}` stream so point-by-point tennis scores (`gamescore: 15-30`, server `🎾`)
+    and live soccer goals update in real time over the SSE `/api/stream` without waiting for the 90-second full scoreboard cycle."""
+    if not db_path.exists():
+        return 0
+    from .sportradar_statshub import fetch_live_match_timelinedelta
+
+    conn = sqlite3.connect(db_path, timeout=10.0)
+    conn.row_factory = sqlite3.Row
+    live_rows = [
+        dict(r)
+        for r in conn.execute("SELECT league, event_id, home, away, side, live_score FROM paper_trades WHERE status = 'PENDING' AND is_live = 1").fetchall()
+    ]
+    conn.close()
+    if not live_rows:
+        return 0
+
+    updated = 0
+    for r in live_rows:
+        lg = str(r["league"] or "").lower()
+        sp = "tennis" if lg in ("atp", "wta") else _league_to_sport_cat(lg)
+        delta = fetch_live_match_timelinedelta(r["home"], r["away"], sport=sp)
+        if not delta:
+            continue
+        new_sc = delta.get("score_str")
+        if new_sc and new_sc != r.get("live_score"):
+            h_sc = int(delta.get("home_score") or 0)
+            a_sc = int(delta.get("away_score") or 0)
+            c_up = sqlite3.connect(db_path, timeout=10.0)
+            c_up.execute(
+                "UPDATE paper_trades SET live_score = ? WHERE league = ? AND event_id = ?",
+                (new_sc, r["league"], r["event_id"]),
+            )
+            c_up.commit()
+            c_up.close()
+            updated += 1
+    return updated
+
+
 def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> threading.Thread:
     """Start a daemon background thread that periodically settles finished/in-play matches
     and evaluates T-60m starting XI gates for upcoming soccer fixtures."""
@@ -901,8 +941,13 @@ self.addEventListener('fetch', (event) => {{
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 try:
+                    tick_idx = 0
                     while True:
-                        # Fast DB snapshot every 15s (live ESPN settlement & Discord alerts are handled by the singleton background poller)
+                        if tick_idx % 1 == 0:
+                            try:
+                                _refresh_inplay_timelinedelta(db_path)
+                            except Exception:
+                                pass
                         snap = _build_live_snapshot(
                             rec_path,
                             db_path,
@@ -913,7 +958,8 @@ self.addEventListener('fetch', (event) => {{
                         msg = f"event: update\ndata: {json.dumps(snap)}\n\n"
                         self.wfile.write(msg.encode("utf-8"))
                         self.wfile.flush()
-                        time.sleep(15)
+                        tick_idx += 1
+                        time.sleep(6)
                 except (BrokenPipeError, ConnectionResetError, Exception):
                     return
 

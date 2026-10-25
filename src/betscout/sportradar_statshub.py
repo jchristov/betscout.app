@@ -740,6 +740,105 @@ def scan_sportradar_european_sports(
     return picks_out
 
 
+def fetch_live_match_timelinedelta(
+    home: str,
+    away: str,
+    sport: str = "tennis",
+    date_ymd: str | None = None,
+) -> dict[str, Any]:
+    """Query Sportradar's 3-second real-time `match_timelinedelta/{matchId}` stream for an ongoing or finished match.
+    Returns live sets/goals, period breakdown (`p1`..`p5`), current tennis point score (`gamescore`: `15-30`, server `1`/`2`),
+    live status (`1st set`, `2nd half`, `Ended`), and final winner (`H`/`A`/`D`) when completed."""
+    flat = get_daily_tipico_match_index(sport=sport, date_ymd=date_ymd)
+    matched_m = None
+    flipped = False
+    for entry in flat:
+        th, ta = entry["home"], entry["away"]
+        if _names_match(home, th) and _names_match(away, ta):
+            matched_m = entry["match_obj"]
+            flipped = False
+            break
+        if _names_match(home, ta) and _names_match(away, th):
+            matched_m = entry["match_obj"]
+            flipped = True
+            break
+    if not matched_m:
+        return {}
+
+    mid = matched_m.get("_id")
+    if not mid:
+        return {}
+    td = fetch_statshub_gismo("match_timelinedelta", str(mid), client_alias="sportradar", ttl_sec=3.0)
+    if not isinstance(td, dict) or not isinstance(td.get("match"), dict):
+        td = {"match": matched_m, "events": []}
+
+    m = td["match"]
+    st_obj = m.get("status") or {}
+    st_id = int(st_obj.get("_id") or 0)
+    st_name = str(st_obj.get("name") or st_obj.get("shortName") or "LIVE")
+    if st_id in (0, 60, 61, 70):  # not_started / postponed / delayed / cancelled
+        return {}
+
+    is_finished = st_id in (91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 110, 111, 120)
+    res_obj = m.get("result") or {}
+    raw_h = res_obj.get("away" if flipped else "home")
+    raw_a = res_obj.get("home" if flipped else "away")
+    h_main = int(raw_h) if raw_h is not None else 0
+    a_main = int(raw_a) if raw_a is not None else 0
+
+    periods = m.get("periods") or {}
+    period_strs: list[str] = []
+    if isinstance(periods, dict):
+        for pk in ("p1", "p2", "p3", "p4", "p5", "ft", "ap"):
+            p_val = periods.get(pk)
+            if isinstance(p_val, dict) and p_val.get("home") is not None and p_val.get("away") is not None:
+                if pk in ("ft", "ap") and sport == "soccer":
+                    continue
+                ph = int(p_val["away" if flipped else "home"])
+                pa = int(p_val["home" if flipped else "away"])
+                period_strs.append(f"{ph}-{pa}")
+
+    gs = m.get("gamescore") or {}
+    pt_str = ""
+    if not is_finished and isinstance(gs, dict) and (gs.get("home") is not None or gs.get("away") is not None):
+        g_h = gs.get("away" if flipped else "home", 0)
+        g_a = gs.get("home" if flipped else "away", 0)
+        srv = str(gs.get("service") or "")
+        srv_h = "🎾" if ((srv == "1" and not flipped) or (srv == "2" and flipped)) else ""
+        srv_a = "🎾" if ((srv == "2" and not flipped) or (srv == "1" and flipped)) else ""
+        if str(g_h) != "0" or str(g_a) != "0" or srv_h or srv_a:
+            pt_str = f" · Pt {srv_h}{g_h}-{g_a}{srv_a}"
+
+    if period_strs:
+        score_str = f"{h_main}-{a_main} ({', '.join(period_strs)}{pt_str})"
+    else:
+        score_str = f"{h_main}-{a_main} ({st_name})" if not is_finished else f"{h_main}-{a_main}"
+
+    outcome: str | None = None
+    if is_finished:
+        win_raw = res_obj.get("winner")
+        if win_raw == "home":
+            outcome = "A" if flipped else "H"
+        elif win_raw == "away":
+            outcome = "H" if flipped else "A"
+        elif h_main != a_main:
+            outcome = "H" if h_main > a_main else "A"
+        elif sport == "soccer":
+            outcome = "D"
+
+    return {
+        "sr_match_id": mid,
+        "state": "post" if is_finished else "in",
+        "status_desc": st_name,
+        "score_str": score_str,
+        "home_score": h_main,
+        "away_score": a_main,
+        "periods": period_strs,
+        "point_score": pt_str.strip(" ·"),
+        "outcome": outcome,
+    }
+
+
 def lookup_statshub_match_intel(
     home: str,
     away: str,

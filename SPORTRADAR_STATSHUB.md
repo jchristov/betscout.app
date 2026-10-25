@@ -130,7 +130,9 @@ All endpoints below are callable directly via:
 ### C. Match Intelligence, Lineups, Injuries, Form & Head-to-Head
 | Endpoint | Parameters | Description |
 | :--- | :--- | :--- |
-| **`match_info_statshub`** | `{matchId}` | Full match metadata, stadium, attendance, managers, weather, and coverage flags |
+| **`match_timelinedelta`** | `{matchId}` | **Real-Time 3-Second Live Score & Point-by-Point Delta Stream (`_maxage=3`):**<br>• `match.result` — Current sets/goals won (`home`, `away`, `winner`)<br>• `match.periods` — Set/period scores (`p1`..`p5`, `ft`)<br>• `match.gamescore` — Live tennis point score (`0`, `15`, `30`, `40`, `A`) and server (`service: "1" \| "2"`)<br>• `events` — Rolling delta array of the latest point/goal/card events (`score_change_tennis`, `service_taken`, `goal`) |
+| **`event_get`** | `{sportId}` | Global 10-second live event feed across all ongoing matches in `sportId` (`_maxage=10`) |
+| **`match_info_statshub`** | `{matchId}` | Full match metadata, stadium, attendance, managers, weather, and coverage flags (`_maxage=10`) |
 | **`match_squads`** | `{matchId}` | Confirmed starting XI (`startinglineup`), `substitutes`, and `manager` for both teams |
 | **`stats_season_injuries`** | `{seasonId}` | **Official League-Wide Missing / Injured / Suspended Players** (`player.name`, `player.position.shortname`, `status.name`, `status.start`, `status.end`, `uniqueteam._id`) |
 | **`stats_match_form`** | `{matchId}` | Rolling W/D/L form sequence for both teams entering the match |
