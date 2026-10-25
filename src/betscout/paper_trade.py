@@ -1612,6 +1612,20 @@ def scan_upcoming_other_sports(
                 if lg == "nba":
                     if p_elo < (p_mkt - 0.02) or rest_for_pick < 0.0 or sot_f <= 0.0:
                         continue
+                # 3. NFL Trench-Dominance, Efficiency & Elo Confirmation Gate:
+                #    - Require strong composite score (comp_score >= 0.35), Yards-Per-Play edge (sot_f >= 0.80),
+                #      Total-Yards edge (vol_f >= 60.0 yds/g), Elo confirmation within 8pp of market (p_elo >= p_mkt - 0.08),
+                #      and odds in the 1.25–1.75 sweet spot (avoids negative-EV <1.25 chalk traps & under-performing road/home favorites)
+                if lg == "nfl":
+                    if (
+                        comp_score < 0.35
+                        or sot_f < 0.80
+                        or vol_f < 60.0
+                        or p_elo < (p_mkt - 0.08)
+                        or odds_pick < 1.25
+                        or odds_pick > 1.75
+                    ):
+                        continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(
                     summary, home, away, side, decision_backend=decision_backend
                 )
@@ -2143,11 +2157,26 @@ def scan_upcoming_and_log_paper_trades(
                 sc = best_candidate["score"]
                 sot_z_val = float(best_candidate["factors_tanh_z"].get("sot_d", 0.0))
                 dom_z_val = float(best_candidate["factors_tanh_z"].get("dom_rebound", 0.0))
+                disc_z_val = float(best_candidate["factors_tanh_z"].get("discipline", 0.0))
+                draws_z_val = float(best_candidate["factors_tanh_z"].get("recent_draws", 0.0))
+                p_mkt_raw = float(best_candidate.get("p_mkt") or 0.5)
                 ev_c_val = float(best_candidate.get("ev_pct") or 0.0)
                 is_uefa = lg.key.startswith("uefa.") or lg.key.startswith("fifa.")
                 is_secondary_dom = lg.key in ("ned.1", "por.1", "eng.2", "aut.1")
+                # Stalemate-Draw & Foul-Trouble Veto Gate:
+                # When a sub-62% favorite has extreme recent draw propensity (recent_draws_z > 0.80),
+                # negative dominance rebound (dom_rebound_z < -0.30), and poor foul discipline (discipline_z < -0.60),
+                # 0-0 / 1-1 stalemates are significantly elevated (e.g. Toulouse 0-0 Troyes).
+                is_stalemate_trap = (
+                    p_mkt_raw < 0.62
+                    and draws_z_val > 0.80
+                    and dom_z_val < -0.30
+                    and disc_z_val < -0.60
+                )
                 tier = "pass"
-                if sc >= thresholds["top_8pct"]:
+                if is_stalemate_trap:
+                    tier = "pass"
+                elif sc >= thresholds["top_8pct"]:
                     tier = "top_8pct"
                 elif sc >= thresholds["top_10pct"]:
                     if not is_secondary_dom or sot_z_val >= 0.0:
