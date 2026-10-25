@@ -33,9 +33,15 @@ SPORT_EMOJIS: dict[str, str] = {
     "soccer": "⚽",
     "tennis": "🎾",
     "basketball": "🏀",
+    "volleyball": "🏐",
     "hockey": "🏒",
     "football": "🏈",
     "baseball": "⚾",
+    "handball": "🤾",
+    "darts": "🎯",
+    "table_tennis": "🏓",
+    "snooker": "🎱",
+    "mma": "🥊",
 }
 
 

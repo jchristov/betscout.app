@@ -2044,7 +2044,7 @@ def generate_dashboard_html(
       <div style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
         <div style="font-weight:700; color:var(--amber); margin-bottom:4px;">💬 Global &amp; Per-Sport Discord Webhooks (Env Vars + Optional UI Overrides)</div>
         <div class="muted" style="margin-bottom:10px;">
-          Configure per-sport webhooks in <code>.env</code> (<code>DISCORD_WEBHOOK_URL_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_VOLLEYBALL</code>, <code>DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>, <code>DISCORD_WEBHOOK_URL_HANDBALL</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
+          Configure per-sport webhooks in <code>.env</code> (<code>DISCORD_WEBHOOK_URL_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_VOLLEYBALL</code>, <code>DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>, <code>DISCORD_WEBHOOK_URL_HANDBALL</code>, <code>DISCORD_WEBHOOK_URL_TABLE_TENNIS</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
         </div>
         <div style="display:grid; grid-template-columns:1fr; gap:7px;">
           <div style="display:flex; gap:8px; align-items:center;">
@@ -2082,6 +2082,10 @@ def generate_dashboard_html(
           <div style="display:flex; gap:8px; align-items:center;">
             <span style="min-width:175px;">🤾 <b>Handball</b> (<code>..._HANDBALL</code>):</span>
             <input id="cfgWhHandball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🏓 <b>Table Tennis</b> (<code>..._TABLE_TENNIS</code>):</span>
+            <input id="cfgWhTableTennis" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
         </div>
       </div>
@@ -3790,12 +3794,18 @@ def generate_dashboard_html(
       volleyball: '🏐',
       hockey: '🏒',
       football: '🏈',
-      baseball: '⚾'
+      baseball: '⚾',
+      handball: '🤾',
+      darts: '🎯',
+      table_tennis: '🏓'
     }};
 
     function getSportEmoji(catOrLeague) {{
       const low = String(catOrLeague || '').toLowerCase();
       if (SPORT_EMOJIS[low]) return SPORT_EMOJIS[low];
+      if (low.includes('table tennis') || low.includes('table_tennis')) return '🏓';
+      if (low.includes('handball')) return '🤾';
+      if (low.includes('darts')) return '🎯';
       if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return '🎾';
       if (low.includes('volleyball')) return '🏐';
       if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return '🏀';
@@ -4381,7 +4391,8 @@ def generate_dashboard_html(
             basketball: 'cfgWhBasketball',
             football: 'cfgWhFootball',
             baseball: 'cfgWhBaseball',
-            handball: 'cfgWhHandball'
+            handball: 'cfgWhHandball',
+            table_tennis: 'cfgWhTableTennis'
           }};
           Object.keys(mapIds).forEach(sp => {{
             const inp = document.getElementById(mapIds[sp]);
@@ -4436,7 +4447,8 @@ def generate_dashboard_html(
         basketball: 'cfgWhBasketball',
         football: 'cfgWhFootball',
         baseball: 'cfgWhBaseball',
-        handball: 'cfgWhHandball'
+        handball: 'cfgWhHandball',
+        table_tennis: 'cfgWhTableTennis'
       }};
       Object.keys(whFields).forEach(k => {{
         const v = (document.getElementById(whFields[k])?.value || '').trim();
