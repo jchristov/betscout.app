@@ -870,13 +870,6 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                         csv_export_path=best_csv_path,
                         json_export_path=best_json_path,
                     )
-                    app_pub = root_dir.parent / "app" / "public" / "model"
-                    if (root_dir.parent / "app" / "public").exists():
-                        import shutil
-                        app_pub.mkdir(parents=True, exist_ok=True)
-                        for sp in (best_json_path, best_csv_path, rec_path, dash_path):
-                            if sp.exists():
-                                shutil.copy2(sp, app_pub / sp.name)
                 finally:
                     _PIPELINE_STATUS["running"] = False
                     _PIPELINE_STATUS["step"] = "Idle"
