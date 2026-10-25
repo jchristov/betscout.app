@@ -1863,17 +1863,21 @@ def generate_dashboard_html(
         </div>
       </div>
     </div>
-    <div class="btn-group">
-      <span class="stream-pill" title="Server-Sent Events (SSE) Live Stream Status">
+    <div class="btn-group" style="align-items:center;">
+      <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Data Synchronization &amp; Pipeline Controls">
+        <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
+        <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
+        <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
+      </div>
+      <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Notifications, Social Sharing &amp; App Preferences">
+        <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
+        <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
+        <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
+      </div>
+      <span class="stream-pill" title="Real-Time Server-Sent Events (SSE) Connection Status">
         <span id="streamDot" class="stream-dot"></span>
-        <span id="streamStatusText">Live Stream: Connecting...</span>
+        <span id="streamStatusText">Connecting...</span>
       </span>
-      <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
-      <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle</button>
-      <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live</button>
-      <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Full Pipeline</button>
-      <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share Picks</button>
-      <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
     </div>
   </header>
 
@@ -2005,42 +2009,44 @@ def generate_dashboard_html(
 
   <div id="telegramModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
     <div class="modal-card" style="max-width:840px; border-color:rgba(56, 189, 248, 0.55); padding:20px 22px;">
-      <div class="card-head" style="padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--border);">
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div>
-            <b style="font-size:15.5px; color:var(--text);">📣 Share Pick &amp; Notification Publisher</b>
-            <div class="muted" style="margin-top:2px;">Publish formatted picks + high-resolution 1080×580 PNG Pick Card to your channels</div>
+      <div class="card-head" style="align-items:flex-start; padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--border);">
+        <div>
+          <b style="font-size:15.5px; color:var(--text);">📣 Share Pick &amp; Notification Publisher</b>
+          <div class="muted" style="margin-top:2px;">Publish formatted picks and visual pick cards to your notification channels</div>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px;">
+            <span id="discordEnvBadge" class="pill badge-disabled" style="margin:0;">● Discord: Checking...</span>
+            <span id="tgEnvBadge" class="pill badge-disabled" style="margin:0;">● Telegram: Disabled</span>
           </div>
-          <span id="discordEnvBadge" class="pill badge-disabled" style="margin-left:4px;">● Discord: Checking...</span>
-          <span id="tgEnvBadge" class="pill badge-disabled">● Telegram: Disabled</span>
         </div>
-        <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">✕ Close</button>
+        <button class="btn-export" type="button" style="flex-shrink:0;" onclick="document.getElementById('telegramModal').style.display='none'">✕ Close</button>
       </div>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; align-items:stretch; margin-bottom:14px;">
-        <div id="pngCardPreviewWrap" style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:10px; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-            <span style="font-weight:700; color:var(--accent); font-size:12px;">🖼️ 1080×580 PNG Pick Card</span>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; min-height:26px; gap:8px;">
+            <span style="font-weight:700; color:var(--text); font-size:12px;">🖼️ Visual Pick Card Preview</span>
             <div style="display:flex; align-items:center; gap:8px;">
               <label style="display:inline-flex; align-items:center; gap:5px; font-size:11px; cursor:pointer; color:var(--text);" title="Attach generated PNG Pick Card / Slate Graphic to notifications">
-                <input id="attachPngCardChk" type="checkbox" checked> Attach PNG
+                <input id="attachPngCardChk" type="checkbox" checked> Attach Image
               </label>
               <button class="btn-export" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="downloadPickCardPng()" title="Download PNG Pick Card image">⬇ Save PNG</button>
             </div>
           </div>
-          <canvas id="pickCardCanvas" width="1080" height="580" style="width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.4); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
-          <div class="muted" style="font-size:11px;">Automatically routes to both the <b>General Channel</b> and any configured <b>Per-Sport Channel</b>.</div>
+          <div id="pngCardPreviewWrap" style="flex:1; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+            <canvas id="pickCardCanvas" width="1080" height="580" style="width:100%; height:auto; border-radius:6px; border:1px solid rgba(56,189,248,0.4); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
+            <div class="muted" style="font-size:11px;">Automatically routes to both the <b>General Channel</b> and any configured <b>Per-Sport Channel</b>.</div>
+          </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; min-height:26px; gap:8px;">
             <span style="font-weight:700; color:var(--text); font-size:12px;">📝 Notification Message Payload</span>
             <div style="display:flex; gap:6px;">
               <button class="btn-export js-action-btn" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="openTelegramPanel()" title="Switch to full daily slate digest">🔄 Full Slate</button>
               <button class="btn-export" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="copyTelegramPreview()" title="Copy Markdown text to clipboard">📋 Copy Text</button>
             </div>
           </div>
-          <textarea id="tgMessagePreview" rows="10" style="flex:1; width:100%; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px; line-height:1.45; resize:vertical;"></textarea>
+          <textarea id="tgMessagePreview" rows="10" style="flex:1; width:100%; min-height:228px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px; line-height:1.45; resize:vertical;"></textarea>
         </div>
       </div>
 
@@ -4228,14 +4234,14 @@ def generate_dashboard_html(
       const dot = document.getElementById('streamDot');
       const txt = document.getElementById('streamStatusText');
       if (!window.location.protocol.startsWith('http') || typeof EventSource === 'undefined') {{
-        if (txt) txt.textContent = 'Static File Mode (Run scripts/webapp.py for SSE Stream)';
+        if (txt) txt.textContent = 'Static Mode';
         return;
       }}
       fetch('/api/social/status').then(r => r.json()).then(updateSocialEnvBadges).catch(() => {{}});
       const es = new EventSource('/api/stream');
       es.addEventListener('update', ev => {{
         if (dot) dot.classList.add('online');
-        if (txt) txt.textContent = 'Live SSE Stream: Connected';
+        if (txt) txt.textContent = 'Connected';
         try {{
           const snap = JSON.parse(ev.data);
           updateSocialEnvBadges(snap);
@@ -4248,7 +4254,7 @@ def generate_dashboard_html(
       }});
       es.onerror = () => {{
         if (dot) dot.classList.remove('online');
-        if (txt) txt.textContent = 'Live Stream: Reconnecting...';
+        if (txt) txt.textContent = 'Reconnecting...';
       }};
     }}
 
