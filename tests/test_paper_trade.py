@@ -690,6 +690,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert 'rel="manifest" href="/manifest.webmanifest"' in html_text
     assert "pwaInstallBtn" in html_text and "triggerPwaInstall" in html_text
     assert "pwaUpdateToast" in html_text and "applyPwaUpdateNow" in html_text and "initPwaAndVersionWatcher" in html_text
+    assert "cfgDefaultSortSelect" in html_text and "applyGlobalDefaultSort" in html_text
+    assert "event-stream-dot" in html_text and "triggerStreamPulseDots" in html_text
+
 
     # Test 3-second real-time match_timelinedelta parser (sets, games, point score & serving indicator)
     from betscout.sportradar_statshub import fetch_live_match_timelinedelta

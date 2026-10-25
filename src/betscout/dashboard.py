@@ -161,6 +161,7 @@ def _matchup_html(
     lg_js = html.escape(json.dumps(league))
     return (
         f'<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector({h_js}, {a_js}, {lg_js})">'
+        f'<span class="event-stream-dot" title="Real-Time Stream Active"></span>'
         f'{h_img}<span>{html.escape(home)}</span>'
         f'<span class="muted">vs</span>'
         f'{a_img}<span>{html.escape(away)}</span>'
@@ -766,7 +767,7 @@ def generate_dashboard_html(
         p_pick_logo = _img_tag(p.get("home_logo") if p["side"] == "H" else p.get("away_logo"), pick_team, "team-logo")
         soccer_cards.append(
             f"""
-            <div class="card {'card-veto' if is_veto else ''}" data-odds="{p['best_odds']:.3f}" data-sport-cat="soccer" data-day="{html.escape(p_day_loc)}" data-search="{html.escape((p['home'] + ' ' + p['away'] + ' ' + lg_label + ' ' + p['league']).lower())}">
+            <div class="card {'card-veto' if is_veto else ''}" data-kickoff="{html.escape(p['kickoff'])}" data-odds="{p['best_odds']:.3f}" data-sport-cat="soccer" data-day="{html.escape(p_day_loc)}" data-search="{html.escape((p['home'] + ' ' + p['away'] + ' ' + lg_label + ' ' + p['league']).lower())}">
               <div class="card-head">
                 <div>
                   <span class="pill">{p_comp_logo}{html.escape(lg_label)}</span>
@@ -951,7 +952,7 @@ def generate_dashboard_html(
             d_sh_time = html.escape(json.dumps(_format_local_time(l1["kickoff"], time_valid=l1.get("time_valid"))))
             d_cards.append(
                 f"""
-                <div class="card" data-day="{html.escape(d1_loc)}">
+                <div class="card" data-kickoff="{html.escape(l1['kickoff'])}" data-odds="{float(d['combined_odds']):.3f}" data-day="{html.escape(d1_loc)}">
                   <div class="card-head">
                     <div><span class="pill badge-bet">COMBO #{idx_d}</span> <span class="pill tier">{html.escape(c_lbl)}</span> <span class="pill">{html.escape(l1['league'].upper())} + {html.escape(l2['league'].upper())}</span>{c_st_pill}</div>
                     <div class="score">Odds: <b class="num-pos">{d['combined_odds']:.2f}</b> · WinProb: <b class="num-pos">{d['combined_prob']*100:.1f}%</b> (Fair {d['min_fair_odds']:.2f}) <button type="button" class="btn-mini" title="Share this 2-Leg Combo + PNG Card to Discord / Telegram" onclick="shareSinglePick({d_sh_match}, {d_sh_pick}, {d_sh_odds}, {d_sh_time}, 'all')">📣</button></div>
@@ -1784,8 +1785,15 @@ def generate_dashboard_html(
   .btn-mini {{ background: #0f1623; color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-size: 11px; cursor: pointer; margin-left: 4px; }}
   .btn-mini:hover {{ border-color: var(--accent); background: #1e293b; }}
   .stream-pill {{ display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #0f1623; border: 1px solid var(--border); color: var(--muted); }}
-  .stream-dot {{ width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; }}
+  .stream-dot {{ width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; transition: transform 0.2s ease, box-shadow 0.2s ease; }}
   .stream-dot.online {{ background: var(--green); box-shadow: 0 0 8px var(--green); }}
+  @keyframes bsStreamFlash {{
+    0% {{ transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.85); }}
+    45% {{ transform: scale(1.45); box-shadow: 0 0 12px 5px rgba(34, 197, 94, 0.55); }}
+    100% {{ transform: scale(1); box-shadow: 0 0 4px 0 rgba(34, 197, 94, 0.25); }}
+  }}
+  .event-stream-dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; vertical-align: middle; margin-right: 5px; opacity: 0.72; box-shadow: 0 0 5px var(--green); transition: opacity 0.25s ease; }}
+  .event-stream-dot.is-pulsing, .stream-dot.is-pulsing {{ opacity: 1; animation: bsStreamFlash 1.15s ease-out; }}
   .search-input {{ background: #0b0f17; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; min-width: 210px; }}
   .toast-banner {{ display: none; background: rgba(56, 189, 248, 0.14); border: 1px solid var(--accent); color: var(--text); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; font-size: 13px; justify-content: space-between; align-items: center; }}
   .progress-wrap {{ display: none; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; align-items: center; gap: 12px; font-size: 13px; }}
@@ -1978,6 +1986,14 @@ def generate_dashboard_html(
             <span>Soft Min-Odds Threshold:</span>
             <input id="cfgMinOddsInput" type="number" min="1.05" max="2.50" step="0.05" value="1.10" style="width:95px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
           </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Default Global Sorting:</span>
+            <select id="cfgDefaultSortSelect" style="background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+              <option value="time" selected>🕒 By Kickoff Time (Soonest First)</option>
+              <option value="odds_asc">🎯 By Odds (Lowest / Safest First)</option>
+              <option value="odds_desc">🚀 By Odds (Highest Multiplier First)</option>
+            </select>
+          </div>
         </div>
 
         <div style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">
@@ -2144,6 +2160,12 @@ def generate_dashboard_html(
     <div class="sport-btn-group">
       <button type="button" class="sport-btn active" id="tzBtnLocal" onclick="applyTimezoneMode('local')">Local ({DEFAULT_LOCAL_TZ})</button>
       <button type="button" class="sport-btn" id="tzBtnUtc" onclick="applyTimezoneMode('utc')">UTC</button>
+    </div>
+    <b>Sort By:</b>
+    <div class="sport-btn-group">
+      <button type="button" class="sport-btn active" id="sortBtnTime" onclick="applyGlobalDefaultSort('time')" title="Sort all tables &amp; cards by Kickoff Time (soonest first)">🕒 Kickoff Time</button>
+      <button type="button" class="sport-btn" id="sortBtnOddsAsc" onclick="applyGlobalDefaultSort('odds_asc')" title="Sort all tables &amp; cards by Odds (lowest / safest first)">🎯 Odds ▲</button>
+      <button type="button" class="sport-btn" id="sortBtnOddsDesc" onclick="applyGlobalDefaultSort('odds_desc')" title="Sort all tables &amp; cards by Odds (highest return first)">🚀 Odds ▼</button>
     </div>
     <b>Bankroll (€):</b>
     <input id="bankrollInput" type="number" min="50" max="1000000" step="50" value="1000" oninput="applyBankrollCalculator(this.value)" style="width:82px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700;">
@@ -2492,6 +2514,68 @@ def generate_dashboard_html(
     let currentDaySet = null;
     let currentSearchQuery = '';
     let currentTzMode = 'local';
+    let currentDefaultSort = 'time';
+
+    function triggerStreamPulseDots() {{
+      const hdrDot = document.getElementById('streamDot');
+      if (hdrDot) {{
+        hdrDot.classList.remove('is-pulsing');
+        void hdrDot.offsetWidth;
+        hdrDot.classList.add('is-pulsing');
+      }}
+      document.querySelectorAll('.event-stream-dot').forEach(dot => {{
+        dot.classList.remove('is-pulsing');
+        void dot.offsetWidth;
+        dot.classList.add('is-pulsing');
+      }});
+    }}
+
+    function applyGlobalDefaultSort(mode) {{
+      currentDefaultSort = (mode === 'odds_asc' || mode === 'odds_desc' || mode === 'odds') ? (mode === 'odds' ? 'odds_asc' : mode) : 'time';
+      try {{ localStorage.setItem('vp_default_sort', currentDefaultSort); }} catch (_) {{}}
+      document.getElementById('sortBtnTime')?.classList.toggle('active', currentDefaultSort === 'time');
+      document.getElementById('sortBtnOddsAsc')?.classList.toggle('active', currentDefaultSort === 'odds_asc');
+      document.getElementById('sortBtnOddsDesc')?.classList.toggle('active', currentDefaultSort === 'odds_desc');
+      const cfgSel = document.getElementById('cfgDefaultSortSelect');
+      if (cfgSel) cfgSel.value = currentDefaultSort;
+
+      const isOdds = currentDefaultSort.startsWith('odds');
+      const wantAsc = currentDefaultSort !== 'odds_desc';
+
+      // 1. Sort all sortable tables that have Kickoff or Odds columns (skipping summary bySport / byTier tables)
+      document.querySelectorAll('table.sortable-table').forEach(tbl => {{
+        if (tbl.id === 'bySportTable' || tbl.id === 'byTierTable') return;
+        const ths = Array.from(tbl.querySelectorAll('thead th'));
+        let targetTh = null;
+        if (isOdds) {{
+          targetTh = ths.find(th => /odds/i.test(th.textContent || '') && !/fair/i.test(th.textContent || ''))
+            || ths.find(th => /odds/i.test(th.textContent || ''));
+        }} else {{
+          targetTh = ths.find(th => /kickoff/i.test(th.textContent || ''));
+        }}
+        if (!targetTh) return;
+        targetTh.classList.remove('sort-asc', 'sort-desc');
+        if (!wantAsc) targetTh.classList.add('sort-asc');
+        sortTable(targetTh);
+      }});
+
+      // 2. Sort Football Pick Cards & 2-Leg Combo Cards
+      document.querySelectorAll('.cards').forEach(grid => {{
+        const cards = Array.from(grid.children).filter(el => el.classList.contains('card') && (el.hasAttribute('data-kickoff') || el.hasAttribute('data-odds')));
+        if (cards.length <= 1) return;
+        cards.sort((ca, cb) => {{
+          if (isOdds) {{
+            const oa = parseFloat(ca.getAttribute('data-odds') || '0') || 0;
+            const ob = parseFloat(cb.getAttribute('data-odds') || '0') || 0;
+            return wantAsc ? (oa - ob) : (ob - oa);
+          }}
+          const ka = ca.getAttribute('data-kickoff') || '';
+          const kb = cb.getAttribute('data-kickoff') || '';
+          return ka.localeCompare(kb);
+        }});
+        cards.forEach(c => grid.appendChild(c));
+      }});
+    }}
 
     function sortTable(thEl) {{
       const table = thEl?.closest('table');
@@ -3118,6 +3202,8 @@ def generate_dashboard_html(
         if (savedTz === 'utc' || savedTz === 'local') {{
           applyTimezoneMode(savedTz);
         }}
+        const savedSort = localStorage.getItem('vp_default_sort') || 'time';
+        applyGlobalDefaultSort(savedSort);
         const savedInplay = localStorage.getItem('vp_inplay_alerts_enabled');
         if (savedInplay !== null) {{
           renderInplayAlertsBtn(savedInplay === '1');
@@ -3919,7 +4005,7 @@ def generate_dashboard_html(
         const hArg = escHtml(JSON.stringify(tr.home || ''));
         const aArg = escHtml(JSON.stringify(tr.away || ''));
         const lgArg = escHtml(JSON.stringify(tr.league || ''));
-        const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
+        const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')"><span class="event-stream-dot is-pulsing" title="Real-Time Stream Active"></span>' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
         const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
@@ -3999,6 +4085,8 @@ def generate_dashboard_html(
       if (sTbody && settledRows.length) sTbody.innerHTML = settledRows.join('');
       if (lTbody) lTbody.innerHTML = liveRows.length ? liveRows.join('') : '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>';
       if (pTbody && pendingRows.length) pTbody.innerHTML = pendingRows.join('');
+      if (typeof applyGlobalDefaultSort === 'function') applyGlobalDefaultSort(currentDefaultSort || 'time');
+      if (typeof triggerStreamPulseDots === 'function') triggerStreamPulseDots();
     }}
 
     let isActionBusy = false;
@@ -4157,10 +4245,12 @@ def generate_dashboard_html(
       const budVal = document.getElementById('betAmountInput')?.value || s.default_bet_budget_eur || 100;
       const riskVal = document.getElementById('betRiskProfileSelect')?.value || s.default_risk_mode || 'balanced';
       const minOddsVal = document.getElementById('minOddsSlider')?.value || s.min_odds || 1.10;
+      const defSortVal = currentDefaultSort || s.default_sort || 'time';
       if (document.getElementById('cfgBankrollInput')) document.getElementById('cfgBankrollInput').value = String(bankVal);
       if (document.getElementById('cfgBetBudgetInput')) document.getElementById('cfgBetBudgetInput').value = String(budVal);
       if (document.getElementById('cfgRiskModeSelect')) document.getElementById('cfgRiskModeSelect').value = String(riskVal);
       if (document.getElementById('cfgMinOddsInput')) document.getElementById('cfgMinOddsInput').value = String(minOddsVal);
+      if (document.getElementById('cfgDefaultSortSelect')) document.getElementById('cfgDefaultSortSelect').value = String(defSortVal);
       if (document.getElementById('cfgMispricingEdgeInput')) document.getElementById('cfgMispricingEdgeInput').value = String(s.mispricing_min_edge_pp ?? 2.0);
       if (document.getElementById('cfgMispricingEvInput')) document.getElementById('cfgMispricingEvInput').value = String(s.mispricing_min_ev_pct ?? 2.0);
       if (document.getElementById('cfgInplayAlertsChk')) document.getElementById('cfgInplayAlertsChk').checked = Boolean(currentInplayAlertsEnabled);
@@ -4173,6 +4263,7 @@ def generate_dashboard_html(
       const budVal = parseFloat(document.getElementById('cfgBetBudgetInput')?.value || '100') || 100;
       const riskVal = document.getElementById('cfgRiskModeSelect')?.value || 'balanced';
       const minOddsVal = parseFloat(document.getElementById('cfgMinOddsInput')?.value || '1.10') || 1.10;
+      const defSortVal = document.getElementById('cfgDefaultSortSelect')?.value || 'time';
       const mpEdgeVal = parseFloat(document.getElementById('cfgMispricingEdgeInput')?.value || '2.0') || 2.0;
       const mpEvVal = parseFloat(document.getElementById('cfgMispricingEvInput')?.value || '2.0') || 2.0;
       const inplayChk = Boolean(document.getElementById('cfgInplayAlertsChk')?.checked);
@@ -4206,6 +4297,7 @@ def generate_dashboard_html(
         document.getElementById('minOddsSlider').value = String(minOddsVal);
         applyOddsFilter(minOddsVal);
       }}
+      applyGlobalDefaultSort(defSortVal);
       renderInplayAlertsBtn(inplayChk);
       buildSmartBetPlan();
 
@@ -4213,6 +4305,7 @@ def generate_dashboard_html(
         bankroll_eur: bankVal,
         default_bet_budget_eur: budVal,
         default_risk_mode: riskVal,
+        default_sort: defSortVal,
         min_odds: minOddsVal,
         mispricing_min_edge_pp: mpEdgeVal,
         mispricing_min_ev_pct: mpEvVal,
