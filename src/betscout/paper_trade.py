@@ -1213,7 +1213,16 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                             else:
                                 l_pnl = -1.0
                             mom_json = (
-                                json.dumps(_evaluate_inplay_soccer_momentum(sd, side, hs, as_, st_det))
+                                json.dumps(
+                                    _evaluate_inplay_soccer_momentum(
+                                        sd,
+                                        side,
+                                        hs,
+                                        as_,
+                                        st_det,
+                                        prev_mom_json=str(row["live_momentum_json"] or ""),
+                                    )
+                                )
                                 if sp == "soccer"
                                 else None
                             )
@@ -2572,9 +2581,14 @@ def _evaluate_inplay_soccer_momentum(
     hs_live: float | None,
     as_live: float | None,
     live_status_desc: str,
+    prev_mom_json: str = "",
 ) -> dict[str, Any]:
     """Evaluate Live In-Play Momentum & Halftime / Second-Half Dominance Rebound for an in-play ('in') soccer match.
     Checks live boxscore Shots on Target (SoT), Total Shots, Possession %, and Corners from the ESPN summary."""
+    try:
+        prev_mom = json.loads(prev_mom_json or "{}")
+    except Exception:
+        prev_mom = {}
     det = _extract_soccer_details("live", "0", "", summary)
     h_sot = float(det[26] or 0.0)
     a_sot = float(det[27] or 0.0)
@@ -2608,7 +2622,7 @@ def _evaluate_inplay_soccer_momentum(
     else:
         signal = "IN_PLAY_NEUTRAL"
 
-    return {
+    out: dict[str, Any] = {
         "signal": signal,
         "is_rebound_edge": is_rebound_edge,
         "status_detail": live_status_desc,
@@ -2620,6 +2634,13 @@ def _evaluate_inplay_soccer_momentum(
         "corners_diff": int(co_diff),
         "poss_pct": round(poss_pick, 1),
     }
+    if prev_mom.get("notified_live_edge"):
+        out["notified_live_edge"] = True
+    if prev_mom.get("goal_timing_badge"):
+        out["goal_timing_badge"] = prev_mom["goal_timing_badge"]
+    if prev_mom.get("goal_timing_signal"):
+        out["goal_timing_signal"] = prev_mom["goal_timing_signal"]
+    return out
 
 
 def _evaluate_inplay_tennis_momentum(

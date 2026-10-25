@@ -556,8 +556,13 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     conn_rb.commit()
     conn_rb.close()
 
-    rb_res = notify_inplay_rebound_edges_to_discord(db, dry_run=True)
+    rb_res = notify_inplay_rebound_edges_to_discord(db, dry_run=True, global_enabled=True)
     assert rb_res["ok"] is True and rb_res["notified_count"] == 1
+    # Also verify that _evaluate_inplay_soccer_momentum preserves notified_live_edge across subsequent polls!
+    soc_mom_after = _evaluate_inplay_soccer_momentum(
+        fake_live_summary, "H", 0, 0, "HT", prev_mom_json='{"notified_live_edge": true}'
+    )
+    assert soc_mom_after.get("notified_live_edge") is True
     assert "smartBetPlannerSection" in html_text and "buildSmartBetPlan" in html_text
     assert "custom-bet-chk" in html_text and "recalcModalDutching" in html_text
 

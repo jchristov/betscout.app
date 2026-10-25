@@ -717,16 +717,20 @@ def notify_new_settlements_to_discord(
         return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
 
 
+_INPLAY_NOTIFIED_MEMORY: set[str] = set()
+
+
 def notify_inplay_rebound_edges_to_discord(
     db_path: Path,
     webhook_url: str | None = None,
     dry_run: bool = False,
-    global_enabled: bool = True,
+    global_enabled: bool = False,
     item_overrides: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
     """Check `paper_trades` for any active in-play (`status = 'PENDING' AND is_live = 1`) match
-    whose `live_momentum_json` has `is_rebound_edge == True` and `notified_live_edge == False`,
-    post a one-time Halftime / In-Play Dominance Rebound alert to Discord, and stamp `notified_live_edge = True`."""
+    whose `live_momentum_json` has `is_rebound_edge == True` and has not yet been notified
+    (checked against both persistent `inplay_notified_at` column and `notified_live_edge` JSON flag),
+    post a one-time Halftime / In-Play Dominance Rebound alert to Discord, and stamp both."""
     if not db_path.exists():
         return {"ok": True, "notified_count": 0}
     overrides = {str(k).lower(): bool(v) for k, v in (item_overrides or {}).items()}
@@ -736,15 +740,21 @@ def notify_inplay_rebound_edges_to_discord(
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+            if "inplay_notified_at" not in cols:
+                conn.execute("ALTER TABLE paper_trades ADD COLUMN inplay_notified_at TEXT")
             rows = [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT * FROM paper_trades WHERE status = 'PENDING' AND is_live = 1 AND live_momentum_json IS NOT NULL"
+                    "SELECT * FROM paper_trades WHERE status = 'PENDING' AND is_live = 1 AND live_momentum_json IS NOT NULL AND inplay_notified_at IS NULL"
                 ).fetchall()
             ]
             to_notify: list[tuple[dict[str, Any], dict[str, Any]]] = []
+            now_claim = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             for r in rows:
                 item_k = f"{r['league']}:{r['event_id']}".lower()
+                if not dry_run and item_k in _INPLAY_NOTIFIED_MEMORY:
+                    continue
                 is_allowed = overrides.get(item_k, global_enabled)
                 if not is_allowed:
                     continue
@@ -755,9 +765,10 @@ def notify_inplay_rebound_edges_to_discord(
                 if mom.get("is_rebound_edge") and not mom.get("notified_live_edge"):
                     mom["notified_live_edge"] = True
                     if not dry_run:
+                        _INPLAY_NOTIFIED_MEMORY.add(item_k)
                         conn.execute(
-                            "UPDATE paper_trades SET live_momentum_json = ? WHERE league = ? AND event_id = ?",
-                            (json.dumps(mom), r["league"], r["event_id"]),
+                            "UPDATE paper_trades SET live_momentum_json = ?, inplay_notified_at = ? WHERE league = ? AND event_id = ?",
+                            (json.dumps(mom), now_claim, r["league"], r["event_id"]),
                         )
                     to_notify.append((r, mom))
             conn.execute("COMMIT")
