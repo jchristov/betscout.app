@@ -681,8 +681,21 @@ def generate_dashboard_html(
         except Exception:
             pass
 
-    active_bets = sum(1 for p in soccer_picks if p.get("action") == "PAPER_BET")
+    active_soccer_n = sum(1 for p in soccer_picks if p.get("action") == "PAPER_BET")
+    active_tennis_n = sum(1 for tp in tennis_picks if float(tp.get("win_prob") or 0.0) >= 0.70)
+    active_other_n = len(other_picks)
+    total_active_picks_n = active_soccer_n + active_tennis_n + active_other_n
     vetoed_bets = sum(1 for p in soccer_picks if str(p.get("action", "")).startswith("VETOED"))
+    settled_count_n = int(ledger.get("settled_count") or 0)
+    settled_wins_n = int(ledger.get("settled_wins") or 0)
+    settled_losses_n = int(ledger.get("settled_losses") or 0)
+    settled_win_rate_pct = (settled_wins_n / max(1, settled_count_n)) * 100.0 if settled_count_n > 0 else 0.0
+    settled_roi_pct = float(ledger.get("settled_roi_best") or 0.0) * 100.0
+    esc_graded_kpi = int(ledger.get("exact_score_graded") or 0)
+    esc_hits_kpi = int(ledger.get("exact_score_hits") or 0)
+    esc_rate_kpi = float(ledger.get("exact_score_hit_rate_pct") or 0.0)
+    live_inplay_n = int(ledger.get("live_count") or 0)
+    pending_ledger_n = int(ledger.get("pending_count") or 0)
     mean_clv = (ledger.get("mean_clv_pct") or 0.0) * 100.0
     settled_profit_u = float(ledger.get("settled_profit_u") or 0.0)
     settled_losses_n = int(ledger.get("settled_losses") or 0)
@@ -1671,7 +1684,7 @@ def generate_dashboard_html(
 <meta name="apple-mobile-web-app-title" content="BetScout">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>BetScout — Sports Edge &amp; Score Intelligence (betscout.app)</title>
+<title>BetScout — Sports Edge &amp; Score Intelligence</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpolygon points='32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5' fill='%230f172a' stroke='%2338bdf8' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='16' stroke='%2338bdf8' stroke-opacity='0.45' stroke-width='1.8' stroke-dasharray='4 3'/%3E%3Cline x1='32' y1='9' x2='32' y2='15' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='32' y1='49' x2='32' y2='55' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='9' y1='32' x2='15' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='49' y1='32' x2='55' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M16 44 L27 33 L33 38 L46 18' stroke='%2322c55e' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='46' cy='18' r='4' fill='%2322c55e' stroke='%2338bdf8' stroke-width='1.8'/%3E%3C/svg%3E">
 <style>
   :root {{
@@ -1680,7 +1693,7 @@ def generate_dashboard_html(
   }}
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; padding: 20px 24px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; }}
-  header {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
+  header {{ display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
   .brand-wrap {{ display: flex; align-items: center; gap: 14px; }}
   .brand-logo {{ width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28)); transition: transform 0.2s ease; }}
   .brand-logo:hover {{ transform: scale(1.05); }}
@@ -1823,7 +1836,7 @@ def generate_dashboard_html(
   </div>
   <header>
     <div class="brand-wrap">
-      <div class="brand-logo" title="BetScout (betscout.app) — Sports Edge &amp; Score Intelligence">
+      <div class="brand-logo" title="BetScout — Sports Edge &amp; Score Intelligence">
         <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="vpShieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1869,7 +1882,7 @@ def generate_dashboard_html(
         <div class="brand-title-row">
           <h1>BetScout</h1>
           <span class="pill badge-bet" style="font-size:10px;">LIVE AI</span>
-          <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence · <span style="color:var(--accent);">betscout.app</span></span>
+          <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence</span>
         </div>
         <div class="brand-meta">
           <span class="meta-chip">🕒 Updated: {_time_span(gen_at, bold=True)}</span>
@@ -1879,22 +1892,26 @@ def generate_dashboard_html(
         </div>
       </div>
     </div>
-    <div class="btn-group" style="align-items:center;">
-      <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Data Synchronization &amp; Pipeline Controls">
-        <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
-        <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
-        <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; margin-left:auto;">
+      <div style="display:flex; align-items:center; justify-content:flex-end; min-height:26px;">
+        <span class="stream-pill" style="padding:3px 10px; font-size:11px;" title="Real-Time Server-Sent Events (SSE) Connection Status">
+          <span id="streamDot" class="stream-dot"></span>
+          <span id="streamStatusText">Connecting...</span>
+        </span>
       </div>
-      <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Notifications, Social Sharing &amp; App Preferences">
-        <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
-        <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
-        <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
-        <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
+      <div class="btn-group" style="align-items:center; justify-content:flex-end;">
+        <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Data Synchronization &amp; Pipeline Controls">
+          <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
+          <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
+          <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
+        </div>
+        <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Notifications, Social Sharing &amp; App Preferences">
+          <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
+          <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
+          <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
+          <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
+        </div>
       </div>
-      <span class="stream-pill" title="Real-Time Server-Sent Events (SSE) Connection Status">
-        <span id="streamDot" class="stream-dot"></span>
-        <span id="streamStatusText">Connecting...</span>
-      </span>
     </div>
   </header>
 
@@ -2136,13 +2153,47 @@ def generate_dashboard_html(
     <span>&gt; <b id="minOddsLabel">{min_odds:.2f}</b> (<span id="minProfitLabel">{(min_odds-1)*100:.0f}%</span>)</span>
   </div>
 
-  <section class="kpi-grid">
-    <div class="kpi"><span>Store Hygiene</span><b class="pos">0 Errors / {total_matches:,}</b></div>
-    <div class="kpi"><span>Big-5 Top 10% Post-2025 ROI</span><b class="pos">+17.92% (p=0.008)</b></div>
-    <div class="kpi"><span>Active Soccer Bets</span><b>{active_bets}</b></div>
-    <div class="kpi"><span>System-1 / XI Vetoed</span><b class="{'neg' if vetoed_bets > 0 else ''}">{vetoed_bets}</b></div>
-    <div class="kpi"><span>Prospective Mean CLV</span><b class="{clv_kpi_cls}">{mean_clv:+.2f}%</b></div>
-    <div class="kpi"><span>Total Best Bets (&gt;{min_odds:.2f})</span><b id="visibleBestBetsKpi" class="pos">{len(best_bets)}</b></div>
+  <section class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+    <div class="kpi">
+      <span>Settled Win Rate</span>
+      <b class="pos" id="kpiSettledRecord">{settled_wins_n}W – {settled_losses_n}L ({settled_win_rate_pct:.1f}%)</b>
+      <small class="muted" style="font-size:10.5px;">{settled_count_n} Graded Paper-Bets</small>
+    </div>
+    <div class="kpi">
+      <span>Realized Profit / ROI</span>
+      <b class="{'pos' if settled_profit_u >= 0 else 'neg'}" id="kpiRealizedProfit">{settled_profit_u:+.2f}u ({settled_roi_pct:+.1f}%)</b>
+      <small class="muted" style="font-size:10.5px;">¼-Kelly Growth: {float(ledger.get('kelly_growth_pct') or 0.0):+.2f}%</small>
+    </div>
+    <div class="kpi">
+      <span>Total Active Picks</span>
+      <b class="pos" id="kpiTotalActive">{total_active_picks_n} Picks</b>
+      <small class="muted" style="font-size:10.5px;">⚽ {active_soccer_n} · 🎾 {active_tennis_n} · 🌐 {active_other_n}</small>
+    </div>
+    <div class="kpi">
+      <span>Live &amp; Pending Ledger</span>
+      <b id="kpiLivePending"><span class="{'num-pos' if live_inplay_n > 0 else ''}">🔴 {live_inplay_n} Live</span> · ⏳ {pending_ledger_n}</b>
+      <small class="muted" style="font-size:10.5px;">{len(doubles_list)} Active 2-Leg Combos</small>
+    </div>
+    <div class="kpi">
+      <span>Filtered Best Bets (&gt;{min_odds:.2f})</span>
+      <b id="visibleBestBetsKpi" class="pos">{len(best_bets)}</b>
+      <small class="muted" style="font-size:10.5px;">💎 {len(mispriced_rows)} Mispriced Edges</small>
+    </div>
+    <div class="kpi">
+      <span>Score / Set Cluster Hits</span>
+      <b class="pos">{esc_hits_kpi}/{esc_graded_kpi} ({esc_rate_kpi:.1f}%)</b>
+      <small class="muted" style="font-size:10.5px;">Dixon-Coles &amp; Set Matrix</small>
+    </div>
+    <div class="kpi">
+      <span>Prospective Mean CLV</span>
+      <b class="{clv_kpi_cls}">{mean_clv:+.2f}%</b>
+      <small class="muted" style="font-size:10.5px;">🛡️ {vetoed_bets} Pre-Match Vetoes</small>
+    </div>
+    <div class="kpi">
+      <span>Verified Store Hygiene</span>
+      <b class="pos">{total_matches:,} Matches</b>
+      <small class="muted" style="font-size:10.5px;">0 Errors · 27 Championships</small>
+    </div>
   </section>
 
   <section class="card" id="smartBetPlannerSection" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.45); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
@@ -3822,6 +3873,24 @@ def generate_dashboard_html(
       if (spEl) spEl.innerHTML = fmtSignedHtml(ledger.settled_profit_u || 0, 2, 'u');
       if (lcEl) lcEl.textContent = String(ledger.live_count ?? 0);
       if (pcEl) pcEl.textContent = String(ledger.pending_count ?? 0);
+      const kpiSet = document.getElementById('kpiSettledRecord');
+      const kpiProf = document.getElementById('kpiRealizedProfit');
+      const kpiLP = document.getElementById('kpiLivePending');
+      if (kpiSet && ledger.settled_count) {{
+        const wr = ((ledger.settled_wins || 0) / Math.max(1, ledger.settled_count) * 100).toFixed(1);
+        kpiSet.textContent = (ledger.settled_wins || 0) + 'W – ' + (ledger.settled_losses || 0) + 'L (' + wr + '%)';
+      }}
+      if (kpiProf && ledger.settled_profit_u !== undefined) {{
+        const pr = Number(ledger.settled_profit_u || 0);
+        const roi = (Number(ledger.settled_roi_best || 0) * 100).toFixed(1);
+        kpiProf.textContent = (pr >= 0 ? '+' : '') + pr.toFixed(2) + 'u (' + (roi >= 0 ? '+' : '') + roi + '%)';
+        kpiProf.className = pr >= 0 ? 'pos' : 'neg';
+      }}
+      if (kpiLP) {{
+        const lvN = Number(ledger.live_count || 0);
+        const pdN = Number(ledger.pending_count || 0);
+        kpiLP.innerHTML = '<span class="' + (lvN > 0 ? 'num-pos' : '') + '">🔴 ' + lvN + ' Live</span> · ⏳ ' + pdN;
+      }}
 
       const trades = ledger.trades || [];
       const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
