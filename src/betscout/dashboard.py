@@ -1129,6 +1129,11 @@ def generate_dashboard_html(
         b_win_pct = float(b.get("win_prob") or 0.5) * 100.0
         b_fair = float(b.get("min_fair_odds") or round(100.0 / max(b_win_pct, 5.0), 2))
         b_clv = float(b.get("clv_pct") or 0.0)
+        b_steam_pill = (
+            f' <span class="pill badge-bet" title="Sharp Closing-Line Steam Move (+{b_clv:.1f}% CLV vs Logged Open Price)">🔥 STEAM +{b_clv:.1f}%</span>'
+            if b_clv >= 3.0
+            else ""
+        )
         b_clv_html = f" (CLV {_fmt_signed(b_clv, '+.1f', '%')})"
         b_pick_name = html.escape(str(b.get("pick_name") or b["pick"].split("[", 1)[0].split("(Win", 1)[0].strip()))
         b_tier_str = str(b.get("tier") or "")
@@ -1173,7 +1178,7 @@ def generate_dashboard_html(
               <td data-sort="{b_win_pct:.2f}"><b class="num-pos">{b_win_pct:.1f}%</b></td>
               <td data-sort="{b_fair:.3f}">{b_fair:.2f}</td>
               <td data-sort="{esc_col}"><span style="color:var(--accent); font-weight:600;">{esc_col}</span>{b_dutch_btn}</td>
-              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html}{b_kelly_pill} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
+              <td data-sort="{b['odds']:.3f}"><b>{html.escape(b['odds_display'])}</b>{b_clv_html}{b_steam_pill}{b_kelly_pill} <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({b_match_js}, {b_pick_js}, {b_odds_js}, {b_time_js}, {b_cat_js})">📣</button></td>
             </tr>
             """
         )
@@ -1280,6 +1285,11 @@ def generate_dashboard_html(
                 if esc_short
                 else '<span class="muted">— (Pre-Match)</span>'
             )
+            tr_steam_pill = (
+                f' <span class="pill badge-bet" title="Sharp Closing-Line Steam Move (+{clv_v:.1f}% CLV)">🔥 STEAM</span>'
+                if clv_v >= 3.0
+                else ""
+            )
             pending_html_rows.append(
                 f"""
                 <tr data-odds="{tr['logged_best_odds']:.3f}" data-sport-cat="{html.escape(tr_sport_cat)}" data-day="{html.escape(tr_day_loc)}" data-search="{search_txt}">
@@ -1289,7 +1299,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(esc_short or '—')}">{pend_score_cell}</td>
-                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
+                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')}){tr_steam_pill}</td>
                   <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>{tr_share_btn}</td>
                 </tr>
                 """
@@ -1966,15 +1976,15 @@ def generate_dashboard_html(
       <div style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
         <div style="font-weight:700; color:var(--amber); margin-bottom:4px;">💬 Global &amp; Per-Sport Discord Webhooks (Env Vars + Optional UI Overrides)</div>
         <div class="muted" style="margin-bottom:10px;">
-          Configure per-sport webhooks in <code>model/.env</code> (<code>DISCORD_WEBHOOK_URL_SOCCER</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_NFL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
+          Configure per-sport webhooks in <code>.env</code> (<code>DISCORD_WEBHOOK_URL_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_VOLLEYBALL</code>, <code>DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>, <code>DISCORD_WEBHOOK_URL_HANDBALL</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
         </div>
         <div style="display:grid; grid-template-columns:1fr; gap:7px;">
           <div style="display:flex; gap:8px; align-items:center;">
             <span style="min-width:175px;">🌐 <b>Global Default</b> (<code>DISCORD_WEBHOOK_URL</code>):</span>
-            <input id="cfgWhGlobal" type="password" placeholder="Uses DISCORD_WEBHOOK_URL from model/.env" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+            <input id="cfgWhGlobal" type="password" placeholder="Uses DISCORD_WEBHOOK_URL from .env" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <span style="min-width:175px;">⚽ <b>Football</b> (<code>..._SOCCER</code>):</span>
+            <span style="min-width:175px;">⚽ <b>Football</b> (<code>..._FOOTBALL</code>):</span>
             <input id="cfgWhSoccer" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
@@ -1982,20 +1992,28 @@ def generate_dashboard_html(
             <input id="cfgWhTennis" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🏐 <b>Volleyball</b> (<code>..._VOLLEYBALL</code>):</span>
+            <input id="cfgWhVolleyball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
             <span style="min-width:175px;">🏒 <b>Hockey / NHL</b> (<code>..._HOCKEY</code>):</span>
             <input id="cfgWhHockey" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <span style="min-width:175px;">🏀 <b>Basketball / NBA</b> (<code>..._NBA</code>):</span>
+            <span style="min-width:175px;">🏀 <b>Basketball</b> (<code>..._BASKETBALL</code>):</span>
             <input id="cfgWhBasketball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <span style="min-width:175px;">🏈 <b>NFL</b> (<code>..._NFL</code>):</span>
+            <span style="min-width:175px;">🏈 <b>NFL</b> (<code>..._AMERICAN_FOOTBALL</code>):</span>
             <input id="cfgWhFootball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <span style="min-width:175px;">⚾ <b>Baseball / MLB</b> (<code>..._MLB</code>):</span>
+            <span style="min-width:175px;">⚾ <b>Baseball / MLB</b> (<code>..._BASEBALL</code>):</span>
             <input id="cfgWhBaseball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="min-width:175px;">🤾 <b>Handball</b> (<code>..._HANDBALL</code>):</span>
+            <input id="cfgWhHandball" type="password" placeholder="Falls back to Global Webhook unless set in .env or here" style="flex:1; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:5px 8px; font-size:11.5px;">
           </div>
         </div>
       </div>
@@ -3839,6 +3857,8 @@ def generate_dashboard_html(
           const pendScCell = escShort
             ? '<span class="muted">—</span> <span class="pill">Proj: ' + escHtml(escShort) + '</span>'
             : '<span class="muted">— (Pre-Match)</span>';
+          const clvNum = Number(tr.clv_pct || 0);
+          const steamPillHtml = clvNum >= 3.0 ? ' <span class="pill badge-bet" title="Sharp Closing-Line Steam Move (+' + clvNum.toFixed(1) + '% CLV)">🔥 STEAM</span>' : '';
           pendingRows.push(
             '<tr class="' + pendCls + '" data-odds="' + o.toFixed(3) + '" data-sport-cat="' + escHtml(spCat) + '" data-day="' + escHtml(trDay) + '" data-search="' + escHtml(searchStr) + '">' +
               '<td class="col-icon" data-sort="' + escHtml(spCat) + '"><span class="sport-icon">' + spIcon + '</span></td>' +
@@ -3847,7 +3867,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(escShort || '—') + '">' + pendScCell + '</td>' +
-              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
+              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(clvNum, 1, '%') + ')' + steamPillHtml + '</td>' +
               '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>' + shareBtnHtml + '</td>' +
             '</tr>'
           );
@@ -3992,10 +4012,12 @@ def generate_dashboard_html(
           const mapIds = {{
             soccer: 'cfgWhSoccer',
             tennis: 'cfgWhTennis',
+            volleyball: 'cfgWhVolleyball',
             hockey: 'cfgWhHockey',
             basketball: 'cfgWhBasketball',
             football: 'cfgWhFootball',
-            baseball: 'cfgWhBaseball'
+            baseball: 'cfgWhBaseball',
+            handball: 'cfgWhHandball'
           }};
           Object.keys(mapIds).forEach(sp => {{
             const inp = document.getElementById(mapIds[sp]);
@@ -4042,10 +4064,12 @@ def generate_dashboard_html(
         global: 'cfgWhGlobal',
         soccer: 'cfgWhSoccer',
         tennis: 'cfgWhTennis',
+        volleyball: 'cfgWhVolleyball',
         hockey: 'cfgWhHockey',
         basketball: 'cfgWhBasketball',
         football: 'cfgWhFootball',
-        baseball: 'cfgWhBaseball'
+        baseball: 'cfgWhBaseball',
+        handball: 'cfgWhHandball'
       }};
       Object.keys(whFields).forEach(k => {{
         const v = (document.getElementById(whFields[k])?.value || '').trim();
