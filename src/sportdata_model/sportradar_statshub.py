@@ -13,17 +13,137 @@ from pathlib import Path
 from typing import Any
 
 STATSHUB_TIPICO_URL = "https://statshub.sportradar.com/tipico/en/"
+STATSHUB_SPORTRADAR_URL = "https://statshub.sportradar.com/sportradar/en/"
+DIRECT_STATS_FN_BASE_URL = "https://stats.fn.sportradar.com"
 FISHNET_BASE_URL = "https://sh.fn.sportradar.com"
 
-# Sportradar sportId mapping
+# Complete 56-Sport Catalog from Sportradar StatsHub (`config_sports/69/0` on /sportradar/en/ & `config_sports/67/0` on /tipico/en/)
+SR_ALL_SPORTS_CATALOG: dict[int, str] = {
+    1: "Soccer",
+    5: "Tennis",
+    4: "Ice Hockey",
+    2: "Basketball",
+    6: "Handball",
+    23: "Volleyball",
+    3: "Baseball",
+    7: "Floorball",
+    9: "Golf",
+    12: "Rugby",
+    13: "Aussie Rules",
+    15: "Bandy",
+    16: "American Football",
+    17: "Cycling",
+    18: "Specials",
+    19: "Snooker",
+    20: "Table Tennis",
+    21: "Cricket",
+    22: "Darts",
+    24: "Field hockey",
+    26: "Waterpolo",
+    28: "Curling",
+    29: "Futsal",
+    31: "Badminton",
+    34: "Beach Volley",
+    36: "Athletics",
+    37: "Squash",
+    40: "Formula 1",
+    43: "Alpine Skiing",
+    44: "Biathlon",
+    45: "Bobsleigh",
+    46: "Cross-Country",
+    47: "Nordic Combined",
+    48: "Ski Jumping",
+    49: "Snowboard",
+    50: "Speed Skating",
+    51: "Luge",
+    52: "Swimming",
+    54: "Softball",
+    60: "Beach Soccer",
+    61: "Pesapallo",
+    71: "Padel",
+    101: "Rally",
+    117: "MMA",
+    129: "Indy Racing",
+    131: "Speedway",
+    134: "ESport King of Glory",
+    135: "Gaelic Football",
+    137: "eSoccer",
+    138: "Kabaddi",
+    153: "eBasketball",
+    155: "Basketball 3x3",
+    188: "Touring Car Racing",
+    190: "Motorcycle Racing",
+    191: "Stock Car Racing",
+    195: "eIce Hockey",
+}
+
+# Sportradar sportId mapping by slug/alias
 SR_SPORT_IDS: dict[str, int] = {
     "soccer": 1,
+    "football_soccer": 1,
     "basketball": 2,
     "baseball": 3,
     "hockey": 4,
+    "ice_hockey": 4,
+    "nhl": 4,
     "tennis": 5,
+    "handball": 6,
+    "floorball": 7,
+    "golf": 9,
+    "rugby": 12,
+    "aussie_rules": 13,
+    "bandy": 15,
     "football": 16,
+    "american_football": 16,
+    "nfl": 16,
+    "cycling": 17,
+    "specials": 18,
+    "snooker": 19,
+    "table_tennis": 20,
+    "cricket": 21,
+    "darts": 22,
     "volleyball": 23,
+    "field_hockey": 24,
+    "waterpolo": 26,
+    "curling": 28,
+    "futsal": 29,
+    "badminton": 31,
+    "beach_volley": 34,
+    "athletics": 36,
+    "squash": 37,
+    "formula_1": 40,
+    "f1": 40,
+    "alpine_skiing": 43,
+    "biathlon": 44,
+    "bobsleigh": 45,
+    "cross_country": 46,
+    "nordic_combined": 47,
+    "ski_jumping": 48,
+    "snowboard": 49,
+    "speed_skating": 50,
+    "luge": 51,
+    "swimming": 52,
+    "softball": 54,
+    "beach_soccer": 60,
+    "pesapallo": 61,
+    "padel": 71,
+    "rally": 101,
+    "mma": 117,
+    "ufc": 117,
+    "indy_racing": 129,
+    "speedway": 131,
+    "esport_king_of_glory": 134,
+    "gaelic_football": 135,
+    "esoccer": 137,
+    "kabaddi": 138,
+    "ebasketball": 153,
+    "basketball_3x3": 155,
+    "touring_car_racing": 188,
+    "motorcycle_racing": 190,
+    "motogp": 190,
+    "stock_car_racing": 191,
+    "nascar": 191,
+    "eice_hockey": 195,
 }
 
 # Sportradar OddsAPI marketId=41 (Correct Score) standard outcome ID -> "H:A" score mapping
@@ -122,7 +242,8 @@ def fetch_statshub_gismo(
     tz: str = "Europe:Berlin",
     ttl_sec: float = 300.0,
 ) -> Any:
-    """Query `https://sh.fn.sportradar.com/{client}/{lang}/{tz}/gismo/{endpoint}/{params_path}?T={token}` with in-memory TTL caching."""
+    """Query Sportradar's direct tokenless Gismo API (`https://stats.fn.sportradar.com/{client}/{lang}/{tz}/gismo/{endpoint}/{params_path}`)
+    without any HTML page parsing! Falls back to `sh.fn.sportradar.com` with token only if needed."""
     cache_key = f"{client_alias}:{endpoint}:{params_path}"
     now = time.time()
     if cache_key in _RESPONSE_CACHE:
@@ -130,14 +251,13 @@ def fetch_statshub_gismo(
         if now - ts < ttl_sec:
             return cached_val
 
-    tok = get_statshub_token()
-    if not tok:
-        return None
     clean_params = params_path.strip("/")
-    url = f"{FISHNET_BASE_URL}/{client_alias}/{lang}/{tz}/gismo/{endpoint}"
+    rel_path = f"{client_alias}/{lang}/{tz}/gismo/{endpoint}"
     if clean_params:
-        url = f"{url}/{clean_params}"
-    url = f"{url}?T={tok}"
+        rel_path = f"{rel_path}/{clean_params}"
+
+    # 1. Primary path: Direct tokenless JSON API via stats.fn.sportradar.com (no HTML page parsing required!)
+    direct_url = f"{DIRECT_STATS_FN_BASE_URL}/{rel_path}"
     try:
         proc = subprocess.run(
             [
@@ -145,7 +265,34 @@ def fetch_statshub_gismo(
                 "-A", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
                 "-H", "Origin: https://statshub.sportradar.com",
                 "-H", "Referer: https://statshub.sportradar.com/tipico/en/",
-                url,
+                direct_url,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        payload = json.loads(proc.stdout)
+        doc_list = payload.get("doc") or []
+        if doc_list and isinstance(doc_list[0], dict) and doc_list[0].get("event") != "exception":
+            data = doc_list[0].get("data")
+            _RESPONSE_CACHE[cache_key] = (now, data)
+            return data
+    except Exception:
+        pass
+
+    # 2. Fallback: sh.fn.sportradar.com with token
+    tok = get_statshub_token()
+    if not tok:
+        return None
+    fallback_url = f"{FISHNET_BASE_URL}/{rel_path}?T={tok}"
+    try:
+        proc = subprocess.run(
+            [
+                "curl", "-sS", "-L", "--max-time", "12",
+                "-A", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+                "-H", "Origin: https://statshub.sportradar.com",
+                "-H", "Referer: https://statshub.sportradar.com/tipico/en/",
+                fallback_url,
             ],
             capture_output=True,
             text=True,
@@ -160,6 +307,14 @@ def fetch_statshub_gismo(
     except Exception:
         return None
     return None
+
+
+def list_all_sportradar_sports(service_id: int = 69, client_alias: str = "sportradar") -> list[dict[str, Any]]:
+    """Query `config_sports/{service_id}/0` directly via `stats.fn.sportradar.com` (the API behind the 'All Sports' modal on `/sportradar/en/`)."""
+    data = fetch_statshub_gismo("config_sports", f"{service_id}/0", client_alias=client_alias, tz="Etc:UTC", ttl_sec=3600.0)
+    if isinstance(data, list):
+        return [{"sport_id": int(s["_id"]), "name": str(s["name"])} for s in data if isinstance(s, dict) and "_id" in s]
+    return [{"sport_id": k, "name": v} for k, v in SR_ALL_SPORTS_CATALOG.items()]
 
 
 def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool = False) -> dict[str, Any]:

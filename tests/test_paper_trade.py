@@ -631,8 +631,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert tg_img_res["ok"] is True and tg_img_res["has_image"] is True
 
     # Test Sportradar StatsHub (Tipico) prematch markets & 28-score Correct Score parser
-    from sportdata_model.sportradar_statshub import parse_tipico_prematch_markets
+    from sportdata_model.sportradar_statshub import SR_ALL_SPORTS_CATALOG, parse_tipico_prematch_markets
 
+    assert len(SR_ALL_SPORTS_CATALOG) == 56 and SR_ALL_SPORTS_CATALOG[1] == "Soccer" and SR_ALL_SPORTS_CATALOG[5] == "Tennis"
     parsed_sr = parse_tipico_prematch_markets([
         {"_marketId": 1, "outcomes": [{"name": "{$competitor1}", "odds": 1.32}, {"name": "draw", "odds": 5.5}, {"name": "{$competitor2}", "odds": 8.2}]},
         {"_marketId": 10, "outcomes": [{"name": "{$competitor1} or draw", "odds": 1.03}, {"name": "draw or {$competitor2}", "odds": 3.3}]},
