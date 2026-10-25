@@ -77,6 +77,7 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
         "mispricing_min_edge_pp": 2.0,
         "mispricing_min_ev_pct": 2.0,
         "daily_digest_hour": (os.environ.get("DAILY_DIGEST_HOUR") or "").strip(),
+        "disabled_sports": [],
         "sport_webhooks": {},
     }
     if cfg_file.exists():
@@ -91,6 +92,10 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
     _PIPELINE_STATUS["inplay_alert_items"] = dict(raw_items) if isinstance(raw_items, dict) else {}
     defaults["inplay_alerts_enabled"] = _PIPELINE_STATUS["inplay_alerts_enabled"]
     defaults["inplay_alert_items"] = _PIPELINE_STATUS["inplay_alert_items"]
+    if not isinstance(defaults.get("disabled_sports"), list):
+        defaults["disabled_sports"] = []
+    else:
+        defaults["disabled_sports"] = [str(x).lower().strip() for x in defaults["disabled_sports"] if x]
     if not isinstance(defaults.get("sport_webhooks"), dict):
         defaults["sport_webhooks"] = {}
     return defaults
@@ -120,6 +125,22 @@ def _save_webapp_settings(
         ):
             if k in updates and updates[k] is not None:
                 cur[k] = updates[k]
+        if isinstance(updates.get("disabled_sports"), list):
+            cur["disabled_sports"] = [str(x).lower().strip() for x in updates["disabled_sports"] if x]
+            # Remove any uncompleted pre-match PENDING paper_trades for disabled sports while keeping SETTLED rows in the ledger
+            db_f = data_dir / "matches.sqlite"
+            if db_f.exists() and cur["disabled_sports"]:
+                try:
+                    dis_set = set(cur["disabled_sports"])
+                    c_dis = sqlite3.connect(db_f, timeout=15.0)
+                    c_dis.row_factory = sqlite3.Row
+                    for r_p in c_dis.execute("SELECT league, event_id FROM paper_trades WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL)").fetchall():
+                        if _league_to_sport_cat(r_p["league"]) in dis_set or str(r_p["league"]).lower() in dis_set:
+                            c_dis.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_p["league"], r_p["event_id"]))
+                    c_dis.commit()
+                    c_dis.close()
+                except Exception:
+                    pass
         if isinstance(updates.get("sport_webhooks"), dict):
             sw = dict(cur.get("sport_webhooks") or {})
             for sk, sv in updates["sport_webhooks"].items():
@@ -158,15 +179,26 @@ def _build_live_snapshot(
         except Exception:
             newly_settled = 0
 
+    cfg_now = _load_webapp_settings(db_path.parent)
+    dis_sports = set(cfg_now.get("disabled_sports") or [])
     rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
     ledger = get_paper_ledger_summary(db_path) if db_path.exists() else {}
+    filtered_trades = []
     for tr in ledger.get("trades") or []:
         tr["kickoff_local"] = _format_local_time(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["day_key"] = _match_day_key(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["league_label"] = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
         tr["sport_cat"] = _league_to_sport_cat(tr["league"])
+        # Keep completed (SETTLED) trades in the ledger even if their sport is toggled off; exclude non-settled trades for disabled sports
+        if tr.get("status") != "SETTLED" and tr["sport_cat"] in dis_sports:
+            continue
+        filtered_trades.append(tr)
+    if ledger:
+        ledger["trades"] = filtered_trades
+        ledger["pending_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and not t.get("is_live"))
+        ledger["live_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and t.get("is_live"))
     rec["paper_ledger"] = ledger
-    best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport)
+    best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport, disabled_sports=dis_sports)
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
         "server_time_utc": now_utc,

@@ -792,17 +792,51 @@ def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str
     return {}
 
 
+def _load_disabled_sports(db_path: Path) -> set[str]:
+    """Read `disabled_sports` list from `data/webapp_settings.json` (next to `matches.sqlite`)."""
+    cfg_file = db_path.parent / "webapp_settings.json"
+    if not cfg_file.exists():
+        return set()
+    try:
+        d = json.loads(cfg_file.read_text(encoding="utf-8"))
+        raw = d.get("disabled_sports") or []
+        return {str(x).lower().strip() for x in raw if x}
+    except Exception:
+        return set()
+
+
 def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | None = None) -> dict[str, Any]:
-    """Resolve live SofaScore bookmaker moneyline & total-games odds (plus scheduled start_utc, player headshots,
-    true 5-match all-level ATP/WTA/Challenger form, and previous-match tournament/turnaround hours) for an upcoming tennis match."""
+    """Resolve live bookmaker moneyline & total-games odds (Sportradar primary + SofaScore fallback),
+    scheduled start_utc, player headshots, 5-match all-level ATP/WTA/Challenger form, and turnaround hours."""
     if not date_ymd:
         date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if len(date_ymd) == 8 and date_ymd.isdigit():
+        date_ymd_dash = f"{date_ymd[:4]}-{date_ymd[4:6]}-{date_ymd[6:8]}"
+    else:
+        date_ymd_dash = date_ymd[:10]
     empty: dict[str, Any] = {
         "odds_p1": None, "odds_p2": None, "open_p1": None, "open_p2": None,
         "games_line": None, "odds_over": None, "odds_under": None, "start_utc": None,
         "p1_img": None, "p2_img": None, "p1_last5_win_rate": None, "p2_last5_win_rate": None,
         "p1_last_tourn": None, "p2_last_tourn": None, "p1_rest_hours": None, "p2_rest_hours": None,
     }
+    try:
+        from .sportradar_statshub import lookup_sportradar_daily_odds
+
+        sr_t = lookup_sportradar_daily_odds(player_1, player_2, sport="tennis", date_ymd=date_ymd_dash)
+        if sr_t.get("odds_home") and sr_t.get("odds_away"):
+            empty["odds_p1"] = sr_t["odds_home"]
+            empty["odds_p2"] = sr_t["odds_away"]
+            empty["open_p1"] = sr_t["odds_home"]
+            empty["open_p2"] = sr_t["odds_away"]
+            if sr_t.get("line_total"):
+                empty["games_line"] = sr_t["line_total"]
+                empty["odds_over"] = sr_t.get("odds_over")
+                empty["odds_under"] = sr_t.get("odds_under")
+            if sr_t.get("start_utc"):
+                empty["start_utc"] = sr_t["start_utc"]
+    except Exception:
+        pass
     p1_last = _strip_accents(player_1.split()[-1])
     p2_last = _strip_accents(player_2.split()[-1])
     q = f"{player_1.split()[-1]} {player_2.split()[-1]}".replace(" ", "%20")
@@ -868,10 +902,10 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | N
                 ref_ts = sofascore_start_ts or int(datetime.now(timezone.utc).timestamp())
                 if isinstance(last_ts, (int, float)) and last_ts > 0 and ref_ts > last_ts:
                     out[r_lbl] = round((ref_ts - float(last_ts)) / 3600.0, 1)
-    if isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
+    if not out.get("start_utc") and isinstance(sofascore_start_ts, (int, float)) and sofascore_start_ts > 0:
         out["start_utc"] = datetime.fromtimestamp(int(sofascore_start_ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for mkt in odds_data.get("markets") or []:
-        if mkt.get("marketId") == 1:
+        if mkt.get("marketId") == 1 and not (out.get("odds_p1") and out.get("odds_p2")):
             c1 = next((c for c in (mkt.get("choices") or []) if c.get("name") == "1"), {})
             c2 = next((c for c in (mkt.get("choices") or []) if c.get("name") == "2"), {})
             o1 = _fractional_to_decimal(c1.get("fractionalValue"))
@@ -882,7 +916,7 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | N
                 out.update({"odds_p1": o2, "odds_p2": o1, "open_p1": i2, "open_p2": i1})
             else:
                 out.update({"odds_p1": o1, "odds_p2": o2, "open_p1": i1, "open_p2": i2})
-        elif mkt.get("marketId") == 12 and mkt.get("choiceGroup"):
+        elif mkt.get("marketId") == 12 and mkt.get("choiceGroup") and not out.get("games_line"):
             try:
                 g_line = float(mkt["choiceGroup"])
                 c_ov = next((c for c in (mkt.get("choices") or []) if c.get("name") == "Over"), {})
@@ -1164,14 +1198,16 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         if (outcome is None or score_str is None or needs_tennis_detail or needs_logos) and (row["kickoff"] < now_iso or is_unconfirmed_time or needs_logos or (was_pending and lg.lower() in ("atp", "wta"))):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
-            if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
+            # Primary fast Sportradar live/completed result check across all sports
+            if outcome is None and row["kickoff"] <= now_iso:
                 try:
                     from .sportradar_statshub import fetch_live_match_timelinedelta
 
-                    sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=lg.lower(), date_ymd=row["kickoff"][:10])
+                    sr_sp = lg.lower() if (str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma")) else sp
+                    sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=sr_sp, date_ymd=row["kickoff"][:10])
                     if sr_delta.get("state") == "post" and sr_delta.get("outcome") in ("H", "D", "A"):
                         outcome = sr_delta["outcome"]
-                        score_str = sr_delta.get("score_str")
+                        score_str = sr_delta.get("score_str") or score_str
                     elif sr_delta.get("state") == "in" and was_pending:
                         l_sc = sr_delta.get("score_str") or "LIVE"
                         hs_v = int(sr_delta.get("home_score") or 0)
@@ -1184,6 +1220,8 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                         )
                 except Exception:
                     pass
+            if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
+                pass
             elif sp != "tennis":
                 s_url = f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}"
                 sd = _fetch_live_json(s_url)
@@ -1544,7 +1582,11 @@ def scan_upcoming_other_sports(
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(_fetch_live_json, other_sb_urls))
 
+    disabled_sports = _load_disabled_sports(db_path)
+
     for lg_obj in OTHER_LEAGUES:
+        if lg_obj.sport.lower() in disabled_sports or lg_obj.key.lower() in disabled_sports:
+            continue
         lg = lg_obj.key
         el = elo_by_lg.setdefault(lg, Elo(k=20.0, home_adv=sport_home_adv.get(lg, 30.0)))
         seen_eids: set[str] = set()
@@ -1574,7 +1616,23 @@ def scan_upcoming_other_sports(
                 dt = datetime.fromisoformat(ko.replace("Z", "+00:00"))
                 s_url = f"{BASE}/{lg_obj.sport}/{lg_obj.league}/summary?event={eid}"
                 summary = _fetch_live_json(s_url)
-                prices = _two_way_team_odds(summary, lg_obj.sport)
+                # Prefer Sportradar daily odds (`Tipico` + `UOF` bulk feed) first, with ESPN summary as fallback
+                prices: dict[str, Any] = {"odds_home": None, "odds_away": None, "line_total": None}
+                try:
+                    from .sportradar_statshub import lookup_sportradar_daily_odds
+
+                    sr_pr = lookup_sportradar_daily_odds(home, away, sport=lg_obj.sport, date_ymd=ko[:10])
+                    if sr_pr.get("odds_home") and sr_pr.get("odds_away"):
+                        prices["odds_home"] = sr_pr["odds_home"]
+                        prices["odds_away"] = sr_pr["odds_away"]
+                        prices["line_total"] = sr_pr.get("line_total")
+                except Exception:
+                    pass
+                if not (prices["odds_home"] and prices["odds_away"]):
+                    espn_pr = _two_way_team_odds(summary, lg_obj.sport)
+                    prices["odds_home"] = prices["odds_home"] or espn_pr.get("odds_home")
+                    prices["odds_away"] = prices["odds_away"] or espn_pr.get("odds_away")
+                    prices["line_total"] = prices["line_total"] or espn_pr.get("line_total")
                 if not (prices["odds_home"] and prices["odds_away"]):
                     continue
                 oh, oa = prices["odds_home"], prices["odds_away"]
@@ -1671,7 +1729,7 @@ def scan_upcoming_other_sports(
                 max_picks_per_sport=4,
                 elo_by_lg=elo_by_lg,
             )
-            picks.extend(sr_euro_picks)
+            picks.extend([p for p in sr_euro_picks if str(p.get("sport") or "").lower() not in disabled_sports])
     except Exception:
         pass
 
@@ -2056,15 +2114,28 @@ def scan_upcoming_and_log_paper_trades(
                 if not summary:
                     continue
                 pri = _soccer_odds(summary)
+                # Prefer Sportradar daily odds (`Tipico` + `UOF` bulk feed) first, falling back to ESPN summary
+                try:
+                    from .sportradar_statshub import lookup_sportradar_daily_odds
+
+                    sr_soc = lookup_sportradar_daily_odds(home, away, sport="soccer", date_ymd=kickoff[:10])
+                    if sr_soc.get("odds_home") and sr_soc.get("odds_draw") and sr_soc.get("odds_away"):
+                        pri["odds_home"] = sr_soc["odds_home"]
+                        pri["odds_draw"] = sr_soc["odds_draw"]
+                        pri["odds_away"] = sr_soc["odds_away"]
+                        if sr_soc.get("line_total"):
+                            pri["line_total"] = sr_soc["line_total"]
+                except Exception:
+                    pass
                 if not pri["odds_home"]:
                     continue
                 det = _extract_soccer_details(lg.key, eid, kickoff, summary)
                 # Unpack key fields from _extract_soccer_details tuple
                 open_h, open_d, open_a = det[4], det[5], det[6]
                 close_h, close_d, close_a = det[7], det[8], det[9]
-                best_h = det[10] or pri["odds_home"]
-                best_d = det[11] or pri["odds_draw"]
-                best_a = det[12] or pri["odds_away"]
+                best_h = max(float(det[10] or 0.0), float(pri["odds_home"] or 0.0)) or pri["odds_home"]
+                best_d = max(float(det[11] or 0.0), float(pri["odds_draw"] or 0.0)) or pri["odds_draw"]
+                best_a = max(float(det[12] or 0.0), float(pri["odds_away"] or 0.0)) or pri["odds_away"]
 
                 inv = [1.0 / pri["odds_home"], 1.0 / pri["odds_draw"], 1.0 / pri["odds_away"]]
                 s_inv = sum(inv)
@@ -2215,9 +2286,14 @@ def scan_upcoming_and_log_paper_trades(
                         c_del.commit()
                         c_del.close()
 
-    evaluated_fixtures.sort(key=lambda x: -x["score"])
-    qualifying_picks.sort(key=lambda x: -x["score"])
-    tennis_picks = scan_upcoming_tennis(db_path, days_ahead=min(days_ahead, 3), start_date=start_date)
+    disabled_sports = _load_disabled_sports(db_path)
+    if "soccer" in disabled_sports:
+        qualifying_picks = []
+        evaluated_fixtures = []
+    else:
+        evaluated_fixtures.sort(key=lambda x: -x["score"])
+        qualifying_picks.sort(key=lambda x: -x["score"])
+    tennis_picks = [] if "tennis" in disabled_sports else scan_upcoming_tennis(db_path, days_ahead=min(days_ahead, 3), start_date=start_date)
     other_sport_picks = scan_upcoming_other_sports(
         db_path, days_ahead=min(days_ahead, 4), start_date=start_date, decision_backend=decision_backend
     )

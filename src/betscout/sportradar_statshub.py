@@ -451,6 +451,100 @@ def get_daily_tipico_match_index(sport: str = "soccer", date_ymd: str | None = N
     return flat
 
 
+def get_daily_sportradar_markets_map(sport: str = "soccer", date_ymd: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Fetch and cache the bulk daily markets (`unified_sport_matches_markets/{sportId}/{date_ymd}/0`)
+    for both `tipico` (`_bookmakerId=176`) and `sportradar` (`_bookmakerId=0`) in a single pair of requests."""
+    if not date_ymd:
+        date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    cache_k = f"daily_mkts:{sport.lower()}:{date_ymd}"
+    now = time.time()
+    if cache_k in _RESPONSE_CACHE and (now - _RESPONSE_CACHE[cache_k][0] < 600.0):
+        return _RESPONSE_CACHE[cache_k][1]
+    sport_id = SR_SPORT_IDS.get(sport.lower(), 1)
+    mkt_tip = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sport_id}/{date_ymd}/0", client_alias="tipico", ttl_sec=600.0) or {}).get("matches") or {}
+    mkt_uof = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sport_id}/{date_ymd}/0", client_alias="sportradar", ttl_sec=600.0) or {}).get("matches") or {}
+    pair = (mkt_tip, mkt_uof)
+    _RESPONSE_CACHE[cache_k] = (now, pair)
+    return pair
+
+
+def lookup_sportradar_daily_odds(
+    home: str,
+    away: str,
+    sport: str = "soccer",
+    date_ymd: str | None = None,
+) -> dict[str, Any]:
+    """Primary fast pre-match odds & totals lookup from Sportradar (`Tipico` + `UOF` bulk daily feed).
+    Automatically checks both `date_ymd` and `date_ymd + 1 day` (so late-night UTC games that fall on the
+    next `Europe:Berlin` calendar day are matched seamlessly without per-event HTTP roundtrips)."""
+    if not date_ymd:
+        date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_candidates = [date_ymd]
+    try:
+        dt_base = datetime.strptime(date_ymd[:10], "%Y-%m-%d")
+        date_candidates.append((dt_base + timedelta(days=1)).strftime("%Y-%m-%d"))
+    except Exception:
+        pass
+
+    matched_m = None
+    matched_ymd = date_ymd
+    flipped = False
+    for d_cand in date_candidates:
+        flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
+        for entry in flat:
+            th, ta = entry["home"], entry["away"]
+            if _names_match(home, th) and _names_match(away, ta):
+                matched_m = entry["match_obj"]
+                matched_ymd = d_cand
+                flipped = False
+                break
+            if _names_match(home, ta) and _names_match(away, th):
+                matched_m = entry["match_obj"]
+                matched_ymd = d_cand
+                flipped = True
+                break
+        if matched_m:
+            break
+
+    if not matched_m:
+        return {}
+
+    mid = str(matched_m.get("_id") or "")
+    if not mid:
+        return {}
+    mkt_tip, mkt_uof = get_daily_sportradar_markets_map(sport=sport, date_ymd=matched_ymd)
+    tip_raw = (mkt_tip.get(mid) or {}).get("markets") or []
+    uof_raw = (mkt_uof.get(mid) or {}).get("markets") or []
+    p_tip = parse_tipico_prematch_markets(tip_raw, flipped=flipped) if tip_raw else {}
+    p_uof = parse_tipico_prematch_markets(uof_raw, flipped=flipped) if uof_raw else {}
+
+    merged = dict(p_tip)
+    for k, v in p_uof.items():
+        if k == "bookmaker":
+            continue
+        if not merged.get(k) and v is not None:
+            merged[k] = v
+
+    dt_uts = ((matched_m.get("_dt") or {}).get("uts")) or 0
+    start_utc = (
+        datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+        if dt_uts
+        else None
+    )
+    return {
+        "sr_match_id": mid,
+        "start_utc": start_utc,
+        "odds_home": merged.get("odds_home"),
+        "odds_draw": merged.get("odds_draw"),
+        "odds_away": merged.get("odds_away"),
+        "line_total": merged.get("total_line"),
+        "odds_over": merged.get("odds_over"),
+        "odds_under": merged.get("odds_under"),
+        "correct_score_odds": merged.get("correct_score_odds") or {},
+        "odds_provider": "sportradar_tipico" if tip_raw else ("sportradar_uof" if uof_raw else "sportradar"),
+    }
+
+
 def lookup_tipico_correct_score_and_1x2(home: str, away: str, date_ymd: str | None = None, sport: str = "soccer") -> dict[str, Any]:
     """Fast lookup of Tipico (`_bookmakerId=176`) + Sportradar UOF (`_bookmakerId=0`) prematch markets for `(home, away)` on `date_ymd`."""
     flat = get_daily_tipico_match_index(sport=sport, date_ymd=date_ymd)
@@ -849,18 +943,28 @@ def fetch_live_match_timelinedelta(
     """Query Sportradar's 3-second real-time `match_timelinedelta/{matchId}` stream for an ongoing or finished match.
     Returns live sets/goals, period breakdown (`p1`..`p5`), current tennis point score (`gamescore`: `15-30`, server `1`/`2`),
     live status (`1st set`, `2nd half`, `Ended`), and final winner (`H`/`A`/`D`) when completed."""
-    flat = get_daily_tipico_match_index(sport=sport, date_ymd=date_ymd)
+    base_ymd = date_ymd or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_candidates = [base_ymd]
+    try:
+        dt_b = datetime.strptime(base_ymd[:10], "%Y-%m-%d")
+        date_candidates.append((dt_b + timedelta(days=1)).strftime("%Y-%m-%d"))
+    except Exception:
+        pass
     matched_m = None
     flipped = False
-    for entry in flat:
-        th, ta = entry["home"], entry["away"]
-        if _names_match(home, th) and _names_match(away, ta):
-            matched_m = entry["match_obj"]
-            flipped = False
-            break
-        if _names_match(home, ta) and _names_match(away, th):
-            matched_m = entry["match_obj"]
-            flipped = True
+    for d_cand in date_candidates:
+        flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
+        for entry in flat:
+            th, ta = entry["home"], entry["away"]
+            if _names_match(home, th) and _names_match(away, ta):
+                matched_m = entry["match_obj"]
+                flipped = False
+                break
+            if _names_match(home, ta) and _names_match(away, th):
+                matched_m = entry["match_obj"]
+                flipped = True
+                break
+        if matched_m:
             break
     if not matched_m:
         return {}

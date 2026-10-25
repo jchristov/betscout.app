@@ -210,9 +210,11 @@ def build_best_bets_summary(
     rec: dict[str, Any],
     min_odds: float = 1.10,
     sport_filter: str = "all",
+    disabled_sports: set[str] | list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Build the unified Best Bets summary across all sports, filtered by `> min_odds` and `sport_filter`, sorted by date ascending."""
+    """Build the unified Best Bets summary across all sports, filtered by `> min_odds`, `sport_filter`, and `disabled_sports`, sorted by date ascending."""
     norm_sport = (sport_filter or "all").lower().strip()
+    dis_set = {str(x).lower().strip() for x in (disabled_sports or []) if x}
     settled_ids = {
         (t["league"], str(t["event_id"]))
         for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
@@ -266,7 +268,7 @@ def build_best_bets_summary(
 
     best_bets: list[dict[str, Any]] = []
     for p in raw_soccer_picks:
-        if p.get("action") != "PAPER_BET":
+        if "soccer" in dis_set or p.get("action") != "PAPER_BET":
             continue
         odds_val = float(p.get("best_odds") or 0.0)
         if odds_val <= min_odds:
@@ -360,7 +362,7 @@ def build_best_bets_summary(
         })
 
     for tp in raw_tennis_picks:
-        if tp.get("win_prob", 0.0) < 0.70:
+        if "tennis" in dis_set or tp.get("win_prob", 0.0) < 0.70:
             continue
         live_book = tp.get("best_odds")
         odds_val = float(live_book if live_book else (tp.get("min_fair_odds") or 0.0))
@@ -450,7 +452,7 @@ def build_best_bets_summary(
         if odds_val <= min_odds:
             continue
         sp_cat = _league_to_sport_cat(op.get("sport") or op.get("league") or "")
-        if norm_sport not in ("all", sp_cat):
+        if sp_cat in dis_set or norm_sport not in ("all", sp_cat):
             continue
         op_win = float(op.get("p_model") or op.get("p_mkt") or 0.5)
         op_mkt = float(op.get("p_mkt") or (1.0 / max(odds_val, 1.05)))
@@ -590,10 +592,24 @@ def generate_dashboard_html(
     ledger = rec.get("paper_ledger") or {}
     gen_at = rec.get("generated_at") or "—"
 
-    # Soft filter: exclude picks whose primary/best/target odds are <= min_odds (e.g. <= 1.10)
-    soccer_picks = [p for p in raw_soccer_picks if float(p.get("best_odds") or 0.0) > min_odds]
-    tennis_picks = [tp for tp in raw_tennis_picks if float(tp.get("min_fair_odds") or 0.0) > min_odds]
-    other_picks = [op for op in raw_other_picks if float(op.get("best_odds") or 0.0) > min_odds]
+    # Read `disabled_sports` from `data/webapp_settings.json` (if present) so disabled sports are excluded from active picks while completed bets stay in the Settled Ledger
+    disabled_sports_set: set[str] = set()
+    cfg_path = db_path.parent / "webapp_settings.json"
+    if cfg_path.exists():
+        try:
+            cfg_json = json.loads(cfg_path.read_text(encoding="utf-8"))
+            disabled_sports_set = {str(x).lower().strip() for x in (cfg_json.get("disabled_sports") or []) if x}
+        except Exception:
+            disabled_sports_set = set()
+
+    # Soft filter: exclude picks whose primary/best/target odds are <= min_odds (e.g. <= 1.10) or whose sport is disabled
+    soccer_picks = [] if "soccer" in disabled_sports_set else [p for p in raw_soccer_picks if float(p.get("best_odds") or 0.0) > min_odds]
+    tennis_picks = [] if "tennis" in disabled_sports_set else [tp for tp in raw_tennis_picks if float(tp.get("min_fair_odds") or 0.0) > min_odds]
+    other_picks = [
+        op for op in raw_other_picks
+        if float(op.get("best_odds") or 0.0) > min_odds
+        and _league_to_sport_cat(op.get("sport") or op.get("league") or "") not in disabled_sports_set
+    ]
 
     # Precompute embedded H2H + Last-6 Form lookup map from matches.sqlite for every matchup rendered on the page
     all_page_pairs: set[tuple[str, str]] = set()
@@ -1047,9 +1063,9 @@ def generate_dashboard_html(
         """
 
     # Build unified Best Bets Summary Table at the end, sorted by Date (ascending: soonest upcoming events first!)
-    best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=norm_sport)
+    best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=norm_sport, disabled_sports=disabled_sports_set)
     export_best_bets_summary(best_bets, csv_path=csv_export_path, json_path=json_export_path)
-    all_best_bets_for_html = build_best_bets_summary(rec, min_odds=min_odds, sport_filter="all")
+    all_best_bets_for_html = build_best_bets_summary(rec, min_odds=min_odds, sport_filter="all", disabled_sports=disabled_sports_set)
 
     best_bets_rows = []
     mispriced_rows = []
@@ -1256,6 +1272,8 @@ def generate_dashboard_html(
                 """
             )
         elif is_tr_live:
+            if tr_sport_cat in disabled_sports_set and tr.get("tier") != "tracked_live":
+                continue
             l_pnl_f = float(tr.get("live_pnl") or 0.0)
             l_sc_disp = tr.get("live_score") or score_str or "0-0 (LIVE)"
             l_mom = tr.get("live_momentum") or {}
@@ -1299,6 +1317,8 @@ def generate_dashboard_html(
                 """
             )
         else:
+            if tr_sport_cat in disabled_sports_set:
+                continue
             tr_day_loc = _match_day_key(tr["kickoff"])
             pend_score_cell = (
                 f'<span class="muted">—</span> <span class="pill" title="{html.escape(esc_pred_raw)}">Proj: {html.escape(esc_short)}</span>'
@@ -1789,7 +1809,7 @@ def generate_dashboard_html(
   .ledger-grid-table col.c-score {{ width: 13%; }}
   .ledger-grid-table col.c-odds {{ width: 12%; }}
   .ledger-grid-table col.c-res {{ width: 11%; }}
-  .hidden-by-odds, .hidden-by-sport, .hidden-by-search, .hidden-by-day {{ display: none !important; }}
+  .hidden-by-odds, .hidden-by-sport, .hidden-by-search, .hidden-by-day, .hidden-by-disabled-sport {{ display: none !important; }}
   .section-head {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin: 22px 0 10px; }}
   .section-head h2 {{ margin: 0; }}
   .btn-group {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }}
@@ -2038,6 +2058,25 @@ def generate_dashboard_html(
             <span>Auto Daily Digest Hour (0–23):</span>
             <input id="cfgDigestHourInput" type="text" placeholder="Off (e.g. 9)" style="width:85px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
           </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
+        <div style="font-weight:700; color:var(--green); margin-bottom:4px;">🏆 Active Sports Selection (Toggle On / Off for Picks)</div>
+        <div class="muted" style="margin-bottom:10px;">
+          Uncheck any sport below to exclude it from all upcoming/live picks, combos, and bet slips. <b>Completed bets in the Settled Ledger are always preserved.</b>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:8px;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="soccer" checked> ⚽ <b>Football</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="tennis" checked> 🎾 <b>Tennis</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="basketball" checked> 🏀 <b>Basketball (NBA)</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="hockey" checked> 🏒 <b>Hockey (NHL)</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="football" checked> 🏈 <b>American Football (NFL)</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="baseball" checked> ⚾ <b>Baseball (MLB)</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="volleyball" checked> 🏐 <b>Volleyball</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="handball" checked> 🤾 <b>Handball</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="darts" checked> 🎯 <b>Darts</b></label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="cfg-sport-toggle-chk" data-sport-key="table_tennis" checked> 🏓 <b>Table Tennis</b></label>
         </div>
       </div>
 
@@ -2552,7 +2591,37 @@ def generate_dashboard_html(
     let currentSearchQuery = '';
     let currentTzMode = 'local';
     let currentDefaultSort = 'time';
+    let currentDisabledSports = new Set({json.dumps(sorted(disabled_sports_set))});
     const prevLiveEventSignatures = {{}};
+
+    function applyDisabledSportsFilter(disabledArr) {{
+      if (Array.isArray(disabledArr)) {{
+        currentDisabledSports = new Set(disabledArr.map(x => String(x || '').toLowerCase().trim()).filter(Boolean));
+      }}
+      try {{ localStorage.setItem('vp_disabled_sports', JSON.stringify(Array.from(currentDisabledSports))); }} catch (_) {{}}
+      // 1. Hide/show sport filter buttons
+      document.querySelectorAll('[data-sport-btn]').forEach(btn => {{
+        const sp = (btn.getAttribute('data-sport-btn') || '').toLowerCase();
+        if (sp && sp !== 'all') {{
+          btn.classList.toggle('hidden-by-disabled-sport', currentDisabledSports.has(sp));
+        }}
+      }});
+      if (currentSportFilter !== 'all' && currentDisabledSports.has(currentSportFilter)) {{
+        applySportFilter('all');
+      }}
+      // 2. Hide/show active & pending picks for disabled sports, but NEVER hide #settledTradesTable rows!
+      document.querySelectorAll('#bestBetsTable tbody tr[data-sport-cat], #mispricingRadarTable tbody tr[data-sport-cat], #tennisTable tbody tr[data-sport-cat], #otherSportsTable tbody tr[data-sport-cat], #liveTradesTable tbody tr[data-sport-cat], #pendingTradesTable tbody tr[data-sport-cat], [data-sport-section="soccer"] .card[data-odds]').forEach(el => {{
+        const sp = (el.getAttribute('data-sport-cat') || (el.closest('[data-sport-section="soccer"]') ? 'soccer' : '')).toLowerCase();
+        if (sp) {{
+          el.classList.toggle('hidden-by-disabled-sport', currentDisabledSports.has(sp));
+        }}
+      }});
+      document.querySelectorAll('.cfg-sport-toggle-chk').forEach(chk => {{
+        const sp = (chk.getAttribute('data-sport-key') || '').toLowerCase();
+        chk.checked = !currentDisabledSports.has(sp);
+      }});
+      updateVisibleKpi();
+    }}
 
     function triggerStreamPulseDots(changedEventKeys) {{
       const hdrDot = document.getElementById('streamDot');
@@ -2860,7 +2929,7 @@ def generate_dashboard_html(
     }}
 
     function updateVisibleKpi() {{
-      const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
+      const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day):not(.hidden-by-disabled-sport)');
       const kpi = document.getElementById('visibleBestBetsKpi');
       if (kpi) kpi.textContent = String(visibleRows.length);
       const wsBadge = document.getElementById('wsBadgePicks');
@@ -2954,7 +3023,7 @@ def generate_dashboard_html(
     }}
 
     function collectVisibleBestBets() {{
-      const rows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
+      const rows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day):not(.hidden-by-disabled-sport)');
       const items = [];
       rows.forEach(r => {{
         items.push({{
@@ -3282,6 +3351,12 @@ def generate_dashboard_html(
         const savedWsTab = localStorage.getItem('vp_workspace_tab');
         if (savedWsTab) {{
           switchWorkspaceTab(savedWsTab);
+        }}
+        const savedDisabledSports = JSON.parse(localStorage.getItem('vp_disabled_sports') || 'null');
+        if (Array.isArray(savedDisabledSports)) {{
+          applyDisabledSportsFilter(savedDisabledSports);
+        }} else if (currentDisabledSports.size > 0) {{
+          applyDisabledSportsFilter(Array.from(currentDisabledSports));
         }}
         const savedSort = localStorage.getItem('vp_default_sort') || 'time';
         applyGlobalDefaultSort(savedSort);
@@ -4141,7 +4216,8 @@ def generate_dashboard_html(
         const hideOdds = o <= minThr ? ' hidden-by-odds' : '';
         const hideSport = (currentSportFilter !== 'all' && spCat !== currentSportFilter) ? ' hidden-by-sport' : '';
         const hideSearch = (currentSearchQuery && !searchStr.includes(currentSearchQuery)) ? ' hidden-by-search' : '';
-        const rowCls = (hideOdds + hideSport + hideSearch).trim();
+        const hideDisabled = (tr.status !== 'SETTLED' && currentDisabledSports.has(spCat)) ? ' hidden-by-disabled-sport' : '';
+        const rowCls = (hideOdds + hideSport + hideSearch + hideDisabled).trim();
         const spIcon = getSportEmoji(spCat);
         const matchStr = tr.home + ' vs ' + tr.away;
         const isTen = spCat === 'tennis';
@@ -4423,6 +4499,12 @@ def generate_dashboard_html(
       if (document.getElementById('cfgInplayAlertsChk')) document.getElementById('cfgInplayAlertsChk').checked = Boolean(currentInplayAlertsEnabled);
       if (document.getElementById('cfgSettlementAlertsChk')) document.getElementById('cfgSettlementAlertsChk').checked = s.settlement_alerts_enabled !== false;
       if (document.getElementById('cfgDigestHourInput')) document.getElementById('cfgDigestHourInput').value = String(s.daily_digest_hour ?? '');
+      const disList = Array.isArray(s.disabled_sports) ? s.disabled_sports : Array.from(currentDisabledSports);
+      const disSetModal = new Set(disList.map(x => String(x || '').toLowerCase()));
+      document.querySelectorAll('.cfg-sport-toggle-chk').forEach(chk => {{
+        const sp = (chk.getAttribute('data-sport-key') || '').toLowerCase();
+        chk.checked = !disSetModal.has(sp);
+      }});
     }}
 
     async function saveSettingsModal() {{
@@ -4436,6 +4518,11 @@ def generate_dashboard_html(
       const inplayChk = Boolean(document.getElementById('cfgInplayAlertsChk')?.checked);
       const settleChk = Boolean(document.getElementById('cfgSettlementAlertsChk')?.checked);
       const digHour = (document.getElementById('cfgDigestHourInput')?.value || '').trim();
+      const disabledSportsList = [];
+      document.querySelectorAll('.cfg-sport-toggle-chk').forEach(chk => {{
+        const sp = (chk.getAttribute('data-sport-key') || '').toLowerCase();
+        if (sp && !chk.checked) disabledSportsList.push(sp);
+      }});
 
       const sportWh = {{}};
       const whFields = {{
@@ -4466,6 +4553,7 @@ def generate_dashboard_html(
         applyOddsFilter(minOddsVal);
       }}
       applyGlobalDefaultSort(defSortVal);
+      applyDisabledSportsFilter(disabledSportsList);
       renderInplayAlertsBtn(inplayChk);
       buildSmartBetPlan();
 
@@ -4480,6 +4568,7 @@ def generate_dashboard_html(
         inplay_alerts_enabled: inplayChk,
         settlement_alerts_enabled: settleChk,
         daily_digest_hour: digHour,
+        disabled_sports: disabledSportsList,
         sport_webhooks: Object.keys(sportWh).length ? sportWh : undefined
       }};
       try {{

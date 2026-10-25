@@ -806,6 +806,24 @@ def test_per_sport_isolated_gates():
     assert tt_bad is False
     assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
 
+    # 7. NBA gate & disabled_sports filtering in build_best_bets_summary
+    from betscout.dashboard import build_best_bets_summary
+    from betscout.sport_models import evaluate_nba_gate
+
+    assert evaluate_nba_gate(0.70, 0.71, 0.73, 0.12, 8.2, 0.0, 1.38) is True
+    assert evaluate_nba_gate(0.65, 0.66, 0.66, 0.24, -2.1, 1.33, 1.49) is True
+    sample_rec = {
+        "qualifying_picks": [],
+        "tennis_picks": [],
+        "other_sport_picks": [
+            {"sport": "basketball", "league": "NBA", "league_name": "NBA", "kickoff": "2026-10-26T23:30Z", "home": "Celtics", "away": "Bulls", "side": "H", "pick": "Celtics", "tier": "high_conf", "p_model": 0.82, "p_mkt": 0.84, "best_odds": 1.16, "ev_pct": 1.2},
+            {"sport": "hockey", "league": "NHL", "league_name": "NHL", "kickoff": "2026-10-26T23:00Z", "home": "Stars", "away": "Islanders", "side": "H", "pick": "Stars", "tier": "solid", "p_model": 0.65, "p_mkt": 0.64, "best_odds": 1.50, "ev_pct": 1.5},
+        ],
+    }
+    all_bb = build_best_bets_summary(sample_rec, min_odds=1.10)
+    dis_bb = build_best_bets_summary(sample_rec, min_odds=1.10, disabled_sports={"basketball"})
+    assert len(all_bb) == 2 and len(dis_bb) == 1 and dis_bb[0]["sport_cat"] == "hockey"
+
 
 
 
