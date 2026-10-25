@@ -630,6 +630,19 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     tg_img_res = send_telegram_message("Test with PNG", dry_run=True, env_path=env_file, image_bytes=single_png)
     assert tg_img_res["ok"] is True and tg_img_res["has_image"] is True
 
+    # Test Sportradar StatsHub (Tipico) prematch markets & 28-score Correct Score parser
+    from sportdata_model.sportradar_statshub import parse_tipico_prematch_markets
+
+    parsed_sr = parse_tipico_prematch_markets([
+        {"_marketId": 1, "outcomes": [{"name": "{$competitor1}", "odds": 1.32}, {"name": "draw", "odds": 5.5}, {"name": "{$competitor2}", "odds": 8.2}]},
+        {"_marketId": 10, "outcomes": [{"name": "{$competitor1} or draw", "odds": 1.03}, {"name": "draw or {$competitor2}", "odds": 3.3}]},
+        {"_marketId": 11, "outcomes": [{"name": "{$competitor1}", "odds": 1.10}, {"name": "{$competitor2}", "odds": 6.5}]},
+        {"_marketId": 41, "outcomes": [{"_id": "sr:outcome:114", "odds": 12.0}, {"_id": "sr:outcome:116", "odds": 8.2}, {"_id": "sr:outcome:130", "odds": 7.8}]},
+    ])
+    assert parsed_sr["odds_home"] == 1.32 and parsed_sr["double_chance_1x"] == 1.03 and parsed_sr["draw_no_bet_home"] == 1.10
+    assert parsed_sr["correct_score_odds"]["1:0"] == 12.0 and parsed_sr["correct_score_odds"]["2:0"] == 8.2 and parsed_sr["correct_score_odds"]["2:1"] == 7.8
+
+
 
 
 

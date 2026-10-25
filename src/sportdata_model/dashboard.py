@@ -2382,19 +2382,27 @@ def generate_dashboard_html(
           : '<div class="muted">First tracked meeting in current database window.</div>';
         let scHtml = '';
         const pk = d.pick_detail || {{}};
+        const sh = d.statshub || {{}};
+        const shMkts = sh.tipico_markets || {{}};
+        const tipicoCsOdds = shMkts.correct_score_odds || {{}};
         const esc = pk.exact_score_prediction || {{}};
         const sp = pk.set_score_prediction || {{}};
         if (esc.top_3_breakdown && esc.top_3_breakdown.length) {{
-          const top3 = esc.top_3_breakdown.map(x => '<span class="pill badge-bet">' + escHtml(x.score) + ' (' + (Number(x.prob)*100).toFixed(1) + '%, Fair ' + Number(x.fair_odds).toFixed(2) + ')</span>').join(' ');
+          const top3 = esc.top_3_breakdown.map(x => {{
+            const tOdd = tipicoCsOdds[x.score];
+            const tStr = tOdd ? (' · Tipico @<b>' + Number(tOdd).toFixed(2) + '</b>') : '';
+            return '<span class="pill badge-bet">' + escHtml(x.score) + ' (' + (Number(x.prob)*100).toFixed(1) + '%, Fair ' + Number(x.fair_odds).toFixed(2) + tStr + ')</span>';
+          }}).join(' ');
           const dStakeDefault = 20;
           const sumProbs3 = esc.top_3_breakdown.reduce((acc, x) => acc + Number(x.prob || 0), 0.0) || 0.30;
           const dutchRowsHtml = esc.top_3_breakdown.map((x, idx) => {{
             const pSc = Number(x.prob || 0.10);
-            const fOdds = Number(x.fair_odds || (1.0 / pSc));
+            const fOdds = Number(tipicoCsOdds[x.score] || x.fair_odds || (1.0 / pSc));
+            const oddsTag = tipicoCsOdds[x.score] ? 'Tipico @' : 'Fair @';
             const stSc = (dStakeDefault * (pSc / sumProbs3));
             const retSc = stSc * fOdds;
             return '<div class="dutch-row" data-prob="' + pSc.toFixed(4) + '" data-fair-odds="' + fOdds.toFixed(3) + '" style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:11.5px;">' +
-              '<span>Score #' + (idx + 1) + ': <b>' + escHtml(x.score) + '</b> (' + (pSc * 100).toFixed(1) + '% · Fair @<b>' + fOdds.toFixed(2) + '</b>)</span>' +
+              '<span>Score #' + (idx + 1) + ': <b>' + escHtml(x.score) + '</b> (' + (pSc * 100).toFixed(1) + '% · ' + oddsTag + '<b>' + fOdds.toFixed(2) + '</b>)</span>' +
               '<span>Place <b class="num-pos dutch-stake-lbl">€' + stSc.toFixed(2) + '</b> &rarr; Return <b class="dutch-ret-lbl">€' + retSc.toFixed(2) + '</b></span>' +
             '</div>';
           }}).join('');
@@ -2450,12 +2458,43 @@ def generate_dashboard_html(
             '<div style="display:flex; flex-wrap:wrap; gap:5px;">' + facPills + '</div>' +
           '</div>';
         }}
+        let shHtml = '';
+        if (sh && sh.found) {{
+          const mBits = [];
+          if (shMkts.odds_home && shMkts.odds_away) {{
+            mBits.push('1X2 / ML: <b>' + Number(shMkts.odds_home).toFixed(2) + '</b>' + (shMkts.odds_draw ? (' / <b>' + Number(shMkts.odds_draw).toFixed(2) + '</b>') : '') + ' / <b>' + Number(shMkts.odds_away).toFixed(2) + '</b>');
+          }}
+          if (shMkts.double_chance_1x && shMkts.double_chance_x2) {{
+            mBits.push('Double Chance: 1X @<b>' + Number(shMkts.double_chance_1x).toFixed(2) + '</b> · X2 @<b>' + Number(shMkts.double_chance_x2).toFixed(2) + '</b>');
+          }}
+          if (shMkts.draw_no_bet_home && shMkts.draw_no_bet_away) {{
+            mBits.push('Draw No Bet: 1 @<b>' + Number(shMkts.draw_no_bet_home).toFixed(2) + '</b> · 2 @<b>' + Number(shMkts.draw_no_bet_away).toFixed(2) + '</b>');
+          }}
+          if (shMkts.total_line && shMkts.odds_over && shMkts.odds_under) {{
+            mBits.push('Total (' + shMkts.total_line + '): Over @<b>' + Number(shMkts.odds_over).toFixed(2) + '</b> · Under @<b>' + Number(shMkts.odds_under).toFixed(2) + '</b>');
+          }}
+          const injH = (sh.home_injuries && sh.home_injuries.length) ? ('<div><b>🚑 ' + escHtml(home) + ' Missing (' + sh.home_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.home_injuries.join(', ')) + '</span></div>') : '';
+          const injA = (sh.away_injuries && sh.away_injuries.length) ? ('<div><b>🚑 ' + escHtml(away) + ' Missing (' + sh.away_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.away_injuries.join(', ')) + '</span></div>') : '';
+          const tSurf = sh.tennis_surface_records || {{}};
+          const surfRow = (tSurf.home || tSurf.away)
+            ? ('<div style="margin-top:4px;"><b>🎾 Sportradar Season &amp; Surface W–L:</b> ' +
+                (tSurf.home ? (escHtml(home) + ': Season <b>' + escHtml(tSurf.home.season_wl) + '</b> (Hard ' + escHtml(tSurf.home.hard_wl) + ', Indoor ' + escHtml(tSurf.home.indoor_wl) + ', Clay ' + escHtml(tSurf.home.clay_wl) + ')') : '') +
+                (tSurf.away ? (' · ' + escHtml(away) + ': Season <b>' + escHtml(tSurf.away.season_wl) + '</b> (Hard ' + escHtml(tSurf.away.hard_wl) + ', Indoor ' + escHtml(tSurf.away.indoor_wl) + ', Clay ' + escHtml(tSurf.away.clay_wl) + ')') : '') +
+              '</div>')
+            : '';
+          shHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid rgba(56,189,248,0.45); border-radius:8px; font-size:11.5px;">' +
+            '<div style="margin-bottom:5px; color:var(--accent);"><b>📡 Sportradar StatsHub (Tipico) Live Intelligence &amp; Markets</b></div>' +
+            (mBits.length ? ('<div style="margin-bottom:4px;">' + mBits.join(' &nbsp;|&nbsp; ') + '</div>') : '') +
+            injH + injA + surfRow +
+          '</div>';
+        }}
         bodyEl.innerHTML =
           '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">' +
             '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(home) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_home) + '</div>' +
             '<div><div style="margin-bottom:6px; color:var(--text);"><b>📈 ' + escHtml(away) + ' — Last 6 Matches</b></div>' + fmtForm(d.form_away) + '</div>' +
           '</div>' +
           '<div style="margin-top:14px;"><div style="margin-bottom:6px; color:var(--text);"><b>⚔️ Head-to-Head History (' + (d.h2h?.length || 0) + ' Meetings)</b></div>' + h2hHtml + '</div>' +
+          shHtml +
           facHtml +
           scHtml;
       }} catch (err) {{

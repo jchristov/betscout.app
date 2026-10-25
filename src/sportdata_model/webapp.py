@@ -265,6 +265,17 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         except Exception:
             pass
 
+    statshub_intel: dict[str, Any] = {}
+    try:
+        from .sportradar_statshub import lookup_statshub_match_intel
+
+        sp_hint = "tennis" if lg in ("atp", "wta") else (_league_to_sport_cat(lg) if lg else "soccer")
+        sh_res = lookup_statshub_match_intel(h, a, sport=sp_hint)
+        if sh_res.get("found"):
+            statshub_intel = sh_res
+    except Exception:
+        statshub_intel = {}
+
     return {
         "ok": True,
         "home": h,
@@ -274,6 +285,7 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         "form_home": form_home,
         "form_away": form_away,
         "pick_detail": model_pick_detail,
+        "statshub": statshub_intel,
     }
 
 
@@ -449,7 +461,26 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     if isinstance(fav_rest, (int, float)) and fav_rest <= 36.0:
         warnings.append(f"⚠️ Short Turnaround Alert: {fav_name} played just {fav_rest:.0f}h ago ({p1_tourn if fav_is_1 else p2_tourn}).")
 
-    # Build 3 Explicit Market Recommendations (1: Moneyline/1X2, 2: Handicap/Shield, 3: Totals/Exact Score)
+    # Also enrich with Sportradar StatsHub (Tipico) markets, injuries, streaks & surface records
+    sh_intel = base_detail.get("statshub") or {}
+    if not sh_intel.get("found"):
+        try:
+            from .sportradar_statshub import lookup_statshub_match_intel
+
+            sh_intel = lookup_statshub_match_intel(h_name, a_name, sport=detected_sport)
+        except Exception:
+            sh_intel = {}
+    sh_mkts = sh_intel.get("tipico_markets") or {}
+    if not o1 and sh_mkts.get("odds_home"):
+        o1 = sh_mkts["odds_home"]
+    if not o2 and sh_mkts.get("odds_away"):
+        o2 = sh_mkts["odds_away"]
+    h_inj = sh_intel.get("home_injuries") or []
+    a_inj = sh_intel.get("away_injuries") or []
+    if len(h_inj) >= 3 and fav_is_1:
+        warnings.append(f"⚠️ Sportradar StatsHub Injury Alert: {h_name} has {len(h_inj)} players missing ({', '.join(h_inj[:3])}).")
+    elif len(a_inj) >= 3 and not fav_is_1:
+        warnings.append(f"⚠️ Sportradar StatsHub Injury Alert: {a_name} has {len(a_inj)} players missing ({', '.join(a_inj[:3])}).")
     if detected_sport == "tennis":
         set_pred = predict_tennis_set_scores(
             win_prob=fav_prob,
