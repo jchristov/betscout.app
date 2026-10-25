@@ -318,11 +318,11 @@ def list_all_sportradar_sports(service_id: int = 69, client_alias: str = "sportr
 
 
 def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool = False) -> dict[str, Any]:
-    """Parse Sportradar prematch markets from either Tipico (`_bookmakerId: 176`) or Sportradar UOF (`_bookmakerId: 0`)."""
-    bk_label = "Tipico (Sportradar)"
+    """Parse prematch markets from primary and consensus odds feeds."""
+    bk_label = "Primary Bookmaker"
     if markets and isinstance(markets[0], dict):
         if markets[0].get("_bookmakerId") == 0 or "UOF" in str(markets[0].get("source") or ""):
-            bk_label = "Sportradar UOF Consensus"
+            bk_label = "Market Consensus"
     out: dict[str, Any] = {
         "bookmaker": bk_label,
         "odds_home": None,
@@ -728,13 +728,13 @@ def scan_sportradar_european_sports(
                 "away": cand["away"],
                 "side": cand["side"],
                 "pick": cand["pick"],
-                "tier": "tipico_banker" if cand["is_tipico"] else "sr_uof_banker",
+                "tier": "banker_70pct" if cand["is_tipico"] else "high_conf",
                 "p_model": round(p_model, 4),
                 "p_mkt": cand["p_mkt"],
                 "best_odds": cand["best_odds"],
                 "ev_pct": ev_pct,
                 "composite_score": round(p_model, 4),
-                "bookmaker_source": "Tipico #176" if cand["is_tipico"] else "Sportradar UOF",
+                "bookmaker_source": "Primary" if cand["is_tipico"] else "Consensus",
                 "form_diff_fav": round(form_diff_fav, 3),
             })
     return picks_out
@@ -809,11 +809,11 @@ def lookup_statshub_match_intel(
         if not markets_parsed.get(k) and v:
             markets_parsed[k] = v
     if has_tipico and has_sr_uof:
-        markets_parsed["bookmaker"] = "Tipico + Sportradar UOF"
+        markets_parsed["bookmaker"] = "Primary + Consensus"
     elif has_tipico:
-        markets_parsed["bookmaker"] = "Tipico (Bookmaker #176)"
+        markets_parsed["bookmaker"] = "Primary Bookmaker"
     elif has_sr_uof:
-        markets_parsed["bookmaker"] = "Sportradar Main (UOF)"
+        markets_parsed["bookmaker"] = "Market Consensus"
 
     # 2. Fetch season injuries or tennis surface stats
     home_injuries: list[str] = []
@@ -886,6 +886,8 @@ def lookup_statshub_match_intel(
         "sr_match_id": mid,
         "sr_season_id": season_id,
         "tournament": matched_tourn,
+        "primary_markets": markets_parsed,
+        "consensus_markets": sr_uof_parsed,
         "tipico_markets": markets_parsed,
         "sportradar_uof_markets": sr_uof_parsed,
         "home_injuries": home_injuries,

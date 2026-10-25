@@ -155,37 +155,37 @@ All commands run inside `/Users/yuliyan.hristov/Development/github.com/jchristov
 
 ```bash
 # 0. Run the complete 4-stage daily pipeline (Incremental config-driven ingest -> Quality check -> Paper bet + News/XI gates -> HTML Dashboard)
-uv run betscout-model
-# (or with custom options: uv run betscout-model --days 5 --min-odds 1.10)
+uv run betscout pipeline
+# (or with custom options: uv run betscout pipeline --days 5 --min-odds 1.10)
 
 # 1. Universal Config-Driven Ingestion CLI (reads/updates ingestion_config.json automatically, skips existing events, normalizes on the fly)
-uv run betscout-ingest                                                # Periodic incremental sync of all enabled sources in ingestion_config.json
-uv run betscout-ingest --leagues uefa.champions,nba,nhl --days 60     # On-demand ingestion for specific/new leagues over last N days
-uv run betscout-ingest --leagues ned.1,por.1 --years 2025,2026        # On-demand multi-season backfill
-uv run betscout-ingest --leagues mlb --from 2026-09-15 --to 2026-10-22 # Exact date range
-uv run betscout-ingest --leagues eng.1 --all-history                  # Full 2022-2026 history
+uv run betscout ingest                                                # Periodic incremental sync of all enabled sources in ingestion_config.json
+uv run betscout ingest --leagues uefa.champions,nba,nhl --days 60     # On-demand ingestion for specific/new leagues over last N days
+uv run betscout ingest --leagues ned.1,por.1 --years 2025,2026        # On-demand multi-season backfill
+uv run betscout ingest --leagues mlb --from 2026-09-15 --to 2026-10-22 # Exact date range
+uv run betscout ingest --leagues eng.1 --all-history                  # Full 2022-2026 history
 
 # 2. Run the database quality & anomaly checker (0 issues across 56,501 matches)
-uv run betscout-quality
+uv run betscout quality
 
 # 3. Rebuild or refresh enriched match_details from cached ESPN JSON payloads
-uv run betscout-enrich           # Fast soccer match_details refresh + summary
-uv run betscout-enrich --full    # Full rebuild of matches + match_details
+uv run betscout enrich           # Fast soccer match_details refresh + summary
+uv run betscout enrich --full    # Full rebuild of matches + match_details
 
 # 4. Run the multi-factor soccer edge & enriched tennis evaluation
-uv run betscout-edges
+uv run betscout edges
 
 # 5. Scan upcoming Soccer, Tennis & NBA/NHL/NFL/MLB fixtures, score 7-Factor Composite + News + Starting XI Gate, log paper bets & export JSON
-uv run betscout-bet --days 5
+uv run betscout scan --days 5
 
 # 6. Generate the standalone interactive HTML Quantitative Desk Dashboard & export Best Bets Summary as CSV (with header) and JSON
-uv run betscout-dashboard --min-odds 1.10                       # Exports data/dashboard.html, data/best_bets.csv & data/best_bets.json
-uv run betscout-dashboard --min-odds 1.15 --format csv          # Export CSV only
-uv run betscout-dashboard --export-csv /tmp/my_bets.csv         # Custom output path
+uv run betscout dashboard --min-odds 1.10                       # Exports data/dashboard.html, data/best_bets.csv & data/best_bets.json
+uv run betscout dashboard --min-odds 1.15 --format csv          # Export CSV only
+uv run betscout dashboard --export-csv /tmp/my_bets.csv         # Custom output path
 
 # 7. View Settled & Pending Paper-Bets in the terminal and export data/settled_bets.csv
-uv run betscout-ledger                 # Shows Settled & Pending paper bets + realized PnL
-uv run betscout-ledger --settled-only  # Shows only completed/settled paper bets
+uv run betscout ledger                 # Shows Settled & Pending paper bets + realized PnL
+uv run betscout ledger --settled-only  # Shows only completed/settled paper bets
 
 # 8. Run the automated unit test suite
 uv run pytest -q
@@ -198,7 +198,7 @@ uv run pytest -q
 All roadmap items have been implemented, verified on live ESPN fixtures, and covered by unit tests:
 
 1. **Dedicated Enrichment CLI ([`scripts/enrich.py`](./scripts/enrich.py) & [`src/betscout/enrich.py`](./src/betscout/enrich.py))**:
-   - Provides one-command fast refresh (`uv run betscout-enrich`) or full rebuild (`--full`) of the 49-column `match_details` table and `matches_canonical` view from cached ESPN payloads.
+   - Provides one-command fast refresh (`uv run betscout enrich`) or full rebuild (`--full`) of the 49-column `match_details` table and `matches_canonical` view from cached ESPN payloads.
 2. **Automated Pre-Kickoff Paper-Betting & Prospective CLV Ledger ([`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py) & [`scripts/paper_trade.py`](./scripts/paper_trade.py))**:
    - Freezes the Discovery (`< 2025-07-01`) standardization parameters (`StandardScaler`) and conviction thresholds (`top_8pct: +0.3661`, `top_10pct: +0.3246`, `top_15pct: +0.2565`, `top_25pct: +0.1579`), rolls team boxscore and H2H states forward to the latest completed match, scans upcoming ESPN fixtures, and logs qualifying picks to the `paper_trades` SQLite table.
    - Preserves initial `logged_best_odds` and `logged_primary_odds`, updates `latest_close_odds` and `clv_pct = (logged_best_odds / latest_close_odds) - 1` on subsequent pre-kickoff runs, and automatically settles completed paper bets into realized `pnl_best` and `pnl_primary`.
@@ -237,9 +237,9 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
    - Reads [`ingestion_config.json`](./ingestion_config.json) by default, automatically registers any new sport/league requested on demand, skips already-completed `event_id`s to prevent duplicate work, refreshes scoreboards within the last 2 UTC days when older than 15 minutes, and runs `adjust_and_normalize_db` + `quality.run` on the fly (`0 errors` across `56,450` matches).
 8. **Standalone HTML Quantitative Desk Dashboard, Soft Minimum-Odds Filter & CSV/JSON Exports ([`src/betscout/dashboard.py`](./src/betscout/dashboard.py), [`scripts/dashboard.py`](./scripts/dashboard.py), [`scripts/ledger.py`](./scripts/ledger.py))**:
    - **Soft Minimum-Odds Filter (`--min-odds 1.10`)**: Filters out unattractive odds `<= 1.10` (`<= 10%` profit) in both the CLI exports and via an interactive live slider in [`data/dashboard.html`](./data/dashboard.html).
-   - **Settled & Pending Paper-Bets Ledger (`scripts/ledger.py` & `data/settled_bets.csv`)**: Automatically settles completed matches across all sports (soccer, tennis, NBA, NHL, NFL, MLB), displaying final scores, `WIN` / `LOSS` badges, `CLV%`, and realized unit profit in [`data/dashboard.html`](./data/dashboard.html), in the terminal (`uv run betscout-ledger`), and in [`data/settled_bets.csv`](./data/settled_bets.csv).
+   - **Settled & Pending Paper-Bets Ledger (`scripts/ledger.py` & `data/settled_bets.csv`)**: Automatically settles completed matches across all sports (soccer, tennis, NBA, NHL, NFL, MLB), displaying final scores, `WIN` / `LOSS` badges, `CLV%`, and realized unit profit in [`data/dashboard.html`](./data/dashboard.html), in the terminal (`uv run betscout ledger`), and in [`data/settled_bets.csv`](./data/settled_bets.csv).
    - **Sorted Best Bets Summary Table (`data/best_bets.csv` & `data/best_bets.json`)**: Renders a unified table at the end of [`data/dashboard.html`](./data/dashboard.html) sorted chronologically by **Date (ascending — soonest upcoming events first)** with columns **Date (UTC)**, **Sport / League**, **Match**, **Pick**, and **Odds**, plus one-click browser **"Export CSV (with Header)"** and **"Export JSON"** buttons.
-9. **Master One-Command Daily Pipeline ([`scripts/daily_pipeline.py`](./scripts/daily_pipeline.py) / `uv run betscout-model`)**:
+9. **Master One-Command Daily Pipeline ([`scripts/daily_pipeline.py`](./scripts/daily_pipeline.py) / `uv run betscout pipeline`)**:
    - Executes config-driven incremental ingestion, automated database quality verification (`0 errors`), multi-sport paper-bet settlement and upcoming fixture scoring, CSV/JSON exports (`recommendations.json`, `best_bets.csv`, `best_bets.json`), and HTML dashboard generation in a single command.
 
 ### Current Paper-Betting Ledger & Live Slate Snapshot
@@ -309,10 +309,10 @@ We prepared a complete, ready-to-deploy **Firebase Cloud Functions (2nd Gen Pyth
 1. **Live SofaScore Tennis Bookmaker Odds (`_fetch_sofascore_tennis_odds` in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py))**:
    - Queries `https://api.sofascore.com/api/v1/search/all` and `/event/{id}/odds/1/all` for upcoming ATP/WTA picks, converting live fractional bookmaker prices (`initialFractionalValue` and `fractionalValue`) to decimal `open_odds` and `best_odds` alongside `min_fair_odds` and exact `ev_pct`.
 2. **Automated Two-Pass Matchday Scheduler ([`deploy/com.betscout.daily.plist`](./deploy/com.betscout.daily.plist))**:
-   - macOS `launchd` agent running `uv run betscout-model --days 5 --min-odds 1.10 --decision-backend laya` at `08:00` (morning settlement & early scan) and `18:15` (pre-kickoff T-60m Starting XI confirmation pass & closing CLV update).
+   - macOS `launchd` agent running `uv run betscout pipeline --days 5 --min-odds 1.10 --decision-backend laya` at `08:00` (morning settlement & early scan) and `18:15` (pre-kickoff T-60m Starting XI confirmation pass & closing CLV update).
    - Install with: `cp deploy/com.betscout.daily.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.betscout.daily.plist`
 3. **Main Vue App (`app/public/model/`) Static Feed Bridge**:
-   - Every run of `scripts/daily_pipeline.py` (`uv run betscout-model`) automatically syncs `best_bets.json`, `best_bets.csv`, `recommendations.json`, and `dashboard.html` into `../app/public/model/` so the `betscout-ai` web app can serve and render the latest quantitative picks and dashboard directly.
+   - Every run of `scripts/daily_pipeline.py` (`uv run betscout pipeline`) automatically syncs `best_bets.json`, `best_bets.csv`, `recommendations.json`, and `dashboard.html` into `../app/public/model/` so the `betscout-ai` web app can serve and render the latest quantitative picks and dashboard directly.
 4. **Local Timezone Conversion (`Europe/Vienna` CEST/CET), Live SSE Web App (`scripts/webapp.py`), & Discord / Telegram Social Publisher (`scripts/discord_post.py`, `scripts/telegram_post.py`)**:
    - **Timezone Fix**: All ESPN timestamps (`Z` / UTC) are now automatically converted and displayed in local **`Europe/Vienna` (`CEST` / `CET`)** by default across [dashboard.html](./data/dashboard.html), [best_bets.csv](./data/best_bets.csv), and [best_bets.json](./data/best_bets.json), with an interactive **`Local (Europe/Vienna)` / `UTC` toggle button** in the top filter bar.
    - **Interactive Web App Server & SSE Live Stream ([`src/betscout/webapp.py`](./src/betscout/webapp.py) & [`scripts/webapp.py`](./scripts/webapp.py))**: Run `uv run python scripts/webapp.py --port 8090` to serve the interactive Quant Desk UI (`/`), real-time Server-Sent Events stream (`GET /api/stream`), one-click ledger sync & live match rescan (`POST /api/sync` with animated spinner + progress bar lock), and social channel publishing (`POST /api/discord`, `POST /api/telegram`).
@@ -333,7 +333,7 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
 | **3. UEFA Europa: Juventus vs Stade Rennais $\rightarrow$ Juventus (`H`) `@ 1.48`** | `2-2` | **Negative Composite Score & Negative SOT**: Composite score was `-0.1278` and `sot_d = -0.206` (logged in-play at `73'`). | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 | **4. UEFA Conf: FC Nordsjælland vs CSKA Sofia $\rightarrow$ Nordsjælland (`H`) `@ 1.41`** | `2-2` | **Negative Composite Score & Severe Negative SOT**: Composite score was `-0.0227` and `sot_d = -0.735`. | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 
-- **Current Settled Paper-Betting Ledger (`uv run betscout-ledger`)**: **`18 Settled` (`16 Wins, 2 Losses`, `88.9%` Win Rate) · Realized Profit: `+5.82u` (`ROI = +32.36%`)**, including UEFA Conference League wins **Braga `2-0` vs KAA Gent (`@ 1.87`, `+0.87u`)**, **Ajax Amsterdam `2-0` vs Atalanta (`@ 2.00`, `+1.00u`)**, and overnight NHL/NFL/WTA wins (**Boston Bruins `6-0`**, **New Jersey Devils `4-1`**, **Dallas Stars `3-2`**, **Chicago Bears `30-24`**, **Detroit Red Wings `2-5`**, **Ann Li `2-1`**).
+- **Current Settled Paper-Betting Ledger (`uv run betscout ledger`)**: **`18 Settled` (`16 Wins, 2 Losses`, `88.9%` Win Rate) · Realized Profit: `+5.82u` (`ROI = +32.36%`)**, including UEFA Conference League wins **Braga `2-0` vs KAA Gent (`@ 1.87`, `+0.87u`)**, **Ajax Amsterdam `2-0` vs Atalanta (`@ 2.00`, `+1.00u`)**, and overnight NHL/NFL/WTA wins (**Boston Bruins `6-0`**, **New Jersey Devils `4-1`**, **Dallas Stars `3-2`**, **Chicago Bears `30-24`**, **Detroit Red Wings `2-5`**, **Ann Li `2-1`**).
 
 ---
 

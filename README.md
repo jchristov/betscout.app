@@ -17,51 +17,51 @@ See **[USER_MANUAL.md](./USER_MANUAL.md)** for the complete interactive WebApp &
 uv run betscout --port 8090
 
 # 0. Run the complete 4-stage daily pipeline (Config-driven incremental sync -> Quality check -> Multi-sport scanner -> HTML Dashboard)
-uv run betscout-model
-# (or: uv run betscout-model --days 5 --min-odds 1.10)
+uv run betscout pipeline
+# (or: uv run betscout pipeline --days 5 --min-odds 1.10)
 
 # 1. Universal Config-Driven Ingestion CLI (reads & updates ingestion_config.json automatically, prevents duplicate re-ingestion)
-uv run betscout-ingest                                            # Periodic incremental sync of all configured sources
-uv run betscout-ingest --leagues uefa.champions,nba,nhl --days 60 # Ingest specific/new leagues over last N days
-uv run betscout-ingest --leagues ned.1,por.1 --years 2025,2026    # Ingest specific seasons
+uv run betscout ingest                                            # Periodic incremental sync of all configured sources
+uv run betscout ingest --leagues uefa.champions,nba,nhl --days 60 # Ingest specific/new leagues over last N days
+uv run betscout ingest --leagues ned.1,por.1 --years 2025,2026    # Ingest specific seasons
 
 # 2. Run database quality and anomaly checks (0 errors across 56,501 matches)
-uv run betscout-quality
+uv run betscout quality
 
 # 3. Rebuild or refresh enriched match_details from cached ESPN JSON payloads
-uv run betscout-enrich           # Fast soccer match_details refresh
-uv run betscout-enrich --full    # Full rebuild of matches + match_details
+uv run betscout enrich           # Fast soccer match_details refresh
+uv run betscout enrich --full    # Full rebuild of matches + match_details
 
 # 4. Run the 7-Factor Orthogonal Soccer Composite, US Sports Composite & Tennis Game-Dominance evaluation
-uv run betscout-edges
+uv run betscout edges
 
 # 5. Scan upcoming Soccer, Tennis & NBA/NHL/NFL/MLB fixtures, score 7-Factor Composite + News + Starting XI Gate & export JSON
-uv run betscout-bet --days 5
+uv run betscout scan --days 5
 
 # 6. Generate standalone HTML Quantitative Desk Dashboard & export Best Bets Summary as CSV (with header) and JSON
-uv run betscout-dashboard --min-odds 1.10                       # Writes data/dashboard.html, data/best_bets.csv & data/best_bets.json
-uv run betscout-dashboard --min-odds 1.15 --format csv          # Export CSV only
+uv run betscout dashboard --min-odds 1.10                       # Writes data/dashboard.html, data/best_bets.csv & data/best_bets.json
+uv run betscout dashboard --min-odds 1.15 --format csv          # Export CSV only
 
 # 7. View Settled & Pending Paper-Bets in the terminal and export data/settled_bets.csv
-uv run betscout-ledger                 # Shows Settled & Pending paper bets + realized PnL
-uv run betscout-ledger --settled-only  # Shows only completed/settled paper bets
+uv run betscout ledger                 # Shows Settled & Pending paper bets + realized PnL
+uv run betscout ledger --settled-only  # Shows only completed/settled paper bets
 
 # 8. Distill ms-decision-1 teacher labels into our local Laya sports checkpoint (data/laya_sports_ckpt)
-uv run betscout-distill --limit 160 --finetune --epochs 3
+uv run betscout distill --limit 160 --finetune --epochs 3
 
 # 9. Benchmark ms-decision-1 vs Base Laya vs Sports-Fine-Tuned Laya (data/decision_model_comparison.json)
-uv run betscout-compare
+uv run betscout compare
 
 # 10. Launch the Interactive Quant Desk Web App, SSE Live Stream & Social Publisher Addon
 uv run betscout --port 8090
 
 # 11. Preview or Publish Daily Best Bets & Settled Recap to Discord (Primary) or Telegram (Optional)
-uv run betscout-discord --dry-run
-uv run betscout-discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from .env
-uv run betscout-telegram --dry-run
+uv run betscout discord --dry-run
+uv run betscout discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from .env
+uv run betscout telegram --dry-run
 
 # 12. Evaluate Football Exact Score / Dutching Clusters & Tennis Set-Score (2:0 / 2:1) Models
-uv run betscout-exact-score
+uv run betscout exact-score
 
 # 13. Run all unit tests
 uv run pytest -q

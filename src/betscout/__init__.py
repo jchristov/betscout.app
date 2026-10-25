@@ -57,6 +57,59 @@ def _run_script(module_name: str) -> None:
         sys.exit(0)
 
 
+SUBCOMMAND_MODULES: dict[str, str] = {
+    "webapp": "webapp",
+    "serve": "webapp",
+    "model": "daily_pipeline",
+    "pipeline": "daily_pipeline",
+    "ingest": "ingest",
+    "quality": "quality",
+    "enrich": "enrich",
+    "edges": "quant_edges",
+    "bet": "paper_trade",
+    "scan": "paper_trade",
+    "dashboard": "dashboard",
+    "ledger": "ledger",
+    "discord": "discord_post",
+    "telegram": "telegram_post",
+    "distill": "distill_laya_sports",
+    "compare": "compare_decision_models",
+    "exact-score": "exact_score_eval",
+    "calibrate": "calibration_report",
+}
+
+
+def cli() -> None:
+    """Unified `betscout` CLI router (`uv run betscout [subcommand] [args...]`).
+    Defaults to launching the interactive WebApp (`webapp`) when no subcommand is given or when flags like `--port` are passed directly."""
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        sub = sys.argv[1].lower().strip()
+        if sub in SUBCOMMAND_MODULES:
+            sys.argv = [f"{sys.argv[0]} {sub}", *sys.argv[2:]]
+            _run_script(SUBCOMMAND_MODULES[sub])
+            return
+        if sub in ("help", "-h", "--help"):
+            print("Usage: uv run betscout [subcommand] [options]\n")
+            print("Available subcommands (defaults to 'webapp' if omitted):")
+            print("  webapp       Launch interactive BetScout WebApp, SSE stream & auto-poller (default)")
+            print("  pipeline     Run full 4-stage daily pipeline (ingest -> quality -> scan -> dashboard)")
+            print("  ingest       Run universal config-driven incremental/historical ingestion")
+            print("  quality      Run 18-point SQLite store hygiene & anomaly audit")
+            print("  enrich       Rebuild or refresh 49-column match_details table")
+            print("  edges        Evaluate multi-sport 7-factor composite & walk-forward backtest")
+            print("  scan         Scan upcoming fixtures across all sports & log paper trades")
+            print("  dashboard    Generate standalone HTML dashboard, CSV & JSON exports")
+            print("  ledger       Inspect settled & pending paper-betting ledger in terminal")
+            print("  discord      Format & publish daily digest + PNG cards to Discord")
+            print("  telegram     Format & publish daily digest + PNG cards to Telegram")
+            print("  exact-score  Evaluate Dixon-Coles exact-score & tennis set-score calibration")
+            print("  calibrate    Run out-of-sample reliability & calibration audit")
+            print("  distill      Distill teacher labels into local Laya sports checkpoint")
+            print("  compare      Benchmark decision models")
+            return
+    _run_script("webapp")
+
+
 def main() -> None:
     _run_script("daily_pipeline")
 

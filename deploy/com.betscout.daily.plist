@@ -10,7 +10,8 @@
     <array>
         <string>/opt/homebrew/bin/uv</string>
         <string>run</string>
-        <string>betscout-model</string>
+        <string>betscout</string>
+        <string>pipeline</string>
         <string>--days</string>
         <string>5</string>
         <string>--min-odds</string>

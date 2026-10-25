@@ -14,22 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-betscout = "betscout:webapp_cli"
-betscout-webapp = "betscout:webapp_cli"
-betscout-model = "betscout:main"
-betscout-ingest = "betscout:ingest_cli"
-betscout-quality = "betscout:quality_cli"
-betscout-enrich = "betscout:enrich_cli"
-betscout-edges = "betscout:quant_edges_cli"
-betscout-bet = "betscout:paper_bet_cli"
-betscout-dashboard = "betscout:dashboard_cli"
-betscout-ledger = "betscout:ledger_cli"
-betscout-discord = "betscout:discord_cli"
-betscout-telegram = "betscout:telegram_cli"
-betscout-distill = "betscout:distill_cli"
-betscout-compare = "betscout:compare_models_cli"
-betscout-exact-score = "betscout:exact_score_cli"
-betscout-calibrate = "betscout:calibrate_cli"
+betscout = "betscout:cli"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

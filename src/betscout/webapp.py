@@ -285,6 +285,7 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         "form_home": form_home,
         "form_away": form_away,
         "pick_detail": model_pick_detail,
+        "live_intel": statshub_intel,
         "statshub": statshub_intel,
     }
 
@@ -478,9 +479,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     h_inj = sh_intel.get("home_injuries") or []
     a_inj = sh_intel.get("away_injuries") or []
     if len(h_inj) >= 3 and fav_is_1:
-        warnings.append(f"⚠️ Sportradar StatsHub Injury Alert: {h_name} has {len(h_inj)} players missing ({', '.join(h_inj[:3])}).")
+        warnings.append(f"⚠️ Squad Availability Alert: {h_name} has {len(h_inj)} players missing ({', '.join(h_inj[:3])}).")
     elif len(a_inj) >= 3 and not fav_is_1:
-        warnings.append(f"⚠️ Sportradar StatsHub Injury Alert: {a_name} has {len(a_inj)} players missing ({', '.join(a_inj[:3])}).")
+        warnings.append(f"⚠️ Squad Availability Alert: {a_name} has {len(a_inj)} players missing ({', '.join(a_inj[:3])}).")
     if detected_sport == "tennis":
         set_pred = predict_tennis_set_scores(
             win_prob=fav_prob,
@@ -857,7 +858,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                         )
                         newly_settled = 0
                     else:
-                        _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against ESPN..."
+                        _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against live scores..."
                         newly_settled = settle_pending_paper_trades(db_path)
 
                     _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement alerts & regenerating dashboard..."

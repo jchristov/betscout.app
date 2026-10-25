@@ -84,8 +84,8 @@ Running the WebApp server enables:
 ### Generate Standalone Static HTML / CSV / JSON Feeds
 ```bash
 cd model
-uv run betscout-model                     # Full 4-stage pipeline: Ingest -> Quality -> Scan -> Dashboard
-uv run betscout-dashboard --min-odds 1.10 # Regenerate data/dashboard.html, best_bets.csv & best_bets.json
+uv run betscout pipeline                     # Full 4-stage pipeline: Ingest -> Quality -> Scan -> Dashboard
+uv run betscout dashboard --min-odds 1.10 # Regenerate data/dashboard.html, best_bets.csv & best_bets.json
 ```
 
 ---
@@ -269,7 +269,7 @@ Click on **any matchup name** in any table (or click **`🔍 Full H2H & Dutching
 
 ## 14. 💬 Discord & Telegram Publishing & Automated Alerts
 
-Click **`💬 Share Picks`** in the header (or run `uv run betscout-discord`) to publish formatted digests:
+Click **`💬 Share Picks`** in the header (or run `uv run betscout discord`) to publish formatted digests:
 - **Automatic Smart Chunking:** Long digests are split cleanly at match boundaries (`<= 1,900` chars) so Discord never truncates a message.
 - **Atomic Settlement Notifications (`notify_new_settlements_to_discord`):** Uses a thread lock + SQLite `BEGIN IMMEDIATE` transaction so each newly settled single bet or 2-leg combo is announced to Discord **at most once**.
 - **Toggleable Live In-Play Rebound Alerts (`notify_inplay_rebound_edges_to_discord`):**
@@ -308,14 +308,14 @@ Every pick in BetScout must pass a strict sequence of out-of-sample validated sa
 | Command | Description |
 | :--- | :--- |
 | `uv run betscout --port 8090` | Launch interactive BetScout WebApp + SSE stream + 90s auto-poller |
-| `uv run betscout-model` | Run full 4-stage daily pipeline (Ingest $\rightarrow$ Quality $\rightarrow$ Scan $\rightarrow$ Dashboard) |
-| `uv run betscout-bet --days 3` | Scan upcoming fixtures across all sports and update `paper_trades` & `paper_combos` |
-| `uv run betscout-dashboard` | Rebuild `data/dashboard.html`, `data/best_bets.csv`, and `data/best_bets.json` |
-| `uv run betscout-calibrate` | Run Post-Match Calibration, Brier Skill Score vs Market & Factor Attribution monitor |
-| `uv run betscout-edges` | Run multi-sport backtest & monthly expanding-window walk-forward evaluation |
-| `uv run betscout-exact-score` | Run Football Exact-Score / Cluster & Tennis Set-Score out-of-sample evaluation |
-| `uv run betscout-ledger` | Print Settled & Pending paper-betting ledger in terminal |
-| `uv run betscout-discord` | Publish daily picks & settled recap digest to Discord channel |
+| `uv run betscout pipeline` | Run full 4-stage daily pipeline (Ingest $\rightarrow$ Quality $\rightarrow$ Scan $\rightarrow$ Dashboard) |
+| `uv run betscout scan --days 3` | Scan upcoming fixtures across all sports and update `paper_trades` & `paper_combos` |
+| `uv run betscout dashboard` | Rebuild `data/dashboard.html`, `data/best_bets.csv`, and `data/best_bets.json` |
+| `uv run betscout calibrate` | Run Post-Match Calibration, Brier Skill Score vs Market & Factor Attribution monitor |
+| `uv run betscout edges` | Run multi-sport backtest & monthly expanding-window walk-forward evaluation |
+| `uv run betscout exact-score` | Run Football Exact-Score / Cluster & Tennis Set-Score out-of-sample evaluation |
+| `uv run betscout ledger` | Print Settled & Pending paper-betting ledger in terminal |
+| `uv run betscout discord` | Publish daily picks & settled recap digest to Discord channel |
 
 ### Environment Variables (`.env`)
 ```ini

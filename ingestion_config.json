@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Descriptor of all configured sports and leagues for periodic & historical ingestion.",
-  "updated_at": "2026-10-24T20:10:29Z",
+  "updated_at": "2026-10-25T11:06:51Z",
   "sources": [
     {
       "sport": "soccer",
@@ -15,11 +15,11 @@
         2025,
         2026
       ],
-      "total_records": 1788,
-      "priced_records": 1788,
+      "total_records": 1792,
+      "priced_records": 1792,
       "first_kickoff": "2022-01-01T12:30Z",
-      "last_ingested_kickoff": "2026-10-23T19:00Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T16:30Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -33,11 +33,11 @@
         2025,
         2026
       ],
-      "total_records": 1803,
-      "priced_records": 1800,
+      "total_records": 1807,
+      "priced_records": 1804,
       "first_kickoff": "2022-01-02T13:00Z",
-      "last_ingested_kickoff": "2026-10-23T19:00Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T19:00Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -51,11 +51,11 @@
         2025,
         2026
       ],
-      "total_records": 1432,
-      "priced_records": 1432,
+      "total_records": 1438,
+      "priced_records": 1438,
       "first_kickoff": "2022-01-07T19:30Z",
-      "last_ingested_kickoff": "2026-10-23T18:30Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T16:30Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -69,11 +69,11 @@
         2025,
         2026
       ],
-      "total_records": 1782,
-      "priced_records": 1767,
+      "total_records": 1786,
+      "priced_records": 1771,
       "first_kickoff": "2022-01-06T11:30Z",
-      "last_ingested_kickoff": "2026-10-23T18:45Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T18:45Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -87,11 +87,11 @@
         2025,
         2026
       ],
-      "total_records": 1553,
-      "priced_records": 1553,
+      "total_records": 1554,
+      "priced_records": 1554,
       "first_kickoff": "2022-01-07T20:00Z",
-      "last_ingested_kickoff": "2026-10-23T18:45Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T18:45Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -105,11 +105,11 @@
         2025,
         2026
       ],
-      "total_records": 922,
-      "priced_records": 922,
+      "total_records": 925,
+      "priced_records": 925,
       "first_kickoff": "2022-02-11T18:30Z",
-      "last_ingested_kickoff": "2026-10-23T17:30Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T17:30Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -120,11 +120,11 @@
         2025,
         2026
       ],
-      "total_records": 548,
-      "priced_records": 548,
+      "total_records": 551,
+      "priced_records": 551,
       "first_kickoff": "2025-01-10T19:00Z",
-      "last_ingested_kickoff": "2026-10-23T18:00Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T19:00Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -135,11 +135,11 @@
         2025,
         2026
       ],
-      "total_records": 541,
-      "priced_records": 541,
+      "total_records": 544,
+      "priced_records": 544,
       "first_kickoff": "2025-01-03T20:15Z",
-      "last_ingested_kickoff": "2026-10-23T19:45Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T19:30Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "soccer",
@@ -198,11 +198,11 @@
         2025,
         2026
       ],
-      "total_records": 18392,
+      "total_records": 18414,
       "priced_records": 0,
       "first_kickoff": "2021-09-25T20:00Z",
-      "last_ingested_kickoff": "2026-10-23T19:40Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T16:40Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "tennis",
@@ -216,11 +216,11 @@
         2025,
         2026
       ],
-      "total_records": 24776,
+      "total_records": 24812,
       "priced_records": 0,
       "first_kickoff": "2022-01-02T00:40Z",
-      "last_ingested_kickoff": "2026-10-24T03:50Z",
-      "last_ingested_ymd": "20261024"
+      "last_ingested_kickoff": "2026-10-25T09:20Z",
+      "last_ingested_ymd": "20261025"
     },
     {
       "sport": "basketball",
@@ -231,11 +231,11 @@
         2025,
         2026
       ],
-      "total_records": 521,
-      "priced_records": 513,
+      "total_records": 529,
+      "priced_records": 521,
       "first_kickoff": "2026-03-01T18:00Z",
-      "last_ingested_kickoff": "2026-10-24T02:00Z",
-      "last_ingested_ymd": "20261024"
+      "last_ingested_kickoff": "2026-10-25T02:00Z",
+      "last_ingested_ymd": "20261025"
     },
     {
       "sport": "hockey",
@@ -246,11 +246,11 @@
         2025,
         2026
       ],
-      "total_records": 678,
-      "priced_records": 616,
+      "total_records": 690,
+      "priced_records": 628,
       "first_kickoff": "2026-03-01T18:00Z",
-      "last_ingested_kickoff": "2026-10-24T01:00Z",
-      "last_ingested_ymd": "20261024"
+      "last_ingested_kickoff": "2026-10-25T02:00Z",
+      "last_ingested_ymd": "20261025"
     },
     {
       "sport": "football",
@@ -321,11 +321,11 @@
         2025,
         2026
       ],
-      "total_records": 110,
-      "priced_records": 110,
+      "total_records": 121,
+      "priced_records": 121,
       "first_kickoff": "2026-08-23T11:00Z",
-      "last_ingested_kickoff": "2026-10-23T19:00Z",
-      "last_ingested_ymd": "20261023"
+      "last_ingested_kickoff": "2026-10-24T14:00Z",
+      "last_ingested_ymd": "20261024"
     },
     {
       "sport": "volleyball",
@@ -336,11 +336,11 @@
         2025,
         2026
       ],
-      "total_records": 1537,
+      "total_records": 1618,
       "priced_records": 0,
       "first_kickoff": "2026-09-24T22:00Z",
-      "last_ingested_kickoff": "2026-10-24T18:00Z",
-      "last_ingested_ymd": "20261024"
+      "last_ingested_kickoff": "2026-10-25T05:00Z",
+      "last_ingested_ymd": "20261025"
     },
     {
       "sport": "volleyball",
@@ -381,11 +381,11 @@
         2025,
         2026
       ],
-      "total_records": 34,
+      "total_records": 36,
       "priced_records": 0,
       "first_kickoff": "2026-09-24T09:30Z",
-      "last_ingested_kickoff": "2026-10-24T08:30Z",
-      "last_ingested_ymd": "20261024"
+      "last_ingested_kickoff": "2026-10-25T06:00Z",
+      "last_ingested_ymd": "20261025"
     },
     {
       "sport": "basketball",

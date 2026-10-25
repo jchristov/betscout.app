@@ -304,7 +304,7 @@ def build_best_bets_summary(
                     float(tipico_cs_map.get(str(item.get("score") or "")) or max(float(item.get("fair_odds") or 8.0) * 0.88, 3.20)),
                     2,
                 ),
-                "odds_source": "Tipico" if str(item.get("score") or "") in tipico_cs_map else "Synthetic",
+                "odds_source": "Live" if str(item.get("score") or "") in tipico_cs_map else "Model",
             }
             for item in (esc_p.get("top_3_breakdown") or [])
             if item.get("score")
@@ -322,11 +322,9 @@ def build_best_bets_summary(
         )[:3]
         driver_str = ", ".join(f"{k}={v:+.2f}z" for k, v in top_drivers) if top_drivers else "Orthogonal 7-Factor Composite"
         if tipico_1x2_pick and tipico_1x2_pick > odds_val + 0.02:
-            driver_str += f" · Tipico TopPrice @{tipico_1x2_pick:.2f} (+{(tipico_1x2_pick - odds_val):.2f} vs Book)"
+            driver_str += f" · Top Market Price @{tipico_1x2_pick:.2f} (+{(tipico_1x2_pick - odds_val):.2f} Edge)"
             odds_val = tipico_1x2_pick
             p_ev_pct = round((p_win_val * odds_val - 1.0) * 100.0, 2)
-        elif tipico_1x2_pick:
-            driver_str += f" · Tipico @{tipico_1x2_pick:.2f}"
         is_mispriced = bool(p_ev_pct >= 2.0 and p_edge_pp >= 2.0)
         best_bets.append({
             "date": p["kickoff"],
@@ -1880,7 +1878,7 @@ def generate_dashboard_html(
 
   <div id="actionProgressBanner" class="progress-wrap">
     <span class="spinner"></span>
-    <b id="actionProgressText">Syncing paper-betting ledger against ESPN...</b>
+    <b id="actionProgressText">Syncing paper-betting ledger &amp; live match scores...</b>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
     <span id="actionElapsedText" class="muted">0.0s</span>
   </div>
@@ -2138,7 +2136,7 @@ def generate_dashboard_html(
     <div class="card-head" style="margin-bottom:8px;">
       <div>
         <b style="font-size:13.5px; color:var(--green);">🔍 On-Demand Any-Matchup Live Analyzer</b>
-        <span class="muted" style="margin-left:8px;">Analyze ANY Tennis or Football matchup (even sub-70% non-bankers) — checks live SofaScore odds, Challenger/ATP Last-5 form, H2H &amp; turnaround hours</span>
+        <span class="muted" style="margin-left:8px;">Analyze ANY Tennis or Football matchup (even sub-70% non-bankers) — checks live bookmaker odds, all-level Last-5 form, H2H &amp; turnaround hours</span>
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input id="liveAnalyzeInput" type="search" placeholder="e.g. Medvedev vs Bublik, Bernet vs Altmaier, Dortmund vs Frankfurt..." onkeydown="if(event.key==='Enter') runLiveMatchupAnalyzer()" style="min-width:290px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
@@ -2294,7 +2292,7 @@ def generate_dashboard_html(
       </tr>
     </thead>
     <tbody id="settledTradesTbody">
-      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout-model</code>.</td></tr>'}
+      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout pipeline</code>.</td></tr>'}
     </tbody>
   </table>
 
@@ -2468,23 +2466,23 @@ def generate_dashboard_html(
           : '<div class="muted">First tracked meeting in current database window.</div>';
         let scHtml = '';
         const pk = d.pick_detail || {{}};
-        const sh = d.statshub || {{}};
-        const shMkts = sh.tipico_markets || {{}};
-        const tipicoCsOdds = shMkts.correct_score_odds || {{}};
+        const sh = d.live_intel || {{}};
+        const shMkts = sh.primary_markets || {{}};
+        const bookCsOdds = shMkts.correct_score_odds || {{}};
         const esc = pk.exact_score_prediction || {{}};
         const sp = pk.set_score_prediction || {{}};
         if (esc.top_3_breakdown && esc.top_3_breakdown.length) {{
           const top3 = esc.top_3_breakdown.map(x => {{
-            const tOdd = tipicoCsOdds[x.score];
-            const tStr = tOdd ? (' · Tipico @<b>' + Number(tOdd).toFixed(2) + '</b>') : '';
+            const tOdd = bookCsOdds[x.score];
+            const tStr = tOdd ? (' · Book @<b>' + Number(tOdd).toFixed(2) + '</b>') : '';
             return '<span class="pill badge-bet">' + escHtml(x.score) + ' (' + (Number(x.prob)*100).toFixed(1) + '%, Fair ' + Number(x.fair_odds).toFixed(2) + tStr + ')</span>';
           }}).join(' ');
           const dStakeDefault = 20;
           const sumProbs3 = esc.top_3_breakdown.reduce((acc, x) => acc + Number(x.prob || 0), 0.0) || 0.30;
           const dutchRowsHtml = esc.top_3_breakdown.map((x, idx) => {{
             const pSc = Number(x.prob || 0.10);
-            const fOdds = Number(tipicoCsOdds[x.score] || x.fair_odds || (1.0 / pSc));
-            const oddsTag = tipicoCsOdds[x.score] ? 'Tipico @' : 'Fair @';
+            const fOdds = Number(bookCsOdds[x.score] || x.fair_odds || (1.0 / pSc));
+            const oddsTag = bookCsOdds[x.score] ? 'Book @' : 'Fair @';
             const stSc = (dStakeDefault * (pSc / sumProbs3));
             const retSc = stSc * fOdds;
             return '<div class="dutch-row" data-prob="' + pSc.toFixed(4) + '" data-fair-odds="' + fOdds.toFixed(3) + '" style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:11.5px;">' +
@@ -2562,15 +2560,15 @@ def generate_dashboard_html(
           if (shMkts.total_line && shMkts.odds_over && shMkts.odds_under) {{
             mBits.push('Total (' + shMkts.total_line + '): Over @<b>' + Number(shMkts.odds_over).toFixed(2) + '</b> · Under @<b>' + Number(shMkts.odds_under).toFixed(2) + '</b>');
           }}
-          const uofMkts = sh.sportradar_uof_markets || {{}};
+          const uofMkts = sh.consensus_markets || {{}};
           if (uofMkts.odds_home && shMkts.odds_home && Math.abs(Number(uofMkts.odds_home) - Number(shMkts.odds_home)) >= 0.01) {{
-            mBits.push('Sportradar UOF 1X2: <b>' + Number(uofMkts.odds_home).toFixed(2) + '</b>' + (uofMkts.odds_draw ? (' / <b>' + Number(uofMkts.odds_draw).toFixed(2) + '</b>') : '') + ' / <b>' + Number(uofMkts.odds_away).toFixed(2) + '</b>');
+            mBits.push('Consensus 1X2: <b>' + Number(uofMkts.odds_home).toFixed(2) + '</b>' + (uofMkts.odds_draw ? (' / <b>' + Number(uofMkts.odds_draw).toFixed(2) + '</b>') : '') + ' / <b>' + Number(uofMkts.odds_away).toFixed(2) + '</b>');
           }}
           const injH = (sh.home_injuries && sh.home_injuries.length) ? ('<div><b>🚑 ' + escHtml(home) + ' Missing (' + sh.home_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.home_injuries.join(', ')) + '</span></div>') : '';
           const injA = (sh.away_injuries && sh.away_injuries.length) ? ('<div><b>🚑 ' + escHtml(away) + ' Missing (' + sh.away_injuries.length + '):</b> <span class="num-neg">' + escHtml(sh.away_injuries.join(', ')) + '</span></div>') : '';
           const ig = sh.injury_gate || {{}};
           const igRow = ig.status && ig.status !== 'NO_SEASON_DATA'
-            ? ('<div style="margin-top:3px;"><b>🛡️ Pre-Match Sportradar Injury Gate:</b> <span class="pill ' + (ig.veto_recommended ? 'badge-veto' : 'badge-bet') + '">' + escHtml(ig.status) + ' (Prob Adj: ' + (Number(ig.prob_adjustment||0)>=0?'+':'') + (Number(ig.prob_adjustment||0)*100).toFixed(1) + 'pp)</span></div>')
+            ? ('<div style="margin-top:3px;"><b>🛡️ Pre-Match Squad Availability Gate:</b> <span class="pill ' + (ig.veto_recommended ? 'badge-veto' : 'badge-bet') + '">' + escHtml(ig.status) + ' (Prob Adj: ' + (Number(ig.prob_adjustment||0)>=0?'+':'') + (Number(ig.prob_adjustment||0)*100).toFixed(1) + 'pp)</span></div>')
             : '';
           const gi = sh.goal_intervals || {{}};
           let giRow = '';
@@ -2590,13 +2588,13 @@ def generate_dashboard_html(
             : '';
           const tSurf = sh.tennis_surface_records || {{}};
           const surfRow = (tSurf.home || tSurf.away)
-            ? ('<div style="margin-top:4px;"><b>🎾 Sportradar Season &amp; Surface W–L:</b> ' +
+            ? ('<div style="margin-top:4px;"><b>🎾 Season &amp; Surface W–L:</b> ' +
                 (tSurf.home ? (escHtml(home) + ': Season <b>' + escHtml(tSurf.home.season_wl) + '</b> (Hard ' + escHtml(tSurf.home.hard_wl) + ', Indoor ' + escHtml(tSurf.home.indoor_wl) + ', Clay ' + escHtml(tSurf.home.clay_wl) + ')') : '') +
                 (tSurf.away ? (' · ' + escHtml(away) + ': Season <b>' + escHtml(tSurf.away.season_wl) + '</b> (Hard ' + escHtml(tSurf.away.hard_wl) + ', Indoor ' + escHtml(tSurf.away.indoor_wl) + ', Clay ' + escHtml(tSurf.away.clay_wl) + ')') : '') +
               '</div>')
             : '';
           shHtml = '<div style="margin-top:12px; padding:10px; background:#0b0f17; border:1px solid rgba(56,189,248,0.45); border-radius:8px; font-size:11.5px;">' +
-            '<div style="margin-bottom:5px; color:var(--accent);"><b>📡 Sportradar StatsHub (Tipico + UOF) Live Intelligence &amp; Markets</b></div>' +
+            '<div style="margin-bottom:5px; color:var(--accent);"><b>📡 Live Market Depth, Squad Availability &amp; Telemetry</b></div>' +
             (mBits.length ? ('<div style="margin-bottom:4px;">' + mBits.join(' &nbsp;|&nbsp; ') + '</div>') : '') +
             injH + injA + igRow + giRow + lpRow + surfRow +
           '</div>';
@@ -2809,9 +2807,9 @@ def generate_dashboard_html(
         odds: parseFloat(rowEl.getAttribute('data-odds') || '1.50')
       }};
       currentDutchScoreItems = sItems.map(x => ({{ ...x }}));
-      bar.innerHTML = '<b style="color:var(--accent);">✏️ Live Tipico / Bookmaker Score Odds (editable):</b> ' +
+      bar.innerHTML = '<b style="color:var(--accent);">✏️ Live Bookmaker Score Odds (editable):</b> ' +
         currentDutchScoreItems.map((it, idx) => {{
-          const srcTag = it.odds_source === 'Tipico' ? ' <span class="pill badge-bet" style="font-size:9.5px;padding:1px 5px;">Tipico</span>' : '';
+          const srcTag = it.odds_source === 'Live' ? ' <span class="pill badge-bet" style="font-size:9.5px;padding:1px 5px;">Live</span>' : '';
           return '<label style="display:inline-flex; align-items:center; gap:5px;">' +
             '<b>#' + (idx + 1) + ' ' + escHtml(it.score) + '</b> <span class="muted">(Model ' + (Number(it.prob) * 100).toFixed(1) + '%, Fair @' + Number(it.fair_odds).toFixed(2) + ')</span>' + srcTag + ' Odds:' +
             '<input type="number" step="0.10" min="1.20" max="100" value="' + Number(it.book_odds || it.fair_odds).toFixed(2) + '" data-dutch-idx="' + idx + '" oninput="onCustomScoreOddsInput(this)" style="width:66px; background:#111827; color:var(--green); border:1px solid var(--border); border-radius:5px; padding:3px 6px; font-weight:700;">' +
@@ -3062,7 +3060,7 @@ def generate_dashboard_html(
       const q = inp.value.trim();
       if (!q) return;
       box.style.display = 'block';
-      box.innerHTML = '<span class="spinner"></span> Querying BetScout store + live SofaScore odds, all-level Challenger/ATP form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
+      box.innerHTML = '<span class="spinner"></span> Querying BetScout store, live bookmaker odds, all-level form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
       if (!window.location.protocol.startsWith('http')) {{
         box.innerHTML = '<span class="muted">Start the BetScout WebApp server (<code>uv run betscout --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
         return;
@@ -3852,7 +3850,7 @@ def generate_dashboard_html(
         if (txtEl && labelText) txtEl.textContent = labelText;
         if (banner) banner.style.display = 'flex';
         document.getElementById('topLoadingBar')?.classList.add('is-active');
-        showPageLoader(labelText || 'Synchronizing BetScout data...', 'Communicating with ESPN, SofaScore & SQLite store...');
+        showPageLoader(labelText || 'Synchronizing BetScout data...', 'Synchronizing live match feeds, bookmaker markets & SQLite store...');
         const t0 = performance.now();
         if (elapsedEl) elapsedEl.textContent = '0.0s';
         progressTimer = setInterval(() => {{
@@ -4125,7 +4123,7 @@ def generate_dashboard_html(
       const btn = document.getElementById(rescanLive ? 'rescanLiveBtn' : 'syncLedgerBtn');
       const label = rescanLive
         ? 'Rescanning live matches & odds across all leagues...'
-        : 'Syncing & settling paper-betting ledger against ESPN...';
+        : 'Syncing & settling paper-betting ledger against live scores...';
       setActionBusy(true, label, btn);
       try {{
         if (!window.location.protocol.startsWith('http')) {{
@@ -4143,7 +4141,7 @@ def generate_dashboard_html(
           applyLiveStreamPayload(d);
           const msg = rescanLive
             ? '✅ Live matches rescanned & ledger synced (' + (d.paper_ledger?.settled_count || 0) + ' settled, ' + (d.paper_ledger?.pending_count || 0) + ' pending)!'
-            : '✅ Ledger synced against ESPN (' + (d.newly_settled || 0) + ' newly settled bets; ' + (d.paper_ledger?.settled_count || 0) + ' total settled)!';
+            : '✅ Ledger synced (' + (d.newly_settled || 0) + ' newly settled bets; ' + (d.paper_ledger?.settled_count || 0) + ' total settled)!';
           showToast(msg);
           if (rescanLive) setTimeout(() => window.location.reload(), 900);
         }} else {{
