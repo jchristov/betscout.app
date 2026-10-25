@@ -264,12 +264,24 @@ def build_best_bets_summary(
             if esc_p.get("top_exact_score")
             else "—"
         )
+        tipico_cs_map: dict[str, float] = {}
+        try:
+            from .sportradar_statshub import lookup_tipico_correct_score_and_1x2
+
+            t_mkts = lookup_tipico_correct_score_and_1x2(p["home"], p["away"], date_ymd=str(p["kickoff"])[:10], sport="soccer")
+            tipico_cs_map = t_mkts.get("correct_score_odds") or {}
+        except Exception:
+            tipico_cs_map = {}
         score_cluster_items = [
             {
                 "score": str(item.get("score") or ""),
                 "prob": round(float(item.get("prob") or 0.10), 4),
                 "fair_odds": round(float(item.get("fair_odds") or 8.0), 2),
-                "book_odds": round(max(float(item.get("fair_odds") or 8.0) * 0.88, 3.20), 2),
+                "book_odds": round(
+                    float(tipico_cs_map.get(str(item.get("score") or "")) or max(float(item.get("fair_odds") or 8.0) * 0.88, 3.20)),
+                    2,
+                ),
+                "odds_source": "Tipico" if str(item.get("score") or "") in tipico_cs_map else "Synthetic",
             }
             for item in (esc_p.get("top_3_breakdown") or [])
             if item.get("score")
@@ -2733,13 +2745,14 @@ def generate_dashboard_html(
         odds: parseFloat(rowEl.getAttribute('data-odds') || '1.50')
       }};
       currentDutchScoreItems = sItems.map(x => ({{ ...x }}));
-      bar.innerHTML = '<b style="color:var(--accent);">✏️ Editable Bookmaker Score Odds (adjust to your sportsbook):</b> ' +
-        currentDutchScoreItems.map((it, idx) =>
-          '<label style="display:inline-flex; align-items:center; gap:5px;">' +
-            '<b>#' + (idx + 1) + ' ' + escHtml(it.score) + '</b> <span class="muted">(Model ' + (Number(it.prob) * 100).toFixed(1) + '%, Fair @' + Number(it.fair_odds).toFixed(2) + ')</span> Odds:' +
+      bar.innerHTML = '<b style="color:var(--accent);">✏️ Live Tipico / Bookmaker Score Odds (editable):</b> ' +
+        currentDutchScoreItems.map((it, idx) => {{
+          const srcTag = it.odds_source === 'Tipico' ? ' <span class="pill badge-bet" style="font-size:9.5px;padding:1px 5px;">Tipico</span>' : '';
+          return '<label style="display:inline-flex; align-items:center; gap:5px;">' +
+            '<b>#' + (idx + 1) + ' ' + escHtml(it.score) + '</b> <span class="muted">(Model ' + (Number(it.prob) * 100).toFixed(1) + '%, Fair @' + Number(it.fair_odds).toFixed(2) + ')</span>' + srcTag + ' Odds:' +
             '<input type="number" step="0.10" min="1.20" max="100" value="' + Number(it.book_odds || it.fair_odds).toFixed(2) + '" data-dutch-idx="' + idx + '" oninput="onCustomScoreOddsInput(this)" style="width:66px; background:#111827; color:var(--green); border:1px solid var(--border); border-radius:5px; padding:3px 6px; font-weight:700;">' +
-          '</label>'
-        ).join(' &nbsp;·&nbsp; ');
+          '</label>';
+        }}).join(' &nbsp;·&nbsp; ');
       recalcStandaloneDutchSplitter();
     }}
 

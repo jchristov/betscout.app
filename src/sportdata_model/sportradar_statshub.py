@@ -423,6 +423,63 @@ def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool =
     return out
 
 
+def get_daily_tipico_match_index(sport: str = "soccer", date_ymd: str | None = None) -> list[dict[str, Any]]:
+    """Fetch and cache the flattened list of matches (`home`, `away`, `_id`, `_seasonid`, `tournament`) for `sport` on `date_ymd`."""
+    if not date_ymd:
+        date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    cache_k = f"daily_idx:{sport}:{date_ymd}"
+    now = time.time()
+    if cache_k in _RESPONSE_CACHE and (now - _RESPONSE_CACHE[cache_k][0] < 600.0):
+        return _RESPONSE_CACHE[cache_k][1]
+    sport_id = SR_SPORT_IDS.get(sport.lower(), 1)
+    u_data = fetch_statshub_gismo("unified_sport_matches", f"{sport_id}/{date_ymd}/0", ttl_sec=600.0)
+    flat: list[dict[str, Any]] = []
+    if isinstance(u_data, dict):
+        sp_obj = u_data.get("sport") or {}
+        for rc in sp_obj.get("realcategories") or []:
+            for t in rc.get("tournaments") or []:
+                t_label = f"{rc.get('name', '')} · {t.get('name', '')}".strip(" ·")
+                for m in t.get("matches") or []:
+                    teams = m.get("teams") or {}
+                    flat.append({
+                        "match_obj": m,
+                        "tournament": t_label,
+                        "home": (teams.get("home") or {}).get("name") or "",
+                        "away": (teams.get("away") or {}).get("name") or "",
+                    })
+    _RESPONSE_CACHE[cache_k] = (now, flat)
+    return flat
+
+
+def lookup_tipico_correct_score_and_1x2(home: str, away: str, date_ymd: str | None = None, sport: str = "soccer") -> dict[str, Any]:
+    """Fast lookup of Tipico (`_bookmakerId=176`) + Sportradar UOF (`_bookmakerId=0`) prematch markets for `(home, away)` on `date_ymd`."""
+    flat = get_daily_tipico_match_index(sport=sport, date_ymd=date_ymd)
+    matched_m = None
+    flipped = False
+    for entry in flat:
+        th, ta = entry["home"], entry["away"]
+        if _names_match(home, th) and _names_match(away, ta):
+            matched_m = entry["match_obj"]
+            flipped = False
+            break
+        if _names_match(home, ta) and _names_match(away, th):
+            matched_m = entry["match_obj"]
+            flipped = True
+            break
+    if not matched_m:
+        return {}
+    mid = matched_m.get("_id")
+    mm_tipico = fetch_statshub_gismo("match_markets", f"{mid}/prematch", client_alias="tipico", ttl_sec=600.0) or {}
+    mm_sr = fetch_statshub_gismo("match_markets", f"{mid}/prematch", client_alias="sportradar", ttl_sec=600.0) or {}
+    p_tip = parse_tipico_prematch_markets(mm_tipico.get("markets") or [], flipped=flipped)
+    p_sr = parse_tipico_prematch_markets(mm_sr.get("markets") or [], flipped=flipped)
+    merged = dict(p_tip)
+    for k, v in p_sr.items():
+        if k != "bookmaker" and not merged.get(k) and v:
+            merged[k] = v
+    return merged
+
+
 def lookup_statshub_match_intel(
     home: str,
     away: str,
