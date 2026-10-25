@@ -1,4 +1,4 @@
-"""Exact Score & Set-Score Prediction Engine (`src/sportdata_model/exact_score.py`).
+"""Exact Score & Set-Score Prediction Engine (`src/betscout/exact_score.py`).
 
 Implements:
   1. **Football Feature-Adjusted Dixon-Coles Score Grid & Dutching Clusters**:

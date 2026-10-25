@@ -29,7 +29,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.decision_signal import (  # noqa: E402
+from betscout.decision_signal import (  # noqa: E402
     LAYA_CKPT,
     LAYA_RUN,
     LAYA_SPORTS_CKPT,

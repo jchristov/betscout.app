@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.dashboard import generate_dashboard_html  # noqa: E402
+from betscout.dashboard import generate_dashboard_html  # noqa: E402
 
 
 def main() -> None:

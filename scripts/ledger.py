@@ -1,9 +1,9 @@
 """View and export Settled and Pending Paper-Bets from `data/matches.sqlite`.
 
 Usage:
-    uv run sportdata-ledger                 # Print Settled & Pending paper bets + summary
-    uv run sportdata-ledger --settled-only  # Show only SETTLED paper bets
-    uv run sportdata-ledger --export-csv data/settled_bets.csv
+    uv run betscout-ledger                 # Print Settled & Pending paper bets + summary
+    uv run betscout-ledger --settled-only  # Show only SETTLED paper bets
+    uv run betscout-ledger --export-csv data/settled_bets.csv
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.espn import LEAGUE_LABELS  # noqa: E402
-from sportdata_model.paper_trade import get_paper_ledger_summary, settle_pending_paper_trades  # noqa: E402
+from betscout.espn import LEAGUE_LABELS  # noqa: E402
+from betscout.paper_trade import get_paper_ledger_summary, settle_pending_paper_trades  # noqa: E402
 
 
 def main() -> None:

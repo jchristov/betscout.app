@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from sportdata_model.quality import CANONICAL_VIEW, SQL_CHECKS, install_view, run
+from betscout.quality import CANONICAL_VIEW, SQL_CHECKS, install_view, run
 
 
 def _db(tmp_path: Path) -> Path:

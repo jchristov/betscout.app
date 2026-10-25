@@ -1,6 +1,6 @@
-from sportdata_model.enrich import infer_surface
-from sportdata_model.ingest import _valid_1x2, _valid_dc, _valid_totals, american_to_decimal
-from sportdata_model.quant_edges import settle_asian_total
+from betscout.enrich import infer_surface
+from betscout.ingest import _valid_1x2, _valid_dc, _valid_totals, american_to_decimal
+from betscout.quant_edges import settle_asian_total
 
 
 def test_settle_asian_total_pushes_and_quarter_lines():

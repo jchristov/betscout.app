@@ -22,12 +22,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.dashboard import DEFAULT_LOCAL_TZ  # noqa: E402
-from sportdata_model.telegram_bot import format_telegram_digest, send_telegram_message  # noqa: E402
+from betscout.dashboard import DEFAULT_LOCAL_TZ  # noqa: E402
+from betscout.telegram_bot import format_telegram_digest, send_telegram_message  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Publish Sportdata Quant Desk digest to a Telegram channel.")
+    parser = argparse.ArgumentParser(description="Publish BetScout Quant Desk digest to a Telegram channel.")
     parser.add_argument("--min-odds", type=float, default=1.15, help="Minimum odds threshold (default: 1.15)")
     parser.add_argument(
         "--sport",

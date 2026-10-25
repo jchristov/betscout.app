@@ -93,15 +93,15 @@ gcloud functions deploy laya-sports-decisions \
 
 ---
 
-## 3. Connecting `sportdata-model` to Your Hosted Function
+## 3. Connecting `betscout-model` to Your Hosted Function
 
-`src/sportdata_model/decision_signal.py` natively supports your deployed Firebase / GCP Cloud Function via `LAYA_REMOTE_URL` (and optional `LAYA_REMOTE_TOKEN`):
+`src/betscout/decision_signal.py` natively supports your deployed Firebase / GCP Cloud Function via `LAYA_REMOTE_URL` (and optional `LAYA_REMOTE_TOKEN`):
 
 ```bash
 export LAYA_REMOTE_URL="https://europe-west1-<your-project>.cloudfunctions.net/laya_sports_decisions"
 export LAYA_REMOTE_TOKEN="<your-secret-token>"
 
 # Runs using the hosted Firebase/GCP Laya function automatically!
-uv run sportdata-model
+uv run betscout-model
 ```
-When `LAYA_REMOTE_URL` is unset, `sportdata-model` automatically uses the local [`data/laya_sports_ckpt`](../../data/laya_sports_ckpt) checkpoint via a persistent warm worker process.
+When `LAYA_REMOTE_URL` is unset, `betscout-model` automatically uses the local [`data/laya_sports_ckpt`](../../data/laya_sports_ckpt) checkpoint via a persistent warm worker process.

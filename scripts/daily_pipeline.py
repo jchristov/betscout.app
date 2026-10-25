@@ -6,7 +6,7 @@
 
 Usage:
     uv run python scripts/daily_pipeline.py
-    uv run sportdata-model
+    uv run betscout-model
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.dashboard import generate_dashboard_html  # noqa: E402
-from sportdata_model.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
-from sportdata_model.telegram_bot import notify_new_settlements_to_discord  # noqa: E402
-from sportdata_model.universal_ingest import ingest_universal  # noqa: E402
+from betscout.dashboard import generate_dashboard_html  # noqa: E402
+from betscout.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
+from betscout.telegram_bot import notify_new_settlements_to_discord  # noqa: E402
+from betscout.universal_ingest import ingest_universal  # noqa: E402
 
 
 def run_pipeline(
@@ -143,7 +143,7 @@ def run_pipeline(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the end-to-end Sportdata daily quantitative pipeline.")
+    parser = argparse.ArgumentParser(description="Run the end-to-end BetScout daily quantitative pipeline.")
     parser.add_argument("--lookback", type=int, default=None, help="Days of recent completed results to force-scan (default: incremental watermark from ingestion_config.json)")
     parser.add_argument("--days", type=int, default=5, help="Days of upcoming fixtures to scan (default: 5)")
     parser.add_argument("--min-odds", type=float, default=1.10, help="Soft filter threshold: exclude odds <= min-odds (default: 1.10)")

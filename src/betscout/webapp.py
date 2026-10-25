@@ -1,4 +1,4 @@
-"""Interactive Web App Server & Social Publishing Addon (`src/sportdata_model/webapp.py`).
+"""Interactive Web App Server & Social Publishing Addon (`src/betscout/webapp.py`).
 
 Serves:
   - `GET  /`                  -> Enhanced Quant Desk Web App (`data/dashboard.html`) with live controls
@@ -1022,6 +1022,6 @@ def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n👋 Shutting down Sportdata Quant Desk Web App server...")
+        print("\n👋 Shutting down BetScout Quant Desk Web App server...")
     finally:
         server.server_close()

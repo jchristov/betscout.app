@@ -18,50 +18,50 @@ uv run betscout --port 8090
 
 # 0. Run the complete 4-stage daily pipeline (Config-driven incremental sync -> Quality check -> Multi-sport scanner -> HTML Dashboard)
 uv run betscout-model
-# (or: uv run sportdata-model --days 5 --min-odds 1.10)
+# (or: uv run betscout-model --days 5 --min-odds 1.10)
 
 # 1. Universal Config-Driven Ingestion CLI (reads & updates ingestion_config.json automatically, prevents duplicate re-ingestion)
-uv run sportdata-ingest                                            # Periodic incremental sync of all configured sources
-uv run sportdata-ingest --leagues uefa.champions,nba,nhl --days 60 # Ingest specific/new leagues over last N days
-uv run sportdata-ingest --leagues ned.1,por.1 --years 2025,2026    # Ingest specific seasons
+uv run betscout-ingest                                            # Periodic incremental sync of all configured sources
+uv run betscout-ingest --leagues uefa.champions,nba,nhl --days 60 # Ingest specific/new leagues over last N days
+uv run betscout-ingest --leagues ned.1,por.1 --years 2025,2026    # Ingest specific seasons
 
 # 2. Run database quality and anomaly checks (0 errors across 56,501 matches)
-uv run sportdata-quality
+uv run betscout-quality
 
 # 3. Rebuild or refresh enriched match_details from cached ESPN JSON payloads
-uv run sportdata-enrich           # Fast soccer match_details refresh
-uv run sportdata-enrich --full    # Full rebuild of matches + match_details
+uv run betscout-enrich           # Fast soccer match_details refresh
+uv run betscout-enrich --full    # Full rebuild of matches + match_details
 
 # 4. Run the 7-Factor Orthogonal Soccer Composite, US Sports Composite & Tennis Game-Dominance evaluation
-uv run sportdata-edges
+uv run betscout-edges
 
 # 5. Scan upcoming Soccer, Tennis & NBA/NHL/NFL/MLB fixtures, score 7-Factor Composite + News + Starting XI Gate & export JSON
-uv run sportdata-bet --days 5
+uv run betscout-bet --days 5
 
 # 6. Generate standalone HTML Quantitative Desk Dashboard & export Best Bets Summary as CSV (with header) and JSON
-uv run sportdata-dashboard --min-odds 1.10                       # Writes data/dashboard.html, data/best_bets.csv & data/best_bets.json
-uv run sportdata-dashboard --min-odds 1.15 --format csv          # Export CSV only
+uv run betscout-dashboard --min-odds 1.10                       # Writes data/dashboard.html, data/best_bets.csv & data/best_bets.json
+uv run betscout-dashboard --min-odds 1.15 --format csv          # Export CSV only
 
 # 7. View Settled & Pending Paper-Bets in the terminal and export data/settled_bets.csv
-uv run sportdata-ledger                 # Shows Settled & Pending paper bets + realized PnL
-uv run sportdata-ledger --settled-only  # Shows only completed/settled paper bets
+uv run betscout-ledger                 # Shows Settled & Pending paper bets + realized PnL
+uv run betscout-ledger --settled-only  # Shows only completed/settled paper bets
 
 # 8. Distill ms-decision-1 teacher labels into our local Laya sports checkpoint (data/laya_sports_ckpt)
-uv run sportdata-distill --limit 160 --finetune --epochs 3
+uv run betscout-distill --limit 160 --finetune --epochs 3
 
 # 9. Benchmark ms-decision-1 vs Base Laya vs Sports-Fine-Tuned Laya (data/decision_model_comparison.json)
-uv run sportdata-compare
+uv run betscout-compare
 
 # 10. Launch the Interactive Quant Desk Web App, SSE Live Stream & Social Publisher Addon
-uv run sportdata-webapp --port 8090
+uv run betscout --port 8090
 
 # 11. Preview or Publish Daily Best Bets & Settled Recap to Discord (Primary) or Telegram (Optional)
-uv run sportdata-discord --dry-run
-uv run sportdata-discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from .env
-uv run sportdata-telegram --dry-run
+uv run betscout-discord --dry-run
+uv run betscout-discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from .env
+uv run betscout-telegram --dry-run
 
 # 12. Evaluate Football Exact Score / Dutching Clusters & Tennis Set-Score (2:0 / 2:1) Models
-uv run sportdata-exact-score
+uv run betscout-exact-score
 
 # 13. Run all unit tests
 uv run pytest -q
@@ -71,8 +71,8 @@ uv run pytest -q
 
 - `ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
 - `deploy/firebase_laya/` — Ready-to-deploy Firebase Cloud Functions (2nd Gen Python 3.12) & GCP Cloud Functions package (`functions/main.py`, `firebase.json`, `.firebaserc`, `package_checkpoint.sh`, and `README.md`) for hosting the `804 MB` `laya_sports_ckpt` model
-- `deploy/com.sportdata.model.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
-- `src/sportdata_model/`
+- `deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
+- `src/betscout/`
   - `espn.py` — Cached ESPN scoreboard & summary client (`curl --compressed` with retry/backoff and 15m live refresh for recent days)
   - `ingest.py` — Pre-match 3-way & 2-way odds validators (`_valid_1x2`, `_valid_2way`, `_valid_dc`, `_valid_totals`), American-odds fallback, and same-day deduplication
   - `universal_ingest.py` — Config-driven universal ingestion engine (`ingest_universal`) with watermark skipping and on-the-fly normalization

@@ -13,8 +13,8 @@ from sklearn.linear_model import LogisticRegression
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.models import logit  # noqa: E402
-from sportdata_model.totals_test import build, ci  # noqa: E402
+from betscout.models import logit  # noqa: E402
+from betscout.totals_test import build, ci  # noqa: E402
 
 rows = build(ROOT / "data" / "matches.sqlite")
 train = [r for r in rows if r.year < "2026"]

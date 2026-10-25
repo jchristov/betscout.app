@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.sportdata.model.daily</string>
+    <string>com.betscout.daily</string>
     <key>WorkingDirectory</key>
     <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app</string>
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/uv</string>
         <string>run</string>
-        <string>sportdata-model</string>
+        <string>betscout-model</string>
         <string>--days</string>
         <string>5</string>
         <string>--min-odds</string>

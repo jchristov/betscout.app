@@ -1,4 +1,4 @@
-from sportdata_model.ingest import _soccer_odds, fractional_to_decimal, _outcome
+from betscout.ingest import _soccer_odds, fractional_to_decimal, _outcome
 
 
 def test_fractional_to_decimal():

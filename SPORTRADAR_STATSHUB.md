@@ -1,6 +1,6 @@
 # 📡 Sportradar StatsHub & Tipico Direct API Reference (`SPORTRADAR_STATSHUB.md`)
 
-> **Module:** [`src/sportdata_model/sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py)  
+> **Module:** [`src/betscout/sportradar_statshub.py`](./src/betscout/sportradar_statshub.py)  
 > **Primary Bookmaker Feed:** **Tipico (`_bookmakerId: 176`, `clientAlias: "tipico"`)**  
 > **Direct Tokenless API Host:** `https://stats.fn.sportradar.com` *(No HTML page parsing required!)*  
 > **Secondary Token-Gated Host:** `https://sh.fn.sportradar.com`
@@ -18,7 +18,7 @@ https://{host}/{clientAlias}/{language}/{timezone}/gismo/{endpoint}/{params}
 ### Key Discovery: Tokenless Direct API (`https://stats.fn.sportradar.com`) & Dual Odds Feeds (`Tipico` + `Sportradar Main UOF`)
 While `https://sh.fn.sportradar.com` requires a signed `?T=exp=...~acl=/*~hmac=...` query parameter scraped from the HTML page, Sportradar's companion Fishnet cluster **`https://stats.fn.sportradar.com` serves the exact same Gismo JSON endpoints directly without any token or HTML page parsing!**
 
-Even better, querying `stats.fn.sportradar.com` with `clientAlias="tipico"` vs `clientAlias="sportradar"` gives us **two complementary live bookmaker feeds** that [`lookup_statshub_match_intel()`](./src/sportdata_model/sportradar_statshub.py) automatically merges:
+Even better, querying `stats.fn.sportradar.com` with `clientAlias="tipico"` vs `clientAlias="sportradar"` gives us **two complementary live bookmaker feeds** that [`lookup_statshub_match_intel()`](./src/betscout/sportradar_statshub.py) automatically merges:
 1. **`clientAlias="tipico"` (`_bookmakerId: 176`, `source: "sr:crawler_odds:176"`):**
    - Genuine **Tipico retail bookmaker odds** (`616` Soccer matches/day, `11` markets per match including 1X2, Double Chance, Draw No Bet, 3-Way Handicap, Over/Under Totals, and the 28-outcome Correct Score matrix).
 2. **`clientAlias="sportradar"` (`_bookmakerId: 0`, `source: "OS_SR:OP_SR:OF_3:OF_UOF"`):**
@@ -42,7 +42,7 @@ Clicking **All Sports** on `https://statshub.sportradar.com/sportradar/en/` trig
 * **Sportradar Unlimited (`56` Sports):** `GET https://stats.fn.sportradar.com/sportradar/en/Etc:UTC/gismo/config_sports/69/0`
 * **Tipico StatsHub (`53` Sports):** `GET https://stats.fn.sportradar.com/tipico/en/Etc:UTC/gismo/config_sports/67/0`
 
-All 56 sports and their canonical Sportradar `_id` (`sportId`) are registered in `SR_ALL_SPORTS_CATALOG` and `SR_SPORT_IDS` inside [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py):
+All 56 sports and their canonical Sportradar `_id` (`sportId`) are registered in `SR_ALL_SPORTS_CATALOG` and `SR_SPORT_IDS` inside [`sportradar_statshub.py`](./src/betscout/sportradar_statshub.py):
 
 | # | `sportId` (`_id`) | Sport Name | Tipico (`67/0`) | Sportradar (`69/0`) | BetScout Mapped |
 | :---: | :---: | :--- | :---: | :---: | :---: |
@@ -154,7 +154,7 @@ All endpoints below are callable directly via:
 
 ## 4. Correct Score (`_marketId: 41`) Outcome ID Mapping Table
 
-In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct score [{score}]`) returns 28 outcomes keyed by `sr:outcome:{id}` with empty `name` strings. BetScout maps them via `SR_CORRECT_SCORE_OUTCOMES` in [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py):
+In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct score [{score}]`) returns 28 outcomes keyed by `sr:outcome:{id}` with empty `name` strings. BetScout maps them via `SR_CORRECT_SCORE_OUTCOMES` in [`sportradar_statshub.py`](./src/betscout/sportradar_statshub.py):
 
 | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) |
 | :--- | :---: | :--- | :---: | :--- | :---: | :--- | :---: |
@@ -171,7 +171,7 @@ In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct sc
 ## 5. Python Usage Examples in BetScout
 
 ```python
-from sportdata_model.sportradar_statshub import (
+from betscout.sportradar_statshub import (
     fetch_statshub_gismo,
     list_all_sportradar_sports,
     lookup_statshub_match_intel,

@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.quality import run  # noqa: E402
+from betscout.quality import run  # noqa: E402
 
 if __name__ == "__main__":
     rep = run(ROOT / "data" / "matches.sqlite")
@@ -19,6 +19,6 @@ if __name__ == "__main__":
     for i in sorted(rep.issues, key=lambda i: (i.severity != "error", i.check, i.league)):
         print(f"[{i.severity:<5}] {i.check:<28} {i.league:<14} n={i.count:<6} {i.note}")
 
-    from sportdata_model.quality import install_view  # noqa: E402
+    from betscout.quality import install_view  # noqa: E402
     install_view(ROOT / "data" / "matches.sqlite")
     print("\ncanonical view matches_canonical installed")

@@ -1,4 +1,4 @@
-from sportdata_model.walkforward import run  # noqa: F401  (import check)
+from betscout.walkforward import run  # noqa: F401  (import check)
 
 
 def test_double_chance_devig_sums_to_two():

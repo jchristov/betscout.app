@@ -21,7 +21,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.decision_signal import (  # noqa: E402
+from betscout.decision_signal import (  # noqa: E402
     DEFAULT_TRAINING_PAIRS_PATH,
     LAYA_CKPT,
     LAYA_DIR,
@@ -32,7 +32,7 @@ from sportdata_model.decision_signal import (  # noqa: E402
     extract_team_news_text,
     score_with_ms_decision_1,
 )
-from sportdata_model.espn import ALL_LEAGUES, BASE  # noqa: E402
+from betscout.espn import ALL_LEAGUES, BASE  # noqa: E402
 
 SPORTS_HEADLINE_QUESTIONS_LAYA: dict[str, dict[str, Any]] = {
     "event": {

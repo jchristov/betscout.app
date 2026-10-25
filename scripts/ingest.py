@@ -26,8 +26,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.espn import LEAGUE_LABELS, resolve_league  # noqa: E402
-from sportdata_model.universal_ingest import ingest_universal  # noqa: E402
+from betscout.espn import LEAGUE_LABELS, resolve_league  # noqa: E402
+from betscout.universal_ingest import ingest_universal  # noqa: E402
 
 
 def main() -> None:

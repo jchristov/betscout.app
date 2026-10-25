@@ -15,8 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.enrich import rebuild_all_from_cache, refresh_soccer_details  # noqa: E402
-from sportdata_model.quality import install_view  # noqa: E402
+from betscout.enrich import rebuild_all_from_cache, refresh_soccer_details  # noqa: E402
+from betscout.quality import install_view  # noqa: E402
 
 
 def print_enrichment_summary(db_path: Path) -> None:

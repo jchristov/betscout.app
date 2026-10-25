@@ -2294,7 +2294,7 @@ def generate_dashboard_html(
       </tr>
     </thead>
     <tbody id="settledTradesTbody">
-      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run sportdata-model</code>.</td></tr>'}
+      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout-model</code>.</td></tr>'}
     </tbody>
   </table>
 
@@ -4129,7 +4129,7 @@ def generate_dashboard_html(
       setActionBusy(true, label, btn);
       try {{
         if (!window.location.protocol.startsWith('http')) {{
-          showToast('ℹ️ Running from static file:// — start the WebApp server (`uv run sportdata-webapp --port 8090`) and open http://127.0.0.1:8090 for live sync & streaming!');
+          showToast('ℹ️ Running from static file:// — start the WebApp server (`uv run betscout --port 8090`) and open http://127.0.0.1:8090 for live sync & streaming!');
           return;
         }}
         const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
@@ -4162,7 +4162,7 @@ def generate_dashboard_html(
       setActionBusy(true, '[1/4] Running full daily pipeline (Incremental Ingest -> Quality Check -> Multi-Sport Scan -> Dashboard)...', btn);
       try {{
         if (!window.location.protocol.startsWith('http')) {{
-          showToast('ℹ️ Start the WebApp server (`uv run sportdata-webapp --port 8090`) and open http://127.0.0.1:8090 to run the full pipeline from the browser!');
+          showToast('ℹ️ Start the WebApp server (`uv run betscout --port 8090`) and open http://127.0.0.1:8090 to run the full pipeline from the browser!');
           return;
         }}
         const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
@@ -4303,7 +4303,7 @@ def generate_dashboard_html(
           const resp = await fetch(webhookUrl + (webhookUrl.includes('?') ? '&' : '?') + 'wait=true', {{
             method: 'POST',
             headers: {{ 'Content-Type': 'application/json' }},
-            body: JSON.stringify({{ content: chunk, username: 'Sportdata Quant Desk' }})
+            body: JSON.stringify({{ content: chunk, username: 'BetScout Quant Desk' }})
           }});
           const resJson = await resp.json();
           if (!resJson.id) {{

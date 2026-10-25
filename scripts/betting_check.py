@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from sportdata_model.models import TRAIN_FRAC, fit_calibrator, soccer_samples  # noqa: E402
+from betscout.models import TRAIN_FRAC, fit_calibrator, soccer_samples  # noqa: E402
 
 DB = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
 OUT = {"H": 0, "D": 1, "A": 2}

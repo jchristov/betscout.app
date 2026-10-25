@@ -1,4 +1,4 @@
-"""Discord & Telegram Social Publisher (`src/sportdata_model/telegram_bot.py`).
+"""Discord & Telegram Social Publisher (`src/betscout/telegram_bot.py`).
 
 Primary Social Integration: **Discord** (100% reachable through Zscaler via `https://discord.com/api/...`)
   - Supports **Discord Incoming Webhook** (`DISCORD_WEBHOOK_URL` — simplest 1-step setup in Discord Channel -> Integrations -> Webhooks)

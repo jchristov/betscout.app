@@ -1,7 +1,7 @@
 """Post-Match Model Calibration, Brier Skill Score & Factor Attribution Monitor (`scripts/calibration_report.py`).
 
 Run:
-    uv run sportdata-calibrate
+    uv run betscout-calibrate
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.paper_trade import _open_db, settle_pending_paper_trades  # noqa: E402
+from betscout.paper_trade import _open_db, settle_pending_paper_trades  # noqa: E402
 
 
 def compute_calibration_report(db_path: Path) -> dict[str, Any]:

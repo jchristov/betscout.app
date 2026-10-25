@@ -2,9 +2,9 @@
 and exporting `data/recommendations.json`.
 
 Usage:
-    uv run sportdata-bet
-    uv run sportdata-bet --days 6 --decision-backend ms-decision-1
-    uv run sportdata-bet --days 6 --decision-backend laya
+    uv run betscout-bet
+    uv run betscout-bet --days 6 --decision-backend ms-decision-1
+    uv run betscout-bet --days 6 --decision-backend laya
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sportdata_model.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
+from betscout.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
 
 
 def main() -> None:

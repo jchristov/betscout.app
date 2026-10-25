@@ -3,14 +3,14 @@ import subprocess
 from pathlib import Path
 
 from collections import deque
-from sportdata_model.dashboard import generate_dashboard_html
-from sportdata_model.decision_signal import (
+from betscout.dashboard import generate_dashboard_html
+from betscout.decision_signal import (
     NewsSignal,
     extract_team_news_text,
     record_distillation_pair,
     score_match_news,
 )
-from sportdata_model.paper_trade import (
+from betscout.paper_trade import (
     PAPER_SCHEMA,
     _upsert_paper_trade,
     evaluate_starting_xi_gate,
@@ -56,7 +56,7 @@ def test_extract_team_news_text_and_signal():
 
 
 def test_record_distillation_pair_dedup(tmp_path: Path):
-    from sportdata_model.decision_signal import split_match_text_by_team
+    from betscout.decision_signal import split_match_text_by_team
     pairs_file = tmp_path / "pairs.jsonl"
     ans = {"home_positive": 0.1, "home_negative": 0.85, "away_positive": 0.75, "away_negative": 0.05}
     assert record_distillation_pair("Match: Arsenal vs Chelsea\n- Saka out", "Arsenal", "Chelsea", ans, pairs_file) is True
@@ -250,8 +250,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert [r["date"] for r in exported_json] == ["2026-10-22T13:30Z", "2026-10-23T00:00Z", "2026-10-25T19:45Z"]
 
     # 4. Discord & Telegram digest formatter, .env loader & dry-run publisher test
-    from sportdata_model import load_dotenv
-    from sportdata_model.telegram_bot import (
+    from betscout import load_dotenv
+    from betscout.telegram_bot import (
         format_discord_digest,
         format_telegram_digest,
         get_discord_env_config,
@@ -284,7 +284,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "Fritz" in d_msg_day and "AC Milan" not in d_msg_day
 
     # 5. Exact Score & Set-Score Engine unit test
-    from sportdata_model.exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
+    from betscout.exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
 
     s_pred = predict_soccer_exact_scores(
         ph=0.58, pd=0.24, pa=0.18, side="H", line_total=2.5, p_model=0.62, sot_z=0.75, dom_rebound_z=0.40
@@ -302,8 +302,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert t_pred_bo5["straight_sets_score"] == "3:0" and t_pred_bo5["best_of"] == 5
 
     # 6. Exact-score hit grader, 2-leg doubles builder & automated settlement notification deduplication test
-    from sportdata_model.paper_trade import _check_exact_score_hit, build_recommended_2leg_doubles
-    from sportdata_model.telegram_bot import notify_new_settlements_to_discord
+    from betscout.paper_trade import _check_exact_score_hit, build_recommended_2leg_doubles
+    from betscout.telegram_bot import notify_new_settlements_to_discord
 
     assert _check_exact_score_hit("2:0 (14.0%) | Cluster 2:0 / 1:0 / 2:1 (38.0%)", "2-0") == 1
     assert _check_exact_score_hit("Sets 0:2 (60.0%, Fair 1.67)", "0-2 (4-6, 1-6)") == 1
@@ -332,8 +332,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     # 7. Bit-for-bit Equivalence Regression Test for Performance Optimizations
     import numpy as np
-    from sportdata_model.goals import fit_rates, markets, score_grid
-    from sportdata_model.paper_trade import _build_team_player_attack_history
+    from betscout.goals import fit_rates, markets, score_grid
+    from betscout.paper_trade import _build_team_player_attack_history
 
     def _fit_rates_scalar_ref(total_goals_line: float, home_p: float, away_p: float, draw_p: float, rho: float = -0.1):
         best, best_err = (1.3, 1.1), float("inf")
@@ -363,8 +363,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
             assert list(xi_fast[k]) == list(xi_full[k]), f"Mismatch on {k}"
 
     # 8. Provisional / Unconfirmed Kickoff Time (`*` indicator + auto-update from provisional to confirmed)
-    from sportdata_model.dashboard import _format_local_time, _match_day_key, _time_span
-    from sportdata_model.paper_trade import _upsert_paper_trade, get_paper_ledger_summary
+    from betscout.dashboard import _format_local_time, _match_day_key, _time_span
+    from betscout.paper_trade import _upsert_paper_trade, get_paper_ledger_summary
 
     assert _format_local_time("2026-10-23T12:00Z", time_valid=True) == "2026-10-23 14:00 CEST"
     assert _format_local_time("2026-10-24T09:30Z", time_valid=False) == "2026-10-24 11:30 CEST*"
@@ -431,8 +431,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert tr2["kickoff"] == "2026-10-23T12:00Z" and tr2["time_valid"] is True
 
     # 9. Prospective 2-Leg Combo Ledger (`paper_combos`), Auto-Grader, Calibration Attribution & Matchup Inspector
-    from sportdata_model.paper_trade import _upsert_paper_combo, settle_pending_paper_combos
-    from sportdata_model.webapp import _lookup_matchup_detail
+    from betscout.paper_trade import _upsert_paper_combo, settle_pending_paper_combos
+    from betscout.webapp import _lookup_matchup_detail
 
     for d_c in doubles[:2]:
         d_c_past = {
@@ -486,7 +486,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         send_calls.append(msg_txt)
         return {"ok": True, "dry_run": False, "message_id": "m1"}
 
-    with patch("sportdata_model.telegram_bot.send_discord_message", side_effect=_fake_send_discord):
+    with patch("betscout.telegram_bot.send_discord_message", side_effect=_fake_send_discord):
         threads = [threading.Thread(target=notify_new_settlements_to_discord, args=(db,)) for _ in range(4)]
         for t in threads:
             t.start()
@@ -498,8 +498,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     )
 
     # 11. Diacritic-insensitive SofaScore tennis matching & Indoor Hard surface split test
-    from sportdata_model.enrich import infer_surface
-    from sportdata_model.paper_trade import _strip_accents
+    from betscout.enrich import infer_surface
+    from betscout.paper_trade import _strip_accents
     assert _strip_accents("Jiri Lehečka") == "jiri lehecka"
     assert _strip_accents("Tomáš Macháč") == "tomas machac"
     assert infer_surface("Swiss Indoors Basel") == "hard_indoor"
@@ -510,7 +510,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert len(sum_c2["kelly_cum_pnl"]) == sum_c2["settled_count"]
 
     # 12. Live In-Play Momentum & Halftime / Second-Half Dominance Rebound Scanner test
-    from sportdata_model.paper_trade import _evaluate_inplay_soccer_momentum
+    from betscout.paper_trade import _evaluate_inplay_soccer_momentum
 
     fake_live_summary = {
         "boxscore": {
@@ -543,7 +543,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     from calibration_report import compute_calibration_report
-    from sportdata_model.telegram_bot import notify_inplay_rebound_edges_to_discord
+    from betscout.telegram_bot import notify_inplay_rebound_edges_to_discord
 
     cal_rep = compute_calibration_report(db)
     assert cal_rep["settled_count"] >= 2 and "brier_skill_vs_market" in cal_rep and "ece" in cal_rep
@@ -562,7 +562,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "custom-bet-chk" in html_text and "recalcModalDutching" in html_text
 
     # 14. Tennis Live Set-1 Deficit Rebound Edge test
-    from sportdata_model.paper_trade import _evaluate_inplay_tennis_momentum
+    from betscout.paper_trade import _evaluate_inplay_tennis_momentum
 
     t_mom = _evaluate_inplay_tennis_momentum(
         t_sc="1-0 (7-6, 1-1)",
@@ -575,8 +575,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert t_mom["set1_pick_games"] == 6 and t_mom["set1_opp_games"] == 7
     assert "liveMatchupAnalyzerSection" in html_text and "walkForwardAuditPanel" in html_text
 
-    from sportdata_model.webapp import _analyze_live_matchup
-    with patch("sportdata_model.paper_trade._fetch_sofascore_tennis_odds", return_value={
+    from betscout.webapp import _analyze_live_matchup
+    with patch("betscout.paper_trade._fetch_sofascore_tennis_odds", return_value={
         "odds_p1": 1.44, "odds_p2": 2.75, "games_line": 22.5,
         "p1_last5_win_rate": 0.80, "p2_last5_win_rate": 0.60,
         "p1_rest_hours": 28.0, "p2_rest_hours": 24.0,
@@ -587,8 +587,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "mispricingRadarSection" in html_text and "printSmartBetTicket" in html_text and "saveSlipPrefsToStorage" in html_text
     assert "inplayAlertsToggleBtn" in html_text and "🔕 Live Alerts: OFF" in html_text
 
-    from sportdata_model.telegram_bot import resolve_discord_webhook_for_sport
-    from sportdata_model.webapp import _load_webapp_settings, _save_webapp_settings
+    from betscout.telegram_bot import resolve_discord_webhook_for_sport
+    from betscout.webapp import _load_webapp_settings, _save_webapp_settings
     assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is False
     _save_webapp_settings(tmp_path, inplay_alerts_enabled=True)
     assert _load_webapp_settings(tmp_path)["inplay_alerts_enabled"] is True
@@ -604,7 +604,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "pickCardCanvas" in html_text and "renderCanvasPickCard" in html_text and "attachPngCardChk" in html_text
 
     # Test PNG Pick Card & Slate rendering + dry-run attachment in Discord/Telegram
-    from sportdata_model.pick_card import render_digest_slate_png, render_pick_card_png
+    from betscout.pick_card import render_digest_slate_png, render_pick_card_png
 
     single_png = render_pick_card_png({
         "sport_cat": "tennis",
@@ -631,7 +631,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert tg_img_res["ok"] is True and tg_img_res["has_image"] is True
 
     # Test Sportradar StatsHub (Tipico) prematch markets & 28-score Correct Score parser
-    from sportdata_model.sportradar_statshub import SR_ALL_SPORTS_CATALOG, parse_tipico_prematch_markets
+    from betscout.sportradar_statshub import SR_ALL_SPORTS_CATALOG, parse_tipico_prematch_markets
 
     assert len(SR_ALL_SPORTS_CATALOG) == 56 and SR_ALL_SPORTS_CATALOG[1] == "Soccer" and SR_ALL_SPORTS_CATALOG[5] == "Tennis"
     parsed_sr = parse_tipico_prematch_markets([
@@ -644,12 +644,12 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert parsed_sr["correct_score_odds"]["1:0"] == 12.0 and parsed_sr["correct_score_odds"]["2:0"] == 8.2 and parsed_sr["correct_score_odds"]["2:1"] == 7.8
 
     # Test Sportradar Injury Gate, 15-Min Goal Intervals & European Sports Scanner
-    from sportdata_model.sportradar_statshub import (
+    from betscout.sportradar_statshub import (
         evaluate_sportradar_injury_gate,
         fetch_live_match_situations_pressure,
         fetch_team_goal_intervals,
     )
-    with patch("sportdata_model.sportradar_statshub.fetch_statshub_gismo") as mock_gismo:
+    with patch("betscout.sportradar_statshub.fetch_statshub_gismo") as mock_gismo:
         mock_gismo.return_value = [
             {"uniqueteam": {"_id": 100}, "player": {"name": "Star Striker 1", "position": {"shortname": "FWD"}}, "status": {"name": "Injured"}},
             {"uniqueteam": {"_id": 100}, "player": {"name": "Star Striker 2", "position": {"shortname": "FWD"}}, "status": {"name": "Injured"}},
