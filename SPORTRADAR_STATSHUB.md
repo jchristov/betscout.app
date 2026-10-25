@@ -44,7 +44,7 @@ Clicking **All Sports** on `https://statshub.sportradar.com/sportradar/en/` trig
 
 All 56 sports and their canonical Sportradar `_id` (`sportId`) are registered in `SR_ALL_SPORTS_CATALOG` and `SR_SPORT_IDS` inside [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py):
 
-| # | `sportId` (`_id`) | Sport Name | Tipico (`67/0`) | Sportradar (`69/0`) | VektorPulse Mapped |
+| # | `sportId` (`_id`) | Sport Name | Tipico (`67/0`) | Sportradar (`69/0`) | BetScout Mapped |
 | :---: | :---: | :--- | :---: | :---: | :---: |
 | 1 | **`1`** | **Soccer (Football)** | ✅ Yes | ✅ Yes | ✅ `soccer` |
 | 2 | **`5`** | **Tennis** | ✅ Yes | ✅ Yes | ✅ `tennis` |
@@ -154,7 +154,7 @@ All endpoints below are callable directly via:
 
 ## 4. Correct Score (`_marketId: 41`) Outcome ID Mapping Table
 
-In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct score [{score}]`) returns 28 outcomes keyed by `sr:outcome:{id}` with empty `name` strings. VektorPulse maps them via `SR_CORRECT_SCORE_OUTCOMES` in [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py):
+In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct score [{score}]`) returns 28 outcomes keyed by `sr:outcome:{id}` with empty `name` strings. BetScout maps them via `SR_CORRECT_SCORE_OUTCOMES` in [`sportradar_statshub.py`](./src/sportdata_model/sportradar_statshub.py):
 
 | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) | Outcome ID | Score (`H:A`) |
 | :--- | :---: | :--- | :---: | :--- | :---: | :--- | :---: |
@@ -168,7 +168,7 @@ In Tipico's `match_markets/{matchId}/prematch` payload, Market `41` (`Correct sc
 
 ---
 
-## 5. Python Usage Examples in VektorPulse
+## 5. Python Usage Examples in BetScout
 
 ```python
 from sportdata_model.sportradar_statshub import (

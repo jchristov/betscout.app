@@ -106,7 +106,7 @@ def format_telegram_digest(
     gen_local = _format_local_time(rec.get("generated_at") or "", tz_name)
 
     lines: list[str] = [
-        f"⚡ <b>VEKTORPULSE — DAILY UPDATES &amp; PICKS ({html.escape(day_label)})</b>",
+        f"⚡ <b>BETSCOUT — DAILY UPDATES &amp; PICKS ({html.escape(day_label)})</b>",
         f"🕒 <i>Generated: {html.escape(gen_local)}</i>",
         "",
     ]
@@ -224,7 +224,7 @@ def format_telegram_digest(
         lines.append("")
         lines.append("<i>* Provisional / unconfirmed start time (updates automatically once official Order of Play is released).</i>")
     lines.append("")
-    lines.append("⚡ <i>VektorPulse · Sports Edge &amp; Score Intelligence</i>")
+    lines.append("⚡ <i>BetScout · Sports Edge &amp; Score Intelligence</i>")
     return "\n".join(lines)
 
 
@@ -391,7 +391,7 @@ def send_discord_message(
     sport: str | None = None,
     custom_sport_webhooks: dict[str, str] | None = None,
     image_bytes: bytes | None = None,
-    image_filename: str = "vektorpulse_pick.png",
+    image_filename: str = "betscout_pick.png",
     also_send_to_global: bool = True,
 ) -> dict[str, Any]:
     """Post a Markdown-formatted message (and optional PNG card attachment) to a Discord channel via Webhook URL or Bot Token + Channel ID.
@@ -458,7 +458,7 @@ def send_discord_message(
             ]
 
         for idx_c, chunk in enumerate(chunks):
-            payload: dict[str, Any] = {"content": chunk, "username": "VektorPulse Quant Desk"} if active_wh else {"content": chunk}
+            payload: dict[str, Any] = {"content": chunk, "username": "BetScout Quant Desk"} if active_wh else {"content": chunk}
             attach_img = (idx_c == len(chunks) - 1) and bool(image_bytes)
             if attach_img and image_bytes:
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
@@ -594,7 +594,7 @@ def notify_new_settlements_to_discord(
         s_roi = float(summary.get("settled_roi_best") or 0.0) * 100.0
 
         lines: list[str] = [
-            f"🔔 **VEKTORPULSE — NEW SETTLED PAPER-BET ALERT ({len(unnotified) + len(unnotified_combos)} Resolved)**",
+            f"🔔 **BETSCOUT — NEW SETTLED PAPER-BET ALERT ({len(unnotified) + len(unnotified_combos)} Resolved)**",
             f"📈 *Cumulative Ledger: {s_cnt} Settled ({s_wins}W - {s_loss}L) · Profit: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)*",
             "",
         ]
@@ -669,7 +669,7 @@ def notify_new_settlements_to_discord(
             dry_run=dry_run,
             env_path=None,
             image_bytes=settle_img_bytes,
-            image_filename="vektorpulse_settlement.png",
+            image_filename="betscout_settlement.png",
         )
         # Also route sport-specific settlement alerts to any dedicated per-sport Discord webhooks configured in .env
         if not webhook_url:
@@ -683,7 +683,7 @@ def notify_new_settlements_to_discord(
             for sp_c, sp_rows in by_sp_unnotified.items():
                 sp_wh = resolve_discord_webhook_for_sport(sp_c)
                 sp_lines = [
-                    f"🔔 **VEKTORPULSE ({sp_c.upper()}) — NEW SETTLED PAPER-BET ALERT ({len(sp_rows)} Resolved)**",
+                    f"🔔 **BETSCOUT ({sp_c.upper()}) — NEW SETTLED PAPER-BET ALERT ({len(sp_rows)} Resolved)**",
                     "",
                 ]
                 for r in sp_rows:
@@ -771,7 +771,7 @@ def notify_inplay_rebound_edges_to_discord(
             return {"ok": True, "notified_count": 0}
 
         lines = [
-            f"🔥 **VEKTORPULSE — LIVE IN-PLAY DOMINANCE REBOUND ALERT ({len(to_notify)} Active)**",
+            f"🔥 **BETSCOUT — LIVE IN-PLAY DOMINANCE REBOUND ALERT ({len(to_notify)} Active)**",
             "",
         ]
         for r, mom in to_notify:
@@ -823,7 +823,7 @@ def send_telegram_message(
     dry_run: bool = False,
     env_path: Path | None = None,
     image_bytes: bytes | None = None,
-    image_filename: str = "vektorpulse_pick.png",
+    image_filename: str = "betscout_pick.png",
 ) -> dict[str, Any]:
     """Post an HTML-formatted message (and optional PNG card photo via `sendPhoto`) to a Telegram channel/chat."""
     load_dotenv(env_path=env_path, override=True)

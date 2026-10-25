@@ -604,7 +604,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 if vetoes:
-                    lines = ["🚨 **VEKTORPULSE — T-60m STARTING XI VETO ALERT**", ""]
+                    lines = ["🚨 **BETSCOUT — T-60m STARTING XI VETO ALERT**", ""]
                     for v in vetoes:
                         lines.append(
                             f"⛔ **{v['home']} vs {v['away']}** ({v['league'].upper()}) — "
@@ -1012,7 +1012,7 @@ def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090)
     _start_background_auto_poller(root_dir, interval_sec=90)
     handler_cls = build_webapp_handler(root_dir)
     server = _DaemonThreadingHTTPServer((host, port), handler_cls)
-    print(f"🚀 VektorPulse Web App, Auto-Poller & Social Addon running at http://{host}:{port}")
+    print(f"🚀 BetScout Web App, Auto-Poller & Social Addon running at http://{host}:{port}")
     print(f"   - Dashboard UI:       http://{host}:{port}/")
     print(f"   - Live SSE Stream:    http://{host}:{port}/api/stream")
     print(f"   - Sync & Settle API:  http://{host}:{port}/api/sync")

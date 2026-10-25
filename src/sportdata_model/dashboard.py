@@ -1092,7 +1092,7 @@ def generate_dashboard_html(
           <div class="card-head" style="margin-bottom:8px;">
             <div>
               <b style="font-size:14px; color:var(--green);">💎 Bookmaker Odds Mispricing &amp; Unpriced Edge Detector ({len(mispriced_rows)} Confirmed Dislocations)</b>
-              <span class="muted" style="margin-left:8px;">Matches where VektorPulse confirms a &ge;+2.0pp probability edge &amp; &ge;+2.0% EV not yet priced in by bookmakers</span>
+              <span class="muted" style="margin-left:8px;">Matches where BetScout confirms a &ge;+2.0pp probability edge &amp; &ge;+2.0% EV not yet priced in by bookmakers</span>
             </div>
           </div>
           <table id="mispricingRadarTable" class="sortable-table" style="margin-bottom:0;">
@@ -1657,8 +1657,8 @@ def generate_dashboard_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VektorPulse — Sports Edge &amp; Score Intelligence</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpolygon points='32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5' fill='%230f172a' stroke='%2338bdf8' stroke-width='3'/%3E%3Cpath d='M12 33 L20 33 L26 46 L35 16 L41 34 L51 20' stroke='%2322c55e' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M44.5 19.5 L51.5 19.5 L51.5 26.5' stroke='%2338bdf8' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>BetScout — Sports Edge &amp; Score Intelligence (betscout.app)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpolygon points='32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5' fill='%230f172a' stroke='%2338bdf8' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='16' stroke='%2338bdf8' stroke-opacity='0.45' stroke-width='1.8' stroke-dasharray='4 3'/%3E%3Cline x1='32' y1='9' x2='32' y2='15' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='32' y1='49' x2='32' y2='55' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='9' y1='32' x2='15' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='49' y1='32' x2='55' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M16 44 L27 33 L33 38 L46 18' stroke='%2322c55e' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='46' cy='18' r='4' fill='%2322c55e' stroke='%2338bdf8' stroke-width='1.8'/%3E%3C/svg%3E">
 <style>
   :root {{
     --bg: #0b0f17; --panel: #131b29; --border: #223049; --text: #e6edf7;
@@ -1789,13 +1789,18 @@ def generate_dashboard_html(
         <div class="page-loader-ring"></div>
         <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="#0f172a" stroke="#38bdf8" stroke-width="2.6" stroke-linejoin="round"/>
-          <path class="page-loader-wave" d="M12 33 L20 33 L26 46 L35 16 L41 34 L51 20" stroke="#22c55e" stroke-width="4.0" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="35" cy="16" r="2.6" fill="#38bdf8"/>
-          <circle cx="51" cy="20" r="2.8" fill="#22c55e"/>
+          <circle cx="32" cy="32" r="16" stroke="#38bdf8" stroke-opacity="0.32" stroke-width="1.4" stroke-dasharray="3 3"/>
+          <line x1="32" y1="9" x2="32" y2="14" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="32" y2="55" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="9" y1="32" x2="14" y2="32" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="50" y1="32" x2="55" y2="32" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+          <path class="page-loader-wave" d="M16 44 L27 33 L33 38 L46 18" stroke="#22c55e" stroke-width="4.0" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="27" cy="33" r="2.4" fill="#38bdf8"/>
+          <circle cx="46" cy="18" r="3.4" fill="#22c55e" stroke="#38bdf8" stroke-width="1.4"/>
         </svg>
       </div>
       <div>
-        <div id="pageLoaderTitle" style="font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--text);">Loading VektorPulse Intelligence...</div>
+        <div id="pageLoaderTitle" style="font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--text);">Loading BetScout Intelligence...</div>
         <div id="pageLoaderSub" class="muted" style="margin-top:4px; font-size:11.5px;">Hydrating 59,000+ matches, calibrated odds, H2H form &amp; live SSE feed</div>
       </div>
       <div class="progress-bar-track" style="width:100%;"><div class="progress-bar-fill"></div></div>
@@ -1803,7 +1808,7 @@ def generate_dashboard_html(
   </div>
   <header>
     <div class="brand-wrap">
-      <div class="brand-logo" title="VektorPulse — Sports Edge &amp; Score Intelligence">
+      <div class="brand-logo" title="BetScout (betscout.app) — Sports Edge &amp; Score Intelligence">
         <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="vpShieldBg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1816,10 +1821,14 @@ def generate_dashboard_html(
               <stop offset="50%" stop-color="#10b981"/>
               <stop offset="100%" stop-color="#22c55e"/>
             </linearGradient>
-            <linearGradient id="vpPulse" x1="0%" y1="50%" x2="100%" y2="20%">
+            <linearGradient id="vpPulse" x1="0%" y1="80%" x2="100%" y2="15%">
               <stop offset="0%" stop-color="#38bdf8"/>
               <stop offset="55%" stop-color="#34d399"/>
               <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+            <linearGradient id="bsSweep" x1="32" y1="32" x2="50" y2="14" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.04"/>
+              <stop offset="100%" stop-color="#22c55e" stop-opacity="0.26"/>
             </linearGradient>
             <filter id="vpGlow" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="2.0" result="blur"/>
@@ -1827,19 +1836,25 @@ def generate_dashboard_html(
             </filter>
           </defs>
           <polygon points="32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5" fill="url(#vpShieldBg)" stroke="url(#vpRim)" stroke-width="2.4" stroke-linejoin="round"/>
-          <circle cx="32" cy="32" r="19" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="1.2" stroke-dasharray="3 3"/>
-          <path d="M16 40 C22 25, 42 25, 48 40" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.3" fill="none"/>
-          <path d="M12 33 L20 33 L26 46 L35 16 L41 34 L51 20" stroke="url(#vpPulse)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#vpGlow)"/>
-          <path d="M44.5 19.5 L51.5 19.5 L51.5 26.5" stroke="#22c55e" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="35" cy="16" r="2.6" fill="#38bdf8"/>
-          <circle cx="51" cy="20" r="2.8" fill="#22c55e"/>
+          <path d="M32 32 L32 13 A19 19 0 0 1 49.5 24 Z" fill="url(#bsSweep)"/>
+          <circle cx="32" cy="32" r="19" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <circle cx="32" cy="32" r="11" stroke="#38bdf8" stroke-opacity="0.30" stroke-width="1.1"/>
+          <line x1="32" y1="8.5" x2="32" y2="13.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="32" y1="50.5" x2="32" y2="55.5" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="8.5" y1="32" x2="13.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="50.5" y1="32" x2="55.5" y2="32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M16 44 L27 33 L33 38 L46 18" stroke="url(#vpPulse)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#vpGlow)"/>
+          <path d="M39.5 17.5 L46.5 17.5 L46.5 24.5" stroke="#22c55e" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="27" cy="33" r="2.5" fill="#38bdf8"/>
+          <circle cx="46" cy="18" r="5.6" stroke="#22c55e" stroke-opacity="0.45" stroke-width="1.3"/>
+          <circle cx="46" cy="18" r="2.8" fill="#22c55e"/>
         </svg>
       </div>
       <div>
         <div class="brand-title-row">
-          <h1>VektorPulse</h1>
+          <h1>BetScout</h1>
           <span class="pill badge-bet" style="font-size:10px;">LIVE AI</span>
-          <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence</span>
+          <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence · <span style="color:var(--accent);">betscout.app</span></span>
         </div>
         <div class="brand-meta">
           <span class="meta-chip">🕒 Updated: {_time_span(gen_at, bold=True)}</span>
@@ -1859,7 +1874,7 @@ def generate_dashboard_html(
       <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)">⚡ Rescan Live</button>
       <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()">🚀 Full Pipeline</button>
       <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share Picks</button>
-      <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open VektorPulse Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
+      <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
     </div>
   </header>
 
@@ -1889,7 +1904,7 @@ def generate_dashboard_html(
     <div class="modal-card" style="max-width:740px;">
       <div class="card-head" style="margin-bottom:12px;">
         <div>
-          <b style="font-size:15px; color:var(--accent);">⚙️ VektorPulse Settings &amp; Per-Sport Discord Webhook Routing</b>
+          <b style="font-size:15px; color:var(--accent);">⚙️ BetScout Settings &amp; Per-Sport Discord Webhook Routing</b>
           <div class="muted">Tweaked settings apply immediately and persist in <code>data/webapp_settings.json</code> &amp; browser storage</div>
         </div>
         <button class="btn-export" type="button" onclick="document.getElementById('settingsModal').style.display='none'">Close ✕</button>
@@ -2413,7 +2428,7 @@ def generate_dashboard_html(
       const bodyEl = document.getElementById('miBody');
       if (!modal || !titleEl || !bodyEl) return;
       titleEl.textContent = '🔍 ' + home + ' vs ' + away;
-      bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from VektorPulse store...</div>';
+      bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from BetScout store...</div>';
       modal.style.display = 'flex';
       document.getElementById('topLoadingBar')?.classList.add('is-active');
       try {{
@@ -2431,7 +2446,7 @@ def generate_dashboard_html(
           d = EMBEDDED_MATCHUP_DETAILS[mKey] || EMBEDDED_MATCHUP_DETAILS[mKeyRev] || null;
         }}
         if (!d) {{
-          bodyEl.innerHTML = '<p>No precomputed H2H/Form found for <b>' + escHtml(home + ' vs ' + away) + '</b>. Start the VektorPulse WebApp server (<code>uv run vektorpulse --port 8090</code>) for live database queries.</p>';
+          bodyEl.innerHTML = '<p>No precomputed H2H/Form found for <b>' + escHtml(home + ' vs ' + away) + '</b>. Start the BetScout WebApp server (<code>uv run betscout --port 8090</code>) for live database queries.</p>';
           return;
         }}
         const fmtForm = (rows) => {{
@@ -2995,14 +3010,14 @@ def generate_dashboard_html(
       const w = window.open('', '_blank', 'width=880,height=720');
       if (!w) {{ window.print(); return; }}
       w.document.write(
-        '<!doctype html><html><head><meta charset="utf-8"><title>VektorPulse Bet Slip (€' + escHtml(budget) + ')</title>' +
+        '<!doctype html><html><head><meta charset="utf-8"><title>BetScout Bet Slip (€' + escHtml(budget) + ')</title>' +
         '<style>body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:24px;color:#0f172a;background:#fff;}}' +
         '.hdr{{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;}}' +
         '.card{{border:1px solid #cbd5e1;border-radius:8px;padding:14px;margin-bottom:14px;page-break-inside:avoid;}}' +
         '.num-pos{{color:#15803d;font-weight:700;}} .muted{{color:#475569;font-size:12px;}} .btn-mini{{display:none;}}' +
         '.pill{{display:inline-block;padding:2px 6px;border-radius:4px;border:1px solid #94a3b8;font-size:11px;font-weight:600;margin-left:4px;}}' +
         '</style></head><body>' +
-        '<div class="hdr"><div><h2 style="margin:0;">⚡ VektorPulse — Smart Bet Slip &amp; Stake Allocation Ticket</h2>' +
+        '<div class="hdr"><div><h2 style="margin:0;">⚡ BetScout — Smart Bet Slip &amp; Stake Allocation Ticket</h2>' +
         '<div class="muted">Generated: ' + new Date().toLocaleString() + ' · Ready to Bet Budget: <b>€' + escHtml(budget) + '</b></div></div></div>' +
         grid.innerHTML +
         '<script>window.onload=function(){{window.print();}}<\\/script></body></html>'
@@ -3047,9 +3062,9 @@ def generate_dashboard_html(
       const q = inp.value.trim();
       if (!q) return;
       box.style.display = 'block';
-      box.innerHTML = '<span class="spinner"></span> Querying VektorPulse store + live SofaScore odds, all-level Challenger/ATP form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
+      box.innerHTML = '<span class="spinner"></span> Querying BetScout store + live SofaScore odds, all-level Challenger/ATP form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
       if (!window.location.protocol.startsWith('http')) {{
-        box.innerHTML = '<span class="muted">Start the VektorPulse WebApp server (<code>uv run vektorpulse --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
+        box.innerHTML = '<span class="muted">Start the BetScout WebApp server (<code>uv run betscout --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
         return;
       }}
       document.getElementById('topLoadingBar')?.classList.add('is-active');
@@ -3136,12 +3151,12 @@ def generate_dashboard_html(
       renderCanvasPickCard(currentSharePickCardMeta);
       modal.style.display = 'flex';
       const msg = [
-        '🎯 **VEKTORPULSE — ' + titleStr.toUpperCase() + '**',
+        '🎯 **BETSCOUT — ' + titleStr.toUpperCase() + '**',
         '💰 *' + summaryStr + '*',
         '',
         legsText,
         '',
-        '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
+        '⚡ *BetScout · Sports Edge & Score Intelligence*'
       ].join('\\n');
       document.getElementById('tgMessagePreview').value = msg;
     }}
@@ -3424,7 +3439,7 @@ def generate_dashboard_html(
       const items = collectVisibleBestBets().slice(0, 20);
       const dayBadge = currentDayFilter === 'all' ? 'All Upcoming Days' : ('Day Filter: ' + currentDayFilter);
       const lines = [
-        '⚡ **VEKTORPULSE — DAILY PICKS & UPDATES**',
+        '⚡ **BETSCOUT — DAILY PICKS & UPDATES**',
         '🕒 *Timezone: {DEFAULT_LOCAL_TZ} · ' + dayBadge + ' · Showing ' + items.length + ' Picks*',
         ''
       ];
@@ -3437,7 +3452,7 @@ def generate_dashboard_html(
           '   🎯 Pick: **' + it.pick + '** · 💰 Odds: **' + it.odds_display + '**'
         );
       }});
-      lines.push('', '⚡ *VektorPulse · Sports Edge & Score Intelligence*');
+      lines.push('', '⚡ *BetScout · Sports Edge & Score Intelligence*');
       return lines.join('\\n');
     }}
 
@@ -3495,7 +3510,7 @@ def generate_dashboard_html(
       // Brand header
       ctx.fillStyle = '#e6edf7';
       ctx.font = '800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('⚡ VEKTORPULSE', 48, 72);
+      ctx.fillText('⚡ BETSCOUT', 48, 72);
       ctx.fillStyle = '#8b9bb4';
       ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 50, 96);
@@ -3594,14 +3609,14 @@ def generate_dashboard_html(
       ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 48, 526);
       ctx.fillStyle = '#38bdf8';
-      fillFittedCanvasText(ctx, 'VektorPulse Quant Desk', w - 48, 526, 220, 13.5, 11, '600', 'right');
+      fillFittedCanvasText(ctx, 'BetScout Quant Desk', w - 48, 526, 220, 13.5, 11, '600', 'right');
     }}
 
     function downloadPickCardPng() {{
       const cv = document.getElementById('pickCardCanvas');
       if (!cv) return;
       const a = document.createElement('a');
-      const slug = ((currentSharePickCardMeta && currentSharePickCardMeta.match) || 'vektorpulse_pick')
+      const slug = ((currentSharePickCardMeta && currentSharePickCardMeta.match) || 'betscout_pick')
         .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
       a.download = slug + '.png';
       a.href = cv.toDataURL('image/png');
@@ -3663,14 +3678,14 @@ def generate_dashboard_html(
       modal.style.display = 'flex';
       const icon = getSportEmoji(sportCat || matchStr);
       const msg = [
-        '🎯 **VEKTORPULSE — HIGH-CONVICTION PICK**',
+        '🎯 **BETSCOUT — HIGH-CONVICTION PICK**',
         '',
         icon + ' **' + matchStr + '**',
         '🕒 Kickoff: `' + dateLocalStr + '`',
         '✅ Pick: **' + pickStr + '**',
         '💰 Odds: **' + oddsStr + '**' + (esc ? (' · 🎲 Score Proj: **' + esc + '**') : ''),
         '',
-        '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
+        '⚡ *BetScout · Sports Edge & Score Intelligence*'
       ].join('\\n');
       document.getElementById('tgMessagePreview').value = msg;
     }}
@@ -3837,7 +3852,7 @@ def generate_dashboard_html(
         if (txtEl && labelText) txtEl.textContent = labelText;
         if (banner) banner.style.display = 'flex';
         document.getElementById('topLoadingBar')?.classList.add('is-active');
-        showPageLoader(labelText || 'Synchronizing VektorPulse data...', 'Communicating with ESPN, SofaScore & SQLite store...');
+        showPageLoader(labelText || 'Synchronizing BetScout data...', 'Communicating with ESPN, SofaScore & SQLite store...');
         const t0 = performance.now();
         if (elapsedEl) elapsedEl.textContent = '0.0s';
         progressTimer = setInterval(() => {{
@@ -4037,7 +4052,7 @@ def generate_dashboard_html(
       }}
       const modal = document.getElementById('settingsModal');
       if (modal) modal.style.display = 'none';
-      showToast('✅ VektorPulse settings & per-sport Discord webhook routes saved!');
+      showToast('✅ BetScout settings & per-sport Discord webhook routes saved!');
     }}
 
     function renderInplayAlertsBtn(enabled) {{
@@ -4205,7 +4220,7 @@ def generate_dashboard_html(
     populateDutchMatchSelect();
     setTimeout(() => hidePageLoader(), 260);
     window.addEventListener('beforeunload', () => {{
-      showPageLoader('Refreshing VektorPulse Dashboard...', 'Loading updated predictions, live scores & paper-bet ledger...');
+      showPageLoader('Refreshing BetScout Dashboard...', 'Loading updated predictions, live scores & paper-bet ledger...');
     }});
 
     function copyTelegramPreview() {{

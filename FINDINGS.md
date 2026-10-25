@@ -357,10 +357,10 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
 
 ---
 
-## 12. VektorPulse Platform Rebrand, 4-Archetype 2-Leg Combo Ledger, ESPN Core v2 Media & Post-Mortem #2 (`Griekspoor vs Lehecka`)
+## 12. BetScout Platform Rebrand, 4-Archetype 2-Leg Combo Ledger, ESPN Core v2 Media & Post-Mortem #2 (`Griekspoor vs Lehecka`)
 
-1. **VektorPulse Rebrand, Sortable 8-Column Ledger Tables, Live In-Play Table & ESPN Core v2 Media ([`src/sportdata_model/dashboard.py`](./src/sportdata_model/dashboard.py) & [`app/src/views/QuantModelView.vue`](../app/src/views/QuantModelView.vue))**:
-   - Rebranded the platform to **VektorPulse** (*Sports Edge, Exact-Score & Paper-Betting Intelligence*) with a custom hexagonal shield + vector-pulse SVG logo and browser tab favicon ([`app/public/vektorpulse-logo.svg`](../app/public/vektorpulse-logo.svg)).
+1. **BetScout Rebrand, Sortable 8-Column Ledger Tables, Live In-Play Table & ESPN Core v2 Media ([`src/sportdata_model/dashboard.py`](./src/sportdata_model/dashboard.py) & [`app/src/views/QuantModelView.vue`](../app/src/views/QuantModelView.vue))**:
+   - Rebranded the platform to **BetScout** (*Sports Edge, Exact-Score & Paper-Betting Intelligence*) with a custom hexagonal shield + vector-pulse SVG logo and browser tab favicon ([`app/public/vektorpulse-logo.svg`](../app/public/vektorpulse-logo.svg)).
    - Added **Per-Day Filtering** (`Today`, `Tomorrow`, `Today + Tomorrow`, `All Days`), **Provisional Time (`*`) Detection & Auto-Sync**, single-row interactive column sorting (`⇅` / `▲` / `▼`), a dedicated **Sport Icon** column (`⚽`, `🎾`, `🏀`, `🏒`, `🏈`, `⚾`), and unified **`Competition`** / **`Matchup`** / **`Pick`** / **`Score`** / **`Odds / CLV`** / **`Result / PnL`** 8-column tables across **Settled**, **🔴 Live In-Play**, and **Pending** paper bets.
    - Integrated **100% ESPN-native competition logos, team crests, and verified tennis player headshots** via `https://sports.core.api.espn.com/v2/sports/tennis/athletes/{id}` (`a.espncdn.com/i/headshots/tennis/players/full/{id}.png` with automatic `a.espncdn.com/i/teamlogos/countries/500/{iso}.png` fallback — zero SofaScore image requests and zero 404s).
    - Added an **Interactive Matchup Drill-Down Inspector Modal (`GET /api/matchup`)** displaying Last-6 form (`W`/`D`/`L` pills), H2H meetings, and Dixon-Coles / Tennis Set-Score breakdowns on click, plus a **Calibration & Tier / CLV Attribution Table (`by_tier`)** and **Quarter-Kelly Compounding vs. Flat `1.0u` Equity Curve**.

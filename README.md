@@ -1,19 +1,23 @@
-# VektorPulse (`sportdata-model`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
+# <img src="./betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
 
-Isolated quantitative research, data-quality auditing, exact-score projection, and live paper-betting platform across **7 Sports & 27 Championships (`59,062` verified matches in `data/matches.sqlite`)**:
+Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-leg combo/parlay, and live paper-betting intelligence platform (`https://github.com/jchristov/betscout.app`) across **7 Core Database Sports & 27 Championships (`59,062` verified matches in `data/matches.sqlite`)** plus **56 Live Sportradar StatsHub & Tipico Sports**:
 - **⚽ 14 Football Competitions (`11,582` matches):** `eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`, `aut.1`, `ned.1`, `por.1`, `eng.2`, `uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`, `fifa.world`
 - **🎾 ATP & WTA Tennis (`43,168` matches):** `atp` (`18,392`), `wta` (`24,776`) across Outdoor Hard, Indoor Hard, Clay & Grass
 - **🏐 Volleyball (`2,013` matches):** `wvolleyball` (NCAA Women's Volleyball, `1,537`), `mvolleyball` (NCAA Men's Volleyball, `476`)
 - **🏀 Basketball (`986` matches across 6 leagues):** `nba` (`521`), `ncaaw` (`218`), `ncaam` (`152`), `fiba` (`36`), `nbl` (`34`), `wnba` (`25`)
 - **🏒🏈⚾ Hockey, American Football & Baseball (`1,313` matches):** `nhl` (`678`), `nfl` (`479`), `mlb` (`156`)
+- **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Live **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** 1X2, 28-score Correct Score matrices, Asian Handicaps, Player Injuries (`stats_season_injuries`), 15-Minute Goal Intervals (`stats_season_teamscoringconceding`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
 
-See **[USER_MANUAL.md](./USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, discovered data anomalies, falsified hypotheses, verified out-of-sample edges, post-mortem model upgrades, and live prospective ledger performance.
+See **[USER_MANUAL.md](./USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[SPORTRADAR_STATSHUB.md](./SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
 
 ## Quick Commands
 
 ```bash
+# Launch the live BetScout WebApp, SSE Stream & Background Auto-Poller (http://127.0.0.1:8090)
+uv run betscout --port 8090
+
 # 0. Run the complete 4-stage daily pipeline (Config-driven incremental sync -> Quality check -> Multi-sport scanner -> HTML Dashboard)
-uv run sportdata-model
+uv run betscout-model
 # (or: uv run sportdata-model --days 5 --min-odds 1.10)
 
 # 1. Universal Config-Driven Ingestion CLI (reads & updates ingestion_config.json automatically, prevents duplicate re-ingestion)
@@ -77,7 +81,7 @@ uv run pytest -q
   - `quant_edges.py` — 7-Factor Orthogonal Invariant Soccer Composite (`tanh(Z)`), 7-Factor US Major Sports Boxscore + Rest/B2B + Rebound Composite (`evaluate_us_major_sports_composite`), exact Asian totals settlement (`settle_asian_total`), and 7-Feature Tennis Surface + Game-Dominance model
   - `decision_signal.py` — System-1 pre-match injury/news veto gate defaulting to `laya` (`data/laya_sports_ckpt` via persistent warm worker or hosted `LAYA_REMOTE_URL` Firebase/GCP Function), with `ms-decision-1` teacher distillation (`record_distillation_pair`)
   - `paper_trade.py` — Multi-sport paper-betting scanner (15 Football competitions with cross-competition club history, ATP/WTA Tennis with Indoor vs Outdoor Hard surface split, Court-Acclimatization & Decider Resilience gates, diacritic-normalized SofaScore bookmaker odds & Market-Blend EV gate, NBA/NHL/NFL/MLB 7-Factor Composite with NHL Road Dual-Dominance & US Sports injury gates), 4-Archetype 2-Leg Combo / Parlay builder & auto-grader (`paper_combos`), retroactive pending re-validation, Quarter-Kelly compounding bankroll curve, Position-Specific T-60m Starting XI Gate (`attack_share`, `gk_starting`, `def_spine_share`), CLV tracker, live in-play tracking, and `recommendations.json` exporter
-  - `dashboard.py` — Standalone dark-mode HTML/SVG **VektorPulse** Dashboard generator (`data/dashboard.html`) with custom hexagonal crest + pulse SVG logo, Per-Day (`Today`, `Tomorrow`, `Today + Tomorrow`, `All Days`) & Per-Sport filters, single-row sortable tables, ESPN Core v2 / CDN competition logos, team crests & player headshots, unified 8-column **Settled / Live In-Play / Pending** tables, **2-Leg Combo Ledger**, **Calibration & Tier Attribution** table, **Interactive Matchup Drill-Down Inspector** modal, and sorted Best Bets CSV/JSON exporter (`data/best_bets.csv`, `data/best_bets.json`)
+  - `dashboard.py` — Standalone dark-mode HTML/SVG **BetScout** Dashboard generator (`data/dashboard.html`) with custom hexagonal crest + pulse SVG logo, Per-Day (`Today`, `Tomorrow`, `Today + Tomorrow`, `All Days`) & Per-Sport filters, single-row sortable tables, ESPN Core v2 / CDN competition logos, team crests & player headshots, unified 8-column **Settled / Live In-Play / Pending** tables, **2-Leg Combo Ledger**, **Calibration & Tier Attribution** table, **Interactive Matchup Drill-Down Inspector** modal, and sorted Best Bets CSV/JSON exporter (`data/best_bets.csv`, `data/best_bets.json`)
   - `webapp.py` — Multi-threaded HTTP + SSE Live Stream server (`GET /api/stream`, `GET /api/matchup`, `POST /api/sync`, `POST /api/pipeline`, `POST /api/discord`, `POST /api/telegram`) with singleton 90s background auto-poller (live score sync, T-60m Starting XI auto-veto, and optional `DAILY_DIGEST_HOUR` morning digest scheduler)
   - `telegram_bot.py` — Discord (primary, Zscaler-compatible) & Telegram (optional) digest formatter (`day_filter='today'` default) and atomic settlement notifier (`notify_new_settlements_to_discord` with `BEGIN IMMEDIATE` + thread lock deduplication)
 - `scripts/` — CLI entrypoints (`daily_pipeline.py`, `ingest.py`, `ledger.py`, `quality.py`, `enrich.py`, `quant_edges.py`, `paper_trade.py`, `dashboard.py`, `distill_laya_sports.py`, `compare_decision_models.py`, `exact_score_eval.py`)

@@ -1,9 +1,10 @@
-# ⚡ VektorPulse — User Manual & Feature Reference Guide
+# <img src="./betscout-logo.svg" width="32" height="32" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — User Manual & Feature Reference Guide
 
-**VektorPulse** (`sportdata-model` + WebApp + Vue 3 PWA) is an out-of-sample validated multi-sport prediction, exact-score projection, 2-leg combo/parlay, and prospective paper-betting intelligence platform covering:
-- **⚽ 15 Football Competitions:** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Club Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.super_cup`, `uefa.wchampions`), and `fifa.world`.
-- **🎾 ATP & WTA Tennis:** Outdoor Hard (`hard`), Indoor Hard (`hard_indoor`), Clay (`clay`), and Grass (`grass`) across Grand Slams, Masters 1000, ATP/WTA 500 & 250 Main Draws and Qualifying rounds.
-- **🏀🏒🏈⚾ US Major League Sports:** `NBA`, `NHL`, `NFL`, and `MLB`.
+**BetScout** (`betscout.app` · `https://github.com/jchristov/betscout.app`) is an out-of-sample validated multi-sport prediction, exact-score projection, 2-leg combo/parlay, and prospective paper-betting intelligence platform covering:
+- **⚽ 14 Football Competitions (`11,582` matches):** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`), and `fifa.world`.
+- **🎾 ATP & WTA Tennis (`43,168` matches):** Outdoor Hard (`hard`), Indoor Hard (`hard_indoor`), Clay (`clay`), and Grass (`grass`) across Grand Slams, Masters 1000, ATP/WTA 500 & 250 Main Draws and Qualifying rounds.
+- **🏐🏀🏒🏈⚾ Volleyball, Basketball & US Major Sports (`4,312` matches):** `wvolleyball`, `mvolleyball`, `nba`, `ncaaw`, `ncaam`, `fiba`, `nbl`, `wnba`, `nhl`, `nfl`, and `mlb`.
+- **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Real-time **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** markets, 28-outcome Correct Score matrices, Player Injuries (`stats_season_injuries`), 15-Minute Goal Timing (`stats_season_teamscoringconceding`), Live Pitch Dangerous Attacks (`match_situations`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**). See **[SPORTRADAR_STATSHUB.md](./SPORTRADAR_STATSHUB.md)**.
 
 ---
 
@@ -67,10 +68,10 @@ All historical and live records are stored in a single canonical SQLite database
 
 ## 1. Quick Start & Launching the WebApp
 
-### Launch the Interactive VektorPulse WebApp Server (Recommended)
+### Launch the Interactive BetScout WebApp Server (Recommended)
 ```bash
 cd model
-uv run vektorpulse --port 8090
+uv run betscout --port 8090
 # (or: uv run sportdata-webapp --port 8090)
 ```
 Then open **`http://127.0.0.1:8090`** in your browser.
@@ -91,11 +92,11 @@ uv run sportdata-dashboard --min-odds 1.10 # Regenerate data/dashboard.html, bes
 
 ## 2. Header Bar & Global Live Controls
 
-At the top of the VektorPulse WebApp, the header displays system metadata and 5 global action buttons:
+At the top of the BetScout WebApp, the header displays system metadata and 5 global action buttons:
 
 | Control | Description |
 | :--- | :--- |
-| **`📡 Live SSE Stream`** | Shows connection status (`Connected` with green pulse dot when connected to `uv run vektorpulse`, or `Static File Mode` when opened via `file://`). |
+| **`📡 Live SSE Stream`** | Shows connection status (`Connected` with green pulse dot when connected to `uv run betscout`, or `Static File Mode` when opened via `file://`). |
 | **`🔕 Live Alerts: OFF` / `🔔 ON`** | **Global toggle** for automated Discord push alerts on Live In-Play Dominance Rebound (`⚽`) and Set-1 Deficit Rebound (`🎾`) edges. **Default is `OFF`** so your Discord channel is never spammed. Persists in `data/webapp_settings.json` and `localStorage`. |
 | **`🔄 Sync & Settle`** | Immediately polls ESPN & SofaScore to grade completed bets, update live in-play scores, and refresh the ledger without rescanning all future fixtures (~2–4 seconds). |
 | **`⚡ Rescan Live`** | Re-runs the full multi-sport upcoming scanner (`scan_upcoming_and_log_paper_trades`), updates live bookmaker odds and CLV, and refreshes all recommendations (~25–40 seconds). |
@@ -112,7 +113,7 @@ Two filter bars let you slice the entire dashboard in real time:
 
 1. **Filter by Day (`04:00 AM` Betting-Slate Cutoff):**
    - Buttons for **`All Days`**, **`Today + Tomorrow`**, **`Today`**, **`Tomorrow`**, and subsequent dates.
-   - **Smart Late-Night US Slate Grouping:** VektorPulse uses a **`04:00 AM` local time cutoff** (`Europe/Vienna`). Late-night NHL/NBA/NFL/MLB games kicking off between `00:00` and `03:59 CEST` (e.g., `Boston Bruins vs San Jose Sharks` at `01:00 CEST`) remain grouped with **Today's evening slate** rather than disappearing into Tomorrow's calendar date.
+   - **Smart Late-Night US Slate Grouping:** BetScout uses a **`04:00 AM` local time cutoff** (`Europe/Vienna`). Late-night NHL/NBA/NFL/MLB games kicking off between `00:00` and `03:59 CEST` (e.g., `Boston Bruins vs San Jose Sharks` at `01:00 CEST`) remain grouped with **Today's evening slate** rather than disappearing into Tomorrow's calendar date.
 2. **Filter by Sport:**
    - Switch between `All Sports`, `Football`, `Tennis`, `Basketball (NBA)`, `Hockey (NHL)`, `American Football (NFL)`, and `Baseball (MLB)`.
 3. **Instant Search:**
@@ -186,7 +187,7 @@ Want to check a match that isn't in `best_bets.json` (for example, a 55/45 Tenni
 
 ## 7. 💎 Bookmaker Odds Mispricing & Unpriced Edge Detector
 
-Whenever VektorPulse detects a match where our calibrated model probability exceeds the bookmaker's de-vigged implied probability by **$\ge +2.0\text{pp}$** AND Expected Value is **$\ge +2.0\%$**, the match is surfaced in the **💎 Bookmaker Odds Mispricing & Unpriced Edge Detector**:
+Whenever BetScout detects a match where our calibrated model probability exceeds the bookmaker's de-vigged implied probability by **$\ge +2.0\text{pp}$** AND Expected Value is **$\ge +2.0\%$**, the match is surfaced in the **💎 Bookmaker Odds Mispricing & Unpriced Edge Detector**:
 
 - Shows **Model Prob vs. Market Implied Prob (`+Edge pp`)**, **Bookmaker Odds vs. Fair Model Odds**, **Expected Value (`EV %`)**, and the exact **Unpriced Edge Drivers** that bookmakers failed to price in (such as `sot_d=+0.95z, dom_rebound=+1.00z, h2h_adv=+0.93z` in Football, or `SurfElo +185, GameElo +120` in Tennis).
 - Also attaches a **`💎 EDGE +X.Xpp (EV +Y.Y%)`** badge directly to those rows in the **Best Bets Summary Table**.
@@ -219,7 +220,7 @@ Click the collapsible **📈 Expanding-Window Monthly Forward-Walking Backtest A
 
 ## 10. 🔗 2-Leg High-Probability Combos & Parlay Engine
 
-VektorPulse automatically constructs up to **8 uncorrelated 2-leg parlays** across **4 strategic market archetypes** and tracks them prospectively in the `paper_combos` SQLite table:
+BetScout automatically constructs up to **8 uncorrelated 2-leg parlays** across **4 strategic market archetypes** and tracks them prospectively in the `paper_combos` SQLite table:
 
 1. **`CROSS_SPORT_BANKER` (Cross-Sport Banker ML):** Pairs two high-probability Moneyline/1X2 favorites (`1.18 – 1.75` per leg) from different sports or leagues.
 2. **`DOUBLE_CHANCE_SHIELD` (Double-Chance / `+1.5 Sets` Shield):** Pairs Football Double Chance (`1X`/`X2`) with Tennis Set Handicap (`+1.5 Sets`, winning at least 1 set).
@@ -279,7 +280,7 @@ Click **`💬 Share Picks`** in the header (or run `uv run sportdata-discord`) t
 
 ## 15. Quantitative Model Gates & Safety Guardrails
 
-Every pick in VektorPulse must pass a strict sequence of out-of-sample validated safety gates before entering the ledger:
+Every pick in BetScout must pass a strict sequence of out-of-sample validated safety gates before entering the ledger:
 
 1. **⚽ Football Gates:**
    - **7-Factor Orthogonal Composite (`tanh(Z)`):** Combines de-vigged `p_mkt`, `vig_neg`, opponent-adjusted `sot_d` (Shots on Target diff), `discipline` (fouls diff), `h2h_adv`, `dom_rebound` (unlucky dominance rebound), and `recent_draws`.
@@ -306,7 +307,7 @@ Every pick in VektorPulse must pass a strict sequence of out-of-sample validated
 ### CLI Entrypoints (`pyproject.toml`)
 | Command | Description |
 | :--- | :--- |
-| `uv run vektorpulse --port 8090` | Launch interactive VektorPulse WebApp + SSE stream + 90s auto-poller |
+| `uv run betscout --port 8090` | Launch interactive BetScout WebApp + SSE stream + 90s auto-poller |
 | `uv run sportdata-model` | Run full 4-stage daily pipeline (Ingest $\rightarrow$ Quality $\rightarrow$ Scan $\rightarrow$ Dashboard) |
 | `uv run sportdata-bet --days 3` | Scan upcoming fixtures across all sports and update `paper_trades` & `paper_combos` |
 | `uv run sportdata-dashboard` | Rebuild `data/dashboard.html`, `data/best_bets.csv`, and `data/best_bets.json` |

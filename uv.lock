@@ -3,6 +3,25 @@ revision = 5
 requires-python = ">=3.12"
 
 [[package]]
+name = "betscout"
+version = "0.2.0"
+source = { editable = "." }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "pytest" },
+    { name = "scikit-learn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.5.4" },
+    { name = "pillow", specifier = ">=13.0.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "scikit-learn", specifier = ">=1.9.1" },
+]
+
+[[package]]
 name = "cloudpickle"
 version = "3.1.2"
 source = { registry = "https://artifacts.rbi.tech/artifactory/api/pypi/pypi-group/simple" }
@@ -362,25 +381,6 @@ wheels = [
     { url = "https://artifacts.rbi.tech/artifactory/api/pypi/pypi-group/packages/packages/cf/d9/135be205d9de8783193aff9cc3bf483a03a38e4b29432c954e8cb66ac14e/scipy-1.18.1-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:179ce34a8d0fe273d8883ba59e17e052247d08973dfcb743ca52bb1cce2d60b0" },
     { url = "https://artifacts.rbi.tech/artifactory/api/pypi/pypi-group/packages/packages/5c/a2/5b7d5270621ab7cfa3f7766067bf95dc360b5efb6394694e8143b4156e2b/scipy-1.18.1-cp315-cp315t-win_amd64.whl", hash = "sha256:5632e3ae3d09197c446310cd5187de63e28448ce22f0f67b2b93d97503c0c230" },
     { url = "https://artifacts.rbi.tech/artifactory/api/pypi/pypi-group/packages/packages/63/ad/741c19fcb66755ff953daf9243af8480e4bf3d7fbe57583c178c7d2b6b51/scipy-1.18.1-cp315-cp315t-win_arm64.whl", hash = "sha256:eda632a7981f69730d6281f451db9c1c370993a2c0d7ddb43e2a809a2862b83a" },
-]
-
-[[package]]
-name = "sportdata-model"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "pytest" },
-    { name = "scikit-learn" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "numpy", specifier = ">=2.5.4" },
-    { name = "pillow", specifier = ">=13.0.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "scikit-learn", specifier = ">=1.9.1" },
 ]
 
 [[package]]

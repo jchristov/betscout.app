@@ -47,8 +47,8 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageF
         return ImageFont.load_default()
 
 
-def _draw_vektorpulse_shield(draw: ImageDraw.ImageDraw, cx: int, cy: int, radius: int = 24) -> None:
-    """Draw the VektorPulse hexagonal shield & emerald pulse wave."""
+def _draw_betscout_shield(draw: ImageDraw.ImageDraw, cx: int, cy: int, radius: int = 24) -> None:
+    """Draw the BetScout hexagonal radar shield, crosshair ticks, rising scout vector, and target lock."""
     import math
 
     pts: list[tuple[float, float]] = []
@@ -56,15 +56,26 @@ def _draw_vektorpulse_shield(draw: ImageDraw.ImageDraw, cx: int, cy: int, radius
         ang = math.radians(-90 + i * 60)
         pts.append((cx + radius * math.cos(ang), cy + radius * math.sin(ang)))
     draw.polygon(pts, fill=(15, 23, 42), outline=(56, 189, 248), width=2)
-    wave = [
-        (cx - radius * 0.62, cy + 1),
-        (cx - radius * 0.30, cy + 1),
-        (cx - radius * 0.12, cy + radius * 0.42),
-        (cx + radius * 0.12, cy - radius * 0.48),
-        (cx + radius * 0.32, cy + radius * 0.10),
-        (cx + radius * 0.62, cy - radius * 0.32),
+    # Inner radar circle & crosshair ticks
+    r_in = int(radius * 0.58)
+    draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], outline=(30, 64, 110), width=1)
+    draw.line([(cx, cy - radius + 5), (cx, cy - r_in - 2)], fill=(56, 189, 248), width=1)
+    draw.line([(cx, cy + r_in + 2), (cx, cy + radius - 5)], fill=(56, 189, 248), width=1)
+    draw.line([(cx - radius + 5, cy), (cx - r_in - 2, cy)], fill=(56, 189, 248), width=1)
+    draw.line([(cx + r_in + 2, cy), (cx + radius - 5, cy)], fill=(56, 189, 248), width=1)
+    # Scout rising vector & target lock node
+    tx, ty = cx + radius * 0.44, cy - radius * 0.42
+    vec = [
+        (cx - radius * 0.50, cy + radius * 0.38),
+        (cx - radius * 0.12, cy + radius * 0.04),
+        (cx + radius * 0.06, cy + radius * 0.18),
+        (tx, ty),
     ]
-    draw.line(wave, fill=(34, 197, 94), width=3)
+    draw.line(vec, fill=(34, 197, 94), width=3)
+    draw.ellipse([(tx - 3, ty - 3), (tx + 3, ty + 3)], fill=(34, 197, 94), outline=(56, 189, 248), width=1)
+
+
+_draw_vektorpulse_shield = _draw_betscout_shield
 
 
 def _strip_non_ascii_symbols(text: str) -> str:
@@ -112,7 +123,7 @@ def render_pick_card_png(
     pick_data: dict[str, Any],
     output_path: Path | None = None,
 ) -> bytes:
-    """Render a 1080x580 dark-mode VektorPulse Pick Card PNG with dynamic text measurement so zero text is ever cut off."""
+    """Render a 1080x580 dark-mode BetScout Pick Card PNG with dynamic text measurement so zero text is ever cut off."""
     w, h = 1080, 580
     img = Image.new("RGB", (w, h), (11, 15, 23))
     draw = ImageDraw.Draw(img)
@@ -135,9 +146,9 @@ def render_pick_card_png(
     f_kpi_lbl = _load_font(12, bold=True)
     f_footer = _load_font(13, bold=False)
 
-    # Header: Logo + VektorPulse brand
-    _draw_vektorpulse_shield(draw, 66, 68, radius=24)
-    draw.text((104, 45), "VEKTORPULSE", font=f_brand, fill=(230, 237, 247))
+    # Header: Logo + BetScout brand
+    _draw_betscout_shield(draw, 66, 68, radius=24)
+    draw.text((104, 45), "BETSCOUT", font=f_brand, fill=(230, 237, 247))
     draw.text((104, 76), "SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE", font=f_sub, fill=(139, 155, 180))
 
     sport_cat = str(pick_data.get("sport_cat") or pick_data.get("sport") or "soccer").lower()
@@ -239,7 +250,7 @@ def render_pick_card_png(
         font=f_footer,
         fill=(139, 155, 180),
     )
-    footer_r = "VektorPulse Quant Desk"
+    footer_r = "betscout.app · Quant Desk"
     fr_w = int(_text_width(draw, footer_r, f_footer))
     draw.text((w - 48 - fr_w, 522), footer_r, font=f_footer, fill=(56, 189, 248))
 
@@ -275,8 +286,8 @@ def render_digest_slate_png(
     f_sub = _load_font(14, bold=False)
     f_th = _load_font(13, bold=True)
 
-    _draw_vektorpulse_shield(draw, 62, 64, radius=22)
-    f_hdr, hdr_fit = _fit_font_and_text(draw, f"VEKTORPULSE — {title}", max_width=w - 130, start_size=24, min_size=16, bold=True)
+    _draw_betscout_shield(draw, 62, 64, radius=22)
+    f_hdr, hdr_fit = _fit_font_and_text(draw, f"BETSCOUT — {title}", max_width=w - 130, start_size=24, min_size=16, bold=True)
     draw.text((98, 43), hdr_fit, font=f_hdr, fill=(230, 237, 247))
     f_sub_fit, sub_fit = _fit_font_and_text(draw, subtitle, max_width=w - 130, start_size=14, min_size=11, bold=False)
     draw.text((98, 74), sub_fit, font=f_sub_fit, fill=(139, 155, 180))
@@ -317,7 +328,7 @@ def render_digest_slate_png(
 
     draw.text(
         (42, h - 46),
-        "VektorPulse Quantitative Desk  ·  59,062 Verified Matches Across 7 Sports & 27 Championships",
+        "BetScout Quantitative Desk (betscout.app)  ·  59,062 Verified Matches Across 7 Sports & 27 Championships",
         font=f_sub,
         fill=(139, 155, 180),
     )

@@ -274,8 +274,8 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert tg_cfg["configured"] is True and tg_cfg["chat_id"] == "@test_quant_channel"
 
     d_msg = format_discord_digest(_json.loads(rec_json.read_text()), min_odds=1.10, day_filter="all")
-    assert "**VEKTORPULSE" in d_msg and "Fritz" in d_msg and "`2026-10-22 15:30 CEST`" in d_msg
-    assert "VektorPulse · Sports Edge & Score Intelligence" in d_msg
+    assert "**BETSCOUT" in d_msg and "Fritz" in d_msg and "`2026-10-22 15:30 CEST`" in d_msg
+    assert "BetScout · Sports Edge & Score Intelligence" in d_msg
     d_res = send_discord_message(d_msg, dry_run=True, env_path=env_file)
     assert d_res["ok"] is True and d_res["dry_run"] is True and d_res["configured"] is True
 
@@ -493,7 +493,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         for t in threads:
             t.join()
 
-    assert len(send_calls) >= 1 and sum(1 for m in send_calls if "NEW SETTLED PAPER-BET ALERT (" in m and "VEKTORPULSE (" not in m) == 1, (
+    assert len(send_calls) >= 1 and sum(1 for m in send_calls if "NEW SETTLED PAPER-BET ALERT (" in m and "BETSCOUT (" not in m) == 1, (
         f"Expected exactly 1 global Discord notification across 4 concurrent threads, got {len(send_calls)}"
     )
 
