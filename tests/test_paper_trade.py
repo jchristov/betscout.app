@@ -601,6 +601,35 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "EMBEDDED_MATCHUP_DETAILS" in html_text
     assert "Monthly Walk-Forward Profit &amp; Consistency" in html_text
     assert "pageLoadingOverlay" in html_text and "topLoadingBar" in html_text and "showPageLoader" in html_text
+    assert "pickCardCanvas" in html_text and "renderCanvasPickCard" in html_text and "attachPngCardChk" in html_text
+
+    # Test PNG Pick Card & Slate rendering + dry-run attachment in Discord/Telegram
+    from sportdata_model.pick_card import render_digest_slate_png, render_pick_card_png
+
+    single_png = render_pick_card_png({
+        "sport_cat": "tennis",
+        "competition": "ATP Tour · Erste Bank Open",
+        "date_local": "2026-10-25 14:00 CET",
+        "match": "Alexander Zverev vs Martin Landaluce",
+        "pick_name": "Alexander Zverev (Win Prob 88.1%)",
+        "tier": "banker_70pct",
+        "win_prob": 0.8808,
+        "min_fair_odds": 1.14,
+        "odds": 1.18,
+        "odds_display": "1.18",
+        "exact_score_pick": "Sets 2:0 (65.6%, Fair 1.52)",
+    })
+    assert single_png.startswith(b"\x89PNG\r\n\x1a\n") and len(single_png) > 4000
+    slate_png = render_digest_slate_png([
+        {"date_local": "2026-10-25 14:00", "match": "Zverev vs Landaluce", "pick_name": "Zverev", "win_prob": 0.88, "odds_display": "1.18"},
+        {"date_local": "2026-10-25 19:45", "match": "Udinese vs AC Milan", "pick_name": "AC Milan", "win_prob": 0.63, "odds_display": "1.65"},
+    ])
+    assert slate_png.startswith(b"\x89PNG\r\n\x1a\n") and len(slate_png) > 4000
+    d_img_res = send_discord_message("Test with PNG", dry_run=True, env_path=env_file, image_bytes=single_png)
+    assert d_img_res["ok"] is True and d_img_res["has_image"] is True
+    tg_img_res = send_telegram_message("Test with PNG", dry_run=True, env_path=env_file, image_bytes=single_png)
+    assert tg_img_res["ok"] is True and tg_img_res["has_image"] is True
+
 
 
 

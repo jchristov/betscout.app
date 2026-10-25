@@ -1929,11 +1929,24 @@ def generate_dashboard_html(
       </div>
       <button class="btn-export" type="button" onclick="document.getElementById('telegramModal').style.display='none'">Close ✕</button>
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-      <input id="discordWebhookInput" type="password" placeholder="Discord Webhook URL (https://discord.com/api/webhooks/... or set DISCORD_WEBHOOK_URL in model/.env)" style="flex:2; min-width:320px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:12px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
+      <input id="discordWebhookInput" type="password" placeholder="Discord Webhook URL (https://discord.com/api/webhooks/... or set DISCORD_WEBHOOK_URL in model/.env)" style="flex:2; min-width:300px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:12px;">
+      <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; cursor:pointer; background:#0b0f17; border:1px solid var(--border); border-radius:6px; padding:5px 9px;" title="Attach generated PNG Pick Card / Slate Graphic to Discord &amp; Telegram messages">
+        <input id="attachPngCardChk" type="checkbox" checked> 🖼️ Attach PNG Card
+      </label>
+      <button class="btn-export" type="button" onclick="downloadPickCardPng()" title="Download generated PNG Pick Card image">⬇ Download PNG</button>
       <button class="btn-export js-action-btn" type="button" onclick="openTelegramPanel()">🔄 Rebuild Digest</button>
       <button class="btn-export" type="button" onclick="copyTelegramPreview()">📋 Copy Message</button>
       <button id="discordSendBtn" class="btn-export btn-telegram js-action-btn" type="button" onclick="postToDiscordChannel()">🚀 Send to Discord Channel</button>
+    </div>
+    <div id="pngCardPreviewWrap" style="margin-bottom:10px; padding:10px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <canvas id="pickCardCanvas" width="1080" height="580" style="max-width:360px; width:100%; height:auto; border-radius:8px; border:1px solid rgba(56,189,248,0.45); box-shadow:0 8px 24px rgba(0,0,0,0.45);"></canvas>
+        <div>
+          <div style="font-weight:700; color:var(--accent); font-size:12.5px;">🖼️ High-Resolution PNG Pick Card Preview (1080×580)</div>
+          <div class="muted" style="margin-top:3px; max-width:360px;">Automatically attached as a native PNG graphic when sharing to Discord or Telegram, or click <b>⬇ Download PNG</b> to save locally.</div>
+        </div>
+      </div>
     </div>
     <details style="margin-bottom:8px; font-size:12px; color:var(--muted);">
       <summary style="cursor:pointer;">Optional Telegram Override (for non-Zscaler networks)</summary>
@@ -3275,9 +3288,161 @@ def generate_dashboard_html(
     }}
 
     let currentShareSportCat = null;
+    let currentSharePickCardMeta = null;
+
+    function renderCanvasPickCard(meta) {{
+      const cv = document.getElementById('pickCardCanvas');
+      if (!cv || !cv.getContext) return;
+      const ctx = cv.getContext('2d');
+      const w = cv.width, h = cv.height;
+      // Background gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+      bgGrad.addColorStop(0, '#0b0f17');
+      bgGrad.addColorStop(1, '#111827');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Outer card box
+      ctx.fillStyle = '#131b29';
+      ctx.strokeStyle = '#223049';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(20, 20, w - 40, h - 40, 18);
+      else ctx.rect(20, 20, w - 40, h - 40);
+      ctx.fill();
+      ctx.stroke();
+
+      // Top cyan accent bar
+      const topGrad = ctx.createLinearGradient(20, 0, w - 20, 0);
+      topGrad.addColorStop(0, '#38bdf8');
+      topGrad.addColorStop(1, '#22c55e');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(22, 22, w - 44, 6);
+
+      // Brand header
+      ctx.fillStyle = '#e6edf7';
+      ctx.font = '800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('⚡ VEKTORPULSE', 48, 72);
+      ctx.fillStyle = '#8b9bb4';
+      ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 50, 96);
+
+      // Right badge
+      const badgeTxt = (meta && meta.badge) ? String(meta.badge) : 'LIVE AI SIGNAL';
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.16)';
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(w - 250, 46, 200, 38, 19);
+      else ctx.rect(w - 250, 46, 200, 38);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#22c55e';
+      ctx.font = '700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(badgeTxt.slice(0, 20), w - 230, 70);
+
+      // Divider
+      ctx.strokeStyle = '#223049';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(48, 114);
+      ctx.lineTo(w - 48, 114);
+      ctx.stroke();
+
+      const compStr = String((meta && meta.comp) || (meta && meta.sport_cat) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
+      const koStr = String((meta && meta.date_local) || 'Today');
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(compStr.slice(0, 46), 48, 148);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('🕒 ' + koStr, w - 310, 148);
+
+      // Matchup title
+      const matchTitle = String((meta && meta.match) || 'Daily High-Conviction Picks');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(matchTitle.slice(0, 42), 48, 202);
+
+      // Main Pick Highlight Box
+      ctx.fillStyle = 'rgba(13, 31, 28, 0.95)';
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(48, 232, w - 96, 112, 14);
+      else ctx.rect(48, 232, w - 96, 112);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#86efac';
+      ctx.font = '700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 264);
+
+      const pickTitle = String((meta && meta.pick) || 'Top Calibrated Edge');
+      ctx.fillStyle = '#22c55e';
+      ctx.font = '800 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(pickTitle.slice(0, 44), 72, 312);
+
+      // 4 KPI Boxes
+      const kpis = [
+        {{ lbl: 'BOOKMAKER ODDS', val: String((meta && meta.odds_display) || '—').slice(0, 14), col: '#22c55e' }},
+        {{ lbl: 'MODEL WIN PROB', val: String((meta && meta.win_prob_str) || 'High Conf'), col: '#38bdf8' }},
+        {{ lbl: 'MIN FAIR ODDS', val: String((meta && meta.fair_str) || 'Calibrated'), col: '#e6edf7' }},
+        {{ lbl: 'SCORE PROJECTION', val: String((meta && meta.exact_score) || 'Moneyline Edge').slice(0, 18), col: '#f59e0b' }}
+      ];
+      const bw = Math.floor((w - 96 - 36) / 4);
+      kpis.forEach((k, idx) => {{
+        const bx = 48 + idx * (bw + 12);
+        ctx.fillStyle = '#0f1623';
+        ctx.strokeStyle = '#223049';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(bx, 368, bw, 106, 12);
+        else ctx.rect(bx, 368, bw, 106);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#8b9bb4';
+        ctx.font = '700 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(k.lbl, bx + 16, 398);
+        ctx.fillStyle = k.col;
+        ctx.font = '800 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(k.val, bx + 16, 442);
+      }});
+
+      // Footer
+      ctx.fillStyle = '#8b9bb4';
+      ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 48, 524);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('VektorPulse Quant Desk', w - 210, 524);
+    }}
+
+    function downloadPickCardPng() {{
+      const cv = document.getElementById('pickCardCanvas');
+      if (!cv) return;
+      const a = document.createElement('a');
+      const slug = ((currentSharePickCardMeta && currentSharePickCardMeta.match) || 'vektorpulse_pick')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      a.download = slug + '.png';
+      a.href = cv.toDataURL('image/png');
+      a.click();
+    }}
 
     function openTelegramPanel() {{
       currentShareSportCat = currentSportFilter;
+      const items = collectVisibleBestBets();
+      const topIt = items[0] || {{}};
+      currentSharePickCardMeta = null;
+      renderCanvasPickCard({{
+        match: topIt.match ? (topIt.match + (items.length > 1 ? ' (+' + (items.length - 1) + ' More)' : '')) : 'Daily High-Conviction Slate',
+        pick: topIt.pick_name || topIt.pick || (items.length + ' Qualifying Picks'),
+        odds_display: topIt.odds_display || (topIt.odds ? topIt.odds.toFixed(2) : '—'),
+        win_prob_str: topIt.win_prob ? ((topIt.win_prob * 100).toFixed(1) + '%') : (items.length + ' Picks'),
+        fair_str: topIt.fair_odds ? ('@ ' + topIt.fair_odds.toFixed(2)) : 'Calibrated',
+        exact_score: topIt.exact_score || 'Multi-Sport Slate',
+        date_local: topIt.date_local || 'Today',
+        comp: topIt.comp || 'DAILY DIGEST SLATE',
+        badge: items.length + ' ACTIVE PICKS'
+      }});
       const modal = document.getElementById('telegramModal');
       modal.style.display = 'block';
       document.getElementById('tgMessagePreview').value = buildBrowserTelegramDigest();
@@ -3286,6 +3451,34 @@ def generate_dashboard_html(
 
     function shareSinglePick(matchStr, pickStr, oddsStr, dateLocalStr, sportCat) {{
       currentShareSportCat = sportCat || currentSportFilter;
+      let matchedRow = null;
+      document.querySelectorAll('#bestBetsTable tbody tr[data-date]').forEach(r => {{
+        if (r.getAttribute('data-match') === matchStr) matchedRow = r;
+      }});
+      const wp = matchedRow ? parseFloat(matchedRow.getAttribute('data-win-prob') || '0') : 0;
+      const fo = matchedRow ? parseFloat(matchedRow.getAttribute('data-fair-odds') || '0') : 0;
+      const esc = matchedRow ? (matchedRow.getAttribute('data-exact-score') || '') : '';
+      const comp = matchedRow ? (matchedRow.getAttribute('data-comp') || sportCat || '') : (sportCat || '');
+      const tier = matchedRow ? (matchedRow.getAttribute('data-tier') || 'HIGH-CONVICTION') : 'HIGH-CONVICTION';
+      currentSharePickCardMeta = {{
+        match: matchStr,
+        pick: pickStr,
+        pick_name: pickStr,
+        odds_display: oddsStr,
+        date_local: dateLocalStr,
+        sport_cat: sportCat || 'soccer',
+        competition: comp,
+        tier: tier,
+        win_prob: wp || undefined,
+        min_fair_odds: fo || undefined,
+        exact_score_pick: esc || undefined,
+        win_prob_str: wp > 0 ? ((wp * 100).toFixed(1) + '%') : 'High Conf',
+        fair_str: fo > 0 ? ('@ ' + fo.toFixed(2)) : 'Calibrated',
+        exact_score: esc || 'Moneyline Edge',
+        comp: comp,
+        badge: tier.toUpperCase()
+      }};
+      renderCanvasPickCard(currentSharePickCardMeta);
       const modal = document.getElementById('telegramModal');
       modal.style.display = 'block';
       const icon = getSportEmoji(sportCat || matchStr);
@@ -3295,7 +3488,7 @@ def generate_dashboard_html(
         icon + ' **' + matchStr + '**',
         '🕒 Kickoff: `' + dateLocalStr + '`',
         '✅ Pick: **' + pickStr + '**',
-        '💰 Odds: **' + oddsStr + '**',
+        '💰 Odds: **' + oddsStr + '**' + (esc ? (' · 🎲 Score Proj: **' + esc + '**') : ''),
         '',
         '⚡ *VektorPulse · Sports Edge & Score Intelligence*'
       ].join('\\n');
@@ -3877,20 +4070,24 @@ def generate_dashboard_html(
       setActionBusy(true, 'Publishing digest to Discord channel...', sendBtn);
       try {{
         if (window.location.protocol.startsWith('http')) {{
+          const incImg = Boolean(document.getElementById('attachPngCardChk')?.checked);
           const r = await fetch('/api/discord', {{
             method: 'POST',
             headers: {{ 'Content-Type': 'application/json' }},
             body: JSON.stringify({{
               text,
               sport: currentShareSportCat || currentSportFilter || 'all',
-              webhook_url: webhookUrl || undefined
+              webhook_url: webhookUrl || undefined,
+              include_image: incImg,
+              pick_card: currentSharePickCardMeta || undefined
             }})
           }});
           const d = await r.json();
           if (d.ok && !d.dry_run) {{
             const partsInfo = (d.chunks_sent && d.chunks_sent > 1) ? (' in ' + d.chunks_sent + ' messages') : '';
-            statusEl.textContent = '✅ Published full digest to Discord channel' + partsInfo + ' (Message ID: ' + (d.message_id || 'OK') + ')!';
-            showToast('✅ Successfully published full digest to Discord channel' + partsInfo + '!');
+            const imgInfo = d.has_image ? ' + 🖼️ PNG Pick Card' : '';
+            statusEl.textContent = '✅ Published to Discord channel' + partsInfo + imgInfo + ' (Message ID: ' + (d.message_id || 'OK') + ')!';
+            showToast('✅ Successfully published to Discord channel' + partsInfo + imgInfo + '!');
           }} else {{
             statusEl.textContent = '⚠️ Not sent: ' + (d.error || 'Set DISCORD_WEBHOOK_URL in model/.env (or paste your Discord Webhook URL above).');
           }}
@@ -3934,13 +4131,17 @@ def generate_dashboard_html(
       setActionBusy(true, 'Publishing digest to Telegram channel...', sendBtn);
       try {{
         if (window.location.protocol.startsWith('http')) {{
+          const incImg = Boolean(document.getElementById('attachPngCardChk')?.checked);
           const r = await fetch('/api/telegram', {{
             method: 'POST',
             headers: {{ 'Content-Type': 'application/json' }},
             body: JSON.stringify({{
               text,
+              sport: currentShareSportCat || currentSportFilter || 'all',
               bot_token: token || undefined,
-              chat_id: chatId || undefined
+              chat_id: chatId || undefined,
+              include_image: incImg,
+              pick_card: currentSharePickCardMeta || undefined
             }})
           }});
           const d = await r.json();

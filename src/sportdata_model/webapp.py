@@ -679,6 +679,42 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
                 return
 
+            if parsed.path == "/api/pick-card.png":
+                from .pick_card import render_digest_slate_png, render_pick_card_png
+
+                mode_q = (qs.get("mode") or ["single"])[0]
+                if mode_q == "slate":
+                    rec_d = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
+                    b_list = build_best_bets_summary(rec_d, min_odds=min_odds, sport_filter=sport)
+                    png_data = render_digest_slate_png(b_list[:10])
+                else:
+                    match_q = (qs.get("match") or [""])[0]
+                    rec_d = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
+                    b_list = build_best_bets_summary(rec_d, min_odds=1.01, sport_filter="all")
+                    found_b = next((x for x in b_list if x.get("match") == match_q), None)
+                    p_payload = dict(found_b) if found_b else {}
+                    for k in ("match", "pick", "pick_name", "odds_display", "date_local", "sport_cat", "competition", "tier", "exact_score_pick"):
+                        if qs.get(k):
+                            p_payload[k] = qs[k][0]
+                    if qs.get("win_prob"):
+                        try:
+                            p_payload["win_prob"] = float(qs["win_prob"][0])
+                        except Exception:
+                            pass
+                    if qs.get("odds"):
+                        try:
+                            p_payload["odds"] = float(qs["odds"][0])
+                        except Exception:
+                            pass
+                    png_data = render_pick_card_png(p_payload)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(png_data)))
+                self.end_headers()
+                self.wfile.write(png_data)
+                return
+
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status", "/api/settings"):
                 cfg_s = _load_webapp_settings(data_dir)
                 self._send_json({
@@ -821,6 +857,8 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path == "/api/discord":
+                from .pick_card import render_digest_slate_png, render_pick_card_png
+
                 cfg_d = _load_webapp_settings(data_dir)
                 rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                 custom_text = (body.get("text") or "").strip()
@@ -833,6 +871,21 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     day_filter=str(body.get("day") or "today"),
                     max_picks=int(body.get("max_picks") or 12),
                 )
+                img_bytes: bytes | None = None
+                if body.get("include_image", True):
+                    try:
+                        pick_card_meta = body.get("pick_card")
+                        if isinstance(pick_card_meta, dict) and (pick_card_meta.get("match") or pick_card_meta.get("pick")):
+                            b_all = build_best_bets_summary(rec, min_odds=1.01, sport_filter="all")
+                            matched_row = next((x for x in b_all if x.get("match") == pick_card_meta.get("match")), {})
+                            merged_meta = {**matched_row, **{k: v for k, v in pick_card_meta.items() if v}}
+                            img_bytes = render_pick_card_png(merged_meta)
+                        else:
+                            b_slate = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.10), sport_filter=sp_f)
+                            if b_slate:
+                                img_bytes = render_digest_slate_png(b_slate[:10])
+                    except Exception:
+                        img_bytes = None
                 res = send_discord_message(
                     text=msg,
                     webhook_url=body.get("webhook_url"),
@@ -841,26 +894,46 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     dry_run=bool(body.get("dry_run", False)),
                     sport=sp_f,
                     custom_sport_webhooks=cfg_d.get("sport_webhooks"),
+                    image_bytes=img_bytes,
                 )
                 self._send_json({**res, "formatted_message": msg})
                 return
 
             if parsed.path == "/api/telegram":
+                from .pick_card import render_digest_slate_png, render_pick_card_png
+
                 rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                 custom_text = (body.get("text") or "").strip()
+                sp_f_tg = str(body.get("sport") or "all")
                 msg = custom_text or format_telegram_digest(
                     rec=rec,
                     db_path=db_path,
                     min_odds=float(body.get("min_odds") or 1.15),
-                    sport_filter=str(body.get("sport") or "all"),
+                    sport_filter=sp_f_tg,
                     day_filter=str(body.get("day") or "today"),
                     max_picks=int(body.get("max_picks") or 12),
                 )
+                tg_img_bytes: bytes | None = None
+                if body.get("include_image", True):
+                    try:
+                        pick_card_meta = body.get("pick_card")
+                        if isinstance(pick_card_meta, dict) and (pick_card_meta.get("match") or pick_card_meta.get("pick")):
+                            b_all = build_best_bets_summary(rec, min_odds=1.01, sport_filter="all")
+                            matched_row = next((x for x in b_all if x.get("match") == pick_card_meta.get("match")), {})
+                            merged_meta = {**matched_row, **{k: v for k, v in pick_card_meta.items() if v}}
+                            tg_img_bytes = render_pick_card_png(merged_meta)
+                        else:
+                            b_slate = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.10), sport_filter=sp_f_tg)
+                            if b_slate:
+                                tg_img_bytes = render_digest_slate_png(b_slate[:10])
+                    except Exception:
+                        tg_img_bytes = None
                 res = send_telegram_message(
                     text=msg,
                     bot_token=body.get("bot_token"),
                     chat_id=body.get("chat_id"),
                     dry_run=bool(body.get("dry_run", False)),
+                    image_bytes=tg_img_bytes,
                 )
                 self._send_json({**res, "formatted_message": msg})
                 return

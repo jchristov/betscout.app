@@ -390,8 +390,10 @@ def send_discord_message(
     env_path: Path | None = None,
     sport: str | None = None,
     custom_sport_webhooks: dict[str, str] | None = None,
+    image_bytes: bytes | None = None,
+    image_filename: str = "vektorpulse_pick.png",
 ) -> dict[str, Any]:
-    """Post a Markdown-formatted message to a Discord channel via Webhook URL (supporting per-sport webhook routing) or Bot Token + Channel ID."""
+    """Post a Markdown-formatted message (and optional PNG card attachment) to a Discord channel via Webhook URL or Bot Token + Channel ID."""
     load_dotenv(env_path=env_path, override=True)
     md_text = html_to_discord_markdown(text)
     chunks = _chunk_discord_text(md_text, max_len=1950)
@@ -414,6 +416,7 @@ def send_discord_message(
             "channel": ch_id or ("webhook" if wh_url else "<DISCORD_WEBHOOK_URL not set>"),
             "message_length": len(md_text),
             "chunks_count": len(chunks),
+            "has_image": bool(image_bytes),
             "preview": md_text,
         }
 
@@ -428,19 +431,41 @@ def send_discord_message(
             "-H", f"Authorization: Bot {b_tok}",
         ]
 
+    import tempfile
+
     message_ids: list[str] = []
     last_resp: dict[str, Any] = {}
-    for chunk in chunks:
-        payload = {"content": chunk, "username": "Sportdata Quant Desk"} if wh_url else {"content": chunk}
-        proc = subprocess.run(
-            [
-                "curl", "-s", "-m", "15", "-X", "POST", target_url,
-                *headers,
-                "-d", json.dumps(payload),
-            ],
-            capture_output=True,
-            text=True,
-        )
+    for idx_c, chunk in enumerate(chunks):
+        payload: dict[str, Any] = {"content": chunk, "username": "VektorPulse Quant Desk"} if wh_url else {"content": chunk}
+        attach_img = (idx_c == len(chunks) - 1) and bool(image_bytes)
+        if attach_img and image_bytes:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                tf.write(image_bytes)
+                tmp_png = Path(tf.name)
+            try:
+                auth_headers = ["-H", f"Authorization: Bot {b_tok}"] if not wh_url else []
+                proc = subprocess.run(
+                    [
+                        "curl", "-s", "-m", "20", "-X", "POST", target_url,
+                        *auth_headers,
+                        "-F", f"payload_json={json.dumps(payload)}",
+                        "-F", f"files[0]=@{tmp_png};filename={image_filename};type=image/png",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+            finally:
+                tmp_png.unlink(missing_ok=True)
+        else:
+            proc = subprocess.run(
+                [
+                    "curl", "-s", "-m", "15", "-X", "POST", target_url,
+                    *headers,
+                    "-d", json.dumps(payload),
+                ],
+                capture_output=True,
+                text=True,
+            )
         if proc.returncode != 0 or not proc.stdout.strip():
             return {"ok": False, "error": proc.stderr or "Empty response from Discord API"}
         try:
@@ -461,6 +486,7 @@ def send_discord_message(
         "message_id": message_ids[0] if message_ids else None,
         "message_ids": message_ids,
         "chunks_sent": len(message_ids),
+        "has_image": bool(image_bytes),
         "channel_id": last_resp.get("channel_id"),
     }
 
@@ -569,8 +595,56 @@ def notify_new_settlements_to_discord(
                 f"*{l1.get('pick')}* [`{c.get('leg1_score') or '—'}`] + *{l2.get('pick')}* [`{c.get('leg2_score') or '—'}`]"
             )
 
+        # Render a PNG settlement card / slate image to attach to the Discord settlement alert
+        settle_img_bytes: bytes | None = None
+        try:
+            from .pick_card import render_digest_slate_png, render_pick_card_png
+
+            if len(unnotified) == 1 and not unnotified_combos:
+                r0 = unnotified[0]
+                pnl0 = float(r0.get("pnl_best") or 0.0)
+                settle_img_bytes = render_pick_card_png({
+                    "sport_cat": _league_to_sport_cat(r0["league"]),
+                    "competition": LEAGUE_LABELS.get(r0["league"], r0["league"].upper()),
+                    "date_local": _format_local_time(r0["kickoff"]),
+                    "match": f"{r0['home']} vs {r0['away']} [{r0.get('settled_score') or ''}]",
+                    "pick_name": f"{r0['home'] if r0['side'] == 'H' else r0['away']} ({'WIN' if pnl0 > 0 else 'LOSS'} {pnl0:+.2f}u)",
+                    "tier": r0.get("tier") or "SETTLED",
+                    "status_badge": f"{'WIN' if pnl0 > 0 else 'LOSS'} ({pnl0:+.2f}u)",
+                    "win_prob": r0.get("p_mkt"),
+                    "odds": r0.get("logged_best_odds"),
+                    "odds_display": f"{float(r0.get('logged_best_odds') or 1.0):.2f}",
+                    "exact_score_pick": r0.get("exact_score_pred") or r0.get("settled_score") or "Settled",
+                })
+            elif unnotified:
+                slate_rows = [
+                    {
+                        "date_local": _format_local_time(r["kickoff"]),
+                        "match": f"{r['home']} vs {r['away']} [{r.get('settled_score') or ''}]",
+                        "pick_name": f"{r['home'] if r['side'] == 'H' else r['away']} ({'W' if float(r.get('pnl_best') or 0) > 0 else 'L'} {float(r.get('pnl_best') or 0):+.2f}u)",
+                        "win_prob": r.get("p_mkt"),
+                        "odds": r.get("logged_best_odds"),
+                        "odds_display": f"{float(r.get('logged_best_odds') or 1.0):.2f}",
+                    }
+                    for r in unnotified
+                ]
+                settle_img_bytes = render_digest_slate_png(
+                    slate_rows,
+                    title=f"SETTLED PAPER-BET RECAP ({len(unnotified)} RESOLVED)",
+                    subtitle=f"Cumulative Ledger: {s_cnt} Settled ({s_wins}W - {s_loss}L) · Profit: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)",
+                )
+        except Exception:
+            settle_img_bytes = None
+
         msg = "\n".join(lines)
-        res = send_discord_message(msg, webhook_url=webhook_url, dry_run=dry_run, env_path=None)
+        res = send_discord_message(
+            msg,
+            webhook_url=webhook_url,
+            dry_run=dry_run,
+            env_path=None,
+            image_bytes=settle_img_bytes,
+            image_filename="vektorpulse_settlement.png",
+        )
         # Also route sport-specific settlement alerts to any dedicated per-sport Discord webhooks configured in .env
         if not webhook_url:
             global_wh = resolve_discord_webhook_for_sport(None)
@@ -722,8 +796,10 @@ def send_telegram_message(
     chat_id: str | None = None,
     dry_run: bool = False,
     env_path: Path | None = None,
+    image_bytes: bytes | None = None,
+    image_filename: str = "vektorpulse_pick.png",
 ) -> dict[str, Any]:
-    """Post an HTML-formatted message to a Telegram channel/chat via `POST /bot<token>/sendMessage`."""
+    """Post an HTML-formatted message (and optional PNG card photo via `sendPhoto`) to a Telegram channel/chat."""
     load_dotenv(env_path=env_path, override=True)
     token = (bot_token or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
     target_chat = (chat_id or os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
@@ -735,25 +811,65 @@ def send_telegram_message(
             "configured": bool(token and target_chat),
             "chat_id": target_chat or "<TELEGRAM_CHAT_ID not set>",
             "message_length": len(text),
+            "has_image": bool(image_bytes),
             "preview": text,
         }
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": target_chat,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }
-    proc = subprocess.run(
-        [
-            "curl", "-s", "-m", "15", "-X", "POST", url,
-            "-H", "Content-Type: application/json",
-            "-d", json.dumps(payload),
-        ],
-        capture_output=True,
-        text=True,
-    )
+    import tempfile
+
+    if image_bytes and len(text) <= 1020:
+        photo_url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+            tf.write(image_bytes)
+            tmp_png = Path(tf.name)
+        try:
+            proc = subprocess.run(
+                [
+                    "curl", "-s", "-m", "20", "-X", "POST", photo_url,
+                    "-F", f"chat_id={target_chat}",
+                    "-F", "parse_mode=HTML",
+                    "-F", f"caption={text}",
+                    "-F", f"photo=@{tmp_png};filename={image_filename};type=image/png",
+                ],
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            tmp_png.unlink(missing_ok=True)
+    else:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            "chat_id": target_chat,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        proc = subprocess.run(
+            [
+                "curl", "-s", "-m", "15", "-X", "POST", url,
+                "-H", "Content-Type: application/json",
+                "-d", json.dumps(payload),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if image_bytes:
+            photo_url = f"https://api.telegram.org/bot{token}/sendPhoto"
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                tf.write(image_bytes)
+                tmp_png = Path(tf.name)
+            try:
+                subprocess.run(
+                    [
+                        "curl", "-s", "-m", "20", "-X", "POST", photo_url,
+                        "-F", f"chat_id={target_chat}",
+                        "-F", f"photo=@{tmp_png};filename={image_filename};type=image/png",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+            finally:
+                tmp_png.unlink(missing_ok=True)
     if proc.returncode != 0 or not proc.stdout.strip():
         return {"ok": False, "error": proc.stderr or "Empty response from Telegram API"}
     if "Zscaler" in proc.stdout or "Internet Security by Zscaler" in proc.stdout:
