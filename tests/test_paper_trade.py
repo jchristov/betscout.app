@@ -573,7 +573,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     )
     assert t_mom["is_rebound_edge"] is True and t_mom["signal"] == "SET1_DEFICIT_REBOUND_EDGE"
     assert t_mom["set1_pick_games"] == 6 and t_mom["set1_opp_games"] == 7
-    assert "liveMatchupAnalyzerSection" in html_text and "walkForwardAuditPanel" in html_text
+    assert "liveAnalyzerModal" in html_text and "switchWorkspaceTab" in html_text and "walkForwardAuditPanel" in html_text
 
     from betscout.webapp import _analyze_live_matchup
     with patch("betscout.paper_trade._fetch_sofascore_tennis_odds", return_value={

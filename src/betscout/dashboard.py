@@ -1716,11 +1716,18 @@ def generate_dashboard_html(
   h3 {{ margin: 8px 0 4px; font-size: 14px; }}
   .muted {{ color: var(--muted); font-size: 11.5px; }}
   .filter-bar {{ display: flex; align-items: center; flex-wrap: wrap; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 11.5px; }}
-  .filter-bar input[type="range"] {{ accent-color: var(--accent); cursor: pointer; }}
+  .filter-bar input[type="range"] {{ width: 120px; accent-color: var(--accent); cursor: pointer; }}
   .sport-btn-group {{ display: flex; flex-wrap: wrap; gap: 5px; }}
   .sport-btn {{ background: #0f1623; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }}
   .sport-btn:hover {{ border-color: var(--accent); color: var(--text); }}
   .sport-btn.active {{ background: rgba(56, 189, 248, 0.16); border-color: var(--accent); color: var(--accent); }}
+  .workspace-tabs {{ display: flex; gap: 8px; flex-wrap: wrap; background: #0c121e; border: 1px solid var(--border); border-radius: 10px; padding: 6px 8px; margin-bottom: 12px; position: sticky; top: 8px; z-index: 95; backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }}
+  .ws-tab-btn {{ flex: 1; min-width: 185px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: #111827; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.16s ease; }}
+  .ws-tab-btn:hover {{ color: var(--text); border-color: rgba(56, 189, 248, 0.5); background: #162033; }}
+  .ws-tab-btn.active {{ background: linear-gradient(135deg, rgba(56, 189, 248, 0.20) 0%, rgba(34, 197, 94, 0.14) 100%); color: var(--text); border-color: var(--accent); box-shadow: 0 0 14px rgba(56, 189, 248, 0.18); }}
+  .ws-tab-badge {{ display: inline-block; padding: 1px 6px; border-radius: 99px; font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.16); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35); }}
+  .ws-tab-pane {{ display: none; }}
+  .ws-tab-pane.active {{ display: block; }}
   .kpi-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin-bottom: 18px; }}
   .kpi {{ background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }}
   .kpi span {{ display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }}
@@ -1988,14 +1995,22 @@ def generate_dashboard_html(
             <span>Soft Min-Odds Threshold:</span>
             <input id="cfgMinOddsInput" type="number" min="1.05" max="2.50" step="0.05" value="1.10" style="width:95px; background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <span>Default Sorting:</span>
-            <select id="cfgDefaultSortSelect" style="background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
+            <select id="cfgDefaultSortSelect" onchange="applyGlobalDefaultSort(this.value)" style="background:#111827; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px;">
               <option value="time" selected>🕒 By Kickoff Time (Soonest First)</option>
               <option value="odds_asc">🎯 By Odds (Lowest / Safest First)</option>
               <option value="odds_desc">🚀 By Odds (Highest Multiplier First)</option>
             </select>
           </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Display Timezone:</span>
+            <div class="sport-btn-group">
+              <button type="button" class="sport-btn active" id="tzBtnLocal" onclick="applyTimezoneMode('local')">Local ({DEFAULT_LOCAL_TZ})</button>
+              <button type="button" class="sport-btn" id="tzBtnUtc" onclick="applyTimezoneMode('utc')">UTC</button>
+            </div>
+          </div>
+          <input id="bankrollInput" type="hidden" value="1000">
         </div>
 
         <div style="padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px;">
@@ -2144,49 +2159,39 @@ def generate_dashboard_html(
     </div>
   </div>
 
-  <div class="filter-bar">
-    <b>Filter by Day:</b>
-    <div class="sport-btn-group" id="dayFilterGroup">
-      {day_buttons_html}
+  <div id="liveAnalyzerModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-card" style="max-width:780px; border-color:rgba(34, 197, 94, 0.55); padding:20px 22px;">
+      <div class="card-head" style="align-items:flex-start; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border);">
+        <div>
+          <b style="font-size:15.5px; color:var(--green);">🔍 On-Demand Any-Matchup Live Analyzer</b>
+          <div class="muted" style="margin-top:2px;">Analyze ANY Tennis or Football matchup (even sub-70% non-bankers) — checks live bookmaker odds, all-level Last-5 form, H2H &amp; turnaround hours</div>
+        </div>
+        <button class="btn-export" type="button" style="flex-shrink:0;" onclick="document.getElementById('liveAnalyzerModal').style.display='none'">✕ Close</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <input id="liveAnalyzeInput" type="search" placeholder="e.g. Medvedev vs Bublik, Bernet vs Altmaier, Dortmund vs Frankfurt..." onkeydown="if(event.key==='Enter') runLiveMatchupAnalyzer()" style="flex:1; min-width:260px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 12px; font-size:12.5px;">
+        <button type="button" class="btn-export btn-primary" onclick="runLiveMatchupAnalyzer()">⚡ Analyze Matchup</button>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+        <span class="muted">Quick Examples:</span>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Daniil Medvedev vs Alexander Bublik')">Medvedev vs Bublik</button>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Henry Bernet vs Daniel Altmaier')">Bernet vs Altmaier</button>
+        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Borussia Dortmund vs Eintracht Frankfurt')">Dortmund vs Frankfurt</button>
+      </div>
+      <div id="liveAnalyzeResultBox" style="display:none; margin-top:10px; padding:12px 14px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;"></div>
     </div>
   </div>
 
-  <div class="filter-bar">
-    <b>Filter by Sport:</b>
-    <div class="sport-btn-group" id="sportFilterGroup">
-      {sport_buttons_html}
-    </div>
-    <b>Search:</b>
-    <input id="teamSearchInput" class="search-input" type="search" placeholder="Search team, player, league..." oninput="applySearchFilter(this.value)">
-    <b>Timezone:</b>
-    <div class="sport-btn-group">
-      <button type="button" class="sport-btn active" id="tzBtnLocal" onclick="applyTimezoneMode('local')">Local ({DEFAULT_LOCAL_TZ})</button>
-      <button type="button" class="sport-btn" id="tzBtnUtc" onclick="applyTimezoneMode('utc')">UTC</button>
-    </div>
-    <b>Sort By:</b>
-    <div class="sport-btn-group">
-      <button type="button" class="sport-btn active" id="sortBtnTime" onclick="applyGlobalDefaultSort('time')" title="Sort all tables &amp; cards by Kickoff Time (soonest first)">🕒 Kickoff Time</button>
-      <button type="button" class="sport-btn" id="sortBtnOddsAsc" onclick="applyGlobalDefaultSort('odds_asc')" title="Sort all tables &amp; cards by Odds (lowest / safest first)">🎯 Odds ▲</button>
-      <button type="button" class="sport-btn" id="sortBtnOddsDesc" onclick="applyGlobalDefaultSort('odds_desc')" title="Sort all tables &amp; cards by Odds (highest return first)">🚀 Odds ▼</button>
-    </div>
-    <b>Bankroll (€):</b>
-    <input id="bankrollInput" type="number" min="50" max="1000000" step="50" value="1000" oninput="applyBankrollCalculator(this.value)" style="width:82px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700;">
-    <span style="margin-left:auto;"></span>
-    <b>Soft Min-Odds:</b>
-    <input id="minOddsSlider" type="range" min="1.05" max="2.00" step="0.05" value="{min_odds:.2f}" oninput="applyOddsFilter(this.value)">
-    <span>&gt; <b id="minOddsLabel">{min_odds:.2f}</b> (<span id="minProfitLabel">{(min_odds-1)*100:.0f}%</span>)</span>
-  </div>
-
-  <section class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+  <section class="kpi-grid" style="grid-template-columns: repeat(5, minmax(175px, 1fr)); margin-bottom: 12px;">
     <div class="kpi">
       <span>Settled Win Rate</span>
       <b class="pos" id="kpiSettledRecord">{settled_wins_n}W – {settled_losses_n}L ({settled_win_rate_pct:.1f}%)</b>
-      <small class="muted" style="font-size:10.5px;">{settled_count_n} Graded Paper-Bets</small>
+      <small class="muted" style="font-size:10.5px;">{settled_count_n} Graded · Score Hits: {esc_hits_kpi}/{esc_graded_kpi} ({esc_rate_kpi:.0f}%)</small>
     </div>
     <div class="kpi">
       <span>Realized Profit / ROI</span>
       <b class="{'pos' if settled_profit_u >= 0 else 'neg'}" id="kpiRealizedProfit">{settled_profit_u:+.2f}u ({settled_roi_pct:+.1f}%)</b>
-      <small class="muted" style="font-size:10.5px;">¼-Kelly Growth: {float(ledger.get('kelly_growth_pct') or 0.0):+.2f}%</small>
+      <small class="muted" style="font-size:10.5px;">¼-Kelly: {float(ledger.get('kelly_growth_pct') or 0.0):+.2f}% · CLV: {mean_clv:+.2f}%</small>
     </div>
     <div class="kpi">
       <span>Total Active Picks</span>
@@ -2196,324 +2201,341 @@ def generate_dashboard_html(
     <div class="kpi">
       <span>Live &amp; Pending Ledger</span>
       <b id="kpiLivePending"><span class="{'num-pos' if live_inplay_n > 0 else ''}">🔴 {live_inplay_n} Live</span> · ⏳ {pending_ledger_n}</b>
-      <small class="muted" style="font-size:10.5px;">{len(doubles_list)} Active 2-Leg Combos</small>
+      <small class="muted" style="font-size:10.5px;">{len(doubles_list)} Combos · 🛡️ {vetoed_bets} Vetoes</small>
     </div>
     <div class="kpi">
       <span>Filtered Best Bets (&gt;{min_odds:.2f})</span>
       <b id="visibleBestBetsKpi" class="pos">{len(best_bets)}</b>
-      <small class="muted" style="font-size:10.5px;">💎 {len(mispriced_rows)} Mispriced Edges</small>
-    </div>
-    <div class="kpi">
-      <span>Score / Set Cluster Hits</span>
-      <b class="pos">{esc_hits_kpi}/{esc_graded_kpi} ({esc_rate_kpi:.1f}%)</b>
-      <small class="muted" style="font-size:10.5px;">Dixon-Coles &amp; Set Matrix</small>
-    </div>
-    <div class="kpi">
-      <span>Prospective Mean CLV</span>
-      <b class="{clv_kpi_cls}">{mean_clv:+.2f}%</b>
-      <small class="muted" style="font-size:10.5px;">🛡️ {vetoed_bets} Pre-Match Vetoes</small>
-    </div>
-    <div class="kpi">
-      <span>Verified Store Hygiene</span>
-      <b class="pos">{total_matches:,} Matches</b>
-      <small class="muted" style="font-size:10.5px;">0 Errors · 27 Championships</small>
+      <small class="muted" style="font-size:10.5px;">💎 {len(mispriced_rows)} Mispriced · {total_matches:,} Matches</small>
     </div>
   </section>
 
-  <section class="card" id="smartBetPlannerSection" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.45); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
-    <div class="card-head" style="margin-bottom:10px;">
-      <div>
-        <b style="font-size:14.5px; color:var(--accent);">🎯 Smart Bet Slip &amp; Stake Allocation Optimizer</b>
-        <span class="muted" style="margin-left:8px;">Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid 60/40 Split</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <b>Ready to Bet (€):</b>
-        <input id="betAmountInput" type="number" min="5" max="100000" step="5" value="100" oninput="buildSmartBetPlan()" style="width:88px; background:#0b0f17; color:var(--green); border:1px solid var(--accent); border-radius:6px; padding:5px 8px; font-size:13px; font-weight:800;">
-        <div class="sport-btn-group">
-          <button type="button" class="sport-btn" onclick="setBetBudget(25)">€25</button>
-          <button type="button" class="sport-btn" onclick="setBetBudget(50)">€50</button>
-          <button type="button" class="sport-btn active" id="budgetBtn100" onclick="setBetBudget(100)">€100</button>
-          <button type="button" class="sport-btn" onclick="setBetBudget(250)">€250</button>
-          <button type="button" class="sport-btn" onclick="setBetBudget(500)">€500</button>
-        </div>
-        <b>Mode:</b>
-        <select id="betRiskProfileSelect" onchange="buildSmartBetPlan()" style="background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;">
-          <option value="balanced" selected>⚖️ Balanced (Safe 2-Leg + Top 4 Singles)</option>
-          <option value="fortress">🛡️ Ultra-Safe Fortress (Max Hit Rate &ge;72%)</option>
-          <option value="upside">🚀 Max Return Multiplier (3-Leg Booster + Value Singles)</option>
-        </select>
-        <button type="button" class="btn-export" onclick="printSmartBetTicket()" title="Open printable / Save-as-PDF ticket for your current Smart Bet Slip">🖨️ Print / PDF Slip</button>
-      </div>
+  <div class="filter-bar">
+    <b>Filter by Sport:</b>
+    <div class="sport-btn-group" id="sportFilterGroup">
+      {sport_buttons_html}
     </div>
-    <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
-  </section>
-
-  <section class="card" id="exactScoreSplitterSection" style="margin-bottom:20px; border:1px solid rgba(245,158,11,0.48); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
-    <div class="card-head" style="margin-bottom:10px;">
-      <div>
-        <b style="font-size:14px; color:var(--amber);">🎲 Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
-        <span class="muted" style="margin-left:8px;">Pick any high-conviction match, enter your investment (€), and optionally edit live bookmaker odds — generates 2-Score &amp; 3-Score equal-payout splits</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <b>Match:</b>
-        <select id="dutchMatchSelect" onchange="onDutchMatchSelectChange()" style="max-width:300px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;"></select>
-        <b>Investment (€):</b>
-        <input id="dutchStakeInput" type="number" min="5" max="100000" step="5" value="25" oninput="recalcStandaloneDutchSplitter()" style="width:78px; background:#0b0f17; color:var(--green); border:1px solid var(--amber); border-radius:6px; padding:5px 8px; font-size:12.5px; font-weight:800;">
-        <div class="sport-btn-group">
-          <button type="button" class="sport-btn" onclick="setDutchBudget(10)">€10</button>
-          <button type="button" class="sport-btn" onclick="setDutchBudget(20)">€20</button>
-          <button type="button" class="sport-btn" onclick="setDutchBudget(25)">€25</button>
-          <button type="button" class="sport-btn" onclick="setDutchBudget(50)">€50</button>
-          <button type="button" class="sport-btn" onclick="setDutchBudget(100)">€100</button>
-        </div>
-      </div>
+    <span style="color:var(--border);">|</span>
+    <b>Day:</b>
+    <div class="sport-btn-group" id="dayFilterGroup">
+      {day_buttons_html}
     </div>
-    <div id="dutchCustomOddsBar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px; padding:8px 10px; background:#0b0f17; border:1px dashed var(--border); border-radius:8px; font-size:11.5px;"></div>
-    <div id="dutchSplitterGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
-  </section>
-
-  <section class="card" id="liveMatchupAnalyzerSection" style="margin-bottom:20px; border:1px solid rgba(34,197,94,0.38);">
-    <div class="card-head" style="margin-bottom:8px;">
-      <div>
-        <b style="font-size:13.5px; color:var(--green);">🔍 On-Demand Any-Matchup Live Analyzer</b>
-        <span class="muted" style="margin-left:8px;">Analyze ANY Tennis or Football matchup (even sub-70% non-bankers) — checks live bookmaker odds, all-level Last-5 form, H2H &amp; turnaround hours</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <input id="liveAnalyzeInput" type="search" placeholder="e.g. Medvedev vs Bublik, Bernet vs Altmaier, Dortmund vs Frankfurt..." onkeydown="if(event.key==='Enter') runLiveMatchupAnalyzer()" style="min-width:290px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px;">
-        <button type="button" class="btn-export btn-primary" onclick="runLiveMatchupAnalyzer()">⚡ Analyze Matchup</button>
-        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Daniil Medvedev vs Alexander Bublik')">Medvedev vs Bublik</button>
-        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Henry Bernet vs Daniel Altmaier')">Bernet vs Altmaier</button>
-        <button type="button" class="sport-btn" onclick="quickAnalyzePair('Borussia Dortmund vs Eintracht Frankfurt')">Dortmund vs Frankfurt</button>
-      </div>
-    </div>
-    <div id="liveAnalyzeResultBox" style="display:none; margin-top:8px; padding:10px 12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;"></div>
-  </section>
-
-  {mispricing_radar_html}
-
-  <details class="card" id="walkForwardAuditPanel" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.35);">
-    <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
-      <span>📈 Expanding-Window Monthly Forward-Walking Backtest Audit (2025-07 &rarr; 2026-10 · Zero Lookahead Bias)</span>
-      <span class="pill badge-bet">Big-5 Top 8% ROI: +18.95% (Sharpe 2.54) · ATP &ge;70%: 79.16% · WTA &ge;70%: 79.77%</span>
-    </summary>
-    <div style="margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px;">
-      <div>
-        <div style="margin-bottom:6px; font-weight:700;">⚽ Multi-Sport Walk-Forward Summary (Refit Monthly strictly on &lt; Month M)</div>
-        <table class="sortable-table" style="margin-bottom:0;">
-          <thead>
-            <tr>
-              <th data-sort-type="text" onclick="sortTable(this)">Model / Scope</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Bets (n)</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Win / Acc%</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
-              <th data-sort-type="num" onclick="sortTable(this)">ROI / Sharpe</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td data-sort="Big-5 Top 8%"><b>⚽ Big-5 Football · Top 8%</b></td><td data-sort="99">99</td><td data-sort="73.74"><b class="num-pos">73.7%</b></td><td data-sort="18.76"><b class="num-pos">+18.76u</b></td><td data-sort="18.95"><b class="num-pos">+18.95%</b> (SR 2.54)</td></tr>
-            <tr><td data-sort="Big-5 Top 10%"><b>⚽ Big-5 Football · Top 10%</b></td><td data-sort="134">134</td><td data-sort="71.64"><b class="num-pos">71.6%</b></td><td data-sort="21.95"><b class="num-pos">+21.95u</b></td><td data-sort="16.38"><b class="num-pos">+16.38%</b> (SR 2.49)</td></tr>
-            <tr><td data-sort="All 9 Dom Top 8%"><b>⚽ All 9 Domestic · Top 8%</b></td><td data-sort="174">174</td><td data-sort="72.41"><b class="num-pos">72.4%</b></td><td data-sort="27.37"><b class="num-pos">+27.37u</b></td><td data-sort="15.73"><b class="num-pos">+15.73%</b> (SR 2.81)</td></tr>
-            <tr><td data-sort="All 9 Dom Top 10%"><b>⚽ All 9 Domestic · Top 10%</b></td><td data-sort="230">230</td><td data-sort="70.43"><b class="num-pos">70.4%</b></td><td data-sort="29.69"><b class="num-pos">+29.69u</b></td><td data-sort="12.91"><b class="num-pos">+12.91%</b> (SR 2.59)</td></tr>
-            <tr><td data-sort="ATP Banker 70"><b>🎾 ATP Tennis · Banker &ge;70%</b></td><td data-sort="715">715</td><td data-sort="79.16"><b class="num-pos">79.2%</b> (&ge;80%: 84.2%)</td><td data-sort="45.2">+45.20u*</td><td data-sort="15.8">Brier 0.1609</td></tr>
-            <tr><td data-sort="WTA Banker 70"><b>🎾 WTA Tennis · Banker &ge;70%</b></td><td data-sort="1305">1,305</td><td data-sort="79.77"><b class="num-pos">79.8%</b> (&ge;80%: 83.5%)</td><td data-sort="82.4">+82.40u*</td><td data-sort="16.1">Brier 0.1586</td></tr>
-            <tr><td data-sort="US Sports Pooled"><b>🏀🏒🏈⚾ US Major Sports · Top 15%</b></td><td data-sort="102">102</td><td data-sort="68.63"><b class="num-pos">68.6%</b> (+8.4pp vs Mkt)</td><td data-sort="9.87"><b class="num-pos">+9.87u</b></td><td data-sort="9.68"><b class="num-pos">+9.68%</b></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div>
-        <div style="margin-bottom:6px; font-weight:700;">📅 Monthly Forward-Walking Trajectory (Big-5 Football Top 10% · 11/13 Months Profitable)</div>
-        <table class="sortable-table" style="margin-bottom:0;">
-          <thead>
-            <tr>
-              <th data-sort-type="text" onclick="sortTable(this)">Month</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Bets</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Win Rate</th>
-              <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
-              <th data-sort-type="num" onclick="sortTable(this)">ROI%</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td data-sort="2025-08">2025-08</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.77"><b class="num-pos">+1.77u</b></td><td data-sort="35.46"><b class="num-pos">+35.5%</b></td></tr>
-            <tr><td data-sort="2025-09">2025-09</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.31"><b class="num-pos">+1.31u</b></td><td data-sort="26.12"><b class="num-pos">+26.1%</b></td></tr>
-            <tr><td data-sort="2025-10">2025-10</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.79"><b class="num-pos">+0.79u</b></td><td data-sort="11.26"><b class="num-pos">+11.3%</b></td></tr>
-            <tr><td data-sort="2025-11">2025-11</td><td data-sort="13">13</td><td data-sort="69.2"><b class="num-pos">69.2%</b></td><td data-sort="1.22"><b class="num-pos">+1.22u</b></td><td data-sort="9.39"><b class="num-pos">+9.4%</b></td></tr>
-            <tr><td data-sort="2025-12">2025-12</td><td data-sort="19">19</td><td data-sort="63.2">63.2%</td><td data-sort="0.07"><b class="num-pos">+0.07u</b></td><td data-sort="0.38">+0.4%</td></tr>
-            <tr><td data-sort="2026-01">2026-01</td><td data-sort="10">10</td><td data-sort="60.0">60.0%</td><td data-sort="-0.90"><b class="num-neg">-0.90u</b></td><td data-sort="-9.00"><b class="num-neg">-9.0%</b></td></tr>
-            <tr><td data-sort="2026-02">2026-02</td><td data-sort="16">16</td><td data-sort="75.0"><b class="num-pos">75.0%</b></td><td data-sort="3.30"><b class="num-pos">+3.30u</b></td><td data-sort="20.60"><b class="num-pos">+20.6%</b></td></tr>
-            <tr><td data-sort="2026-03">2026-03</td><td data-sort="12">12</td><td data-sort="83.3"><b class="num-pos">83.3%</b></td><td data-sort="5.10"><b class="num-pos">+5.10u</b></td><td data-sort="42.46"><b class="num-pos">+42.5%</b></td></tr>
-            <tr><td data-sort="2026-04">2026-04</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.85"><b class="num-pos">+0.85u</b></td><td data-sort="12.10"><b class="num-pos">+12.1%</b></td></tr>
-            <tr><td data-sort="2026-05">2026-05</td><td data-sort="20">20</td><td data-sort="50.0">50.0%</td><td data-sort="-3.49"><b class="num-neg">-3.49u</b></td><td data-sort="-17.43"><b class="num-neg">-17.4%</b></td></tr>
-            <tr><td data-sort="2026-08">2026-08</td><td data-sort="7">7</td><td data-sort="85.7"><b class="num-pos">85.7%</b></td><td data-sort="1.97"><b class="num-pos">+1.97u</b></td><td data-sort="28.09"><b class="num-pos">+28.1%</b></td></tr>
-            <tr><td data-sort="2026-09">2026-09</td><td data-sort="9">9</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="7.00"><b class="num-pos">+7.00u</b></td><td data-sort="77.78"><b class="num-pos">+77.8%</b></td></tr>
-            <tr><td data-sort="2026-10">2026-10</td><td data-sort="4">4</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="2.97"><b class="num-pos">+2.97u</b></td><td data-sort="74.27"><b class="num-pos">+74.3%</b></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </details>
-
-  {svg_chart}
-
-  <div data-sport-section="soccer">
-    <h2>⚽ Upcoming Football Picks</h2>
-    <div class="cards">
-      {''.join(soccer_cards) if soccer_cards else '<p class="muted">No upcoming qualifying soccer picks in window.</p>'}
-    </div>
+    <span style="margin-left:auto;"></span>
+    <b>Min Odds:</b>
+    <input id="minOddsSlider" type="range" min="1.05" max="2.00" step="0.05" value="{min_odds:.2f}" oninput="applyOddsFilter(this.value)">
+    <span>&gt;<b id="minOddsLabel">{min_odds:.2f}</b> (<span id="minProfitLabel">{(min_odds-1)*100:.0f}%</span>)</span>
+    <input id="teamSearchInput" class="search-input" type="search" placeholder="Search team, player, league..." oninput="applySearchFilter(this.value)" style="min-width:190px; padding:4px 10px; font-size:11.5px;">
+    <button type="button" class="btn-export btn-telegram" onclick="openLiveAnalyzerModal()" title="Analyze any Tennis or Football matchup on demand">🔍 Analyze Match</button>
   </div>
 
-  <div data-sport-section="tennis">
-    <h2>🎾 Upcoming Tennis Picks (ATP &amp; WTA)</h2>
-    <table id="tennisTable" class="sortable-table">
+  <nav class="workspace-tabs" aria-label="Workspace Views">
+    <button type="button" class="ws-tab-btn active" data-ws-tab="picks" onclick="switchWorkspaceTab('picks')">
+      🎯 Picks &amp; Live In-Play <span class="ws-tab-badge" id="wsBadgePicks">{len(best_bets)}</span>
+    </button>
+    <button type="button" class="ws-tab-btn" data-ws-tab="studio" onclick="switchWorkspaceTab('studio')">
+      🧮 Bet Slip, Dutching &amp; Combos <span class="ws-tab-badge">{len(doubles_list)} Combos · {len(mispriced_rows)} 💎</span>
+    </button>
+    <button type="button" class="ws-tab-btn" data-ws-tab="ledger" onclick="switchWorkspaceTab('ledger')">
+      📊 Paper-Bet Ledger &amp; ROI <span class="ws-tab-badge" id="wsBadgeLedger">{settled_wins_n}W–{settled_losses_n}L ({settled_profit_u:+.1f}u)</span>
+    </button>
+    <button type="button" class="ws-tab-btn" data-ws-tab="audit" onclick="switchWorkspaceTab('audit')">
+      🔬 Model Audit &amp; Backtest <span class="ws-tab-badge">+18.9% ROI</span>
+    </button>
+  </nav>
+
+  <div id="wsPanePicks" class="ws-tab-pane active">
+    <div class="section-head" style="margin-top:6px;">
+      <h2>🔴 Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: <span id="liveCountSpan">{len(live_html_rows)}</span>)</h2>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <input id="trackLiveQuickInput" type="search" placeholder="+ Track any live/upcoming match (e.g. Mpetshi Perricard vs Kovacevic)..." onkeydown="if(event.key==='Enter') trackArbitraryLiveMatchup()" style="min-width:295px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11.5px;">
+        <button type="button" class="btn-export btn-primary js-action-btn" onclick="trackArbitraryLiveMatchup()">📌 Track &amp; Analyze Live</button>
+      </div>
+    </div>
+    <table id="liveTradesTable" class="sortable-table ledger-grid-table">
+      <colgroup>
+        <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+      </colgroup>
       <thead>
         <tr>
           <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
           <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-          <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+          <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
+        </tr>
+      </thead>
+      <tbody id="liveTradesTbody">
+        {''.join(live_html_rows) if live_html_rows else '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>'}
+      </tbody>
+    </table>
+
+    <div class="section-head">
+      <h2>Best Bets Summary Table (Click Any Column Header to Sort · Check ☑️ Rows to Build a Custom Slip · Odds &gt; {min_odds:.2f})</h2>
+      <div class="btn-group">
+        <button id="clearCustomSlipBtn" class="btn-export" type="button" style="display:none;" onclick="clearCustomBetSelection()">✕ Clear Custom Selection (<span id="customSelectedCountSpan">0</span>)</button>
+        <button class="btn-export btn-primary" type="button" onclick="switchWorkspaceTab('studio')">🧮 Open in Bet Slip &amp; Dutching Studio</button>
+        <button class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share / Post to Discord &amp; Telegram</button>
+        <button class="btn-export" type="button" onclick="exportBestBets('csv')">Export CSV (with Header)</button>
+        <button class="btn-export" type="button" onclick="exportBestBets('json')">Export JSON</button>
+      </div>
+    </div>
+    <table id="bestBetsTable" class="sortable-table">
+      <thead>
+        <tr>
+          <th class="col-icon" title="Check rows to build a custom combo or singles slip">☑️</th>
+          <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+          <th class="tz-col-head sort-asc" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
           <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
           <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
           <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Score Projection</th>
           <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Odds / Target</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Game / Surf Elo Diff</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Score Projection</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
         </tr>
       </thead>
       <tbody>
-        {''.join(tennis_rows) if tennis_rows else '<tr><td colspan="10" class="muted">No upcoming tennis picks above threshold.</td></tr>'}
+        {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="10" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
       </tbody>
     </table>
+
+    <details class="card" id="sportBreakdownsAccordion" style="margin-bottom:20px; border:1px solid var(--border);">
+      <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
+        <span>📋 Detailed Sport-Specific Breakdowns (⚽ Football Factor Cards · 🎾 Tennis Table · 🌐 Major Leagues Table)</span>
+        <span class="pill">Click to Expand / Collapse</span>
+      </summary>
+      <div style="margin-top:14px;">
+        <div data-sport-section="soccer">
+          <h2>⚽ Upcoming Football Picks</h2>
+          <div class="cards">
+            {''.join(soccer_cards) if soccer_cards else '<p class="muted">No upcoming qualifying soccer picks in window.</p>'}
+          </div>
+        </div>
+
+        <div data-sport-section="tennis">
+          <h2>🎾 Upcoming Tennis Picks (ATP &amp; WTA)</h2>
+          <table id="tennisTable" class="sortable-table">
+            <thead>
+              <tr>
+                <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Score Projection</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Odds / Target</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Game / Surf Elo Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {''.join(tennis_rows) if tennis_rows else '<tr><td colspan="10" class="muted">No upcoming tennis picks above threshold.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div data-sport-section="us-sports">
+          <h2>🏀🏒🏈⚾ Upcoming Major League Picks (NBA · NHL · NFL · MLB)</h2>
+          <table id="otherSportsTable" class="sortable-table">
+            <thead>
+              <tr>
+                <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+                <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Odds</th>
+                <th data-sort-type="num" onclick="sortTable(this)">EV%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {''.join(other_rows) if other_rows else '<tr><td colspan="9" class="muted">No upcoming NBA/NHL/NFL/MLB picks above threshold.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
   </div>
 
-  <div data-sport-section="us-sports">
-    <h2>🏀🏒🏈⚾ Upcoming Major League Picks (NBA · NHL · NFL · MLB)</h2>
-    <table id="otherSportsTable" class="sortable-table">
+  <div id="wsPaneStudio" class="ws-tab-pane">
+    <section class="card" id="smartBetPlannerSection" style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.45); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div>
+          <b style="font-size:14.5px; color:var(--accent);">🎯 Smart Bet Slip &amp; Stake Allocation Optimizer</b>
+          <span class="muted" style="margin-left:8px;">Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid 60/40 Split</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <b>Ready to Bet (€):</b>
+          <input id="betAmountInput" type="number" min="5" max="100000" step="5" value="100" oninput="buildSmartBetPlan()" style="width:88px; background:#0b0f17; color:var(--green); border:1px solid var(--accent); border-radius:6px; padding:5px 8px; font-size:13px; font-weight:800;">
+          <div class="sport-btn-group">
+            <button type="button" class="sport-btn" onclick="setBetBudget(25)">€25</button>
+            <button type="button" class="sport-btn" onclick="setBetBudget(50)">€50</button>
+            <button type="button" class="sport-btn active" id="budgetBtn100" onclick="setBetBudget(100)">€100</button>
+            <button type="button" class="sport-btn" onclick="setBetBudget(250)">€250</button>
+            <button type="button" class="sport-btn" onclick="setBetBudget(500)">€500</button>
+          </div>
+          <b>Mode:</b>
+          <select id="betRiskProfileSelect" onchange="buildSmartBetPlan()" style="background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;">
+            <option value="balanced" selected>⚖️ Balanced (Safe 2-Leg + Top 4 Singles)</option>
+            <option value="fortress">🛡️ Ultra-Safe Fortress (Max Hit Rate &ge;72%)</option>
+            <option value="upside">🚀 Max Return Multiplier (3-Leg Booster + Value Singles)</option>
+          </select>
+          <button type="button" class="btn-export" onclick="printSmartBetTicket()" title="Open printable / Save-as-PDF ticket for your current Smart Bet Slip">🖨️ Print / PDF Slip</button>
+        </div>
+      </div>
+      <div id="smartBetPlanGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
+    </section>
+
+    <section class="card" id="exactScoreSplitterSection" style="margin-bottom:20px; border:1px solid rgba(245,158,11,0.48); background:linear-gradient(180deg, rgba(17,24,39,0.96) 0%, rgba(11,15,23,0.98) 100%);">
+      <div class="card-head" style="margin-bottom:10px;">
+        <div>
+          <b style="font-size:14px; color:var(--amber);">🎲 Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
+          <span class="muted" style="margin-left:8px;">Pick any high-conviction match, enter your investment (€), and optionally edit live bookmaker odds — generates 2-Score &amp; 3-Score equal-payout splits</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <b>Match:</b>
+          <select id="dutchMatchSelect" onchange="onDutchMatchSelectChange()" style="max-width:300px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11.5px; font-weight:600;"></select>
+          <b>Investment (€):</b>
+          <input id="dutchStakeInput" type="number" min="5" max="100000" step="5" value="25" oninput="recalcStandaloneDutchSplitter()" style="width:78px; background:#0b0f17; color:var(--green); border:1px solid var(--amber); border-radius:6px; padding:5px 8px; font-size:12.5px; font-weight:800;">
+          <div class="sport-btn-group">
+            <button type="button" class="sport-btn" onclick="setDutchBudget(10)">€10</button>
+            <button type="button" class="sport-btn" onclick="setDutchBudget(20)">€20</button>
+            <button type="button" class="sport-btn" onclick="setDutchBudget(25)">€25</button>
+            <button type="button" class="sport-btn" onclick="setDutchBudget(50)">€50</button>
+            <button type="button" class="sport-btn" onclick="setDutchBudget(100)">€100</button>
+          </div>
+        </div>
+      </div>
+      <div id="dutchCustomOddsBar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px; padding:8px 10px; background:#0b0f17; border:1px dashed var(--border); border-radius:8px; font-size:11.5px;"></div>
+      <div id="dutchSplitterGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:12px;"></div>
+    </section>
+
+    {mispricing_radar_html}
+
+    {doubles_cards_html}
+  </div>
+
+  <div id="wsPaneLedger" class="ws-tab-pane">
+    <div class="section-head" style="margin-top:6px;">
+      <h2 id="settledHeaderTitle">Settled Paper-Bets (Completed Results: <span id="settledCountSpan">{ledger.get('settled_count', 0)}</span> · Wins: <b class="num-pos" id="settledWinsSpan">{ledger.get('settled_wins', 0)}</b> · Losses: <b{losses_cls} id="settledLossesSpan">{settled_losses_n}</b> · Realized Profit: <span id="settledProfitSpan">{_fmt_signed(settled_profit_u, '+.2f', 'u')}</span>)</h2>
+      <div class="btn-group">
+        <button id="syncLedgerTableBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger Now</button>
+      </div>
+    </div>
+    {live_ledger_analytics_html}
+    <table id="settledTradesTable" class="sortable-table ledger-grid-table">
+      <colgroup>
+        <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+      </colgroup>
       <thead>
         <tr>
           <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
           <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-          <th data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+          <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
           <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
           <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-          <th data-sort-type="num" onclick="sortTable(this)">Odds</th>
-          <th data-sort-type="num" onclick="sortTable(this)">EV%</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
         </tr>
       </thead>
-      <tbody>
-        {''.join(other_rows) if other_rows else '<tr><td colspan="9" class="muted">No upcoming NBA/NHL/NFL/MLB picks above threshold.</td></tr>'}
+      <tbody id="settledTradesTbody">
+        {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout pipeline</code>.</td></tr>'}
+      </tbody>
+    </table>
+
+    <h2>Pending Paper-Bets Awaiting Kickoff (Count: <span id="pendingCountSpan">{len(pending_html_rows)}</span>)</h2>
+    <table id="pendingTradesTable" class="sortable-table ledger-grid-table">
+      <colgroup>
+        <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
+          <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
+          <th data-sort-type="text" onclick="sortTable(this)">Score</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
+          <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
+        </tr>
+      </thead>
+      <tbody id="pendingTradesTbody">
+        {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="8" class="muted">No pending paper bets.</td></tr>'}
       </tbody>
     </table>
   </div>
 
-  {doubles_cards_html}
-
-  <div class="section-head">
-    <h2 id="settledHeaderTitle">Settled Paper-Bets (Completed Results: <span id="settledCountSpan">{ledger.get('settled_count', 0)}</span> · Wins: <b class="num-pos" id="settledWinsSpan">{ledger.get('settled_wins', 0)}</b> · Losses: <b{losses_cls} id="settledLossesSpan">{settled_losses_n}</b> · Realized Profit: <span id="settledProfitSpan">{_fmt_signed(settled_profit_u, '+.2f', 'u')}</span>)</h2>
-    <div class="btn-group">
-      <button id="syncLedgerTableBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)">🔄 Sync &amp; Settle Ledger Now</button>
-    </div>
+  <div id="wsPaneAudit" class="ws-tab-pane">
+    {svg_chart}
+    <details class="card" id="walkForwardAuditPanel" open style="margin-bottom:20px; border:1px solid rgba(56,189,248,0.35);">
+      <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
+        <span>📈 Expanding-Window Monthly Forward-Walking Backtest Audit (2025-07 &rarr; 2026-10 · Zero Lookahead Bias)</span>
+        <span class="pill badge-bet">Big-5 Top 8% ROI: +18.95% (Sharpe 2.54) · ATP &ge;70%: 79.16% · WTA &ge;70%: 79.77%</span>
+      </summary>
+      <div style="margin-top:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px;">
+        <div>
+          <div style="margin-bottom:6px; font-weight:700;">⚽ Multi-Sport Walk-Forward Summary (Refit Monthly strictly on &lt; Month M)</div>
+          <table class="sortable-table" style="margin-bottom:0;">
+            <thead>
+              <tr>
+                <th data-sort-type="text" onclick="sortTable(this)">Model / Scope</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Bets (n)</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Win / Acc%</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
+                <th data-sort-type="num" onclick="sortTable(this)">ROI / Sharpe</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td data-sort="Big-5 Top 8%"><b>⚽ Big-5 Football · Top 8%</b></td><td data-sort="99">99</td><td data-sort="73.74"><b class="num-pos">73.7%</b></td><td data-sort="18.76"><b class="num-pos">+18.76u</b></td><td data-sort="18.95"><b class="num-pos">+18.95%</b> (SR 2.54)</td></tr>
+              <tr><td data-sort="Big-5 Top 10%"><b>⚽ Big-5 Football · Top 10%</b></td><td data-sort="134">134</td><td data-sort="71.64"><b class="num-pos">71.6%</b></td><td data-sort="21.95"><b class="num-pos">+21.95u</b></td><td data-sort="16.38"><b class="num-pos">+16.38%</b> (SR 2.49)</td></tr>
+              <tr><td data-sort="All 9 Dom Top 8%"><b>⚽ All 9 Domestic · Top 8%</b></td><td data-sort="174">174</td><td data-sort="72.41"><b class="num-pos">72.4%</b></td><td data-sort="27.37"><b class="num-pos">+27.37u</b></td><td data-sort="15.73"><b class="num-pos">+15.73%</b> (SR 2.81)</td></tr>
+              <tr><td data-sort="All 9 Dom Top 10%"><b>⚽ All 9 Domestic · Top 10%</b></td><td data-sort="230">230</td><td data-sort="70.43"><b class="num-pos">70.4%</b></td><td data-sort="29.69"><b class="num-pos">+29.69u</b></td><td data-sort="12.91"><b class="num-pos">+12.91%</b> (SR 2.59)</td></tr>
+              <tr><td data-sort="ATP Banker 70"><b>🎾 ATP Tennis · Banker &ge;70%</b></td><td data-sort="715">715</td><td data-sort="79.16"><b class="num-pos">79.2%</b> (&ge;80%: 84.2%)</td><td data-sort="45.2">+45.20u*</td><td data-sort="15.8">Brier 0.1609</td></tr>
+              <tr><td data-sort="WTA Banker 70"><b>🎾 WTA Tennis · Banker &ge;70%</b></td><td data-sort="1305">1,305</td><td data-sort="79.77"><b class="num-pos">79.8%</b> (&ge;80%: 83.5%)</td><td data-sort="82.4">+82.40u*</td><td data-sort="16.1">Brier 0.1586</td></tr>
+              <tr><td data-sort="US Sports Pooled"><b>🏀🏒🏈⚾ US Major Sports · Top 15%</b></td><td data-sort="102">102</td><td data-sort="68.63"><b class="num-pos">68.6%</b> (+8.4pp vs Mkt)</td><td data-sort="9.87"><b class="num-pos">+9.87u</b></td><td data-sort="9.68"><b class="num-pos">+9.68%</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div style="margin-bottom:6px; font-weight:700;">📅 Monthly Forward-Walking Trajectory (Big-5 Football Top 10% · 11/13 Months Profitable)</div>
+          <table class="sortable-table" style="margin-bottom:0;">
+            <thead>
+              <tr>
+                <th data-sort-type="text" onclick="sortTable(this)">Month</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Bets</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Win Rate</th>
+                <th data-sort-type="num" onclick="sortTable(this)">Profit (u)</th>
+                <th data-sort-type="num" onclick="sortTable(this)">ROI%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td data-sort="2025-08">2025-08</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.77"><b class="num-pos">+1.77u</b></td><td data-sort="35.46"><b class="num-pos">+35.5%</b></td></tr>
+              <tr><td data-sort="2025-09">2025-09</td><td data-sort="5">5</td><td data-sort="80.0"><b class="num-pos">80.0%</b></td><td data-sort="1.31"><b class="num-pos">+1.31u</b></td><td data-sort="26.12"><b class="num-pos">+26.1%</b></td></tr>
+              <tr><td data-sort="2025-10">2025-10</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.79"><b class="num-pos">+0.79u</b></td><td data-sort="11.26"><b class="num-pos">+11.3%</b></td></tr>
+              <tr><td data-sort="2025-11">2025-11</td><td data-sort="13">13</td><td data-sort="69.2"><b class="num-pos">69.2%</b></td><td data-sort="1.22"><b class="num-pos">+1.22u</b></td><td data-sort="9.39"><b class="num-pos">+9.4%</b></td></tr>
+              <tr><td data-sort="2025-12">2025-12</td><td data-sort="19">19</td><td data-sort="63.2">63.2%</td><td data-sort="0.07"><b class="num-pos">+0.07u</b></td><td data-sort="0.38">+0.4%</td></tr>
+              <tr><td data-sort="2026-01">2026-01</td><td data-sort="10">10</td><td data-sort="60.0">60.0%</td><td data-sort="-0.90"><b class="num-neg">-0.90u</b></td><td data-sort="-9.00"><b class="num-neg">-9.0%</b></td></tr>
+              <tr><td data-sort="2026-02">2026-02</td><td data-sort="16">16</td><td data-sort="75.0"><b class="num-pos">75.0%</b></td><td data-sort="3.30"><b class="num-pos">+3.30u</b></td><td data-sort="20.60"><b class="num-pos">+20.6%</b></td></tr>
+              <tr><td data-sort="2026-03">2026-03</td><td data-sort="12">12</td><td data-sort="83.3"><b class="num-pos">83.3%</b></td><td data-sort="5.10"><b class="num-pos">+5.10u</b></td><td data-sort="42.46"><b class="num-pos">+42.5%</b></td></tr>
+              <tr><td data-sort="2026-04">2026-04</td><td data-sort="7">7</td><td data-sort="71.4"><b class="num-pos">71.4%</b></td><td data-sort="0.85"><b class="num-pos">+0.85u</b></td><td data-sort="12.10"><b class="num-pos">+12.1%</b></td></tr>
+              <tr><td data-sort="2026-05">2026-05</td><td data-sort="20">20</td><td data-sort="50.0">50.0%</td><td data-sort="-3.49"><b class="num-neg">-3.49u</b></td><td data-sort="-17.43"><b class="num-neg">-17.4%</b></td></tr>
+              <tr><td data-sort="2026-08">2026-08</td><td data-sort="7">7</td><td data-sort="85.7"><b class="num-pos">85.7%</b></td><td data-sort="1.97"><b class="num-pos">+1.97u</b></td><td data-sort="28.09"><b class="num-pos">+28.1%</b></td></tr>
+              <tr><td data-sort="2026-09">2026-09</td><td data-sort="9">9</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="7.00"><b class="num-pos">+7.00u</b></td><td data-sort="77.78"><b class="num-pos">+77.8%</b></td></tr>
+              <tr><td data-sort="2026-10">2026-10</td><td data-sort="4">4</td><td data-sort="100.0"><b class="num-pos">100.0%</b></td><td data-sort="2.97"><b class="num-pos">+2.97u</b></td><td data-sort="74.27"><b class="num-pos">+74.3%</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
   </div>
-  {live_ledger_analytics_html}
-  <table id="settledTradesTable" class="sortable-table ledger-grid-table">
-    <colgroup>
-      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-        <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
-      </tr>
-    </thead>
-    <tbody id="settledTradesTbody">
-      {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout pipeline</code>.</td></tr>'}
-    </tbody>
-  </table>
-
-  <div class="section-head">
-    <h2>🔴 Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: <span id="liveCountSpan">{len(live_html_rows)}</span>)</h2>
-    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-      <input id="trackLiveQuickInput" type="search" placeholder="+ Track any live/upcoming match (e.g. Mpetshi Perricard vs Kovacevic)..." onkeydown="if(event.key==='Enter') trackArbitraryLiveMatchup()" style="min-width:295px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 10px; font-size:11.5px;">
-      <button type="button" class="btn-export btn-primary js-action-btn" onclick="trackArbitraryLiveMatchup()">📌 Track &amp; Analyze Live</button>
-    </div>
-  </div>
-  <table id="liveTradesTable" class="sortable-table ledger-grid-table">
-    <colgroup>
-      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-        <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
-      </tr>
-    </thead>
-    <tbody id="liveTradesTbody">
-      {''.join(live_html_rows) if live_html_rows else '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>'}
-    </tbody>
-  </table>
-
-  <h2>Pending Paper-Bets Awaiting Kickoff (Count: <span id="pendingCountSpan">{len(pending_html_rows)}</span>)</h2>
-  <table id="pendingTradesTable" class="sortable-table ledger-grid-table">
-    <colgroup>
-      <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-        <th class="tz-col-head" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Score</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
-      </tr>
-    </thead>
-    <tbody id="pendingTradesTbody">
-      {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="8" class="muted">No pending paper bets.</td></tr>'}
-    </tbody>
-  </table>
-
-  <div class="section-head">
-    <h2>Best Bets Summary Table (Click Any Column Header to Sort · Check ☑️ Rows to Build a Custom Slip · Odds &gt; {min_odds:.2f})</h2>
-    <div class="btn-group">
-      <button id="clearCustomSlipBtn" class="btn-export" type="button" style="display:none;" onclick="clearCustomBetSelection()">✕ Clear Custom Selection (<span id="customSelectedCountSpan">0</span>)</button>
-      <button class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()">💬 Share / Post to Discord &amp; Telegram</button>
-      <button class="btn-export" type="button" onclick="exportBestBets('csv')">Export CSV (with Header)</button>
-      <button class="btn-export" type="button" onclick="exportBestBets('json')">Export JSON</button>
-    </div>
-  </div>
-  <table id="bestBetsTable" class="sortable-table">
-    <thead>
-      <tr>
-        <th class="col-icon" title="Check rows to build a custom combo or singles slip">☑️</th>
-        <th class="col-icon" data-sort-type="text" onclick="sortTable(this)">Sport</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Competition</th>
-        <th class="tz-col-head sort-asc" data-sort-type="text" onclick="sortTable(this)">Kickoff</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Matchup</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Pick</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Win Prob</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Min Fair Odds</th>
-        <th data-sort-type="text" onclick="sortTable(this)">Score Projection</th>
-        <th data-sort-type="num" onclick="sortTable(this)">Odds / CLV</th>
-      </tr>
-    </thead>
-    <tbody>
-      {''.join(best_bets_rows) if best_bets_rows else '<tr><td colspan="10" class="muted">No qualifying best bets above minimum odds threshold.</td></tr>'}
-    </tbody>
-  </table>
 
   <script>
     const EMBEDDED_MATCHUP_DETAILS = {json.dumps(embedded_matchup_details)};
@@ -2834,6 +2856,8 @@ def generate_dashboard_html(
       const visibleRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-odds):not(.hidden-by-sport):not(.hidden-by-search):not(.hidden-by-day)');
       const kpi = document.getElementById('visibleBestBetsKpi');
       if (kpi) kpi.textContent = String(visibleRows.length);
+      const wsBadge = document.getElementById('wsBadgePicks');
+      if (wsBadge) wsBadge.textContent = String(visibleRows.length);
       if (typeof buildSmartBetPlan === 'function') buildSmartBetPlan();
       if (typeof populateDutchMatchSelect === 'function') populateDutchMatchSelect();
     }}
@@ -2956,7 +2980,38 @@ def generate_dashboard_html(
       recalcStandaloneDutchSplitter();
     }}
 
+    function switchWorkspaceTab(tabId) {{
+      const valid = ['picks', 'studio', 'ledger', 'audit'];
+      const target = valid.includes(tabId) ? tabId : 'picks';
+      try {{ localStorage.setItem('vp_workspace_tab', target); }} catch (_) {{}}
+      document.querySelectorAll('.ws-tab-btn').forEach(btn => {{
+        btn.classList.toggle('active', btn.getAttribute('data-ws-tab') === target);
+      }});
+      const paneMap = {{
+        picks: 'wsPanePicks',
+        studio: 'wsPaneStudio',
+        ledger: 'wsPaneLedger',
+        audit: 'wsPaneAudit'
+      }};
+      Object.entries(paneMap).forEach(([k, pId]) => {{
+        const el = document.getElementById(pId);
+        if (el) el.classList.toggle('active', k === target);
+      }});
+    }}
+
+    function openLiveAnalyzerModal(prefillQuery) {{
+      const modal = document.getElementById('liveAnalyzerModal');
+      if (modal) modal.style.display = 'flex';
+      const inp = document.getElementById('liveAnalyzeInput');
+      if (inp) {{
+        if (prefillQuery) inp.value = prefillQuery;
+        setTimeout(() => inp.focus(), 40);
+      }}
+      if (prefillQuery) runLiveMatchupAnalyzer();
+    }}
+
     function selectMatchForDutching(matchName) {{
+      switchWorkspaceTab('studio');
       const sel = document.getElementById('dutchMatchSelect');
       const sec = document.getElementById('exactScoreSplitterSection');
       if (!sel) return;
@@ -3217,6 +3272,10 @@ def generate_dashboard_html(
         if (savedTz === 'utc' || savedTz === 'local') {{
           applyTimezoneMode(savedTz);
         }}
+        const savedWsTab = localStorage.getItem('vp_workspace_tab');
+        if (savedWsTab) {{
+          switchWorkspaceTab(savedWsTab);
+        }}
         const savedSort = localStorage.getItem('vp_default_sort') || 'time';
         applyGlobalDefaultSort(savedSort);
         const savedInplay = localStorage.getItem('vp_inplay_alerts_enabled');
@@ -3299,6 +3358,8 @@ def generate_dashboard_html(
     }}
 
     function quickAnalyzePair(pairStr) {{
+      const modal = document.getElementById('liveAnalyzerModal');
+      if (modal) modal.style.display = 'flex';
       const inp = document.getElementById('liveAnalyzeInput');
       if (inp) inp.value = pairStr;
       runLiveMatchupAnalyzer();
@@ -4042,6 +4103,8 @@ def generate_dashboard_html(
         const roi = (Number(ledger.settled_roi_best || 0) * 100).toFixed(1);
         kpiProf.textContent = (pr >= 0 ? '+' : '') + pr.toFixed(2) + 'u (' + (roi >= 0 ? '+' : '') + roi + '%)';
         kpiProf.className = pr >= 0 ? 'pos' : 'neg';
+        const wsLed = document.getElementById('wsBadgeLedger');
+        if (wsLed) wsLed.textContent = (ledger.settled_wins || 0) + 'W–' + (ledger.settled_losses || 0) + 'L (' + (pr >= 0 ? '+' : '') + pr.toFixed(1) + 'u)';
       }}
       if (kpiLP) {{
         const lvN = Number(ledger.live_count || 0);

@@ -1,6 +1,6 @@
 [project]
 name = "betscout"
-version = "0.2.0"
+version = "0.4.0"
 description = "BetScout (betscout.app) — Out-of-Sample Multi-Sport Quantitative Edge, Exact-Score & Paper-Betting Intelligence"
 authors = [
     { name = "Yuliyan Hristov", email = "yuliyan.hristov@rbinternational.com" }
