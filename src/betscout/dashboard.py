@@ -161,7 +161,6 @@ def _matchup_html(
     lg_js = html.escape(json.dumps(league))
     return (
         f'<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector({h_js}, {a_js}, {lg_js})">'
-        f'<span class="event-stream-dot" title="Real-Time Stream Active"></span>'
         f'{h_img}<span>{html.escape(home)}</span>'
         f'<span class="muted">vs</span>'
         f'{a_img}<span>{html.escape(away)}</span>'
@@ -1286,7 +1285,7 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
                   <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
-                  <td data-sort="{html.escape(l_sc_disp)}"><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
+                  <td data-sort="{html.escape(l_sc_disp)}"><span class="event-stream-dot" data-event-key="{item_k_l}" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
                   <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
                   <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}{tr_share_btn}</td>
                 </tr>
@@ -2515,19 +2514,26 @@ def generate_dashboard_html(
     let currentSearchQuery = '';
     let currentTzMode = 'local';
     let currentDefaultSort = 'time';
+    const prevLiveEventSignatures = {{}};
 
-    function triggerStreamPulseDots() {{
+    function triggerStreamPulseDots(changedEventKeys) {{
       const hdrDot = document.getElementById('streamDot');
       if (hdrDot) {{
         hdrDot.classList.remove('is-pulsing');
         void hdrDot.offsetWidth;
         hdrDot.classList.add('is-pulsing');
       }}
-      document.querySelectorAll('.event-stream-dot').forEach(dot => {{
-        dot.classList.remove('is-pulsing');
-        void dot.offsetWidth;
-        dot.classList.add('is-pulsing');
-      }});
+      if (Array.isArray(changedEventKeys) && changedEventKeys.length > 0) {{
+        const changedSet = new Set(changedEventKeys);
+        document.querySelectorAll('.event-stream-dot').forEach(dot => {{
+          const ek = dot.getAttribute('data-event-key') || '';
+          if (changedSet.has(ek)) {{
+            dot.classList.remove('is-pulsing');
+            void dot.offsetWidth;
+            dot.classList.add('is-pulsing');
+          }}
+        }});
+      }}
     }}
 
     function applyGlobalDefaultSort(mode) {{
@@ -3983,6 +3989,7 @@ def generate_dashboard_html(
       const settledRows = [];
       const liveRows = [];
       const pendingRows = [];
+      const changedLiveKeys = [];
       trades.forEach(tr => {{
         const o = Number(tr.logged_best_odds || 0);
         const koDisp = currentTzMode === 'utc' ? tr.kickoff : (tr.kickoff_local || tr.kickoff);
@@ -4005,7 +4012,7 @@ def generate_dashboard_html(
         const hArg = escHtml(JSON.stringify(tr.home || ''));
         const aArg = escHtml(JSON.stringify(tr.away || ''));
         const lgArg = escHtml(JSON.stringify(tr.league || ''));
-        const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')"><span class="event-stream-dot is-pulsing" title="Real-Time Stream Active"></span>' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
+        const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
         const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
@@ -4040,6 +4047,11 @@ def generate_dashboard_html(
             ? '<span class="pill badge-bet">LIVE · LEADING (+' + lPnl.toFixed(2) + 'u)</span>'
             : (lPnl < 0 ? '<span class="pill badge-veto">LIVE · TRAILING (' + lPnl.toFixed(2) + 'u)</span>' : '<span class="pill tier">LIVE · LEVEL (0.00u)</span>');
           const itemKey = String((tr.league || '') + ':' + (tr.event_id || '')).toLowerCase();
+          const curSig = lSc + '|' + closeO.toFixed(3) + '|' + lPnl.toFixed(3) + '|' + JSON.stringify(tr.live_momentum || '');
+          const didEventChange = (prevLiveEventSignatures[itemKey] !== undefined && prevLiveEventSignatures[itemKey] !== curSig);
+          prevLiveEventSignatures[itemKey] = curSig;
+          if (didEventChange) changedLiveKeys.push(itemKey);
+          const pulseCls = didEventChange ? ' is-pulsing' : '';
           const isItemOn = (itemKey in currentInplayAlertItems) ? Boolean(currentInplayAlertItems[itemKey]) : currentInplayAlertsEnabled;
           const itemBtnStyle = isItemOn ? 'border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.14);' : '';
           const itemBtnHtml = ' <button type="button" class="btn-mini inplay-item-alert-btn" data-item-key="' + escHtml(itemKey) + '" style="' + itemBtnStyle + '" onclick="toggleInplayItemAlert(' + escHtml(JSON.stringify(itemKey)) + ', this)" title="Toggle Live In-Play Discord Alert for this match">' + (isItemOn ? '🔔' : '🔕') + '</button>';
@@ -4050,7 +4062,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(tr.kickoff) + '"><b class="tz-time" data-utc="' + escHtml(tr.kickoff) + '" data-local="' + escHtml(tr.kickoff_local || tr.kickoff) + '">' + escHtml(koDisp) + '</b></td>' +
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
-              '<td data-sort="' + escHtml(lSc) + '"><b>' + escHtml(lSc) + '</b></td>' +
+              '<td data-sort="' + escHtml(lSc) + '"><span class="event-stream-dot' + pulseCls + '" data-event-key="' + escHtml(itemKey) + '" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>' + escHtml(lSc) + '</b></td>' +
               '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
               '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + shareBtnHtml + '</td>' +
             '</tr>'
@@ -4086,7 +4098,7 @@ def generate_dashboard_html(
       if (lTbody) lTbody.innerHTML = liveRows.length ? liveRows.join('') : '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>';
       if (pTbody && pendingRows.length) pTbody.innerHTML = pendingRows.join('');
       if (typeof applyGlobalDefaultSort === 'function') applyGlobalDefaultSort(currentDefaultSort || 'time');
-      if (typeof triggerStreamPulseDots === 'function') triggerStreamPulseDots();
+      if (typeof triggerStreamPulseDots === 'function') triggerStreamPulseDots(changedLiveKeys);
     }}
 
     let isActionBusy = false;
