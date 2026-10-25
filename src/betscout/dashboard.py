@@ -2666,7 +2666,7 @@ def generate_dashboard_html(
       const bodyEl = document.getElementById('miBody');
       if (!modal || !titleEl || !bodyEl) return;
       titleEl.textContent = '🔍 ' + home + ' vs ' + away;
-      bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from BetScout store...</div>';
+      bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from BetScout database...</div>';
       modal.style.display = 'flex';
       document.getElementById('topLoadingBar')?.classList.add('is-active');
       try {{
@@ -2688,7 +2688,7 @@ def generate_dashboard_html(
           return;
         }}
         const fmtForm = (rows) => {{
-          if (!rows || !rows.length) return '<span class="muted">No recent matches in store</span>';
+          if (!rows || !rows.length) return '<span class="muted">No recent matches in database</span>';
           return rows.map(m =>
             '<div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(34,48,73,0.5);">' +
               '<span><span class="form-pill form-' + escHtml(m.result) + '">' + escHtml(m.result) + '</span> ' + escHtml(m.venue) + ' vs <b>' + escHtml(m.opp) + '</b></span>' +
@@ -3431,7 +3431,7 @@ def generate_dashboard_html(
       const q = inp.value.trim();
       if (!q) return;
       box.style.display = 'block';
-      box.innerHTML = '<span class="spinner"></span> Querying BetScout store, live bookmaker odds, all-level form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
+      box.innerHTML = '<span class="spinner"></span> Querying BetScout database, live bookmaker odds, all-level form &amp; turnaround hours for <b>' + escHtml(q) + '</b>...';
       if (!window.location.protocol.startsWith('http')) {{
         box.innerHTML = '<span class="muted">Start the BetScout WebApp server (<code>uv run betscout --port 8090</code>) and open <code>http://127.0.0.1:8090</code> for live on-demand matchup analysis.</span>';
         return;
@@ -4266,7 +4266,7 @@ def generate_dashboard_html(
         if (txtEl && labelText) txtEl.textContent = labelText;
         if (banner) banner.style.display = 'flex';
         document.getElementById('topLoadingBar')?.classList.add('is-active');
-        showPageLoader(labelText || 'Synchronizing BetScout data...', 'Synchronizing live match feeds, bookmaker markets & SQLite store...');
+        showPageLoader(labelText || 'Synchronizing BetScout data...', 'Synchronizing live match feeds, bookmaker markets & match database...');
         const t0 = performance.now();
         if (elapsedEl) elapsedEl.textContent = '0.0s';
         progressTimer = setInterval(() => {{

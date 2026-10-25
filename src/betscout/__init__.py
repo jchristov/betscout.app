@@ -94,7 +94,7 @@ def cli() -> None:
             print("  webapp       Launch interactive BetScout WebApp, SSE stream & auto-poller (default)")
             print("  pipeline     Run full 4-stage daily pipeline (ingest -> quality -> scan -> dashboard)")
             print("  ingest       Run universal config-driven incremental/historical ingestion")
-            print("  quality      Run 18-point SQLite store hygiene & anomaly audit")
+            print("  quality      Run 18-point match database hygiene & anomaly audit")
             print("  enrich       Rebuild or refresh 49-column match_details table")
             print("  edges        Evaluate multi-sport 7-factor composite & walk-forward backtest")
             print("  scan         Scan upcoming fixtures across all sports & log paper trades")
