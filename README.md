@@ -53,7 +53,7 @@ uv run sportdata-webapp --port 8090
 
 # 11. Preview or Publish Daily Best Bets & Settled Recap to Discord (Primary) or Telegram (Optional)
 uv run sportdata-discord --dry-run
-uv run sportdata-discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from model/.env
+uv run sportdata-discord --max-picks 12       # Reads DISCORD_WEBHOOK_URL from .env
 uv run sportdata-telegram --dry-run
 
 # 12. Evaluate Football Exact Score / Dutching Clusters & Tennis Set-Score (2:0 / 2:1) Models

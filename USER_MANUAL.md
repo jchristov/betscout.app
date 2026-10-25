@@ -30,7 +30,7 @@
 
 ## 0. Sports & Championships Covered in Database (`59,062` Matches)
 
-All historical and live records are stored in a single canonical SQLite database: **`model/data/matches.sqlite`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
+All historical and live records are stored in a single canonical SQLite database: **`data/matches.sqlite`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
 
 | Sport | League Key | ESPN Slug | Championship / Competition Name | Verified Matches | Date Range |
 | :--- | :--- | :--- | :--- | :---: | :--- |
@@ -303,7 +303,7 @@ Every pick in VektorPulse must pass a strict sequence of out-of-sample validated
 
 ## 16. CLI Reference & Environment Configuration (`.env`)
 
-### CLI Entrypoints (`model/pyproject.toml`)
+### CLI Entrypoints (`pyproject.toml`)
 | Command | Description |
 | :--- | :--- |
 | `uv run vektorpulse --port 8090` | Launch interactive VektorPulse WebApp + SSE stream + 90s auto-poller |
@@ -316,7 +316,7 @@ Every pick in VektorPulse must pass a strict sequence of out-of-sample validated
 | `uv run sportdata-ledger` | Print Settled & Pending paper-betting ledger in terminal |
 | `uv run sportdata-discord` | Publish daily picks & settled recap digest to Discord channel |
 
-### Environment Variables (`model/.env`)
+### Environment Variables (`.env`)
 ```ini
 # Primary Social Publisher (Zscaler-compatible) — Global Fallback Webhook
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
