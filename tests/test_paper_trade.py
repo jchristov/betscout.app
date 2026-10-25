@@ -686,6 +686,12 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         lp_res = fetch_live_match_situations_pressure(71945334)
         assert lp_res["home_dangerous_attacks"] == 2 and lp_res["home_danger_share_pct"] == 66.7
 
+    # Test PWA manifest, service worker, install button & version update toast in dashboard.html
+    assert 'rel="manifest" href="/manifest.webmanifest"' in html_text
+    assert "pwaInstallBtn" in html_text and "triggerPwaInstall" in html_text
+    assert "pwaUpdateToast" in html_text and "applyPwaUpdateNow" in html_text and "initPwaAndVersionWatcher" in html_text
+
+
 
 
 

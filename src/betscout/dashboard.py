@@ -1665,6 +1665,12 @@ def generate_dashboard_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BetScout">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>BetScout — Sports Edge &amp; Score Intelligence (betscout.app)</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpolygon points='32,3 57,17.5 57,46.5 32,61 7,46.5 7,17.5' fill='%230f172a' stroke='%2338bdf8' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='16' stroke='%2338bdf8' stroke-opacity='0.45' stroke-width='1.8' stroke-dasharray='4 3'/%3E%3Cline x1='32' y1='9' x2='32' y2='15' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='32' y1='49' x2='32' y2='55' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='9' y1='32' x2='15' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cline x1='49' y1='32' x2='55' y2='32' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M16 44 L27 33 L33 38 L46 18' stroke='%2322c55e' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='46' cy='18' r='4' fill='%2322c55e' stroke='%2338bdf8' stroke-width='1.8'/%3E%3C/svg%3E">
 <style>
@@ -1880,6 +1886,7 @@ def generate_dashboard_html(
         <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
       </div>
       <div style="display:inline-flex; gap:5px; align-items:center; background:rgba(15,22,35,0.75); border:1px solid var(--border); border-radius:8px; padding:3px 5px;" title="Notifications, Social Sharing &amp; App Preferences">
+        <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
         <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
         <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
         <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
@@ -1901,6 +1908,14 @@ def generate_dashboard_html(
   <div id="syncToast" class="toast-banner">
     <span id="syncToastText"></span>
     <button type="button" class="btn-mini" onclick="document.getElementById('syncToast').style.display='none'">✕</button>
+  </div>
+
+  <div id="pwaUpdateToast" class="toast-banner" style="display:none; background:rgba(34, 197, 94, 0.14); border-color:var(--green);">
+    <span id="pwaUpdateToastText">🚀 A new version of BetScout &amp; updated match intelligence is available!</span>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button type="button" class="btn-export btn-telegram" onclick="applyPwaUpdateNow()">🔄 Update &amp; Reload</button>
+      <button type="button" class="btn-mini" onclick="document.getElementById('pwaUpdateToast').style.display='none'">✕</button>
+    </div>
   </div>
 
   <div id="matchupInspectorModal" class="modal-backdrop" onclick="if(event.target===this)this.style.display='none'">
@@ -2675,6 +2690,7 @@ def generate_dashboard_html(
 
     function applyDayFilter(dayKey) {{
       currentDayFilter = dayKey || 'all';
+      try {{ localStorage.setItem('vp_day_filter', currentDayFilter); }} catch (_) {{}}
       currentDaySet = null;
       document.querySelectorAll('[data-day-btn]').forEach(btn => {{
         if (btn.getAttribute('data-day-btn') === currentDayFilter) {{
@@ -2697,6 +2713,7 @@ def generate_dashboard_html(
 
     function applySearchFilter(q) {{
       currentSearchQuery = (q || '').trim().toLowerCase();
+      try {{ localStorage.setItem('vp_search_query', q || ''); }} catch (_) {{}}
       document.querySelectorAll('[data-search]').forEach(el => {{
         const hay = (el.getAttribute('data-search') || '').toLowerCase();
         if (!currentSearchQuery || hay.includes(currentSearchQuery)) el.classList.remove('hidden-by-search');
@@ -2707,6 +2724,7 @@ def generate_dashboard_html(
 
     function applyOddsFilter(val) {{
       const thr = parseFloat(val);
+      try {{ localStorage.setItem('vp_min_odds', String(thr)); }} catch (_) {{}}
       document.getElementById('minOddsLabel').textContent = thr.toFixed(2);
       document.getElementById('minProfitLabel').textContent = Math.round((thr - 1.0) * 100) + '%';
       document.querySelectorAll('[data-odds]').forEach(el => {{
@@ -2729,6 +2747,7 @@ def generate_dashboard_html(
 
     function applySportFilter(sport) {{
       currentSportFilter = sport || 'all';
+      try {{ localStorage.setItem('vp_sport_filter', currentSportFilter); }} catch (_) {{}}
       document.querySelectorAll('[data-sport-btn]').forEach(btn => {{
         if (btn.getAttribute('data-sport-btn') === currentSportFilter) btn.classList.add('active');
         else btn.classList.remove('active');
@@ -3003,8 +3022,12 @@ def generate_dashboard_html(
         localStorage.setItem('vp_custom_matches', JSON.stringify(Array.from(customSelectedMatches)));
         const bVal = document.getElementById('betAmountInput')?.value;
         const mVal = document.getElementById('betRiskProfileSelect')?.value;
+        const dStake = document.getElementById('dutchStakeInput')?.value;
+        const dMatch = document.getElementById('dutchMatchSelect')?.value;
         if (bVal) localStorage.setItem('vp_bet_budget_eur', String(bVal));
         if (mVal) localStorage.setItem('vp_bet_risk_mode', String(mVal));
+        if (dStake) localStorage.setItem('vp_dutch_stake_eur', String(dStake));
+        if (dMatch) localStorage.setItem('vp_dutch_match', String(dMatch));
       }} catch (_) {{}}
     }}
 
@@ -3022,6 +3045,27 @@ def generate_dashboard_html(
         const savedMode = localStorage.getItem('vp_bet_risk_mode');
         if (savedMode && document.getElementById('betRiskProfileSelect')) {{
           document.getElementById('betRiskProfileSelect').value = savedMode;
+        }}
+        const savedDutchStake = localStorage.getItem('vp_dutch_stake_eur');
+        if (savedDutchStake && document.getElementById('dutchStakeInput')) {{
+          document.getElementById('dutchStakeInput').value = savedDutchStake;
+        }}
+        const savedMinOdds = localStorage.getItem('vp_min_odds');
+        if (savedMinOdds && document.getElementById('minOddsSlider')) {{
+          document.getElementById('minOddsSlider').value = savedMinOdds;
+          applyOddsFilter(savedMinOdds);
+        }}
+        const savedSport = localStorage.getItem('vp_sport_filter');
+        if (savedSport && document.querySelector('[data-sport-btn="' + savedSport + '"]')) {{
+          applySportFilter(savedSport);
+        }}
+        const savedDay = localStorage.getItem('vp_day_filter');
+        if (savedDay && document.querySelector('[data-day-btn="' + savedDay + '"]')) {{
+          applyDayFilter(savedDay);
+        }}
+        const savedTz = localStorage.getItem('vp_tz_mode');
+        if (savedTz === 'utc' || savedTz === 'local') {{
+          applyTimezoneMode(savedTz);
         }}
         const savedInplay = localStorage.getItem('vp_inplay_alerts_enabled');
         if (savedInplay !== null) {{
@@ -3047,6 +3091,11 @@ def generate_dashboard_html(
           const cntSpan = document.getElementById('customSelectedCountSpan');
           if (cntSpan) cntSpan.textContent = String(customSelectedMatches.size);
           if (clrBtn) clrBtn.style.display = customSelectedMatches.size > 0 ? 'inline-block' : 'none';
+        }}
+        const cachedSnapRaw = localStorage.getItem('vp_cached_live_snapshot');
+        if (cachedSnapRaw && !window.navigator.onLine) {{
+          const cachedSnap = JSON.parse(cachedSnapRaw);
+          if (cachedSnap && cachedSnap.paper_ledger) applyLiveStreamPayload(cachedSnap);
         }}
       }} catch (_) {{}}
     }}
@@ -3426,6 +3475,7 @@ def generate_dashboard_html(
 
     function applyTimezoneMode(mode) {{
       currentTzMode = mode === 'utc' ? 'utc' : 'local';
+      try {{ localStorage.setItem('vp_tz_mode', currentTzMode); }} catch (_) {{}}
       const isUtc = currentTzMode === 'utc';
       document.getElementById('tzBtnLocal')?.classList.toggle('active', !isUtc);
       document.getElementById('tzBtnUtc')?.classList.toggle('active', isUtc);
@@ -3751,6 +3801,7 @@ def generate_dashboard_html(
 
     function applyLiveStreamPayload(snap) {{
       if (!snap || !snap.paper_ledger) return;
+      try {{ localStorage.setItem('vp_cached_live_snapshot', JSON.stringify(snap)); }} catch (_) {{}}
       const tickEl = document.getElementById('lastStreamTick');
       if (tickEl && snap.server_time_local) {{
         tickEl.textContent = 'Live Sync: ' + snap.server_time_local;
@@ -4282,7 +4333,95 @@ def generate_dashboard_html(
       }};
     }}
 
+    let deferredPwaPrompt = null;
+    let activeSwRegistration = null;
+    let initialBuildId = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {{
+      e.preventDefault();
+      deferredPwaPrompt = e;
+      const btn = document.getElementById('pwaInstallBtn');
+      if (btn) btn.style.display = 'inline-flex';
+    }});
+
+    window.addEventListener('appinstalled', () => {{
+      deferredPwaPrompt = null;
+      const btn = document.getElementById('pwaInstallBtn');
+      if (btn) btn.style.display = 'none';
+      showToast('✅ BetScout installed on your device!');
+    }});
+
+    async function triggerPwaInstall() {{
+      if (!deferredPwaPrompt) {{
+        showToast('ℹ️ Use your browser menu ("Add to Home Screen" or "Install BetScout") to install the app.');
+        return;
+      }}
+      deferredPwaPrompt.prompt();
+      const choice = await deferredPwaPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {{
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) btn.style.display = 'none';
+      }}
+      deferredPwaPrompt = null;
+    }}
+
+    function showPwaUpdateBanner(versionLabel) {{
+      const toast = document.getElementById('pwaUpdateToast');
+      const txt = document.getElementById('pwaUpdateToastText');
+      if (txt && versionLabel) {{
+        txt.textContent = '🚀 New BetScout update available (' + versionLabel + ') — fresh predictions & ledger state ready!';
+      }}
+      if (toast) toast.style.display = 'flex';
+    }}
+
+    function applyPwaUpdateNow() {{
+      if (activeSwRegistration && activeSwRegistration.waiting) {{
+        activeSwRegistration.waiting.postMessage({{ type: 'SKIP_WAITING' }});
+      }}
+      window.location.reload();
+    }}
+
+    function initPwaAndVersionWatcher() {{
+      if (!window.location.protocol.startsWith('http')) return;
+      if ('serviceWorker' in navigator) {{
+        navigator.serviceWorker.register('/sw.js').then((reg) => {{
+          activeSwRegistration = reg;
+          if (reg.waiting) {{
+            showPwaUpdateBanner('New Service Worker');
+          }}
+          reg.addEventListener('updatefound', () => {{
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {{
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {{
+                showPwaUpdateBanner('App Update Ready');
+              }}
+            }});
+          }});
+        }}).catch(() => {{}});
+        let refreshingSw = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {{
+          if (refreshingSw) return;
+          refreshingSw = true;
+          window.location.reload();
+        }});
+      }}
+      fetch('/api/version').then(r => r.json()).then(d => {{
+        if (d && d.build_id) initialBuildId = d.build_id;
+      }}).catch(() => {{}});
+      setInterval(() => {{
+        if (activeSwRegistration) activeSwRegistration.update().catch(() => {{}});
+        fetch('/api/version').then(r => r.json()).then(d => {{
+          if (d && d.build_id && initialBuildId && d.build_id !== initialBuildId) {{
+            initialBuildId = d.build_id;
+            showPwaUpdateBanner(d.generated_at ? ('Updated ' + d.generated_at.slice(11, 16) + ' UTC') : d.build_id);
+          }}
+        }}).catch(() => {{}});
+      }}, 60000);
+    }}
+
     initLiveEventStream();
+    initPwaAndVersionWatcher();
     restoreSlipPrefsFromStorage();
     buildSmartBetPlan();
     populateDutchMatchSelect();

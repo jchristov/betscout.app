@@ -694,6 +694,140 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self.wfile.write(html_bytes)
                 return
 
+            if parsed.path == "/manifest.webmanifest":
+                manifest = {
+                    "name": "BetScout — Sports Edge & Score Intelligence",
+                    "short_name": "BetScout",
+                    "description": "Out-of-Sample Multi-Sport Quantitative Edge, Exact-Score & Paper-Betting Intelligence",
+                    "start_url": "/",
+                    "scope": "/",
+                    "display": "standalone",
+                    "orientation": "any",
+                    "background_color": "#0b0f17",
+                    "theme_color": "#0f172a",
+                    "categories": ["sports", "finance", "utilities"],
+                    "icons": [
+                        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+                        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+                        {"src": "/betscout-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+                    ],
+                }
+                body_m = json.dumps(manifest, indent=2).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(body_m)))
+                self.end_headers()
+                self.wfile.write(body_m)
+                return
+
+            if parsed.path in ("/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/betscout-logo.png"):
+                from .pick_card import render_logo_png
+
+                sz = 192 if "192" in parsed.path else (180 if "apple" in parsed.path else 512)
+                logo_file = root_dir / "betscout-logo.png"
+                png_bytes = logo_file.read_bytes() if (sz == 512 and logo_file.exists()) else render_logo_png(size=sz)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Content-Length", str(len(png_bytes)))
+                self.end_headers()
+                self.wfile.write(png_bytes)
+                return
+
+            if parsed.path == "/betscout-logo.svg":
+                svg_file = root_dir / "betscout-logo.svg"
+                svg_bytes = svg_file.read_bytes() if svg_file.exists() else b"<svg xmlns='http://www.w3.org/2000/svg'/>"
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Content-Length", str(len(svg_bytes)))
+                self.end_headers()
+                self.wfile.write(svg_bytes)
+                return
+
+            if parsed.path == "/api/version":
+                rec_mtime = int(rec_path.stat().st_mtime) if rec_path.exists() else 0
+                db_mtime = int(db_path.stat().st_mtime) if db_path.exists() else 0
+                rec_gen = ""
+                if rec_path.exists():
+                    try:
+                        rec_gen = str(json.loads(rec_path.read_text(encoding="utf-8")).get("generated_at") or "")
+                    except Exception:
+                        rec_gen = ""
+                build_hash = f"0.2.0-{max(rec_mtime, db_mtime)}"
+                self._send_json({
+                    "ok": True,
+                    "version": "0.2.0",
+                    "build_id": build_hash,
+                    "generated_at": rec_gen,
+                    "updated_epoch": max(rec_mtime, db_mtime),
+                })
+                return
+
+            if parsed.path == "/sw.js":
+                rec_mtime = int(rec_path.stat().st_mtime) if rec_path.exists() else 0
+                sw_ver = f"betscout-pwa-v0.2.0-{rec_mtime}"
+                sw_js = f"""const CACHE_NAME = '{sw_ver}';
+const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/betscout-logo.svg'];
+
+self.addEventListener('install', (event) => {{
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => {{}})
+  );
+}});
+
+self.addEventListener('activate', (event) => {{
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((k) => k !== CACHE_NAME && k.startsWith('betscout-pwa-')).map((k) => caches.delete(k))
+    )).then(() => self.clients.claim())
+  );
+}});
+
+self.addEventListener('message', (event) => {{
+  if (event.data && event.data.type === 'SKIP_WAITING') {{
+    self.skipWaiting();
+  }}
+}});
+
+self.addEventListener('fetch', (event) => {{
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/stream')) return;
+  if (url.pathname.startsWith('/api/') || url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/dashboard.html') {{
+    event.respondWith(
+      fetch(req).then((resp) => {{
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => {{}});
+        return resp;
+      }}).catch(() => caches.match(req).then((r) => r || caches.match('/')))
+    );
+    return;
+  }}
+  event.respondWith(
+    caches.match(req).then((cached) => {{
+      const netFetch = fetch(req).then((resp) => {{
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => {{}});
+        return resp;
+      }}).catch(() => cached);
+      return cached || netFetch;
+    }})
+  );
+}});
+"""
+                sw_bytes = sw_js.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Service-Worker-Allowed", "/")
+                self.send_header("Content-Length", str(len(sw_bytes)))
+                self.end_headers()
+                self.wfile.write(sw_bytes)
+                return
+
             if parsed.path == "/api/data":
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False)
                 self._send_json(snap)
