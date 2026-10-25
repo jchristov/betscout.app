@@ -1706,6 +1706,7 @@ def generate_dashboard_html(
   .header-body {{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }}
   .header-top-row {{ display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }}
   .header-bottom-row {{ display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }}
+  .header-actions-row {{ display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; }}
   .brand-title-row {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
   h1 {{ margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; }}
   .brand-tagline {{ font-size: 12px; color: #cbd5e1; font-weight: 500; }}
@@ -1907,22 +1908,24 @@ def generate_dashboard_html(
           <span class="pill badge-bet" style="font-size:10px;">LIVE AI</span>
           <span class="brand-tagline">Sports Edge, Exact-Score &amp; Paper-Betting Intelligence</span>
         </div>
-        <span class="stream-pill" style="padding:3px 10px; font-size:11px; flex-shrink:0;" title="Real-Time Server-Sent Events (SSE) Connection Status">
-          <span id="streamDot" class="stream-dot"></span>
-          <span id="streamStatusText">Connecting...</span>
-        </span>
-      </div>
-      <div class="header-bottom-row">
-        <div class="brand-meta">
+        <div class="brand-meta" style="margin-left:auto;">
           <span class="meta-chip">🕒 Updated: {_time_span(gen_at, bold=True)}</span>
           <span class="meta-chip">🗄️ <b>{total_matches:,}</b> Verified Matches</span>
           <span class="meta-chip">📡 <span id="lastStreamTick">Ready</span></span>
           <span class="meta-chip" title="Provisional / unconfirmed start times (e.g. awaiting official court Order of Play) are marked with * and update automatically"><b>*</b> = Provisional Time</span>
+          <span class="stream-pill" style="padding:3px 10px; font-size:11px; flex-shrink:0;" title="Real-Time Server-Sent Events (SSE) Connection Status">
+            <span id="streamDot" class="stream-dot"></span>
+            <span id="streamStatusText">Connecting...</span>
+          </span>
         </div>
+      </div>
+      <div class="header-actions-row">
         <div class="btn-group" style="align-items:center;">
           <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
           <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
           <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
+        </div>
+        <div class="btn-group" style="align-items:center; margin-left:auto; justify-content:flex-end;">
           <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
           <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
           <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
