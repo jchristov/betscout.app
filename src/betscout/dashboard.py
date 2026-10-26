@@ -1762,8 +1762,9 @@ def generate_dashboard_html(
   .ws-tab-pane.active {{ display: block; }}
   .kpi-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin-bottom: 18px; }}
   .kpi {{ background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }}
-  .kpi span {{ display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }}
-  .kpi b {{ font-size: 18px; display: block; margin-top: 3px; color: var(--text); }}
+  .kpi > span {{ display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }}
+  .kpi b {{ font-size: 18px; display: block; margin-top: 3px; color: var(--text); white-space: nowrap; }}
+  .kpi b span {{ display: inline; font-size: inherit; text-transform: none; letter-spacing: normal; }}
   .kpi b.pos, .num-pos {{ color: var(--green) !important; }}
   .kpi b.neg, .num-neg {{ color: var(--red) !important; }}
   .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }}

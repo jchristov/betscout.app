@@ -67,13 +67,14 @@ _load_dotenv_once(override=False)
 
 def get_firebase_auth_config() -> dict[str, Any]:
     """Return Firebase Auth & Cloud Run RBAC configuration from environment variables.
-    Supports both `FIREBASE_*` and `VITE_FIREBASE_*` variable names and defaults admin emails
-    to `julian.christ@gmail.com,julian.christov@gmail.com` when Firebase is configured."""
+    In local desktop mode (when `K_SERVICE` is not set and `FIREBASE_WEB_API_KEY` is not explicitly exported),
+    `enabled` is `False` so local usage requires zero sign-in friction."""
     import os
 
+    is_cloud = bool(os.environ.get("K_SERVICE") or os.environ.get("FIREBASE_AUTH_REQUIRED"))
     api_key = (
         os.environ.get("FIREBASE_WEB_API_KEY")
-        or os.environ.get("VITE_FIREBASE_API_KEY")
+        or (os.environ.get("VITE_FIREBASE_API_KEY") if is_cloud else "")
         or ""
     ).strip()
     project_id = (
@@ -87,8 +88,8 @@ def get_firebase_auth_config() -> dict[str, Any]:
         or (f"{project_id}.firebaseapp.com" if project_id else "")
     ).strip()
     raw_admins = (
-        os.environ.get("BETSCOUT_ADMIN_EMAILS")
-        or os.environ.get("FIREBASE_ADMIN_EMAILS")
+        os.environ.get("FIREBASE_ADMIN_EMAILS")
+        or (os.environ.get("BETSCOUT_ADMIN_EMAILS") if (is_cloud or os.environ.get("FIREBASE_WEB_API_KEY")) else "")
         or ""
     ).strip()
     admin_emails = [x.strip().lower() for x in raw_admins.split(",") if x.strip()]
