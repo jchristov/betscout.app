@@ -533,6 +533,9 @@ def generate_dashboard_html(
     sport_filter: str = "all",
     csv_export_path: Path | None = None,
     json_export_path: Path | None = None,
+    role: str = "admin",
+    free_preview_count: int = 0,
+    run_settle: bool = True,
 ) -> Path:
     rec: dict[str, Any] = {}
     if recommendations_path.exists():
@@ -543,12 +546,18 @@ def generate_dashboard_html(
     conn.close()
 
     try:
-        settle_pending_paper_trades(db_path)
+        if run_settle:
+            settle_pending_paper_trades(db_path)
         live_ledger = get_paper_ledger_summary(db_path)
         if live_ledger.get("trades"):
             rec["paper_ledger"] = live_ledger
     except Exception:
         pass
+
+    if role == "free":
+        from .monetization import redact_recommendations_for_free_tier
+
+        rec = redact_recommendations_for_free_tier(rec, free_preview_count=free_preview_count)
 
     norm_sport = (sport_filter or "all").lower().strip()
     settled_ids = {
@@ -1072,8 +1081,26 @@ def generate_dashboard_html(
 
     # Build unified Best Bets Summary Table at the end, sorted by Date (ascending: soonest upcoming events first!)
     best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=norm_sport, disabled_sports=disabled_sports_set)
-    export_best_bets_summary(best_bets, csv_path=csv_export_path, json_path=json_export_path)
+    if role != "free":
+        export_best_bets_summary(best_bets, csv_path=csv_export_path, json_path=json_export_path)
     all_best_bets_for_html = build_best_bets_summary(rec, min_odds=min_odds, sport_filter="all", disabled_sports=disabled_sports_set)
+
+    # Compute exact per-sport active counts & icons from all_best_bets_for_html so the header Total Active Picks card matches the table below
+    sport_order_kpi = ["soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"]
+    active_by_cat: dict[str, int] = {}
+    for b_item in all_best_bets_for_html:
+        sc_k = str(b_item.get("sport_cat") or "soccer")
+        active_by_cat[sc_k] = active_by_cat.get(sc_k, 0) + 1
+    total_active_picks_n = len(all_best_bets_for_html)
+    active_sport_parts = [
+        f"{_sport_icon(sc_k)} {active_by_cat[sc_k]}"
+        for sc_k in sport_order_kpi
+        if active_by_cat.get(sc_k, 0) > 0
+    ]
+    for sc_k, cnt_k in active_by_cat.items():
+        if sc_k not in sport_order_kpi and cnt_k > 0:
+            active_sport_parts.append(f"{_sport_icon(sc_k)} {cnt_k}")
+    active_sports_breakdown_str = " · ".join(active_sport_parts) if active_sport_parts else "No active picks"
 
     best_bets_rows = []
     mispriced_rows = []
@@ -1763,8 +1790,10 @@ def generate_dashboard_html(
   .kpi-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin-bottom: 18px; }}
   .kpi {{ background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }}
   .kpi > span {{ display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }}
-  .kpi b {{ font-size: 18px; display: block; margin-top: 3px; color: var(--text); white-space: nowrap; }}
-  .kpi b span {{ display: inline; font-size: inherit; text-transform: none; letter-spacing: normal; }}
+  .kpi > b {{ font-size: 18px; display: block; margin-top: 3px; color: var(--text); white-space: nowrap; }}
+  .kpi > b span {{ display: inline !important; font-size: inherit !important; text-transform: none; letter-spacing: normal; }}
+  .kpi small {{ display: block; margin-top: 3px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .kpi small b, .kpi small span {{ display: inline !important; font-size: inherit !important; margin: 0 !important; text-transform: none; letter-spacing: normal; }}
   .kpi b.pos, .num-pos {{ color: var(--green) !important; }}
   .kpi b.neg, .num-neg {{ color: var(--red) !important; }}
   .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }}
@@ -1863,7 +1892,7 @@ def generate_dashboard_html(
   .top-loading-bar-fill {{ width: 35%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--green), var(--accent)); animation: indet 1.1s ease-in-out infinite; box-shadow: 0 0 10px var(--accent); }}
 </style>
 </head>
-<body>
+<body data-render-role="{html.escape(role)}">
   <div id="topLoadingBar" class="top-loading-bar is-active">
     <div class="top-loading-bar-fill"></div>
   </div>
@@ -2290,7 +2319,7 @@ def generate_dashboard_html(
     <div class="kpi">
       <span>Total Active Picks</span>
       <b class="pos" id="kpiTotalActive">{total_active_picks_n} Picks</b>
-      <small class="muted" style="font-size:10.5px;">⚽ {active_soccer_n} · 🎾 {active_tennis_n} · 🌐 {active_other_n}</small>
+      <small class="muted" id="kpiTotalActiveBreakdown" style="font-size:10.5px;" title="{html.escape(active_sports_breakdown_str)}">{active_sports_breakdown_str}</small>
     </div>
     <div class="kpi">
       <span>Live &amp; Pending Ledger</span>
@@ -2982,6 +3011,30 @@ def generate_dashboard_html(
       if (kpi) kpi.textContent = String(visibleRows.length);
       const wsBadge = document.getElementById('wsBadgePicks');
       if (wsBadge) wsBadge.textContent = String(visibleRows.length);
+
+      const allActiveRows = document.querySelectorAll('#bestBetsTable tbody tr[data-date]:not(.hidden-by-disabled-sport)');
+      const kpiTot = document.getElementById('kpiTotalActive');
+      if (kpiTot) kpiTot.textContent = allActiveRows.length + ' Picks';
+      const kpiTotBrk = document.getElementById('kpiTotalActiveBreakdown');
+      if (kpiTotBrk) {{
+        const spOrder = ['soccer', 'tennis', 'basketball', 'volleyball', 'hockey', 'football', 'baseball', 'handball', 'darts', 'table_tennis'];
+        const spCounts = {{}};
+        allActiveRows.forEach(r => {{
+          const sc = r.getAttribute('data-sport-cat') || 'soccer';
+          spCounts[sc] = (spCounts[sc] || 0) + 1;
+        }});
+        const parts = [];
+        spOrder.forEach(sc => {{
+          if (spCounts[sc] > 0) parts.push((SPORT_EMOJIS[sc] || '🏅') + ' ' + spCounts[sc]);
+        }});
+        Object.keys(spCounts).forEach(sc => {{
+          if (!spOrder.includes(sc) && spCounts[sc] > 0) parts.push((SPORT_EMOJIS[sc] || '🏅') + ' ' + spCounts[sc]);
+        }});
+        const brkStr = parts.length > 0 ? parts.join(' · ') : 'No active picks';
+        kpiTotBrk.textContent = brkStr;
+        kpiTotBrk.title = brkStr;
+      }}
+
       if (typeof buildSmartBetPlan === 'function') buildSmartBetPlan();
       if (typeof populateDutchMatchSelect === 'function') populateDutchMatchSelect();
     }}
@@ -4734,15 +4787,26 @@ def generate_dashboard_html(
           if (user) {{
             currentFirebaseUserEmail = user.email || '';
             currentFirebaseIdToken = await user.getIdToken();
+            document.cookie = 'bs_id_token=' + encodeURIComponent(currentFirebaseIdToken) + '; path=/; max-age=3600; SameSite=Lax';
             try {{
               const r = await fetch('/api/auth/config', {{ headers: getAuthHeaders() }});
               const d = await r.json();
               currentIsAdmin = Boolean(d.is_admin);
+              if (document.body.getAttribute('data-render-role') === 'free' && (d.is_admin || d.is_pro)) {{
+                window.location.reload();
+                return;
+              }}
             }} catch (_) {{}}
           }} else {{
+            const hadTokenCookie = document.cookie.includes('bs_id_token=');
+            document.cookie = 'bs_id_token=; path=/; max-age=0; SameSite=Lax';
             currentFirebaseUserEmail = '';
             currentFirebaseIdToken = '';
             currentIsAdmin = false;
+            if (hadTokenCookie && document.body.getAttribute('data-render-role') !== 'free') {{
+              window.location.reload();
+              return;
+            }}
           }}
           updateFirebaseAuthUi();
         }});

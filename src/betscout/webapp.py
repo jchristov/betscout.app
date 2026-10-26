@@ -127,10 +127,12 @@ def resolve_request_role(
     auth_header: str | None = None,
     api_key_header: str | None = None,
     query_token: str | None = None,
+    cookie_header: str | None = None,
 ) -> tuple[str, str | None, str]:
     """Resolve the caller's role (`'admin'`, `'pro'`, or `'free'`), email/actor, and optional error message."""
     import os
     import subprocess
+    from urllib.parse import unquote
     from .monetization import check_is_active_subscriber, get_monetization_config, validate_and_meter_api_key
 
     fb_cfg = get_firebase_auth_config()
@@ -138,7 +140,17 @@ def resolve_request_role(
     if not fb_cfg["enabled"] and not mon_cfg["enabled"]:
         return "admin", "local_admin", ""
 
-    raw_api_k = (api_key_header or "").strip()
+    cookie_token = ""
+    cookie_api_k = ""
+    if cookie_header:
+        for chunk in cookie_header.split(";"):
+            part = chunk.strip()
+            if part.startswith("bs_id_token="):
+                cookie_token = unquote(part.split("=", 1)[1].strip())
+            elif part.startswith("bs_api_key="):
+                cookie_api_k = unquote(part.split("=", 1)[1].strip())
+
+    raw_api_k = (api_key_header or cookie_api_k or "").strip()
     if not raw_api_k and auth_header and "bs_live_" in auth_header:
         raw_api_k = auth_header.split()[-1].strip()
     if not raw_api_k and query_token and query_token.startswith("bs_live_"):
@@ -153,6 +165,8 @@ def resolve_request_role(
         token = auth_header.strip()[7:].strip()
     elif query_token and not query_token.startswith("bs_live_"):
         token = query_token.strip()
+    elif cookie_token:
+        token = cookie_token
 
     cron_secret = (os.environ.get("BETSCOUT_CRON_SECRET") or "").strip()
     if cron_secret and token and token == cron_secret:
@@ -980,18 +994,33 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             sport = (qs.get("sport") or ["all"])[0]
 
             if parsed.path in ("/", "/index.html", "/dashboard.html"):
+                from .monetization import get_monetization_config
+
+                mon_cfg_g = get_monetization_config(data_dir)
+                role_g, _act_g, _ = resolve_request_role(
+                    db_path,
+                    auth_header=self.headers.get("Authorization"),
+                    api_key_header=self.headers.get("X-API-Key"),
+                    query_token=(qs.get("token") or [""])[0],
+                    cookie_header=self.headers.get("Cookie"),
+                )
+                target_dash_path = (data_dir / "dashboard_free.html") if role_g == "free" else dash_path
                 generate_dashboard_html(
                     rec_path,
                     db_path,
-                    dash_path,
+                    target_dash_path,
                     min_odds=min_odds,
                     sport_filter=sport,
-                    csv_export_path=best_csv_path,
-                    json_export_path=best_json_path,
+                    csv_export_path=best_csv_path if role_g != "free" else None,
+                    json_export_path=best_json_path if role_g != "free" else None,
+                    role=role_g,
+                    free_preview_count=int(mon_cfg_g.get("free_preview_picks_count") or 0),
+                    run_settle=False,
                 )
-                html_bytes = dash_path.read_bytes()
+                html_bytes = target_dash_path.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "private, no-store, must-revalidate")
                 self.send_header("Content-Length", str(len(html_bytes)))
                 self.end_headers()
                 self.wfile.write(html_bytes)
@@ -1288,6 +1317,7 @@ self.addEventListener('fetch', (event) => {{
                     db_path,
                     auth_header=self.headers.get("Authorization"),
                     api_key_header=self.headers.get("X-API-Key"),
+                    cookie_header=self.headers.get("Cookie"),
                 )
                 self._send_json({
                     "ok": True,
@@ -1313,6 +1343,7 @@ self.addEventListener('fetch', (event) => {{
                     db_path,
                     auth_header=self.headers.get("Authorization"),
                     api_key_header=self.headers.get("X-API-Key"),
+                    cookie_header=self.headers.get("Cookie"),
                 )
                 is_admin = role_s == "admin"
                 self._send_json({
@@ -1347,6 +1378,7 @@ self.addEventListener('fetch', (event) => {{
                     auth_header=self.headers.get("Authorization"),
                     api_key_header=self.headers.get("X-API-Key"),
                     query_token=(qs.get("token") or [""])[0],
+                    cookie_header=self.headers.get("Cookie"),
                 )
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
