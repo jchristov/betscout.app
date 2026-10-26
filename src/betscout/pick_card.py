@@ -518,31 +518,29 @@ def render_pick_card_png(
     tier_raw = _strip_non_ascii_symbols(str(pick_data.get("tier") or "HIGH-CONVICTION")).upper()
     badge_status = _strip_non_ascii_symbols(str(pick_data.get("status_badge") or tier_raw or "LIVE AI SIGNAL")).upper()
 
-    # Right header pill (with sport icon + status/tier)
+    # Right header pill (status / conviction tier only — no sport icon)
     badge_col = (34, 197, 94) if "LOSS" not in badge_status else (239, 68, 68)
     f_badge, badge_fit = _fit_font_and_text(draw, badge_status, max_width=230, start_size=13, min_size=11, bold=True)
-    bw_px = int(_text_width(draw, badge_fit, f_badge)) + 64
+    bw_px = int(_text_width(draw, badge_fit, f_badge)) + 36
     bx_right = w - 44
     bx_left = bx_right - bw_px
     draw.rounded_rectangle([(bx_left, 46), (bx_right, 86)], radius=20, fill=(13, 20, 33), outline=badge_col, width=2)
-    _paste_sport_icon(img, sport_cat, bx_left + 24, 66, size=24)
-    draw.text((bx_left + 44, 58), badge_fit, font=f_badge, fill=badge_col)
+    draw.text((bx_left + 18, 58), badge_fit, font=f_badge, fill=badge_col)
 
     # Divider
     draw.line([(44, 106), (w - 44, 106)], fill=(34, 48, 73), width=1)
 
-    # Row 2: Competition Pill (with Sport Icon) on Left + Compact Timestamp Pills on Right
+    # Row 2: Competition Pill on Left (text only) + Compact Timestamp Pill on Right
     kickoff_str = _compact_timestamp(str(pick_data.get("date_local") or pick_data.get("date") or "Upcoming"))
     announced_str = _compact_timestamp(str(pick_data.get("announced_at_local") or pick_data.get("announced_at") or pick_data.get("logged_at") or ""))
     ended_str = _compact_timestamp(str(pick_data.get("ended_at_local") or pick_data.get("ended_at") or ""))
 
     sport_tag = SPORT_LABELS.get(sport_cat, sport_cat.upper())
     comp_label = f"{sport_tag}  ·  {comp_raw}" if comp_raw.upper() not in sport_tag else sport_tag
-    f_comp, comp_fit = _fit_font_and_text(draw, comp_label, max_width=390, start_size=12, min_size=10, bold=True)
-    comp_box_w = int(_text_width(draw, comp_fit, f_comp)) + 52
+    f_comp, comp_fit = _fit_font_and_text(draw, comp_label, max_width=400, start_size=12, min_size=10, bold=True)
+    comp_box_w = int(_text_width(draw, comp_fit, f_comp)) + 28
     draw.rounded_rectangle([(44, 118), (44 + comp_box_w, 152)], radius=9, fill=(13, 20, 33), outline=(56, 189, 248), width=1)
-    _paste_sport_icon(img, sport_cat, 64, 135, size=22)
-    draw.text((82, 128), comp_fit, font=f_comp, fill=(56, 189, 248))
+    draw.text((58, 128), comp_fit, font=f_comp, fill=(56, 189, 248))
 
     # Build right-aligned timestamp pill(s) so Announced, Start, and Ended never overflow
     time_parts: list[str] = []

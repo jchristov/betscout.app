@@ -4051,18 +4051,18 @@ def generate_dashboard_html(
 
       const spIcon = getSportEmoji((meta && (meta.sport_cat || meta.comp || meta.competition || meta.match)) || 'soccer');
 
-      // Right badge with sport icon
-      const badgeTxt = spIcon + '  ' + ((meta && meta.badge) ? String(meta.badge) : 'LIVE AI SIGNAL');
+      // Right badge (status/tier text only — sport icon stays only in front of the event title)
+      const badgeTxt = (meta && meta.badge) ? String(meta.badge) : 'LIVE AI SIGNAL';
       ctx.fillStyle = '#0d1421';
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(w - 284, 46, 240, 40, 20);
-      else ctx.rect(w - 284, 46, 240, 40);
+      if (ctx.roundRect) ctx.roundRect(w - 264, 46, 220, 40, 20);
+      else ctx.rect(w - 264, 46, 220, 40);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#22c55e';
-      fillFittedCanvasText(ctx, badgeTxt, w - 164, 71, 214, 13.5, 10.5, '700', 'center');
+      fillFittedCanvasText(ctx, badgeTxt, w - 154, 71, 196, 13.5, 10.5, '700', 'center');
 
       // Divider
       ctx.strokeStyle = '#223049';
@@ -4072,10 +4072,10 @@ def generate_dashboard_html(
       ctx.lineTo(w - 44, 108);
       ctx.stroke();
 
-      // Competition pill on Left + Compact Timestamp pill on Right
-      const compStr = spIcon + '  ' + String((meta && (meta.comp || meta.competition || meta.sport_cat)) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
+      // Competition pill on Left (text only) + Compact Timestamp pill on Right
+      const compStr = String((meta && (meta.comp || meta.competition || meta.sport_cat)) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
       ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      const compW = Math.min(410, Math.max(180, Math.ceil(ctx.measureText(compStr).width) + 32));
+      const compW = Math.min(410, Math.max(160, Math.ceil(ctx.measureText(compStr).width) + 28));
       ctx.fillStyle = '#0d1421';
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 1;
