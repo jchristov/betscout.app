@@ -18,18 +18,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install Python dependencies first for layer caching
-COPY pyproject.toml uv.lock README.md ./
+# Install Python dependencies first for layer caching (resolve from public PyPI in Cloud Build)
+COPY pyproject.toml README.md ./
 COPY src ./src
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev --default-index https://pypi.org/simple
 
-# Copy static assets & ingestion config
+# Copy static assets, CLI scripts & ingestion config
 COPY ingestion_config.json betscout-logo.svg betscout-logo.png ./
-RUN mkdir -p /app/data
-
-# Entrypoint script seeds mounted volume (/mnt/data) with initial betscout.db if empty, then starts the server
-COPY scripts/cloud_entrypoint.sh /app/scripts/cloud_entrypoint.sh
-RUN chmod +x /app/scripts/cloud_entrypoint.sh
+COPY scripts ./scripts
+RUN mkdir -p /app/data && chmod +x /app/scripts/cloud_entrypoint.sh
 
 EXPOSE 8080
 

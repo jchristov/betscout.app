@@ -45,11 +45,16 @@ load_dotenv()
 
 
 def _run_script(module_name: str) -> None:
+    import importlib
+
     load_dotenv(override=True)
     scripts_dir = str(MODEL_ROOT / "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
-    mod = __import__(module_name)
+    try:
+        mod = __import__(module_name)
+    except ModuleNotFoundError:
+        mod = importlib.import_module(f"betscout.{module_name}")
     try:
         mod.main()
     except KeyboardInterrupt:

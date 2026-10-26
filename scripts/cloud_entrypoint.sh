@@ -46,4 +46,4 @@ if [ -d "${GCS_SYNC_DIR}" ]; then
 fi
 
 export BETSCOUT_DATA_DIR="${LOCAL_DATA_DIR}"
-exec uv run betscout webapp --host "${HOST:-0.0.0.0}" --port "${PORT:-8080}"
+exec /app/.venv/bin/betscout webapp --host "${HOST:-0.0.0.0}" --port "${PORT:-8080}"
