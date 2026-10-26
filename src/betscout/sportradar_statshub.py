@@ -1000,6 +1000,9 @@ def fetch_live_match_timelinedelta(
     res_obj = m.get("result") or {}
     raw_h = res_obj.get("away" if flipped else "home")
     raw_a = res_obj.get("home" if flipped else "away")
+    # Status 22 = "About to start" (players not yet playing points; result is None). Treat as pre-match ('pre') until first point/game starts!
+    if st_id == 22 and raw_h is None and raw_a is None and not m.get("periods"):
+        return {}
     h_main = int(raw_h) if raw_h is not None else 0
     a_main = int(raw_a) if raw_a is not None else 0
 
@@ -1101,6 +1104,49 @@ def evaluate_inplay_goal_timing_edge(
         "combined_76_90_goal_avg": comb_late_avg,
         "total_dangerous_attacks": tot_da,
     }
+
+
+def fetch_player_lastx_form(team_uid: int | str | None, limit: int = 6) -> list[dict[str, Any]]:
+    """Fetch a player's or team's last `limit` matches directly from Sportradar `stats_team_lastx/{uid}/{limit}`
+    when the player has no prior matches in our local `matches.sqlite` database (e.g. ITF/WTA 125K qualifiers)."""
+    if not team_uid:
+        return []
+    data = fetch_statshub_gismo(f"stats_team_lastx/{team_uid}/{limit}", ttl_sec=1800.0)
+    if not isinstance(data, dict):
+        return []
+    out: list[dict[str, Any]] = []
+    for m in (data.get("matches") or [])[:limit]:
+        res = m.get("result") or {}
+        if res.get("home") is None or res.get("away") is None:
+            continue
+        teams = m.get("teams") or {}
+        th = (teams.get("home") or {}).get("name") or ""
+        ta = (teams.get("away") or {}).get("name") or ""
+        h_uid_m = (teams.get("home") or {}).get("uid")
+        is_h = str(h_uid_m) == str(team_uid)
+        opp_raw = ta if is_h else th
+        if "," in opp_raw:
+            p_last, p_first = [x.strip() for x in opp_raw.split(",", 1)]
+            opp_name = f"{p_first} {p_last}".strip()
+        else:
+            opp_name = opp_raw
+        hs, as_ = int(res["home"]), int(res["away"])
+        w_side = res.get("winner")
+        if w_side in ("home", "away"):
+            won = (is_h and w_side == "home") or (not is_h and w_side == "away")
+            res_char = "W" if won else "L"
+        else:
+            res_char = "D" if hs == as_ else ("W" if ((is_h and hs > as_) or (not is_h and as_ > hs)) else "L")
+        uts = ((m.get("_dt") or {}).get("uts")) or 0
+        dt_str = datetime.fromtimestamp(int(uts), tz=timezone.utc).strftime("%Y-%m-%d") if uts else "Recent"
+        out.append({
+            "date": dt_str,
+            "opp": opp_name,
+            "venue": "H" if is_h else "A",
+            "result": res_char,
+            "score": f"{hs}-{as_}",
+        })
+    return out
 
 
 def lookup_statshub_match_intel(
@@ -1248,6 +1294,8 @@ def lookup_statshub_match_intel(
         "found": True,
         "sr_match_id": mid,
         "sr_season_id": season_id,
+        "home_uid": h_uid,
+        "away_uid": a_uid,
         "tournament": matched_tourn,
         "primary_markets": markets_parsed,
         "consensus_markets": sr_uof_parsed,

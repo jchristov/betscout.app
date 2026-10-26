@@ -378,12 +378,18 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
 
     statshub_intel: dict[str, Any] = {}
     try:
-        from .sportradar_statshub import lookup_statshub_match_intel
+        from .sportradar_statshub import fetch_player_lastx_form, lookup_statshub_match_intel
 
         sp_hint = "tennis" if lg in ("atp", "wta") else (_league_to_sport_cat(lg) if lg else "soccer")
         sh_res = lookup_statshub_match_intel(h, a, sport=sp_hint)
+        if not sh_res.get("found") and not lg:
+            sh_res = lookup_statshub_match_intel(h, a, sport="tennis")
         if sh_res.get("found"):
             statshub_intel = sh_res
+            if not form_home and sh_res.get("home_uid"):
+                form_home = fetch_player_lastx_form(sh_res["home_uid"], limit=6)
+            if not form_away and sh_res.get("away_uid"):
+                form_away = fetch_player_lastx_form(sh_res["away_uid"], limit=6)
     except Exception:
         statshub_intel = {}
 

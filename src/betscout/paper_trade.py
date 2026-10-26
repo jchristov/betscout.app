@@ -504,13 +504,18 @@ def scan_upcoming_tennis(
                         es = elo_surf.setdefault((lg, surf), Elo(k=28, home_adv=0.0))
                         eg = elo_games[lg]
                         hk, ak = (lg, h), (lg, a)
+                        gh, ga = game_hist[hk], game_hist[ak]
+                        wh, wa = win6_hist[hk], win6_hist[ak]
+
+                        # Minimum Database Sample Gate: never back a player who has < 2 tracked matches in our database
+                        # (a debut ITF/Qualifying player defaults to Elo 1500.0 & 50% form, which falsely looks superior to a tour veteran with Elo < 1500!)
+                        if len(wh) < 2 and len(wa) < 2:
+                            continue
 
                         d_elo_all = (ea.ratings[h] - ea.ratings[a]) / 400.0
                         d_elo_surf = (es.ratings[h] - es.ratings[a]) / 400.0
                         d_elo_games = (eg.ratings[h] - eg.ratings[a]) / 400.0
-                        gh, ga = game_hist[hk], game_hist[ak]
                         d_game_pct = (float(np.mean(gh)) if len(gh) >= 3 else 0.5) - (float(np.mean(ga)) if len(ga) >= 3 else 0.5)
-                        wh, wa = win6_hist[hk], win6_hist[ak]
                         d_win6 = (float(np.mean(wh)) if len(wh) >= 3 else 0.5) - (float(np.mean(wa)) if len(wa) >= 3 else 0.5)
 
                         def _tf_live(k: tuple[str, str]) -> tuple[float, float]:
@@ -529,6 +534,9 @@ def scan_upcoming_tennis(
                         p_h = float(models[lg].predict_proba([feat_vec])[0, 1])
                         pick_player = h if p_h >= 0.5 else a
                         win_prob = p_h if p_h >= 0.5 else (1.0 - p_h)
+                        pick_hist_len = len(wh) if p_h >= 0.5 else len(wa)
+                        if pick_hist_len < 2:
+                            continue
                         sgn = 1.0 if p_h >= 0.5 else -1.0
                         form_diff_pick = sgn * d_win6
                         dh_q, da_q = decider_hist[hk], decider_hist[ak]
@@ -2402,12 +2410,20 @@ def scan_upcoming_and_log_paper_trades(
     c_rev = _open_db(db_path)
     c_rev.row_factory = sqlite3.Row
     for r_pend in c_rev.execute(
-        "SELECT league, event_id, kickoff FROM paper_trades WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL) AND kickoff > ?",
-        (now_iso,),
+        "SELECT league, event_id, kickoff, is_live, live_score, clv_pct FROM paper_trades WHERE status = 'PENDING'",
     ).fetchall():
         lg_p = r_pend["league"].lower()
         eid_p = str(r_pend["event_id"])
         ko_p = str(r_pend["kickoff"])
+        l_sc_p = str(r_pend["live_score"] or "")
+        clv_p = float(r_pend["clv_pct"] or 0.0)
+        is_really_live = bool(r_pend["is_live"]) and "About to start" not in l_sc_p and "Not started" not in l_sc_p
+        # Purge any PENDING row whose market price collapsed (CLV <= -0.35, e.g. unrated debut player vs 1.01 favorite)
+        if clv_p <= -0.35:
+            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+            continue
+        if is_really_live or ko_p <= now_iso:
+            continue
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in ("nba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
