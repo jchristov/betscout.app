@@ -182,11 +182,19 @@ _TOKEN_CACHE: dict[str, Any] = {"token": None, "fetched_at": 0.0}
 _RESPONSE_CACHE: dict[str, tuple[float, Any]] = {}
 
 
+_CLUB_ALIASES: dict[str, str] = {
+    "paris saint germain": "psg paris saint germain",
+    "psg": "psg paris saint germain",
+    "internazionale": "inter internazionale milano",
+    "inter milan": "inter internazionale milano",
+}
+
+
 def _norm_name(name: str) -> str:
     clean = "".join(c for c in unicodedata.normalize("NFKD", name or "") if not unicodedata.combining(c)).lower()
     clean = re.sub(r"\b(fc|sc|cf|ac|afc|sv|vfb|vfl|tsg|rb|ud|cd|rcd|fk|sk|bk)\b", " ", clean)
     clean = re.sub(r"[^a-z0-9]+", " ", clean).strip()
-    return clean
+    return _CLUB_ALIASES.get(clean, clean)
 
 
 def _team_tokens(name: str) -> set[str]:
