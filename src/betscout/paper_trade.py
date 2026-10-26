@@ -1234,6 +1234,9 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                     pass
             if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
                 pass
+            elif outcome is not None and score_str and not needs_logos:
+                # Sportradar already resolved final outcome and score_str; skip slower ESPN fallback
+                pass
             elif sp != "tennis":
                 s_url = f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}"
                 sd = _fetch_live_json(s_url)
