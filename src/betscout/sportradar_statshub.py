@@ -889,11 +889,21 @@ def scan_sportradar_european_sports(
                 break
             mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
             t_forms = mf.get("teams") or {}
-            h_f_list = (t_forms.get("home") or {}).get("form") or []
-            a_f_list = (t_forms.get("away") or {}).get("form") or []
+            h_f_obj = t_forms.get("home") or {}
+            a_f_obj = t_forms.get("away") or {}
+            h_f_list = h_f_obj.get("form") or []
+            a_f_list = a_f_obj.get("form") or []
             h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
             a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
             form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
+            # Also compute Last-3 immediate session form (`form[:3]`) and current win/loss streaks (`streak`)
+            h_r3 = (sum(1.0 for x in h_f_list[:3] if x.get("type") == "W") / len(h_f_list[:3])) if len(h_f_list) >= 3 else 0.5
+            a_r3 = (sum(1.0 for x in a_f_list[:3] if x.get("type") == "W") / len(a_f_list[:3])) if len(a_f_list) >= 3 else 0.5
+            recent3_diff_fav = ((h_r3 - a_r3) if cand["side"] == "H" else (a_r3 - h_r3)) if (len(h_f_list) >= 3 and len(a_f_list) >= 3) else None
+            fav_st_obj = (h_f_obj.get("streak") if cand["side"] == "H" else a_f_obj.get("streak")) or {}
+            dog_st_obj = (a_f_obj.get("streak") if cand["side"] == "H" else h_f_obj.get("streak")) or {}
+            fav_loss_streak = int(fav_st_obj.get("value") or 0) if fav_st_obj.get("type") == "L" else 0
+            dog_win_streak = int(dog_st_obj.get("value") or 0) if dog_st_obj.get("type") == "W" else 0
             p_elo_fav = 0.50
             if lg_elo is not None:
                 p_elo_h = float(lg_elo.p_home_win_or_draw_free(cand["home"], cand["away"]))
@@ -908,6 +918,9 @@ def scan_sportradar_european_sports(
                 n_form_home=len(h_f_list),
                 n_form_away=len(a_f_list),
                 min_prob=min_prob,
+                recent3_diff_fav=recent3_diff_fav,
+                fav_loss_streak=fav_loss_streak,
+                dog_win_streak=dog_win_streak,
             )
             if not passed:
                 continue

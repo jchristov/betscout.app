@@ -800,11 +800,22 @@ def test_per_sport_isolated_gates():
     assert evaluate_nfl_gate(0.77, 0.804, 0.655, 0.503, 0.98, 18.0, 1.200) is False
     assert evaluate_nfl_gate(0.64, 0.657, 0.543, 0.378, 1.08, 72.0, 1.420) is False
 
-    # 6. Table Tennis: <1.28 negative-EV chalk is vetoed; 1.35 favorite with +0.30 form diff & Elo edge passes
+    # 6. Table Tennis: <1.28 negative-EV chalk or losing-streak favorite (Klocek vs Rudomina) is vetoed; 1.36 favorite with +0.30 form diff & Elo edge passes
     tt_bad, _, _ = evaluate_european_sport_gate("table_tennis", 0.78, 0.50, 0.0, 1.20, False, 5, 5)
-    tt_good, p_mod_tt, ev_tt = evaluate_european_sport_gate("table_tennis", 0.72, 0.62, 0.30, 1.36, True, 5, 5)
-    assert tt_bad is False
+    tt_streak_bad, _, _ = evaluate_european_sport_gate(
+        "table_tennis", 0.7119, 0.50, 0.10, 1.38, False, 10, 10, recent3_diff_fav=-1.0, fav_loss_streak=3, dog_win_streak=4
+    )
+    tt_good, p_mod_tt, ev_tt = evaluate_european_sport_gate(
+        "table_tennis", 0.72, 0.62, 0.30, 1.36, True, 5, 5, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0
+    )
+    assert tt_bad is False and tt_streak_bad is False
     assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
+
+    # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher)
+    t_alves, _, _, t_alves_reason = evaluate_tennis_gate(
+        0.8244, 1.249, 3.80, game_win_pct_diff=0.045, form_6m_diff=0.5, game_elo_diff=88.9, all_elo_diff=254.7, h2h_n=0
+    )
+    assert t_alves is False and t_alves_reason == "VETO_CAREER_ELO_GAME_DIVERGENCE"
 
     # 7. NBA gate & disabled_sports filtering in build_best_bets_summary
     from betscout.dashboard import build_best_bets_summary

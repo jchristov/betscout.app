@@ -589,6 +589,9 @@ def scan_upcoming_tennis(
                             opp_rest_h=opp_rest_h,
                             pick_last_tourn=pick_last_t,
                             cur_tourn_city=cur_t_city,
+                            game_elo_diff=round(sgn * d_elo_games * 400.0, 1),
+                            all_elo_diff=round(sgn * d_elo_all * 400.0, 1),
+                            h2h_n=n_p,
                         )
                         if not t_passed:
                             continue

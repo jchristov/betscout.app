@@ -81,6 +81,9 @@ def evaluate_tennis_gate(
     opp_rest_h: float | None = None,
     pick_last_tourn: str = "",
     cur_tourn_city: str = "",
+    game_elo_diff: float | None = None,
+    all_elo_diff: float | None = None,
+    h2h_n: int = 0,
 ) -> tuple[bool, float, float | None, str]:
     """Evaluate ATP/WTA Tennis specific gates and market-blend calibration.
     Returns `(passed, blended_win_prob, ev_pct, reason)`:
@@ -89,17 +92,32 @@ def evaluate_tennis_gate(
     2. **Stale-Elo / Zero-Recent-Form Veto:**
        Vetoes favorites whose rolling 6-month Game-Win% diff (`game_win_pct_diff <= 0.0`) AND 6-month Match-Win% diff
        (`form_6m_diff <= 0.0`) are both non-positive (e.g. `Samsonova vs Watson`).
-    3. **Market-Disagreement & EV Gate:**
+    3. **Career-Elo Inflation vs Modest Game-Share Veto:**
+       When career `all_elo_diff >= 230` inflates `win_prob >= 0.80` on a first-time matchup (`h2h_n == 0`),
+       require either `game_elo_diff >= 95.0` or `game_win_pct_diff >= 0.05` (vetoes lower-tier WTA/ITF chalk traps
+       like `Carolina Alves vs Julia Grabher` where `all_elo_diff=254.7` but `game_elo_diff=88.9` and `game_win_pct_diff=0.045`).
+    4. **Market-Disagreement & EV Gate:**
        Blends 75% model + 25% devigged bookmaker probability, vetoing >=15pp market disagreements (`p_mkt_devig < 0.60`)
        or negative EV (`ev_pct < 0.0` when `win_prob < 0.80`).
     """
-    # 1. Stale Career-Elo Veto: career Elo says favorite, but both 6m Game-Win% and 6m Match-Win% are <= 0
-    if game_win_pct_diff <= 0.0 and form_6m_diff <= 0.0:
+    # 1. Stale Career-Elo Veto: career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
+    if (all_elo_diff is None or all_elo_diff >= 220.0) and game_win_pct_diff <= -0.009 and form_6m_diff <= 0.0:
         return False, win_prob, None, "VETO_STALE_TENNIS_FORM"
     if form_6m_diff < -0.15:
         return False, win_prob, None, "VETO_NEGATIVE_6M_FORM"
 
-    # 2. Court-Acclimatization & Travel Fatigue Gate
+    # 2. Career-Elo Inflation vs Modest Game-Share Veto (e.g. Alves vs Grabher)
+    if (
+        all_elo_diff is not None
+        and game_elo_diff is not None
+        and all_elo_diff >= 230.0
+        and game_elo_diff < 95.0
+        and game_win_pct_diff < 0.05
+        and h2h_n == 0
+    ):
+        return False, win_prob, None, "VETO_CAREER_ELO_GAME_DIVERGENCE"
+
+    # 3. Court-Acclimatization & Travel Fatigue Gate
     if (
         win_prob < 0.80
         and isinstance(pick_rest_h, (int, float))
@@ -120,7 +138,7 @@ def evaluate_tennis_gate(
         blended_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
 
     ev_pct = round((blended_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
-    if ev_pct is not None and ev_pct < 0.0 and blended_prob < 0.80:
+    if ev_pct is not None and ev_pct < -1.5 and blended_prob < 0.80:
         return False, blended_prob, ev_pct, "VETO_NEGATIVE_EV"
 
     return True, blended_prob, ev_pct, "PASS"
@@ -291,30 +309,44 @@ def evaluate_european_sport_gate(
     n_form_home: int = 0,
     n_form_away: int = 0,
     min_prob: float = 0.68,
+    recent3_diff_fav: float | None = None,
+    fav_loss_streak: int = 0,
+    dog_win_streak: int = 0,
 ) -> tuple[bool, float, float]:
     """Sport-specific calibration & gating for European high-frequency sports
     (`table_tennis`, `handball`, `darts`, `snooker`, `mma`).
     Returns `(passed, p_model, ev_pct)`.
 
+    - **Immediate Last-3 Session Momentum & Streak Gate (All European Sports):**
+      Sportradar's `stats_match_form` lists `form[0]` as the most recent match and provides `streak: {type, value}`.
+      Vetoes any favorite currently on a >=2 match losing streak (`fav_loss_streak >= 2`), facing an underdog on a
+      >=3 match winning streak (`dog_win_streak >= 3`), or trailing in Last-3 session form (`recent3_diff_fav < 0.0`)
+      (e.g. `Klocek vs Rudomina` where Rudomina entered on a 0-3 losing streak while Klocek was on a 4-0 winning streak!).
     - **Table Tennis (`table_tennis`):** Commercial 5-set leagues have ~7.5% bookmaker vig on `<1.28` chalk.
-      Requires `1.28 <= best_odds <= 1.65`, `form_diff_fav >= 0.20` (with >=4 form matches), `p_elo_fav >= 0.52`,
-      and `ev_pct >= 0.0` (never logs negative-EV chalk).
+      Requires `1.28 <= best_odds <= 1.65`, `form_diff_fav >= 0.20` (with >=4 form matches), `p_elo_fav >= 0.50`,
+      `recent3_diff_fav >= 0.0`, and `ev_pct >= 0.0` (never logs negative-EV chalk).
     - **Handball (`handball`):** High-scoring 60-minute sport where favorites convert reliably (`88.2%` win rate).
-      Requires `1.18 <= best_odds <= 1.60`, `p_mkt >= 0.68`, `p_elo_fav >= 0.52`, and `form_diff_fav >= 0.0`.
-    - **Darts (`darts`):** Requires `1.15 <= best_odds <= 1.68`, `p_mkt >= 0.68`, `p_elo_fav >= 0.52`,
+      Requires `1.18 <= best_odds <= 1.60`, `p_mkt >= 0.68`, `p_elo_fav >= 0.50`, and `form_diff_fav >= 0.0`.
+    - **Darts (`darts`):** Requires `1.15 <= best_odds <= 1.68`, `p_mkt >= 0.68`, `p_elo_fav >= 0.50`,
       and `form_diff_fav >= 0.15` (`85.7%` win rate, `+15.43%` ROI).
     """
     sp = (sport_slug or "").lower().strip()
     if n_form_home >= 4 and n_form_away >= 4 and form_diff_fav < 0.0:
         return False, 0.0, -100.0
+    # Immediate session momentum & streak veto (catches Klocek vs Rudomina where fav_loss_streak=3 & dog_win_streak=4)
+    if fav_loss_streak >= 2 or dog_win_streak >= 3:
+        return False, 0.0, -100.0
+    if recent3_diff_fav is not None and recent3_diff_fav < 0.0:
+        return False, 0.0, -100.0
 
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
     elo_edge = (p_elo_fav - 0.50) if abs(p_elo_fav - 0.50) > 0.01 else 0.0
+    r3_bonus = (0.03 * recent3_diff_fav) if recent3_diff_fav is not None else 0.0
     p_model = min(
         0.94,
         max(
             0.52,
-            p_mkt + 0.12 * elo_edge + 0.08 * form_diff_fav + (0.015 if is_tipico else 0.0),
+            p_mkt + 0.12 * elo_edge + 0.08 * form_diff_fav + r3_bonus + (0.015 if is_tipico else 0.0),
         ),
     )
     ev_pct = round((p_model * best_odds - 1.0) * 100.0, 2)
