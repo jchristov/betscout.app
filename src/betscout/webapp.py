@@ -145,7 +145,9 @@ def resolve_request_role(
     if cookie_header:
         for chunk in cookie_header.split(";"):
             part = chunk.strip()
-            if part.startswith("bs_id_token="):
+            if part.startswith("__session="):
+                cookie_token = unquote(part.split("=", 1)[1].strip())
+            elif part.startswith("bs_id_token=") and not cookie_token:
                 cookie_token = unquote(part.split("=", 1)[1].strip())
             elif part.startswith("bs_api_key="):
                 cookie_api_k = unquote(part.split("=", 1)[1].strip())
@@ -1098,12 +1100,12 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path == "/sw.js":
-                rec_mtime = int(rec_path.stat().st_mtime) if rec_path.exists() else 0
-                sw_ver = f"betscout-pwa-v0.2.0-{rec_mtime}"
+                sw_ver = "betscout-pwa-v0.4.1"
                 sw_js = f"""const CACHE_NAME = '{sw_ver}';
-const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/betscout-logo.svg'];
+const SHELL_ASSETS = ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/betscout-logo.svg'];
 
 self.addEventListener('install', (event) => {{
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => {{}})
   );
@@ -1127,17 +1129,7 @@ self.addEventListener('fetch', (event) => {{
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.pathname.startsWith('/api/stream')) return;
-  if (url.pathname.startsWith('/api/') || url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/dashboard.html') {{
-    event.respondWith(
-      fetch(req).then((resp) => {{
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => {{}});
-        return resp;
-      }}).catch(() => caches.match(req).then((r) => r || caches.match('/')))
-    );
-    return;
-  }}
+  if (url.pathname.startsWith('/api/') || url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/dashboard.html') return;
   event.respondWith(
     caches.match(req).then((cached) => {{
       const netFetch = fetch(req).then((resp) => {{

@@ -4787,28 +4787,43 @@ def generate_dashboard_html(
           if (user) {{
             currentFirebaseUserEmail = user.email || '';
             currentFirebaseIdToken = await user.getIdToken();
+            // Firebase Hosting forwards ONLY the cookie named __session to Cloud Run backends
+            document.cookie = '__session=' + encodeURIComponent(currentFirebaseIdToken) + '; path=/; max-age=3600; SameSite=Lax';
             document.cookie = 'bs_id_token=' + encodeURIComponent(currentFirebaseIdToken) + '; path=/; max-age=3600; SameSite=Lax';
             try {{
               const r = await fetch('/api/auth/config', {{ headers: getAuthHeaders() }});
               const d = await r.json();
               currentIsAdmin = Boolean(d.is_admin);
+              updateFirebaseAuthUi();
+              connectStreamWithCurrentAuth();
               if (document.body.getAttribute('data-render-role') === 'free' && (d.is_admin || d.is_pro)) {{
-                window.location.reload();
-                return;
+                // Hydrate unlocked Admin/Pro DOM in-place via Authorization header (zero page reloads!)
+                const htmlResp = await fetch('/?_unlock=' + Date.now(), {{ headers: getAuthHeaders(), cache: 'no-store' }});
+                if (htmlResp.ok) {{
+                  const rawHtml = await htmlResp.text();
+                  const docParsed = new DOMParser().parseFromString(rawHtml, 'text/html');
+                  ['wsPanePicks', 'wsPaneStudio', 'wsPaneLedger', 'wsPaneAudit'].forEach(id => {{
+                    const curEl = document.getElementById(id);
+                    const newEl = docParsed.getElementById(id);
+                    if (curEl && newEl) curEl.innerHTML = newEl.innerHTML;
+                  }});
+                  const curKpi = document.querySelector('.kpi-grid');
+                  const newKpi = docParsed.querySelector('.kpi-grid');
+                  if (curKpi && newKpi) curKpi.innerHTML = newKpi.innerHTML;
+                  document.body.setAttribute('data-render-role', d.role || 'admin');
+                  updateVisibleKpi();
+                }}
               }}
             }} catch (_) {{}}
           }} else {{
-            const hadTokenCookie = document.cookie.includes('bs_id_token=');
+            document.cookie = '__session=; path=/; max-age=0; SameSite=Lax';
             document.cookie = 'bs_id_token=; path=/; max-age=0; SameSite=Lax';
             currentFirebaseUserEmail = '';
             currentFirebaseIdToken = '';
             currentIsAdmin = false;
-            if (hadTokenCookie && document.body.getAttribute('data-render-role') !== 'free') {{
-              window.location.reload();
-              return;
-            }}
+            updateFirebaseAuthUi();
+            connectStreamWithCurrentAuth();
           }}
-          updateFirebaseAuthUi();
         }});
       }} catch (_) {{}}
     }}
@@ -5113,18 +5128,22 @@ def generate_dashboard_html(
       }}
     }}
 
-    function initLiveEventStream() {{
+    let activeEventSource = null;
+
+    function connectStreamWithCurrentAuth() {{
       const dot = document.getElementById('streamDot');
       const txt = document.getElementById('streamStatusText');
       if (!window.location.protocol.startsWith('http') || typeof EventSource === 'undefined') {{
         if (txt) txt.textContent = 'Static Mode';
         return;
       }}
-      fetch('/api/social/status', {{ headers: getAuthHeaders() }}).then(r => r.json()).then(d => {{
-        updateSocialEnvBadges(d);
-        if (d && d.auth) initFirebaseAuthIfConfigured(d.auth);
-      }}).catch(() => {{}});
-      const es = new EventSource('/api/stream');
+      if (activeEventSource) {{
+        try {{ activeEventSource.close(); }} catch (_) {{}}
+        activeEventSource = null;
+      }}
+      const tokParam = currentFirebaseIdToken ? ('?token=' + encodeURIComponent(currentFirebaseIdToken)) : '';
+      const es = new EventSource('/api/stream' + tokParam);
+      activeEventSource = es;
       es.addEventListener('update', ev => {{
         if (dot) dot.classList.add('online');
         if (txt) txt.textContent = 'Connected';
@@ -5142,6 +5161,19 @@ def generate_dashboard_html(
         if (dot) dot.classList.remove('online');
         if (txt) txt.textContent = 'Reconnecting...';
       }};
+    }}
+
+    function initLiveEventStream() {{
+      if (!window.location.protocol.startsWith('http') || typeof EventSource === 'undefined') {{
+        const txt = document.getElementById('streamStatusText');
+        if (txt) txt.textContent = 'Static Mode';
+        return;
+      }}
+      fetch('/api/social/status', {{ headers: getAuthHeaders() }}).then(r => r.json()).then(d => {{
+        updateSocialEnvBadges(d);
+        if (d && d.auth) initFirebaseAuthIfConfigured(d.auth);
+      }}).catch(() => {{}});
+      connectStreamWithCurrentAuth();
     }}
 
     let deferredPwaPrompt = null;
@@ -5210,11 +5242,8 @@ def generate_dashboard_html(
             }});
           }});
         }}).catch(() => {{}});
-        let refreshingSw = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {{
-          if (refreshingSw) return;
-          refreshingSw = true;
-          window.location.reload();
+          // Static asset cache updated in background; no page reload needed.
         }});
       }}
       fetch('/api/version').then(r => r.json()).then(d => {{
