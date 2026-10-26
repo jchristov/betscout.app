@@ -3981,94 +3981,150 @@ def generate_dashboard_html(
       if (align) ctx.textAlign = prevAlign;
     }}
 
+    function splitCanvasKpiVal(rawVal) {{
+      const s = String(rawVal ?? '').trim();
+      if (!s) return {{ main: '—', sub: '' }};
+      if (s.includes(' · ')) {{
+        const idx = s.indexOf(' · ');
+        return {{ main: s.slice(0, idx).trim(), sub: s.slice(idx + 3).trim() }};
+      }}
+      if (s.includes(' | ')) {{
+        const idx = s.indexOf(' | ');
+        return {{ main: s.slice(0, idx).trim(), sub: s.slice(idx + 3).trim() }};
+      }}
+      if (s.includes('(') && s.endsWith(')') && !s.startsWith('(') && s.length > 14) {{
+        const idx = s.indexOf('(');
+        return {{ main: s.slice(0, idx).trim(), sub: s.slice(idx + 1, -1).trim() }};
+      }}
+      return {{ main: s, sub: '' }};
+    }}
+
+    function compactCanvasTime(tsStr) {{
+      const s = String(tsStr ?? '').trim();
+      if (!s) return '';
+      const months = {{ '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec' }};
+      if (s.length >= 10 && s[4] === '-' && s[7] === '-') {{
+        const m = months[s.slice(5, 7)] || s.slice(5, 7);
+        const d = s.slice(8, 10);
+        const rest = s.slice(10).trim();
+        return rest ? (m + ' ' + d + ', ' + rest) : (m + ' ' + d);
+      }}
+      return s;
+    }}
+
     function renderCanvasPickCard(meta) {{
       const cv = document.getElementById('pickCardCanvas');
       if (!cv || !cv.getContext) return;
       const ctx = cv.getContext('2d');
       const w = cv.width, h = cv.height;
-      // Background gradient
+      // Rich dark navy gradient background
       const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-      bgGrad.addColorStop(0, '#0b0f17');
+      bgGrad.addColorStop(0, '#090d15');
       bgGrad.addColorStop(1, '#111827');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // Outer card box
-      ctx.fillStyle = '#131b29';
-      ctx.strokeStyle = '#223049';
+      // Outer card frame
+      ctx.fillStyle = '#111827';
+      ctx.strokeStyle = '#24344f';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(20, 20, w - 40, h - 40, 18);
-      else ctx.rect(20, 20, w - 40, h - 40);
+      if (ctx.roundRect) ctx.roundRect(18, 18, w - 36, h - 36, 20);
+      else ctx.rect(18, 18, w - 36, h - 36);
       ctx.fill();
       ctx.stroke();
 
-      // Top cyan accent bar
+      // Top cyan-emerald gradient bar
       const topGrad = ctx.createLinearGradient(20, 0, w - 20, 0);
       topGrad.addColorStop(0, '#38bdf8');
       topGrad.addColorStop(1, '#22c55e');
       ctx.fillStyle = topGrad;
-      ctx.fillRect(22, 22, w - 44, 6);
+      ctx.fillRect(20, 20, w - 40, 6);
 
       // Brand header
-      ctx.fillStyle = '#e6edf7';
-      ctx.font = '800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('⚡ BETSCOUT', 48, 72);
-      ctx.fillStyle = '#8b9bb4';
-      ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 50, 96);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.font = '800 27px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('⚡ BETSCOUT', 44, 70);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 46, 93);
 
-      // Right badge
-      const badgeTxt = (meta && meta.badge) ? String(meta.badge) : 'LIVE AI SIGNAL';
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.16)';
+      const spIcon = getSportEmoji((meta && (meta.sport_cat || meta.comp || meta.competition || meta.match)) || 'soccer');
+
+      // Right badge with sport icon
+      const badgeTxt = spIcon + '  ' + ((meta && meta.badge) ? String(meta.badge) : 'LIVE AI SIGNAL');
+      ctx.fillStyle = '#0d1421';
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(w - 270, 46, 222, 38, 19);
-      else ctx.rect(w - 270, 46, 222, 38);
+      if (ctx.roundRect) ctx.roundRect(w - 284, 46, 240, 40, 20);
+      else ctx.rect(w - 284, 46, 240, 40);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#22c55e';
-      fillFittedCanvasText(ctx, badgeTxt, w - 159, 70, 195, 14, 11, '700', 'center');
+      fillFittedCanvasText(ctx, badgeTxt, w - 164, 71, 214, 13.5, 10.5, '700', 'center');
 
       // Divider
       ctx.strokeStyle = '#223049';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(48, 114);
-      ctx.lineTo(w - 48, 114);
+      ctx.moveTo(44, 108);
+      ctx.lineTo(w - 44, 108);
       ctx.stroke();
 
-      const spIcon = getSportEmoji((meta && (meta.sport_cat || meta.comp || meta.match)) || 'soccer');
-      const compStr = spIcon + ' ' + String((meta && meta.comp) || (meta && meta.sport_cat) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
-      const timeBits = [];
-      if (meta && meta.announced_at_local) timeBits.push('📣 Ann: ' + String(meta.announced_at_local));
-      timeBits.push('🕒 Start: ' + String((meta && meta.date_local) || 'Today'));
-      if (meta && meta.ended_at_local) timeBits.push('🏁 Ended: ' + String(meta.ended_at_local));
-      const koStr = timeBits.join('  ·  ');
+      // Competition pill on Left + Compact Timestamp pill on Right
+      const compStr = spIcon + '  ' + String((meta && (meta.comp || meta.competition || meta.sport_cat)) || 'MULTI-SPORT QUANT SLATE').toUpperCase();
+      ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      const compW = Math.min(410, Math.max(180, Math.ceil(ctx.measureText(compStr).width) + 32));
+      ctx.fillStyle = '#0d1421';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(44, 118, compW, 34, 9);
+      else ctx.rect(44, 118, compW, 34);
+      ctx.fill();
+      ctx.stroke();
       ctx.fillStyle = '#38bdf8';
-      fillFittedCanvasText(ctx, compStr, 48, 148, 430, 14, 10, '700', 'left');
-      ctx.fillStyle = '#94a3b8';
-      fillFittedCanvasText(ctx, koStr, w - 48, 148, 540, 12.5, 9.5, '700', 'right');
+      fillFittedCanvasText(ctx, compStr, 58, 140, compW - 26, 12, 9.5, '700', 'left');
 
-      // Matchup title
-      const matchTitle = String((meta && meta.match) || 'Daily High-Conviction Picks');
+      const timeBits = [];
+      if (meta && meta.announced_at_local) timeBits.push('📣 Ann: ' + compactCanvasTime(meta.announced_at_local));
+      timeBits.push('🕒 Start: ' + compactCanvasTime((meta && meta.date_local) || 'Today'));
+      if (meta && meta.ended_at_local) timeBits.push('🏁 Ended: ' + compactCanvasTime(meta.ended_at_local));
+      const koStr = timeBits.join('   |   ');
+      const maxKoW = Math.max(260, w - 88 - compW - 16);
+      ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      const koBoxW = Math.min(maxKoW, Math.max(190, Math.ceil(ctx.measureText(koStr).width) + 28));
+      ctx.fillStyle = '#0d1421';
+      ctx.strokeStyle = '#2d3e5c';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(w - 44 - koBoxW, 118, koBoxW, 34, 9);
+      else ctx.rect(w - 44 - koBoxW, 118, koBoxW, 34);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#cbd5e1';
+      fillFittedCanvasText(ctx, koStr, w - 56, 140, koBoxW - 22, 12, 9, '700', 'right');
+
+      // Matchup title with sport icon emblem
+      const matchTitle = spIcon + '  ' + String((meta && meta.match) || 'Daily High-Conviction Picks');
       ctx.fillStyle = '#ffffff';
-      fillFittedCanvasText(ctx, matchTitle, 48, 200, w - 96, 34, 19, '800', 'left');
+      fillFittedCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '800', 'left');
 
-      // Main Pick Highlight Box (2 clean lines so long picks + score targets never clip)
-      ctx.fillStyle = 'rgba(13, 31, 28, 0.95)';
+      // Main Pick Highlight Box (with emerald left accent bar & 2-line layout)
+      ctx.fillStyle = '#0d211d';
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(48, 230, w - 96, 120, 14);
-      else ctx.rect(48, 230, w - 96, 120);
+      if (ctx.roundRect) ctx.roundRect(44, 224, w - 88, 128, 14);
+      else ctx.rect(44, 224, w - 88, 128);
       ctx.fill();
       ctx.stroke();
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(46, 226, 8, 124);
 
       ctx.fillStyle = '#86efac';
-      ctx.font = '700 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 256);
+      ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 250);
 
       const rawPick = String((meta && meta.pick) || 'Top Calibrated Edge');
       let mainPick = rawPick;
@@ -4077,47 +4133,65 @@ def generate_dashboard_html(
         const pts = rawPick.split(' · ');
         mainPick = pts[0];
         subPick = pts.slice(1).join(' · ');
+      }} else if (rawPick.includes(' | ')) {{
+        const pts = rawPick.split(' | ');
+        mainPick = pts[0];
+        subPick = pts.slice(1).join(' | ');
       }}
       ctx.fillStyle = '#22c55e';
-      fillFittedCanvasText(ctx, mainPick, 72, 294, w - 144, 28, 17, '800', 'left');
+      fillFittedCanvasText(ctx, mainPick, 72, 290, w - 144, 28, 16, '800', 'left');
 
       const subLine = subPick || ((meta && meta.exact_score && meta.exact_score !== 'Moneyline Edge') ? ('Score / Set Target: ' + meta.exact_score) : 'Verified Out-of-Sample Quantitative Signal');
       ctx.fillStyle = '#cbd5e1';
       fillFittedCanvasText(ctx, subLine, 72, 328, w - 144, 15, 11, '600', 'left');
 
-      // 4 KPI Boxes
-      const rawEsc = String((meta && meta.exact_score) || 'Moneyline Edge');
-      const shortEsc = rawEsc.includes('|') ? rawEsc.split('|')[0].trim() : rawEsc;
+      // 4 KPI Boxes with 2-line primary + sub-value layout so zero text is ever cut off
+      const odSplit = splitCanvasKpiVal((meta && meta.odds_display) || '—');
+      const escSplit = splitCanvasKpiVal((meta && meta.exact_score) || 'Moneyline Edge');
       const kpis = [
-        {{ lbl: 'BOOKMAKER ODDS', val: String((meta && meta.odds_display) || '—'), col: '#22c55e' }},
-        {{ lbl: 'MODEL WIN PROB', val: String((meta && meta.win_prob_str) || 'High Conf'), col: '#38bdf8' }},
-        {{ lbl: 'MIN FAIR ODDS', val: String((meta && meta.fair_str) || 'Calibrated'), col: '#e6edf7' }},
-        {{ lbl: 'SCORE PROJECTION', val: shortEsc, col: '#f59e0b' }}
+        {{ lbl: 'BOOKMAKER ODDS', main: odSplit.main, sub: odSplit.sub || 'Live Market Price', col: '#22c55e' }},
+        {{ lbl: 'MODEL WIN PROB', main: String((meta && meta.win_prob_str) || 'High Conf'), sub: 'Tier: ' + String((meta && (meta.tier || meta.badge)) || 'TOP EDGE').toUpperCase(), col: '#38bdf8' }},
+        {{ lbl: 'MIN FAIR ODDS', main: String((meta && meta.fair_str) || 'Calibrated'), sub: 'Zero-Vig Model Floor', col: '#f1f5f9' }},
+        {{ lbl: 'SCORE PROJECTION', main: escSplit.main, sub: escSplit.sub || 'Dixon-Coles / Set Matrix', col: '#f59e0b' }}
       ];
-      const bw = Math.floor((w - 96 - 36) / 4);
+      const bw = Math.floor((w - 88 - 36) / 4);
       kpis.forEach((k, idx) => {{
-        const bx = 48 + idx * (bw + 12);
-        ctx.fillStyle = '#0f1623';
+        const bx = 44 + idx * (bw + 12);
+        ctx.fillStyle = '#0d1421';
         ctx.strokeStyle = '#223049';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(bx, 372, bw, 108, 12);
-        else ctx.rect(bx, 372, bw, 108);
+        if (ctx.roundRect) ctx.roundRect(bx, 370, bw, 118, 12);
+        else ctx.rect(bx, 370, bw, 118);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = '#8b9bb4';
-        ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.fillText(k.lbl, bx + 16, 398);
+        // Top accent strip on each KPI card
         ctx.fillStyle = k.col;
-        fillFittedCanvasText(ctx, k.val, bx + 16, 442, bw - 30, 24, 13, '800', 'left');
+        ctx.fillRect(bx + 2, 371, bw - 4, 4);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(k.lbl, bx + 16, 396);
+        ctx.fillStyle = k.col;
+        fillFittedCanvasText(ctx, k.main, bx + 16, 434, bw - 28, 24, 14, '800', 'left');
+        if (k.sub) {{
+          ctx.fillStyle = '#94a3b8';
+          fillFittedCanvasText(ctx, k.sub, bx + 16, 466, bw - 28, 12, 9.5, '600', 'left');
+        }}
       }});
 
-      // Footer
-      ctx.fillStyle = '#8b9bb4';
-      ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 48, 526);
+      // Footer (uses BetScout product name only — no betscout.app URL)
+      ctx.strokeStyle = '#223049';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(44, 508);
+      ctx.lineTo(w - 44, 508);
+      ctx.stroke();
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 44, 534);
       ctx.fillStyle = '#38bdf8';
-      fillFittedCanvasText(ctx, 'BetScout Quant Desk', w - 48, 526, 220, 13.5, 11, '600', 'right');
+      fillFittedCanvasText(ctx, 'BetScout', w - 44, 534, 180, 13.5, 11, '700', 'right');
     }}
 
     function downloadPickCardPng() {{
