@@ -442,19 +442,36 @@ def get_daily_tipico_match_index(sport: str = "soccer", date_ymd: str | None = N
     sport_id = SR_SPORT_IDS.get(sport.lower(), 1)
     u_data = fetch_statshub_gismo("unified_sport_matches", f"{sport_id}/{date_ymd}/0", ttl_sec=600.0)
     flat: list[dict[str, Any]] = []
+    youth_or_amateur: list[dict[str, Any]] = []
     if isinstance(u_data, dict):
         sp_obj = u_data.get("sport") or {}
         for rc in sp_obj.get("realcategories") or []:
+            rc_name = str(rc.get("name") or "")
+            if "simulated reality" in rc_name.lower() or "esoccer" in rc_name.lower():
+                continue
             for t in rc.get("tournaments") or []:
-                t_label = f"{rc.get('name', '')} · {t.get('name', '')}".strip(" ·")
+                t_label = f"{rc_name} · {t.get('name', '')}".strip(" ·")
+                t_low = t_label.lower()
+                if " srl" in t_low or "simulated reality" in t_low:
+                    continue
+                is_sub_tier = any(w in t_low for w in ("amateur", "u19", "u20", "u21", "u18", "u17", "youth", "reserve"))
                 for m in t.get("matches") or []:
                     teams = m.get("teams") or {}
-                    flat.append({
+                    h_nm = str((teams.get("home") or {}).get("name") or "")
+                    a_nm = str((teams.get("away") or {}).get("name") or "")
+                    if h_nm.endswith(" SRL") or a_nm.endswith(" SRL"):
+                        continue
+                    item = {
                         "match_obj": m,
                         "tournament": t_label,
-                        "home": (teams.get("home") or {}).get("name") or "",
-                        "away": (teams.get("away") or {}).get("name") or "",
-                    })
+                        "home": h_nm,
+                        "away": a_nm,
+                    }
+                    if is_sub_tier:
+                        youth_or_amateur.append(item)
+                    else:
+                        flat.append(item)
+    flat.extend(youth_or_amateur)
     _RESPONSE_CACHE[cache_k] = (now, flat)
     return flat
 
@@ -1168,33 +1185,30 @@ def lookup_statshub_match_intel(
     if not date_ymd:
         date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     sport_id = SR_SPORT_IDS.get(sport.lower(), 1)
-    u_data = fetch_statshub_gismo("unified_sport_matches", f"{sport_id}/{date_ymd}/0")
-    if not isinstance(u_data, dict):
-        return {"ok": False, "found": False}
+    date_candidates = [date_ymd]
+    try:
+        dt_b = datetime.strptime(date_ymd[:10], "%Y-%m-%d")
+        date_candidates.append((dt_b + timedelta(days=1)).strftime("%Y-%m-%d"))
+    except Exception:
+        pass
 
-    sp_obj = u_data.get("sport") or {}
     matched_m: dict[str, Any] | None = None
     matched_tourn = ""
     flipped = False
 
-    for rc in sp_obj.get("realcategories") or []:
-        for t in rc.get("tournaments") or []:
-            t_label = f"{rc.get('name', '')} · {t.get('name', '')}".strip(" ·")
-            for m in t.get("matches") or []:
-                teams = m.get("teams") or {}
-                th = (teams.get("home") or {}).get("name") or ""
-                ta = (teams.get("away") or {}).get("name") or ""
-                if _names_match(home, th) and _names_match(away, ta):
-                    matched_m = m
-                    matched_tourn = t_label
-                    flipped = False
-                    break
-                if _names_match(home, ta) and _names_match(away, th):
-                    matched_m = m
-                    matched_tourn = t_label
-                    flipped = True
-                    break
-            if matched_m:
+    for d_cand in date_candidates:
+        flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
+        for entry in flat:
+            th, ta = entry["home"], entry["away"]
+            if _names_match(home, th) and _names_match(away, ta):
+                matched_m = entry["match_obj"]
+                matched_tourn = entry["tournament"]
+                flipped = False
+                break
+            if _names_match(home, ta) and _names_match(away, th):
+                matched_m = entry["match_obj"]
+                matched_tourn = entry["tournament"]
+                flipped = True
                 break
         if matched_m:
             break

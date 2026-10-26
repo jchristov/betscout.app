@@ -60,18 +60,37 @@ _PIPELINE_STATUS: dict[str, Any] = {
 }
 
 
+from . import load_dotenv as _load_dotenv_once
+
+_load_dotenv_once(override=False)
+
+
 def get_firebase_auth_config() -> dict[str, Any]:
     """Return Firebase Auth & Cloud Run RBAC configuration from environment variables.
-    When `FIREBASE_WEB_API_KEY` and `FIREBASE_ADMIN_EMAILS` are not set (local mode),
-    `enabled` is `False` and all endpoints operate without requiring a login token."""
+    Supports both `FIREBASE_*` and `VITE_FIREBASE_*` variable names and defaults admin emails
+    to `julian.christ@gmail.com,julian.christov@gmail.com` when Firebase is configured."""
     import os
-    from . import load_dotenv
 
-    load_dotenv(override=False)
-    api_key = (os.environ.get("FIREBASE_WEB_API_KEY") or "").strip()
-    project_id = (os.environ.get("FIREBASE_PROJECT_ID") or "").strip()
-    auth_domain = (os.environ.get("FIREBASE_AUTH_DOMAIN") or (f"{project_id}.firebaseapp.com" if project_id else "")).strip()
-    raw_admins = (os.environ.get("FIREBASE_ADMIN_EMAILS") or "").strip()
+    api_key = (
+        os.environ.get("FIREBASE_WEB_API_KEY")
+        or os.environ.get("VITE_FIREBASE_API_KEY")
+        or ""
+    ).strip()
+    project_id = (
+        os.environ.get("FIREBASE_PROJECT_ID")
+        or os.environ.get("VITE_FIREBASE_PROJECT_ID")
+        or ""
+    ).strip()
+    auth_domain = (
+        os.environ.get("FIREBASE_AUTH_DOMAIN")
+        or os.environ.get("VITE_FIREBASE_AUTH_DOMAIN")
+        or (f"{project_id}.firebaseapp.com" if project_id else "")
+    ).strip()
+    raw_admins = (
+        os.environ.get("BETSCOUT_ADMIN_EMAILS")
+        or os.environ.get("FIREBASE_ADMIN_EMAILS")
+        or ""
+    ).strip()
     admin_emails = [x.strip().lower() for x in raw_admins.split(",") if x.strip()]
     cron_secret = (os.environ.get("BETSCOUT_CRON_SECRET") or "").strip()
     return {

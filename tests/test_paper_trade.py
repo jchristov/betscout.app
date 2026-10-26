@@ -845,14 +845,16 @@ def test_per_sport_isolated_gates():
 
     # Default local mode (no FIREBASE_WEB_API_KEY / FIREBASE_ADMIN_EMAILS): all requests allowed
     os.environ.pop("FIREBASE_WEB_API_KEY", None)
+    os.environ.pop("VITE_FIREBASE_API_KEY", None)
     os.environ.pop("FIREBASE_ADMIN_EMAILS", None)
+    os.environ.pop("BETSCOUT_ADMIN_EMAILS", None)
     assert get_firebase_auth_config()["enabled"] is False
     ok_local, actor_local, _ = verify_admin_request_auth(None)
     assert ok_local is True and actor_local == "local_admin"
 
     # Cloud Run mode with FIREBASE_WEB_API_KEY + FIREBASE_ADMIN_EMAILS + BETSCOUT_CRON_SECRET
     os.environ["FIREBASE_WEB_API_KEY"] = "AIzaSy_test_key"
-    os.environ["FIREBASE_ADMIN_EMAILS"] = "admin@betscout.app"
+    os.environ["FIREBASE_ADMIN_EMAILS"] = "julian.christ@gmail.com,julian.christov@gmail.com"
     os.environ["BETSCOUT_CRON_SECRET"] = "secret_scheduler_token_123"
     try:
         assert get_firebase_auth_config()["enabled"] is True
