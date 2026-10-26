@@ -1,4 +1,4 @@
-"""Backfill finished ESPN results and pre-match prices into data/matches.sqlite."""
+"""Backfill finished ESPN results and pre-match prices into data/betscout.db."""
 
 import sys
 from pathlib import Path
@@ -11,4 +11,4 @@ ROOT = Path(__file__).resolve().parents[1] / "data"
 YEARS = [2022, 2023, 2024, 2025]
 
 if __name__ == "__main__":
-    print(backfill(ROOT / "matches.sqlite", ROOT / "cache", YEARS, workers=8), flush=True)
+    print(backfill(ROOT / "betscout.db", ROOT / "cache", YEARS, workers=8), flush=True)

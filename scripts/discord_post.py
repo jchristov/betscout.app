@@ -50,7 +50,7 @@ def main() -> None:
     args = parser.parse_args()
 
     rec_path = ROOT / "data" / "recommendations.json"
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
 
     msg = format_discord_digest(

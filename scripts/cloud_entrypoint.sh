@@ -2,11 +2,11 @@
 set -euo pipefail
 
 # If a persistent volume (e.g. Cloud Run GCS FUSE /mnt/data or Fly.io /data) is mounted via BETSCOUT_DATA_DIR,
-# automatically seed it from /app/data_seed on first boot if matches.sqlite does not exist yet.
+# automatically seed it from /app/data_seed on first boot if betscout.db does not exist yet.
 TARGET_DATA_DIR="${BETSCOUT_DATA_DIR:-/app/data}"
 mkdir -p "${TARGET_DATA_DIR}"
 
-if [ -d "/app/data_seed" ] && [ ! -f "${TARGET_DATA_DIR}/matches.sqlite" ]; then
+if [ -d "/app/data_seed" ] && [ ! -f "${TARGET_DATA_DIR}/betscout.db" ]; then
   echo "📦 Seeding initial database and recommendations into ${TARGET_DATA_DIR}..."
   cp -rn /app/data_seed/* "${TARGET_DATA_DIR}/" || true
 fi

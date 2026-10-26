@@ -18,7 +18,7 @@ from betscout.exact_score import evaluate_exact_score_models  # noqa: E402
 
 
 def main() -> None:
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     res = evaluate_exact_score_models(db_path)
     se = res["soccer_exact_score"]
     te = res["tennis_set_score"]

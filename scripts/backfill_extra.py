@@ -1,4 +1,4 @@
-"""Backfill additional soccer leagues (Austrian Bundesliga) into data/matches.sqlite."""
+"""Backfill additional soccer leagues (Austrian Bundesliga) into data/betscout.db."""
 
 import sys
 from pathlib import Path
@@ -14,4 +14,4 @@ YEARS = [2022, 2023, 2024, 2025]
 
 if __name__ == "__main__":
     leagues = [lg for lg in SOCCER_LEAGUES if lg.key in WANTED]
-    print(backfill(ROOT / "matches.sqlite", ROOT / "cache", YEARS, leagues, workers=8), flush=True)
+    print(backfill(ROOT / "betscout.db", ROOT / "cache", YEARS, leagues, workers=8), flush=True)

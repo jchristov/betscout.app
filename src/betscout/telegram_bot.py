@@ -705,6 +705,34 @@ def notify_new_settlements_to_discord(
                         f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — *{r['home']} vs {r['away']}* [`{sc_str}`]"
                     )
                 send_discord_message("\n".join(sp_lines), webhook_url=sp_wh, dry_run=dry_run)
+
+            # Also publish settled WIN/LOSS recaps to the Free Public Teaser Channel (`DISCORD_WEBHOOK_URL_FREE_TEASER`)
+            # and any active B2B Syndicate customer webhooks (`subscriber_webhooks` in betscout.db)
+            free_teaser_wh = (os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
+            if free_teaser_wh.startswith("https://discord") and free_teaser_wh != global_wh:
+                send_discord_message(
+                    msg + "\n\n🚀 *Unlock all daily VIP picks & exact-score matrices at **betscout.app***",
+                    webhook_url=free_teaser_wh,
+                    dry_run=dry_run,
+                    image_bytes=settle_img_bytes,
+                    image_filename="betscout_settlement.png",
+                    also_send_to_global=False,
+                )
+            try:
+                from .monetization import list_subscriber_webhooks
+
+                for sub_wh in list_subscriber_webhooks(db_path, active_only=True):
+                    if sub_wh.get("channel_type") == "discord" and str(sub_wh.get("target_url_or_chat") or "").startswith("https://discord"):
+                        send_discord_message(
+                            msg,
+                            webhook_url=str(sub_wh["target_url_or_chat"]),
+                            dry_run=dry_run,
+                            image_bytes=settle_img_bytes,
+                            image_filename="betscout_settlement.png",
+                            also_send_to_global=False,
+                        )
+            except Exception:
+                pass
         if not dry_run and not res.get("ok"):
             # Release claim so a future retry can send if network/webhook failed
             c_rel = sqlite3.connect(db_path, timeout=15.0)

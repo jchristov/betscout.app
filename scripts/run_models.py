@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from betscout.models import evaluate, fmt, soccer_samples, tennis_samples  # noqa: E402
 
-DB = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
+DB = Path(__file__).resolve().parents[1] / "data" / "betscout.db"
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "both"

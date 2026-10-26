@@ -27,7 +27,7 @@ RUN uv sync --frozen --no-dev
 COPY ingestion_config.json betscout-logo.svg betscout-logo.png ./
 RUN mkdir -p /app/data
 
-# Entrypoint script seeds mounted volume (/mnt/data) with initial matches.sqlite if empty, then starts the server
+# Entrypoint script seeds mounted volume (/mnt/data) with initial betscout.db if empty, then starts the server
 COPY scripts/cloud_entrypoint.sh /app/scripts/cloud_entrypoint.sh
 RUN chmod +x /app/scripts/cloud_entrypoint.sh
 

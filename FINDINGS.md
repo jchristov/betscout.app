@@ -6,7 +6,7 @@ This document summarizes the data pipeline, data-quality audit, feature engineer
 
 ## 1. Executive Summary
 
-Across **52,410 finished matches** (`9,292` soccer matches across 6 European leagues + international fixtures, and `43,118` deduplicated ATP & WTA tennis singles matches from 2022 through October 2026), we built a zero-lookahead, point-in-time feature and backtesting engine backed by cached ESPN scoreboard and summary payloads (`data/matches.sqlite`).
+Across **52,410 finished matches** (`9,292` soccer matches across 6 European leagues + international fixtures, and `43,118` deduplicated ATP & WTA tennis singles matches from 2022 through October 2026), we built a zero-lookahead, point-in-time feature and backtesting engine backed by cached ESPN scoreboard and summary payloads (`data/betscout.db`).
 
 ### Key Takeaways
 1. **Single-feature models and raw goal-based Elo do not beat closing bookmaker prices**: A single bookmaker's closing 1X2 line carries a ~`5.6%` overround and already prices in team Elo, recent W/D/L form, and rest days.
@@ -29,7 +29,7 @@ Across **52,410 finished matches** (`9,292` soccer matches across 6 European lea
 
 ## 2. Database Architecture & Current Data Status (`55,212` Verified Matches)
 
-The SQLite database (`data/matches.sqlite`) and config descriptor ([`ingestion_config.json`](./ingestion_config.json)) manage three core tables and one unified view across **6 sports and 20 leagues**:
+The SQLite database (`data/betscout.db`) and config descriptor ([`ingestion_config.json`](./ingestion_config.json)) manage three core tables and one unified view across **6 sports and 20 leagues**:
 
 | Object | Rows | Description |
 | :--- | ---: | :--- |

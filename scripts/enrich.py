@@ -50,7 +50,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     cache_dir = ROOT / "data" / "cache"
 
     if args.full:

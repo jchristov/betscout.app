@@ -1,4 +1,4 @@
-"""View and export Settled and Pending Paper-Bets from `data/matches.sqlite`.
+"""View and export Settled and Pending Paper-Bets from `data/betscout.db`.
 
 Usage:
     uv run betscout-ledger                 # Print Settled & Pending paper bets + summary
@@ -31,7 +31,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     newly_settled = settle_pending_paper_trades(db_path)
     summary = get_paper_ledger_summary(db_path)
 

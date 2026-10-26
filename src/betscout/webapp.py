@@ -98,6 +98,90 @@ def verify_admin_request_auth(auth_header: str | None) -> tuple[bool, str | None
     cfg = get_firebase_auth_config()
     if not cfg["enabled"]:
         return True, "local_admin", ""
+    role, actor, err = resolve_request_role(Path("data/betscout.db"), auth_header=auth_header)
+    return (role == "admin"), actor, err
+
+
+def resolve_request_role(
+    db_path: Path,
+    auth_header: str | None = None,
+    api_key_header: str | None = None,
+    query_token: str | None = None,
+) -> tuple[str, str | None, str]:
+    """Resolve the caller's role (`'admin'`, `'pro'`, or `'free'`), email/actor, and optional error message."""
+    import os
+    import subprocess
+    from .monetization import check_is_active_subscriber, get_monetization_config, validate_and_meter_api_key
+
+    fb_cfg = get_firebase_auth_config()
+    mon_cfg = get_monetization_config(db_path.parent if db_path else None)
+    if not fb_cfg["enabled"] and not mon_cfg["enabled"]:
+        return "admin", "local_admin", ""
+
+    raw_api_k = (api_key_header or "").strip()
+    if not raw_api_k and auth_header and "bs_live_" in auth_header:
+        raw_api_k = auth_header.split()[-1].strip()
+    if not raw_api_k and query_token and query_token.startswith("bs_live_"):
+        raw_api_k = query_token.strip()
+    if raw_api_k.startswith("bs_live_"):
+        ok_k, k_info, _, _ = validate_and_meter_api_key(db_path, raw_api_k, required_tier="starter")
+        if ok_k:
+            return "pro", str(k_info.get("owner_email") or "api_subscriber"), ""
+
+    token = ""
+    if auth_header and len(auth_header.strip()) > 7 and auth_header.strip()[:7].lower() == "bearer ":
+        token = auth_header.strip()[7:].strip()
+    elif query_token and not query_token.startswith("bs_live_"):
+        token = query_token.strip()
+
+    cron_secret = (os.environ.get("BETSCOUT_CRON_SECRET") or "").strip()
+    if cron_secret and token and token == cron_secret:
+        return "admin", "cloud_scheduler", ""
+
+    if not token:
+        return ("free" if mon_cfg["enabled"] else "pro"), None, "Authentication required: Sign in with your Admin Google account to perform this action."
+
+    if not fb_cfg["api_key"]:
+        return ("free" if mon_cfg["enabled"] else "pro"), None, "Invalid or unconfigured Firebase Web API key."
+
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={fb_cfg['api_key']}"
+    try:
+        proc = subprocess.run(
+            [
+                "curl", "-sS", "-m", "8", "-X", "POST", url,
+                "-H", "Content-Type: application/json",
+                "-d", json.dumps({"idToken": token}),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        data = json.loads(proc.stdout)
+        users = data.get("users") or []
+        if not users:
+            return "free", None, "Invalid or expired Firebase ID token. Please sign in again."
+        u0 = users[0]
+        email = str(u0.get("email") or "").strip().lower()
+        email_verified = bool(u0.get("emailVerified", True))
+        if not email or not email_verified:
+            return "free", email, "Verified email address required."
+        if email in fb_cfg["admin_emails"]:
+            return "admin", email, ""
+        is_sub, _tier = check_is_active_subscriber(db_path, email)
+        if is_sub or not mon_cfg["enabled"]:
+            return "pro", email, f"Read-only account ({email}): only authorized admins can modify server state."
+        return "free", email, f"Free account ({email}): upgrade to BetScout Pro to unlock all picks."
+    except Exception as exc:
+        return "free", None, f"Token verification failed: {exc}"
+
+
+def verify_admin_request_auth(auth_header: str | None, db_path: Path | None = None) -> tuple[bool, str | None, str]:
+    import os
+    import subprocess
+
+    cfg = get_firebase_auth_config()
+    if not cfg["enabled"]:
+        return True, "local_admin", ""
 
     token = ""
     if auth_header and auth_header.strip().lower().startswith("bearer "):
@@ -205,7 +289,7 @@ def _save_webapp_settings(
         if isinstance(updates.get("disabled_sports"), list):
             cur["disabled_sports"] = [str(x).lower().strip() for x in updates["disabled_sports"] if x]
             # Remove any uncompleted pre-match PENDING paper_trades for disabled sports while keeping SETTLED rows in the ledger
-            db_f = data_dir / "matches.sqlite"
+            db_f = data_dir / "betscout.db"
             if db_f.exists() and cur["disabled_sports"]:
                 try:
                     dis_set = set(cur["disabled_sports"])
@@ -246,6 +330,7 @@ def _build_live_snapshot(
     min_odds: float = 1.10,
     sport: str = "all",
     run_settle: bool = False,
+    role: str = "admin",
 ) -> dict[str, Any]:
     newly_settled = 0
     if run_settle and db_path.exists():
@@ -275,6 +360,13 @@ def _build_live_snapshot(
         ledger["pending_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and not t.get("is_live"))
         ledger["live_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and t.get("is_live"))
     rec["paper_ledger"] = ledger
+    if role == "free":
+        from .monetization import get_monetization_config, redact_recommendations_for_free_tier
+
+        mon_cfg = get_monetization_config(db_path.parent)
+        if mon_cfg["enabled"]:
+            rec = redact_recommendations_for_free_tier(rec, free_preview_count=mon_cfg["free_preview_picks_count"])
+            ledger = rec.get("paper_ledger") or ledger
     best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport, disabled_sports=dis_sports)
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
@@ -283,6 +375,7 @@ def _build_live_snapshot(
         "generated_at": rec.get("generated_at"),
         "generated_at_local": _format_local_time(rec.get("generated_at") or "", DEFAULT_LOCAL_TZ),
         "timezone": DEFAULT_LOCAL_TZ,
+        "role": role,
         "discord_env": get_discord_env_config(),
         "telegram_env": get_telegram_env_config(),
         "pipeline_status": dict(_PIPELINE_STATUS),
@@ -410,7 +503,7 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
 def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
     """On-demand live matchup analyzer (`GET /api/analyze-live?q=Player1 vs Player2`).
     Works for ANY Tennis or Football matchup (even sub-70% non-bankers), combining live 8-Feature Tennis Elo /
-    7-Factor Football state from `matches.sqlite` with live SofaScore bookmaker odds, all-level (ATP/WTA/Challenger)
+    7-Factor Football state from `betscout.db` with live SofaScore bookmaker odds, all-level (ATP/WTA/Challenger)
     Last-5 form, rest/turnaround hours, and 3 explicit market verdicts (Moneyline/1X2, Handicap/Shield, Totals)."""
     import math
     from collections import defaultdict, deque
@@ -459,7 +552,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name, detected_league)
     pk_existing = base_detail.get("pick_detail") or {}
 
-    # Compute live Elo & rolling stats from matches.sqlite for the detected sport
+    # Compute live Elo & rolling stats from betscout.db for the detected sport
     elo_diff_1 = 0.0
     game_elo_diff_1 = 0.0
     game_share_diff_1 = 0.0
@@ -756,7 +849,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
 
     env_data_dir = (os.environ.get("BETSCOUT_DATA_DIR") or "").strip()
     data_dir = Path(env_data_dir) if env_data_dir else (root_dir / "data")
-    db_path = data_dir / "matches.sqlite"
+    db_path = data_dir / "betscout.db"
     rec_path = data_dir / "recommendations.json"
     dash_path = data_dir / "dashboard.html"
     last_digest_ymd: list[str] = [""]
@@ -819,20 +912,23 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
     data_dir = Path(env_data_dir) if env_data_dir else (root_dir / "data")
     data_dir.mkdir(parents=True, exist_ok=True)
     rec_path = data_dir / "recommendations.json"
-    db_path = data_dir / "matches.sqlite"
+    db_path = data_dir / "betscout.db"
     dash_path = data_dir / "dashboard.html"
     best_csv_path = data_dir / "best_bets.csv"
     best_json_path = data_dir / "best_bets.json"
     settled_csv_path = data_dir / "settled_bets.csv"
 
     class QuantDeskRequestHandler(BaseHTTPRequestHandler):
-        def _send_json(self, payload: dict[str, Any] | list[Any], status: int = 200) -> None:
+        def _send_json(self, payload: dict[str, Any] | list[Any], status: int = 200, extra_headers: dict[str, str] | None = None) -> None:
             body = json.dumps(payload, indent=2).encode("utf-8")
             try:
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Access-Control-Allow-Origin", "*")
+                if extra_headers:
+                    for hk, hv in extra_headers.items():
+                        self.send_header(hk, hv)
                 self.end_headers()
                 self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
@@ -848,7 +944,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
@@ -1009,8 +1105,93 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(sw_bytes)
                 return
 
+            if parsed.path.startswith("/api/v1/"):
+                from .monetization import build_openapi_v1_spec, validate_and_meter_api_key
+                from .paper_trade import build_recommended_2leg_doubles
+
+                if parsed.path == "/api/v1/openapi.json":
+                    self._send_json(build_openapi_v1_spec())
+                    return
+
+                raw_k = self.headers.get("X-API-Key") or (qs.get("api_key") or [""])[0]
+                if not raw_k and self.headers.get("Authorization", "").lower().startswith("bearer "):
+                    raw_k = self.headers.get("Authorization", "")[7:].strip()
+
+                req_tier = "starter" if parsed.path in ("/api/v1/picks", "/api/v1/ledger") else "pro"
+                ok_k, k_info, rl_headers, http_st = validate_and_meter_api_key(db_path, raw_k, required_tier=req_tier)
+                if not ok_k:
+                    self._send_json(k_info, status=http_st, extra_headers=rl_headers)
+                    return
+
+                snap_v1 = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role="pro")
+                if parsed.path == "/api/v1/picks":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "plan_tier": k_info.get("plan_tier"),
+                            "generated_at": snap_v1.get("generated_at"),
+                            "count": len(snap_v1["best_bets"]),
+                            "picks": snap_v1["best_bets"],
+                        },
+                        extra_headers=rl_headers,
+                    )
+                    return
+                if parsed.path == "/api/v1/ledger":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "plan_tier": k_info.get("plan_tier"),
+                            "ledger": snap_v1["paper_ledger"],
+                        },
+                        extra_headers=rl_headers,
+                    )
+                    return
+                if parsed.path == "/api/v1/dutching":
+                    dutch_items = [
+                        {
+                            "match": b["match"],
+                            "sport_cat": b["sport_cat"],
+                            "competition": b["competition"],
+                            "kickoff": b["date"],
+                            "main_pick": b["pick_name"],
+                            "main_win_prob": b["win_prob"],
+                            "exact_score_summary": b["exact_score_pick"],
+                            "score_cluster_items": b.get("score_cluster_items") or [],
+                        }
+                        for b in snap_v1["best_bets"]
+                        if b.get("score_cluster_items")
+                    ]
+                    self._send_json({"ok": True, "count": len(dutch_items), "dutching_matrices": dutch_items}, extra_headers=rl_headers)
+                    return
+                if parsed.path == "/api/v1/combos":
+                    combos_v1 = build_recommended_2leg_doubles(
+                        snap_v1.get("qualifying_picks") or [],
+                        snap_v1.get("tennis_picks") or [],
+                        snap_v1.get("other_sport_picks") or [],
+                        max_doubles=8,
+                    )
+                    self._send_json({"ok": True, "count": len(combos_v1), "combos": combos_v1}, extra_headers=rl_headers)
+                    return
+                if parsed.path == "/api/v1/mispriced":
+                    mis_v1 = [b for b in snap_v1["best_bets"] if b.get("is_mispriced")]
+                    self._send_json({"ok": True, "count": len(mis_v1), "mispriced_edges": mis_v1}, extra_headers=rl_headers)
+                    return
+                if parsed.path == "/api/v1/analyze":
+                    q_v1 = (qs.get("q") or [""])[0]
+                    res_v1 = _analyze_live_matchup(db_path, rec_path, q_v1)
+                    self._send_json(res_v1, status=(200 if res_v1.get("ok") else 400), extra_headers=rl_headers)
+                    return
+                self._send_json({"ok": False, "error": "Unknown /api/v1 endpoint"}, status=404, extra_headers=rl_headers)
+                return
+
             if parsed.path == "/api/data":
-                snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False)
+                role_d, _act_d, _ = resolve_request_role(
+                    db_path,
+                    auth_header=self.headers.get("Authorization"),
+                    api_key_header=self.headers.get("X-API-Key"),
+                    query_token=(qs.get("token") or [""])[0],
+                )
+                snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role=role_d)
                 self._send_json(snap)
                 return
 
@@ -1073,24 +1254,41 @@ self.addEventListener('fetch', (event) => {{
                 return
 
             if parsed.path == "/api/auth/config":
+                from .monetization import get_monetization_config
+
                 fb_cfg = get_firebase_auth_config()
-                auth_hdr = self.headers.get("Authorization")
-                is_admin, actor_email, _ = verify_admin_request_auth(auth_hdr)
+                mon_cfg = get_monetization_config(data_dir)
+                role_c, actor_email, _ = resolve_request_role(
+                    db_path,
+                    auth_header=self.headers.get("Authorization"),
+                    api_key_header=self.headers.get("X-API-Key"),
+                )
                 self._send_json({
                     "ok": True,
                     "enabled": fb_cfg["enabled"],
                     "api_key": fb_cfg["api_key"],
                     "project_id": fb_cfg["project_id"],
                     "auth_domain": fb_cfg["auth_domain"],
-                    "is_admin": is_admin,
+                    "role": role_c,
+                    "is_admin": role_c == "admin",
+                    "is_pro": role_c in ("admin", "pro"),
                     "actor": actor_email,
+                    "monetization": mon_cfg,
                 })
                 return
 
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status", "/api/settings"):
+                from .monetization import get_monetization_config, list_api_keys, list_subscriber_webhooks, list_subscribers
+
                 cfg_s = _load_webapp_settings(data_dir)
                 fb_cfg = get_firebase_auth_config()
-                is_admin, actor_email, _ = verify_admin_request_auth(self.headers.get("Authorization"))
+                mon_cfg = get_monetization_config(data_dir)
+                role_s, actor_email, _ = resolve_request_role(
+                    db_path,
+                    auth_header=self.headers.get("Authorization"),
+                    api_key_header=self.headers.get("X-API-Key"),
+                )
+                is_admin = role_s == "admin"
                 self._send_json({
                     "ok": True,
                     "discord": get_discord_env_config(custom_sport_webhooks=cfg_s.get("sport_webhooks")),
@@ -1103,13 +1301,27 @@ self.addEventListener('fetch', (event) => {{
                         "api_key": fb_cfg["api_key"],
                         "project_id": fb_cfg["project_id"],
                         "auth_domain": fb_cfg["auth_domain"],
+                        "role": role_s,
                         "is_admin": is_admin,
+                        "is_pro": role_s in ("admin", "pro"),
                         "actor": actor_email,
+                    },
+                    "monetization": {
+                        **mon_cfg,
+                        "api_keys": list_api_keys(db_path) if is_admin else [],
+                        "subscribers": list_subscribers(db_path) if is_admin else [],
+                        "subscriber_webhooks": list_subscriber_webhooks(db_path, active_only=False) if is_admin else [],
                     },
                 })
                 return
 
             if parsed.path == "/api/stream":
+                role_st, _act_st, _ = resolve_request_role(
+                    db_path,
+                    auth_header=self.headers.get("Authorization"),
+                    api_key_header=self.headers.get("X-API-Key"),
+                    query_token=(qs.get("token") or [""])[0],
+                )
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
                 self.send_header("Cache-Control", "no-cache")
@@ -1130,6 +1342,7 @@ self.addEventListener('fetch', (event) => {{
                             min_odds=min_odds,
                             sport=sport,
                             run_settle=False,
+                            role=role_st,
                         )
                         msg = f"event: update\ndata: {json.dumps(snap)}\n\n"
                         self.wfile.write(msg.encode("utf-8"))
@@ -1165,17 +1378,73 @@ self.addEventListener('fetch', (event) => {{
 
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
-            is_authorized, _actor, auth_err = verify_admin_request_auth(self.headers.get("Authorization"))
+            length = int(self.headers.get("Content-Length") or "0")
+            raw_bytes = self.rfile.read(length) if length > 0 else b"{}"
+            raw_body = raw_bytes.decode("utf-8", errors="replace")
+
+            # Stripe Billing Webhook (authenticated via Stripe-Signature HMAC rather than Firebase Auth)
+            if parsed.path == "/api/billing/webhook":
+                from .monetization import handle_stripe_webhook_event
+
+                res_wh = handle_stripe_webhook_event(db_path, raw_bytes, self.headers.get("Stripe-Signature"))
+                self._send_json(res_wh, status=(200 if res_wh.get("ok") else 400))
+                return
+
+            is_authorized, _actor, auth_err = verify_admin_request_auth(self.headers.get("Authorization"), db_path=db_path)
             if not is_authorized:
                 self._send_json({"ok": False, "error": auth_err, "auth_required": True}, status=403)
                 return
 
-            length = int(self.headers.get("Content-Length") or "0")
-            raw_body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
             try:
                 body = json.loads(raw_body) if raw_body.strip() else {}
             except Exception:
                 body = {}
+
+            if parsed.path.startswith("/api/admin/"):
+                from .monetization import (
+                    add_subscriber_webhook,
+                    create_api_key,
+                    list_api_keys,
+                    list_subscriber_webhooks,
+                    list_subscribers,
+                    revoke_api_key,
+                    upsert_subscriber,
+                )
+
+                if parsed.path == "/api/admin/apikeys":
+                    act = str(body.get("action") or "create")
+                    if act == "revoke":
+                        ok_rev = revoke_api_key(db_path, str(body.get("key_id") or ""))
+                        self._send_json({"ok": ok_rev, "api_keys": list_api_keys(db_path)})
+                    else:
+                        created = create_api_key(
+                            db_path,
+                            owner_email=str(body.get("email") or "client@betscout.app"),
+                            plan_tier=str(body.get("tier") or "pro"),
+                            label=str(body.get("label") or ""),
+                            daily_limit=int(body["daily_limit"]) if body.get("daily_limit") else None,
+                        )
+                        self._send_json({**created, "api_keys": list_api_keys(db_path)})
+                    return
+                if parsed.path == "/api/admin/subscribers":
+                    sub = upsert_subscriber(
+                        db_path,
+                        email=str(body.get("email") or ""),
+                        plan_tier=str(body.get("tier") or "pro"),
+                        status=str(body.get("status") or "active"),
+                    )
+                    self._send_json({**sub, "subscribers": list_subscribers(db_path)})
+                    return
+                if parsed.path == "/api/admin/webhooks":
+                    wh = add_subscriber_webhook(
+                        db_path,
+                        owner_email=str(body.get("email") or "syndicate@betscout.app"),
+                        channel_type=str(body.get("channel_type") or "discord"),
+                        target_url_or_chat=str(body.get("target") or ""),
+                        sports_filter=str(body.get("sports") or "all"),
+                    )
+                    self._send_json({**wh, "subscriber_webhooks": list_subscriber_webhooks(db_path, active_only=False)})
+                    return
 
             if parsed.path in ("/api/settings", "/api/settings/inplay-alerts"):
                 item_k = body.get("item_key")

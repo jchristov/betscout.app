@@ -31,7 +31,7 @@
 
 ## 0. Sports & Championships Covered in Database (`59,062` Matches)
 
-All historical and live records are stored in a single canonical SQLite database: **`data/matches.sqlite`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
+All historical and live records are stored in a single canonical SQLite database: **`data/betscout.db`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
 
 | Sport | League Key | ESPN Slug | Championship / Competition Name | Verified Matches | Date Range |
 | :--- | :--- | :--- | :--- | :---: | :--- |
@@ -170,7 +170,7 @@ When you want to bet on **Exact Scores** (`1:0`, `2:0`, `2:1` in Football) or **
 Want to check a match that isn't in `best_bets.json` (for example, a 55/45 Tennis match or a derby that our model passed on)?
 
 - Type **any two players or teams** separated by `vs` into the **🔍 On-Demand Any-Matchup Live Analyzer** bar (e.g., `Medvedev vs Bublik`, `Bernet vs Altmaier`, `Chelsea vs Tottenham`) and click **`⚡ Analyze Matchup`**.
-- The server (`GET /api/analyze-live`) queries `matches.sqlite` + live SofaScore feeds on the fly to compute:
+- The server (`GET /api/analyze-live`) queries `betscout.db` + live SofaScore feeds on the fly to compute:
   - **Live Elo & Game-Share Elo Differential** (Tennis) or **Club Elo & 6-Match Rolling Shots-on-Target Differential** (Football),
   - **All-Level Last-5 Win Rate** (including ATP/WTA Challenger & ITF matches),
   - **Rest & Turnaround Hours** since each player's previous match (and previous tournament city),

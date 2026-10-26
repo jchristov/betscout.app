@@ -714,7 +714,7 @@ def backfill_sportradar_european_sports_to_db(
     days_back: int = 7,
 ) -> dict[str, int]:
     """Backfill completed historical matches for Handball (`sportId=6`), Darts (`sportId=22`), and Table Tennis (`sportId=20`)
-    from `unified_sport_matches` + `unified_sport_matches_markets` into `data/matches.sqlite` for Elo & H2H calibration."""
+    from `unified_sport_matches` + `unified_sport_matches_markets` into `data/betscout.db` for Elo & H2H calibration."""
     import sqlite3
 
     target_sports = [
@@ -1108,7 +1108,7 @@ def evaluate_inplay_goal_timing_edge(
 
 def fetch_player_lastx_form(team_uid: int | str | None, limit: int = 6) -> list[dict[str, Any]]:
     """Fetch a player's or team's last `limit` matches directly from Sportradar `stats_team_lastx/{uid}/{limit}`
-    when the player has no prior matches in our local `matches.sqlite` database (e.g. ITF/WTA 125K qualifiers)."""
+    when the player has no prior matches in our local `betscout.db` database (e.g. ITF/WTA 125K qualifiers)."""
     if not team_uid:
         return []
     data = fetch_statshub_gismo(f"stats_team_lastx/{team_uid}/{limit}", ttl_sec=1800.0)

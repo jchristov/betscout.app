@@ -135,7 +135,7 @@ def compute_calibration_report(db_path: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     rep = compute_calibration_report(db_path)
     print(f"=== VektorPulse Post-Match Calibration & Attribution Monitor (n={rep.get('settled_count', 0)} Settled) ===")
     if not rep.get("settled_count"):

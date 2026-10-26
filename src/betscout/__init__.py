@@ -76,6 +76,8 @@ SUBCOMMAND_MODULES: dict[str, str] = {
     "compare": "compare_decision_models",
     "exact-score": "exact_score_eval",
     "calibrate": "calibration_report",
+    "apikey": "monetization_cli",
+    "monetize": "monetization_cli",
 }
 
 
@@ -104,6 +106,7 @@ def cli() -> None:
             print("  telegram     Format & publish daily digest + PNG cards to Telegram")
             print("  exact-score  Evaluate Dixon-Coles exact-score & tennis set-score calibration")
             print("  calibrate    Run out-of-sample reliability & calibration audit")
+            print("  apikey       Manage paid B2B API keys, Pro subscribers & syndicate webhooks")
             print("  distill      Distill teacher labels into local Laya sports checkpoint")
             print("  compare      Benchmark decision models")
             return

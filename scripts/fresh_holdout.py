@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from betscout.models import logit  # noqa: E402
 from betscout.totals_test import build, ci  # noqa: E402
 
-rows = build(ROOT / "data" / "matches.sqlite")
+rows = build(ROOT / "data" / "betscout.db")
 train = [r for r in rows if r.year < "2026"]
 test = [r for r in rows if r.year == "2026"]
 print(f"fit on {len(train)} pre-2026 matches; frozen test on {len(test)} 2026 matches")

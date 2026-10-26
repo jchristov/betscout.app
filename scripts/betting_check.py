@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from betscout.models import TRAIN_FRAC, fit_calibrator, soccer_samples  # noqa: E402
 
-DB = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
+DB = Path(__file__).resolve().parents[1] / "data" / "betscout.db"
 OUT = {"H": 0, "D": 1, "A": 2}
 
 samples = [s for s in soccer_samples(DB) if s.market]

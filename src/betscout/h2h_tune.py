@@ -103,4 +103,4 @@ def run(db: Path) -> None:
 
 if __name__ == "__main__":
     import sys
-    run(Path(sys.argv[1] if len(sys.argv) > 1 else "data/matches.sqlite"))
+    run(Path(sys.argv[1] if len(sys.argv) > 1 else "data/betscout.db"))

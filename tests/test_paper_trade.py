@@ -354,7 +354,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     ]:
         assert fit_rates(line_v, ph_v, pa_v, pd_v, rho_v) == _fit_rates_scalar_ref(line_v, ph_v, pa_v, pd_v, rho_v)
 
-    real_db = Path(__file__).resolve().parents[1] / "data" / "matches.sqlite"
+    real_db = Path(__file__).resolve().parents[1] / "data" / "betscout.db"
     if real_db.exists():
         xi_fast = _build_team_player_attack_history(real_db, real_db.parent / "cache", leagues=("eng.1", "uefa.champions"), full_history=False)
         xi_full = _build_team_player_attack_history(real_db, real_db.parent / "cache", leagues=("eng.1", "uefa.champions"), full_history=True)
@@ -860,6 +860,92 @@ def test_per_sport_isolated_gates():
         os.environ.pop("FIREBASE_WEB_API_KEY", None)
         os.environ.pop("FIREBASE_ADMIN_EMAILS", None)
         os.environ.pop("BETSCOUT_CRON_SECRET", None)
+
+
+def test_monetization_api_keys_subscribers_and_redaction(tmp_path: Path):
+    from betscout.monetization import (
+        add_subscriber_webhook,
+        build_openapi_v1_spec,
+        check_is_active_subscriber,
+        create_api_key,
+        handle_stripe_webhook_event,
+        list_api_keys,
+        list_subscriber_webhooks,
+        redact_recommendations_for_free_tier,
+        revoke_api_key,
+        upsert_subscriber,
+        validate_and_meter_api_key,
+    )
+
+    db_m = tmp_path / "betscout.db"
+    # 1. API Key creation, tier enforcement, metering, and revocation
+    created = create_api_key(db_m, owner_email="client@syndicate.io", plan_tier="starter", daily_limit=2)
+    assert created["ok"] is True and created["api_key"].startswith("bs_live_")
+    raw_k = created["api_key"]
+
+    # Starter key passes starter endpoint (1/2 used)
+    ok1, info1, hdr1, st1 = validate_and_meter_api_key(db_m, raw_k, required_tier="starter")
+    assert ok1 is True and st1 == 200 and hdr1["X-RateLimit-Remaining"] == "1"
+
+    # Starter key rejected on 'pro' endpoint (403)
+    ok_pro, err_pro, _, st_pro = validate_and_meter_api_key(db_m, raw_k, required_tier="pro")
+    assert ok_pro is False and st_pro == 403 and "requires 'pro'" in err_pro["error"]
+
+    # 2nd starter call succeeds (2/2 used); 3rd call hits 429 quota limit
+    ok2, _, hdr2, st2 = validate_and_meter_api_key(db_m, raw_k, required_tier="starter")
+    assert ok2 is True and st2 == 200 and hdr2["X-RateLimit-Remaining"] == "0"
+    ok3, err3, _, st3 = validate_and_meter_api_key(db_m, raw_k, required_tier="starter")
+    assert ok3 is False and st3 == 429 and "Daily API quota exceeded" in err3["error"]
+
+    # Revoke key
+    assert revoke_api_key(db_m, created["key_id"]) is True
+    ok_rev, _, _, st_rev = validate_and_meter_api_key(db_m, raw_k, required_tier="starter")
+    assert ok_rev is False and st_rev == 401
+    assert len(list_api_keys(db_m)) == 1
+
+    # 2. Subscribers & Stripe Webhook auto-provisioning
+    upsert_subscriber(db_m, email="pro_user@gmail.com", plan_tier="pro", status="active")
+    is_sub, tier_sub = check_is_active_subscriber(db_m, "pro_user@gmail.com")
+    assert is_sub is True and tier_sub == "pro"
+
+    stripe_payload = b'{"type": "checkout.session.completed", "data": {"object": {"customer_email": "buyer@quant.com", "customer": "cus_123", "subscription": "sub_456", "metadata": {"plan_tier": "api_pro"}}}}'
+    wh_res = handle_stripe_webhook_event(db_m, stripe_payload)
+    assert wh_res["ok"] is True and wh_res["action"] == "provisioned" and wh_res["api_key"]["plan_tier"] == "pro"
+    assert check_is_active_subscriber(db_m, "buyer@quant.com")[0] is True
+
+    # 3. B2B Subscriber Webhooks
+    add_subscriber_webhook(db_m, "buyer@quant.com", "discord", "https://discord.com/api/webhooks/999/b2b_wh", "tennis")
+    assert len(list_subscriber_webhooks(db_m)) == 1
+
+    # 4. Server-side Free-tier Redaction (keeps settled rows & N preview picks, locks remaining picks)
+    raw_rec = {
+        "qualifying_picks": [
+            {"action": "PAPER_BET", "kickoff": "2026-10-26T12:00Z", "home": "Team A", "away": "Team B", "best_odds": 1.45},
+            {"action": "PAPER_BET", "kickoff": "2026-10-26T18:00Z", "home": "Secret Team C", "away": "Secret Team D", "best_odds": 1.65},
+        ],
+        "tennis_picks": [
+            {"kickoff": "2026-10-26T20:00Z", "player_1": "Secret Player E", "player_2": "Secret Player F", "pick": "Secret Player E", "win_prob": 0.82},
+        ],
+        "other_sport_picks": [],
+        "recommended_doubles": [{"leg_1": {"match": "Secret C vs D", "pick": "Secret C"}, "leg_2": {"match": "Secret E vs F", "pick": "Secret E"}}],
+        "paper_ledger": {
+            "trades": [
+                {"status": "SETTLED", "home": "Bayern Munich", "away": "Freiburg", "logged_best_odds": 1.38},
+                {"status": "PENDING", "home": "Secret Team C", "away": "Secret Team D", "logged_best_odds": 1.65},
+            ]
+        },
+    }
+    redacted = redact_recommendations_for_free_tier(raw_rec, free_preview_count=1)
+    # 1st earliest pick (Team A vs Team B) stays unlocked
+    assert redacted["qualifying_picks"][0]["home"] == "Team A"
+    # 2nd pick & tennis pick are server-side redacted
+    assert "🔒 Pro" in redacted["qualifying_picks"][1]["home"]
+    assert "🔒 Pro" in redacted["tennis_picks"][0]["player_1"]
+    # Settled ledger row remains 100% visible, while pending non-preview row is redacted
+    assert redacted["paper_ledger"]["trades"][0]["home"] == "Bayern Munich"
+    assert "🔒 Pro" in redacted["paper_ledger"]["trades"][1]["home"]
+    assert build_openapi_v1_spec()["openapi"] == "3.1.0"
+
 
 
 

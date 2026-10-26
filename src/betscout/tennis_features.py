@@ -99,6 +99,6 @@ def evaluate(rows: list[TRow]) -> dict[str, float]:
 
 if __name__ == "__main__":
     import sys
-    rows = build(Path(sys.argv[1] if len(sys.argv) > 1 else "data/matches.sqlite"))
+    rows = build(Path(sys.argv[1] if len(sys.argv) > 1 else "data/betscout.db"))
     for k, v in evaluate(rows).items():
         print(f"{k:<20}{v:>10.4f}" if "n_test" not in k else f"{k:<20}{v:>10.0f}")

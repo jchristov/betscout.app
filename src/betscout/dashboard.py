@@ -611,7 +611,7 @@ def generate_dashboard_html(
         and _league_to_sport_cat(op.get("sport") or op.get("league") or "") not in disabled_sports_set
     ]
 
-    # Precompute embedded H2H + Last-6 Form lookup map from matches.sqlite for every matchup rendered on the page
+    # Precompute embedded H2H + Last-6 Form lookup map from betscout.db for every matchup rendered on the page
     all_page_pairs: set[tuple[str, str]] = set()
     for p in soccer_picks:
         if p.get("home") and p.get("away"):
@@ -2081,7 +2081,42 @@ def generate_dashboard_html(
         </div>
       </div>
 
-      <div style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
+      <div id="settingsAdminMonetizationBlock" style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid rgba(56,189,248,0.45); border-radius:8px; font-size:12px;">
+        <div style="font-weight:700; color:var(--accent); margin-bottom:4px;">💳 Commercial Monetization: Paid API Keys (`/api/v1/*`) &amp; Pro Subscribers</div>
+        <div class="muted" style="margin-bottom:10px;">
+          Issue metered API keys (<code>X-API-Key: bs_live_...</code>) for 3rd-party integrations and manage read-only Pro WebApp subscribers.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px;">
+          <div style="padding:10px; background:#111827; border:1px solid var(--border); border-radius:6px;">
+            <div style="font-weight:700; color:var(--green); margin-bottom:6px;">🔑 Issue Paid Developer API Key</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+              <input id="adminApiKeyEmail" type="email" placeholder="customer@company.com" style="flex:1; min-width:140px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-size:11.5px;">
+              <select id="adminApiKeyTier" style="background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-size:11.5px;">
+                <option value="starter">Starter (500/d)</option>
+                <option value="pro" selected>Pro (5,000/d)</option>
+                <option value="enterprise">Enterprise (50,000/d)</option>
+              </select>
+              <button type="button" class="btn-export btn-telegram" onclick="adminCreateApiKey()">+ Issue Key</button>
+            </div>
+            <div id="adminNewKeyBox" style="display:none; margin-bottom:6px; padding:6px 8px; background:rgba(34,197,94,0.12); border:1px solid var(--green); border-radius:5px; font-family:monospace; font-size:11px; word-break:break-all;"></div>
+            <div id="adminApiKeysList" class="muted" style="font-size:11px; max-height:110px; overflow-y:auto;">Loading API keys...</div>
+          </div>
+          <div style="padding:10px; background:#111827; border:1px solid var(--border); border-radius:6px;">
+            <div style="font-weight:700; color:var(--accent); margin-bottom:6px;">👤 Grant Read-Only Pro WebApp Access</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+              <input id="adminSubEmail" type="email" placeholder="subscriber@gmail.com" style="flex:1; min-width:140px; background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-size:11.5px;">
+              <select id="adminSubTier" style="background:#0b0f17; color:var(--text); border:1px solid var(--border); border-radius:5px; padding:4px 7px; font-size:11.5px;">
+                <option value="pro" selected>Pro WebApp</option>
+                <option value="vip">VIP All-Access</option>
+              </select>
+              <button type="button" class="btn-export btn-primary" onclick="adminAddSubscriber()">+ Grant Pro</button>
+            </div>
+            <div id="adminSubscribersList" class="muted" style="font-size:11px; max-height:110px; overflow-y:auto;">Loading subscribers...</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settingsAdminWebhooksBlock" style="margin-top:14px; padding:12px; background:#0b0f17; border:1px solid var(--border); border-radius:8px; font-size:12px;">
         <div style="font-weight:700; color:var(--amber); margin-bottom:4px;">💬 Global &amp; Per-Sport Discord Webhooks (Env Vars + Optional UI Overrides)</div>
         <div class="muted" style="margin-bottom:10px;">
           Configure per-sport webhooks in <code>.env</code> (<code>DISCORD_WEBHOOK_URL_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_TENNIS</code>, <code>DISCORD_WEBHOOK_URL_HOCKEY</code>, <code>DISCORD_WEBHOOK_URL_BASKETBALL</code>, <code>DISCORD_WEBHOOK_URL_VOLLEYBALL</code>, <code>DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL</code>, <code>DISCORD_WEBHOOK_URL_BASEBALL</code>, <code>DISCORD_WEBHOOK_URL_HANDBALL</code>, <code>DISCORD_WEBHOOK_URL_TABLE_TENNIS</code>) on top of global <code>DISCORD_WEBHOOK_URL</code>, or paste custom overrides below:
@@ -4465,6 +4500,12 @@ def generate_dashboard_html(
 
     function updateFirebaseAuthUi() {{
       const btn = document.getElementById('firebaseAuthBtn');
+      const isAdm = Boolean(currentIsAdmin);
+      // Hide server-mutating admin controls when a non-admin (read-only Pro or Free) user is viewing the cloud app
+      ['syncLedgerBtn', 'rescanLiveBtn', 'runFullPipelineBtn', 'inplayAlertsToggleBtn', 'topTelegramBtn', 'syncLedgerTableBtn', 'settingsAdminMonetizationBlock', 'settingsAdminWebhooksBlock'].forEach(id => {{
+        const el = document.getElementById(id);
+        if (el) el.style.display = isAdm ? '' : 'none';
+      }});
       if (!btn) return;
       if (!currentFirebaseAuthCfg || !currentFirebaseAuthCfg.enabled) {{
         btn.style.display = 'none';
@@ -4472,15 +4513,101 @@ def generate_dashboard_html(
       }}
       btn.style.display = 'inline-flex';
       if (currentFirebaseUserEmail) {{
-        const roleTag = currentIsAdmin ? 'Admin' : 'Viewer';
+        const roleTag = currentIsAdmin ? 'Admin' : 'Pro Read-Only';
         btn.className = currentIsAdmin ? 'btn-export btn-telegram' : 'btn-export';
         btn.textContent = '🔓 ' + currentFirebaseUserEmail.split('@')[0] + ' (' + roleTag + ')';
         btn.title = 'Signed in as ' + currentFirebaseUserEmail + ' (' + roleTag + ') — click to sign out';
       }} else {{
         btn.className = 'btn-export btn-primary';
-        btn.textContent = '🔐 Admin Sign In';
-        btn.title = 'Sign in with Google (Firebase Auth) to unlock Admin actions';
+        btn.textContent = '🔐 Sign In';
+        btn.title = 'Sign in with Google (Firebase Auth) for Pro or Admin access';
       }}
+    }}
+
+    function renderMonetizationLists(mon) {{
+      if (!mon) return;
+      const kEl = document.getElementById('adminApiKeysList');
+      if (kEl && Array.isArray(mon.api_keys)) {{
+        if (!mon.api_keys.length) {{
+          kEl.innerHTML = 'No API keys issued yet.';
+        }} else {{
+          kEl.innerHTML = mon.api_keys.map(k =>
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(34,48,73,0.5);">' +
+              '<span><code>' + escHtml(k.key_prefix) + '</code> · <b>' + escHtml(k.owner_email) + '</b> <span class="pill">' + escHtml(k.plan_tier) + ' (' + (k.calls_today || 0) + '/' + k.daily_limit + ')</span></span>' +
+              (k.active ? ('<button type="button" class="btn-mini" style="color:var(--red);" onclick="adminRevokeApiKey(' + escHtml(JSON.stringify(k.key_id)) + ')">Revoke</button>') : '<span class="muted">Revoked</span>') +
+            '</div>'
+          ).join('');
+        }}
+      }}
+      const sEl = document.getElementById('adminSubscribersList');
+      if (sEl && Array.isArray(mon.subscribers)) {{
+        if (!mon.subscribers.length) {{
+          sEl.innerHTML = 'No paid subscribers registered yet.';
+        }} else {{
+          sEl.innerHTML = mon.subscribers.map(s =>
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(34,48,73,0.5);">' +
+              '<span><b>' + escHtml(s.email) + '</b></span>' +
+              '<span class="pill ' + (s.status === 'active' ? 'badge-bet' : 'badge-veto') + '">' + escHtml(s.plan_tier.toUpperCase()) + ' · ' + escHtml(s.status) + '</span>' +
+            '</div>'
+          ).join('');
+        }}
+      }}
+    }}
+
+    async function adminCreateApiKey() {{
+      const email = (document.getElementById('adminApiKeyEmail')?.value || '').trim();
+      const tier = document.getElementById('adminApiKeyTier')?.value || 'pro';
+      if (!email) {{ showToast('⚠️ Enter customer email to issue an API key.'); return; }}
+      try {{
+        const r = await fetch('/api/admin/apikeys', {{
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({{ action: 'create', email, tier }})
+        }});
+        const d = await r.json();
+        if (d.ok && d.api_key) {{
+          const box = document.getElementById('adminNewKeyBox');
+          if (box) {{
+            box.style.display = 'block';
+            box.innerHTML = '✅ Copy new API key now: <b>' + escHtml(d.api_key) + '</b>';
+          }}
+          renderMonetizationLists(d);
+          showToast('🔑 Issued ' + tier.toUpperCase() + ' API key for ' + email);
+        }}
+      }} catch (_) {{}}
+    }}
+
+    async function adminRevokeApiKey(keyId) {{
+      try {{
+        const r = await fetch('/api/admin/apikeys', {{
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({{ action: 'revoke', key_id: keyId }})
+        }});
+        const d = await r.json();
+        if (d.ok) {{
+          renderMonetizationLists(d);
+          showToast('🗑️ Revoked API key ' + keyId);
+        }}
+      }} catch (_) {{}}
+    }}
+
+    async function adminAddSubscriber() {{
+      const email = (document.getElementById('adminSubEmail')?.value || '').trim();
+      const tier = document.getElementById('adminSubTier')?.value || 'pro';
+      if (!email) {{ showToast('⚠️ Enter subscriber email.'); return; }}
+      try {{
+        const r = await fetch('/api/admin/subscribers', {{
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({{ email, tier, status: 'active' }})
+        }});
+        const d = await r.json();
+        if (d.ok) {{
+          renderMonetizationLists(d);
+          showToast('✅ Granted ' + tier.toUpperCase() + ' access to ' + email);
+        }}
+      }} catch (_) {{}}
     }}
 
     async function initFirebaseAuthIfConfigured(authObj) {{
@@ -4543,9 +4670,10 @@ def generate_dashboard_html(
       modal.style.display = 'flex';
       if (window.location.protocol.startsWith('http')) {{
         try {{
-          const r = await fetch('/api/settings');
+          const r = await fetch('/api/settings', {{ headers: getAuthHeaders() }});
           const d = await r.json();
           if (d.settings) currentAppSettings = d.settings;
+          if (d.monetization) renderMonetizationLists(d.monetization);
           const swStatus = d.discord?.sport_webhooks || {{}};
           const mapIds = {{
             soccer: 'cfgWhSoccer',

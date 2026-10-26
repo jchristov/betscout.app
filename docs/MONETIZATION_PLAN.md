@@ -19,7 +19,7 @@ This document details the technical, product, and billing architecture to moneti
                                               │ Updates entitlements
                                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                  BetScout Cloud Run Service (`matches.sqlite` + Auth)               │
+│                  BetScout Cloud Run Service (`betscout.db` + Auth)               │
 │  New SQLite Tables:                                                                 │
 │   • `subscribers(uid, email, tier, stripe_customer_id, status, expires_at)`         │
 │   • `api_keys(key_hash, key_prefix, owner_email, tier, daily_quota, calls_today)`   │
@@ -52,7 +52,7 @@ Expose a clean, versioned `/api/v1/*` JSON surface (separate from the internal U
 | **Enterprise / Syndicate** | **€399 / mo** | `50,000 req / day` + Webhook Push | Everything in Pro + real-time push webhooks whenever a new pick, `🔥 STEAM` move, or T-60m Starting XI veto triggers + PNG Pick Card binary endpoint (`GET /api/v1/pick-card.png`) |
 
 ### B. Technical Adjustments Required for Stream 1
-1. **`api_keys` & `api_usage_daily` Tables in `matches.sqlite`:**
+1. **`api_keys` & `api_usage_daily` Tables in `betscout.db`:**
    ```sql
    CREATE TABLE IF NOT EXISTS api_keys (
        key_id TEXT PRIMARY KEY,
@@ -104,7 +104,7 @@ Instead of a hard login wall that blocks new visitors from seeing why BetScout i
      - Redact all remaining upcoming picks, combos, and mispriced rows **on the server before sending HTML/JSON** (`pick_name -> "🔒 Pro Subscriber Pick"`, `exact_score_pick -> "🔒 Pro Score Cluster"`, keeping only `kickoff`, `sport_icon`, `win_prob`, and `odds` visible to entice upgrades!).
 2. **Stripe Checkout + Customer Portal Integration (`POST /api/billing/checkout` & `POST /api/billing/webhook`):**
    - User signs in with Google (`Firebase Auth`), clicks **`🚀 Upgrade to Pro`**, and is redirected to a Stripe Checkout session pre-filled with their `firebase_uid` and `email`.
-   - When Stripe fires `checkout.session.completed` or `customer.subscription.Updated/Deleted` to `POST /api/billing/webhook`, `webapp.py` updates the `subscribers` table in `matches.sqlite` (and optionally sets a Firebase Custom Claim `{"role": "pro"}`).
+   - When Stripe fires `checkout.session.completed` or `customer.subscription.Updated/Deleted` to `POST /api/billing/webhook`, `webapp.py` updates the `subscribers` table in `betscout.db` (and optionally sets a Firebase Custom Claim `{"role": "pro"}`).
 
 ---
 
@@ -132,7 +132,7 @@ You have two clean options (can use either or both):
 ## 5. Phased Implementation Roadmap
 
 ### Phase 1: Role-Based Access (`Admin` / `Pro` / `Free`) & Server-Side Pick Redaction
-- Add `subscribers` and `api_keys` tables to `matches.sqlite`.
+- Add `subscribers` and `api_keys` tables to `betscout.db`.
 - Add `resolve_request_role(headers)` in `webapp.py` returning `"admin"`, `"pro"`, or `"free"` (defaulting to `"admin"` in local mode when `MONETIZATION_ENABLED` is unset so local development is never restricted).
 - Add server-side pick redaction (`_redact_for_free_tier`) so `"free"` users see the full settled ledger + 2 preview picks while premium picks, combos, and exact-score clusters display `🔒 Pro Pick` badges and an upgrade CTA.
 

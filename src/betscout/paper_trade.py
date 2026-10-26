@@ -804,7 +804,7 @@ def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str
 
 
 def _load_disabled_sports(db_path: Path) -> set[str]:
-    """Read `disabled_sports` list from `data/webapp_settings.json` (next to `matches.sqlite`)."""
+    """Read `disabled_sports` list from `data/webapp_settings.json` (next to `betscout.db`)."""
     cfg_file = db_path.parent / "webapp_settings.json"
     if not cfg_file.exists():
         return set()

@@ -8,7 +8,7 @@ This guide walks through deploying **BetScout (`betscout.app`)** using **Option 
 
 1. **Production Container (`Dockerfile` + `.dockerignore` + `scripts/cloud_entrypoint.sh`):**
    - Uses `python:3.12-slim` + `uv` + `curl` + `fonts-dejavu-core` (for 1080×580 Pillow PNG Pick Cards).
-   - Automatically binds to `0.0.0.0:$PORT` in Cloud Run and reads/writes `matches.sqlite`, `recommendations.json`, and `webapp_settings.json` from `BETSCOUT_DATA_DIR` (`/mnt/data`).
+   - Automatically binds to `0.0.0.0:$PORT` in Cloud Run and reads/writes `betscout.db`, `recommendations.json`, and `webapp_settings.json` from `BETSCOUT_DATA_DIR` (`/mnt/data`).
 2. **Firebase Hosting Config (`firebase.json` + `.firebaserc`):**
    - Configures no-cache headers for `/sw.js` and `/api/stream` (SSE) and proxies all routes (`**`) to the `betscout-app` Cloud Run service in `europe-west3` (Frankfurt).
 3. **Firebase Auth & Cloud Scheduler RBAC (`src/betscout/webapp.py` + `src/betscout/dashboard.py`):**

@@ -31,7 +31,7 @@ def run_pipeline(
     decision_backend: str = "laya",
     min_odds: float = 1.10,
 ) -> None:
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     cache_dir = ROOT / "data" / "cache"
     cfg_path = ROOT / "ingestion_config.json"
     rec_json = ROOT / "data" / "recommendations.json"

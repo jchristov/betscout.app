@@ -18,7 +18,7 @@ from betscout.quant_edges import (  # noqa: E402
 )
 
 def main() -> None:
-    db = ROOT / "data" / "matches.sqlite"
+    db = ROOT / "data" / "betscout.db"
     print("=== 7-Factor Orthogonal Invariant Soccer Composite (Big-5 European Leagues) ===")
     res_b5 = evaluate_invariant_soccer_composite(db, leagues=BIG5_LEAGUES)
     for k, v in res_b5.items():

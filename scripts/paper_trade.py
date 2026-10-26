@@ -30,7 +30,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     out_json = ROOT / "data" / "recommendations.json"
 
     rep = scan_upcoming_and_log_paper_trades(

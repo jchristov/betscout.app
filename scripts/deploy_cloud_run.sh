@@ -12,9 +12,9 @@ if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" --project="${PROJECT_
   gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location="${REGION}" --uniform-bucket-level-access
 fi
 
-echo "📦 [2/4] Uploading current data/matches.sqlite & recommendations.json to gs://${BUCKET_NAME} (if not already present)..."
-if [ -f "data/matches.sqlite" ]; then
-  gcloud storage cp -n data/matches.sqlite "gs://${BUCKET_NAME}/matches.sqlite" || true
+echo "📦 [2/4] Uploading current data/betscout.db & recommendations.json to gs://${BUCKET_NAME} (if not already present)..."
+if [ -f "data/betscout.db" ]; then
+  gcloud storage cp -n data/betscout.db "gs://${BUCKET_NAME}/betscout.db" || true
 fi
 if [ -f "data/recommendations.json" ]; then
   gcloud storage cp data/recommendations.json "gs://${BUCKET_NAME}/recommendations.json"

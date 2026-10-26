@@ -119,7 +119,7 @@ def run(db: Path, min_n: int = 150, method: str = "bh", alpha: float = 0.10) -> 
 
 if __name__ == "__main__":
     import sys
-    run(Path(sys.argv[1] if len(sys.argv) > 1 else "data/matches.sqlite"))
+    run(Path(sys.argv[1] if len(sys.argv) > 1 else "data/betscout.db"))
 
 
 def pooled_test(db: Path, side: str = "UNDER") -> dict[str, float]:

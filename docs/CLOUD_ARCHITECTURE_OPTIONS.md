@@ -14,7 +14,7 @@ Every pre-match scan (`scan_upcoming_and_log_paper_trades`) and walk-forward cal
 - In **SQLite**, scanning 26,200 rows takes **~40ms and costs $0**.
 - In **Cloud Firestore**, storing 26,200 historical matches as individual NoSQL documents and reading them on every scan would consume **500,000+ document reads/day** (exceeding the 50,000/day free Spark tier in 2 scans) and add network latency.
 
-Therefore, all options below **keep `matches.sqlite` in native SQLite** for analytical modeling while using edge/cloud primitives for 24/7 delivery and real-time synchronization.
+Therefore, all options below **keep `betscout.db` in native SQLite** for analytical modeling while using edge/cloud primitives for 24/7 delivery and real-time synchronization.
 
 ---
 
@@ -47,7 +47,7 @@ Therefore, all options below **keep `matches.sqlite` in native SQLite** for anal
       Upsert        │                                     ▼    (`status == "pending"`)
 ┌───────────────────┴─────────────────────────────────────┴───────────────┐
 │        Python Quant Engine (GitHub Actions Cloud Worker or Local)       │
-│  • Keeps `data/matches.sqlite` (26,227 matches) & 40ms SQL queries      │
+│  • Keeps `data/betscout.db` (26,227 matches) & 40ms SQL queries      │
 │  • Pushes diff-hashed (`sha256`) snapshots to Firestore                 │
 │  • Executes `commands/{id}` (On-Demand Analyze, Track Live, Discord)    │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -114,7 +114,7 @@ Instead of translating relational SQL into NoSQL documents (Firestore), **keep t
 │    `paper_combos`, plus `kv_store(key, json_value, updated_at)`         │
 │  • Free Tier: 9 GB storage, 500M rows read/month, 10M rows written/mo   │
 └───────────────────────────────────▲─────────────────────────────────────┘
-                                    │ `libsql.connect("matches.sqlite", sync_url=...)`
+                                    │ `libsql.connect("betscout.db", sync_url=...)`
 ┌───────────────────────────────────┴─────────────────────────────────────┐
 │                     Python Quant Engine (`betscout`)                    │
 │  • Uses local embedded SQLite file (`40ms` full-history Elo/7-factor)   │
@@ -145,7 +145,7 @@ Leverages our discovery that `https://stats.fn.sportradar.com` is a direct, toke
 ┌───────────────────────────────────┴─────────────────────────────────────┐
 │          Scheduled Cloud Batch Pipeline (GitHub Actions Cron)           │
 │  • Runs `uv run betscout pipeline` in GitHub's cloud (MacBook 100% OFF) │
-│  • Caches `data/matches.sqlite` in GitHub Actions Cache                 │
+│  • Caches `data/betscout.db` in GitHub Actions Cache                 │
 │  • Publishes updated static JSON + sends Discord PNG Pick Card alerts   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -157,7 +157,7 @@ Leverages our discovery that `https://stats.fn.sportradar.com` is a direct, toke
 
 ### Option D: Single Always-On Hardened Container (`Fly.io` / `Google Cloud Run` / `Hetzner`) + Persistent NVMe SQLite + Litestream
 
-Run the **exact current `betscout` Python WebApp (`webapp.py` + `matches.sqlite`) 24/7 in a single container** with an attached NVMe SSD volume and **Litestream** continuous WAL backup:
+Run the **exact current `betscout` Python WebApp (`webapp.py` + `betscout.db`) 24/7 in a single container** with an attached NVMe SSD volume and **Litestream** continuous WAL backup:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -169,7 +169,7 @@ Run the **exact current `betscout` Python WebApp (`webapp.py` + `matches.sqlite`
 ┌─────────────────────────────────────────────────────────────────────────┐
 │         Single Always-On Container (Fly.io / Cloud Run / Hetzner)       │
 │  • Runs `uv run betscout --host 0.0.0.0 --port 8090` 24/7               │
-│  • Local NVMe SSD Volume `/data/matches.sqlite` (`0.1ms` SQL latency!)  │
+│  • Local NVMe SSD Volume `/data/betscout.db` (`0.1ms` SQL latency!)  │
 │  • Built-in 6s SSE `/api/stream` + 90s auto-poller + Discord PNG cards  │
 │  • Litestream sidecar continuously replicates SQLite WAL to GCS / S3    │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -198,12 +198,12 @@ Combine **Option A** (`Firebase Hosting + Cloud Firestore + Firebase Auth`) with
    - **UI & State (`<30ms`):** Served from **Firebase Hosting** and synced in real time via **Cloud Firestore** (`onSnapshot`).
    - **Live 3-Second In-Play Scores (`~50ms`):** Browser JS directly queries Sportradar's tokenless `match_timelinedelta/{sr_match_id}` endpoint for ongoing matches in `#liveTradesTable` — works 24/7 with **zero backend server and zero Firestore writes**!
    - **On-Demand Analyzer & `📌 Track Live` (`<15ms`):** Browser JS uses a compact synced `state/elo_team_state` (~120 KB) + live Sportradar `match_markets` to analyze any matchup client-side and saves pinned live matches directly to Firestore `tracked_live/{id}`.
-   - **Unattended Scans & Discord Notifications:** A scheduled **GitHub Actions workflow** runs `uv run betscout pipeline --sync-firestore` in GitHub's cloud (with `matches.sqlite` cached in GitHub Actions Cache and `DISCORD_WEBHOOK_URL_*` stored in encrypted GitHub Secrets).
+   - **Unattended Scans & Discord Notifications:** A scheduled **GitHub Actions workflow** runs `uv run betscout pipeline --sync-firestore` in GitHub's cloud (with `betscout.db` cached in GitHub Actions Cache and `DISCORD_WEBHOOK_URL_*` stored in encrypted GitHub Secrets).
 2. **Security:** Firebase Auth + `firestore.rules` lock all global writes to your Google email, while Discord webhooks never leave GitHub Encrypted Secrets.
 
 ### 🏆 Recommendation 2 (~$4/Month Dedicated): **`Option D` (Single Container on Fly.io / Cloud Run + Firebase Hosting/Auth)**
 If you prefer continuous 90-second server-side background polling (rather than scheduled GitHub Actions crons) with zero client-side logic changes:
-- Deploy the repo as a single Docker container on **Fly.io** (or **Cloud Run**) with a 1 GB persistent NVMe volume for `data/matches.sqlite` and put **Firebase Hosting + Firebase Auth** in front of it.
+- Deploy the repo as a single Docker container on **Fly.io** (or **Cloud Run**) with a 1 GB persistent NVMe volume for `data/betscout.db` and put **Firebase Hosting + Firebase Auth** in front of it.
 
 ---
 

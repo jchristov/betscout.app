@@ -11,4 +11,4 @@ from betscout.ingest import backfill  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1] / "data"
 
 if __name__ == "__main__":
-    print(backfill(ROOT / "matches.sqlite", ROOT / "cache", [2025], SOCCER_LEAGUES, workers=8), flush=True)
+    print(backfill(ROOT / "betscout.db", ROOT / "cache", [2025], SOCCER_LEAGUES, workers=8), flush=True)

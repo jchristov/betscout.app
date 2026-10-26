@@ -41,7 +41,7 @@ def main() -> None:
     args = parser.parse_args()
 
     rec_path = ROOT / "data" / "recommendations.json"
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     out_path = ROOT / "data" / "dashboard.html"
     csv_path = args.export_csv or ((ROOT / "data" / "best_bets.csv") if args.format in ("both", "csv") else None)
     json_path = args.export_json or ((ROOT / "data" / "best_bets.json") if args.format in ("both", "json") else None)

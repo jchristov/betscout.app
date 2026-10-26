@@ -71,7 +71,7 @@ def main() -> None:
     elif args.days:
         mode = "days"
 
-    db_path = ROOT / "data" / "matches.sqlite"
+    db_path = ROOT / "data" / "betscout.db"
     cache_dir = ROOT / "data" / "cache"
 
     res = ingest_universal(
