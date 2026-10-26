@@ -835,6 +835,32 @@ def test_per_sport_isolated_gates():
     dis_bb = build_best_bets_summary(sample_rec, min_odds=1.10, disabled_sports={"basketball"})
     assert len(all_bb) == 2 and len(dis_bb) == 1 and dis_bb[0]["sport_cat"] == "hockey"
 
+    # 8. Option D Cloud Run & Firebase Auth RBAC verification
+    import os
+    from betscout.webapp import get_firebase_auth_config, verify_admin_request_auth
+
+    # Default local mode (no FIREBASE_WEB_API_KEY / FIREBASE_ADMIN_EMAILS): all requests allowed
+    os.environ.pop("FIREBASE_WEB_API_KEY", None)
+    os.environ.pop("FIREBASE_ADMIN_EMAILS", None)
+    assert get_firebase_auth_config()["enabled"] is False
+    ok_local, actor_local, _ = verify_admin_request_auth(None)
+    assert ok_local is True and actor_local == "local_admin"
+
+    # Cloud Run mode with FIREBASE_WEB_API_KEY + FIREBASE_ADMIN_EMAILS + BETSCOUT_CRON_SECRET
+    os.environ["FIREBASE_WEB_API_KEY"] = "AIzaSy_test_key"
+    os.environ["FIREBASE_ADMIN_EMAILS"] = "admin@betscout.app"
+    os.environ["BETSCOUT_CRON_SECRET"] = "secret_scheduler_token_123"
+    try:
+        assert get_firebase_auth_config()["enabled"] is True
+        ok_unauth, _, err_unauth = verify_admin_request_auth(None)
+        assert ok_unauth is False and "Authentication required" in err_unauth
+        ok_cron, actor_cron, _ = verify_admin_request_auth("Bearer secret_scheduler_token_123")
+        assert ok_cron is True and actor_cron == "cloud_scheduler"
+    finally:
+        os.environ.pop("FIREBASE_WEB_API_KEY", None)
+        os.environ.pop("FIREBASE_ADMIN_EMAILS", None)
+        os.environ.pop("BETSCOUT_CRON_SECRET", None)
+
 
 
 

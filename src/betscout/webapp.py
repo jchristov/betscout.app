@@ -60,6 +60,83 @@ _PIPELINE_STATUS: dict[str, Any] = {
 }
 
 
+def get_firebase_auth_config() -> dict[str, Any]:
+    """Return Firebase Auth & Cloud Run RBAC configuration from environment variables.
+    When `FIREBASE_WEB_API_KEY` and `FIREBASE_ADMIN_EMAILS` are not set (local mode),
+    `enabled` is `False` and all endpoints operate without requiring a login token."""
+    import os
+    from . import load_dotenv
+
+    load_dotenv(override=False)
+    api_key = (os.environ.get("FIREBASE_WEB_API_KEY") or "").strip()
+    project_id = (os.environ.get("FIREBASE_PROJECT_ID") or "").strip()
+    auth_domain = (os.environ.get("FIREBASE_AUTH_DOMAIN") or (f"{project_id}.firebaseapp.com" if project_id else "")).strip()
+    raw_admins = (os.environ.get("FIREBASE_ADMIN_EMAILS") or "").strip()
+    admin_emails = [x.strip().lower() for x in raw_admins.split(",") if x.strip()]
+    cron_secret = (os.environ.get("BETSCOUT_CRON_SECRET") or "").strip()
+    return {
+        "enabled": bool(api_key and admin_emails),
+        "api_key": api_key,
+        "project_id": project_id,
+        "auth_domain": auth_domain,
+        "admin_emails": admin_emails,
+        "has_cron_secret": bool(cron_secret),
+    }
+
+
+def verify_admin_request_auth(auth_header: str | None) -> tuple[bool, str | None, str]:
+    """Verify an incoming `Authorization: Bearer <token>` header for Admin POST endpoints.
+    Returns `(authorized, email_or_actor, error_message)`:
+      1. If Firebase Auth RBAC is not enabled (`FIREBASE_WEB_API_KEY` + `FIREBASE_ADMIN_EMAILS` unset),
+         returns `(True, 'local_admin', '')` so local desktop usage requires zero login friction.
+      2. If `BETSCOUT_CRON_SECRET` is configured and matches the Bearer token, returns `(True, 'cloud_scheduler', '')`.
+      3. Otherwise verifies the Firebase ID Token via Google Identity Toolkit (`accounts:lookup`)
+         and checks that the verified email is in `FIREBASE_ADMIN_EMAILS`."""
+    import os
+    import subprocess
+
+    cfg = get_firebase_auth_config()
+    if not cfg["enabled"]:
+        return True, "local_admin", ""
+
+    token = ""
+    if auth_header and auth_header.strip().lower().startswith("bearer "):
+        token = auth_header.strip()[7:].strip()
+    if not token:
+        return False, None, "Authentication required: Sign in with your Admin Google account to perform this action."
+
+    cron_secret = (os.environ.get("BETSCOUT_CRON_SECRET") or "").strip()
+    if cron_secret and token == cron_secret:
+        return True, "cloud_scheduler", ""
+
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={cfg['api_key']}"
+    try:
+        proc = subprocess.run(
+            [
+                "curl", "-sS", "-m", "8", "-X", "POST", url,
+                "-H", "Content-Type: application/json",
+                "-d", json.dumps({"idToken": token}),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        data = json.loads(proc.stdout)
+        users = data.get("users") or []
+        if not users:
+            return False, None, "Invalid or expired Firebase ID token. Please sign in again."
+        u0 = users[0]
+        email = str(u0.get("email") or "").strip().lower()
+        email_verified = bool(u0.get("emailVerified", True))
+        if not email or not email_verified:
+            return False, email, "Verified email address required."
+        if email not in cfg["admin_emails"]:
+            return False, email, f"Read-only account ({email}): only authorized admins can modify server state."
+        return True, email, ""
+    except Exception as exc:
+        return False, None, f"Token verification failed: {exc}"
+
+
 def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
     import os
     cfg_file = data_dir / "webapp_settings.json"
@@ -669,7 +746,10 @@ def _refresh_inplay_timelinedelta(db_path: Path) -> int:
 def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> threading.Thread:
     """Start a daemon background thread that periodically settles finished/in-play matches
     and evaluates T-60m starting XI gates for upcoming soccer fixtures."""
-    data_dir = root_dir / "data"
+    import os
+
+    env_data_dir = (os.environ.get("BETSCOUT_DATA_DIR") or "").strip()
+    data_dir = Path(env_data_dir) if env_data_dir else (root_dir / "data")
     db_path = data_dir / "matches.sqlite"
     rec_path = data_dir / "recommendations.json"
     dash_path = data_dir / "dashboard.html"
@@ -727,7 +807,11 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
 
 
 def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
-    data_dir = root_dir / "data"
+    import os
+
+    env_data_dir = (os.environ.get("BETSCOUT_DATA_DIR") or "").strip()
+    data_dir = Path(env_data_dir) if env_data_dir else (root_dir / "data")
+    data_dir.mkdir(parents=True, exist_ok=True)
     rec_path = data_dir / "recommendations.json"
     db_path = data_dir / "matches.sqlite"
     dash_path = data_dir / "dashboard.html"
@@ -758,7 +842,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
@@ -972,8 +1056,35 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(png_data)
                 return
 
+            if parsed.path in ("/api/healthz", "/healthz"):
+                self._send_json({
+                    "ok": True,
+                    "status": "healthy",
+                    "db_exists": db_path.exists(),
+                    "data_dir": str(data_dir),
+                    "firebase_auth_enabled": get_firebase_auth_config()["enabled"],
+                })
+                return
+
+            if parsed.path == "/api/auth/config":
+                fb_cfg = get_firebase_auth_config()
+                auth_hdr = self.headers.get("Authorization")
+                is_admin, actor_email, _ = verify_admin_request_auth(auth_hdr)
+                self._send_json({
+                    "ok": True,
+                    "enabled": fb_cfg["enabled"],
+                    "api_key": fb_cfg["api_key"],
+                    "project_id": fb_cfg["project_id"],
+                    "auth_domain": fb_cfg["auth_domain"],
+                    "is_admin": is_admin,
+                    "actor": actor_email,
+                })
+                return
+
             if parsed.path in ("/api/telegram/status", "/api/social/status", "/api/discord/status", "/api/settings"):
                 cfg_s = _load_webapp_settings(data_dir)
+                fb_cfg = get_firebase_auth_config()
+                is_admin, actor_email, _ = verify_admin_request_auth(self.headers.get("Authorization"))
                 self._send_json({
                     "ok": True,
                     "discord": get_discord_env_config(custom_sport_webhooks=cfg_s.get("sport_webhooks")),
@@ -981,6 +1092,14 @@ self.addEventListener('fetch', (event) => {{
                     "settings": cfg_s,
                     "inplay_alerts_enabled": bool(cfg_s.get("inplay_alerts_enabled", False)),
                     "inplay_alert_items": cfg_s.get("inplay_alert_items") or {},
+                    "auth": {
+                        "enabled": fb_cfg["enabled"],
+                        "api_key": fb_cfg["api_key"],
+                        "project_id": fb_cfg["project_id"],
+                        "auth_domain": fb_cfg["auth_domain"],
+                        "is_admin": is_admin,
+                        "actor": actor_email,
+                    },
                 })
                 return
 
@@ -1040,6 +1159,11 @@ self.addEventListener('fetch', (event) => {{
 
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            is_authorized, _actor, auth_err = verify_admin_request_auth(self.headers.get("Authorization"))
+            if not is_authorized:
+                self._send_json({"ok": False, "error": auth_err, "auth_required": True}, status=403)
+                return
+
             length = int(self.headers.get("Content-Length") or "0")
             raw_body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
             try:
@@ -1344,6 +1468,18 @@ class _DaemonThreadingHTTPServer(ThreadingHTTPServer):
 
 
 def run_webapp_server(root_dir: Path, host: str = "127.0.0.1", port: int = 8090) -> None:
+    import os
+
+    env_port = (os.environ.get("PORT") or "").strip()
+    if env_port.isdigit() and port == 8090:
+        port = int(env_port)
+    env_host = (os.environ.get("HOST") or "").strip()
+    if env_host and host == "127.0.0.1":
+        host = env_host
+    elif env_port.isdigit() and host == "127.0.0.1":
+        # In Cloud Run / container environments where PORT is injected, bind to 0.0.0.0 automatically
+        host = "0.0.0.0"
+
     _start_background_auto_poller(root_dir, interval_sec=90)
     handler_cls = build_webapp_handler(root_dir)
     server = _DaemonThreadingHTTPServer((host, port), handler_cls)

@@ -1946,6 +1946,7 @@ def generate_dashboard_html(
           <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
         </div>
         <div class="btn-group" style="align-items:center; margin-left:auto; justify-content:flex-end;">
+          <button id="firebaseAuthBtn" class="btn-export" type="button" style="display:none;" onclick="triggerFirebaseSignInOut()" title="Sign in with Google (Firebase Auth) for Admin Controls">🔐 Admin Sign In</button>
           <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
           <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
           <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
@@ -3462,7 +3463,7 @@ def generate_dashboard_html(
       try {{
         const r = await fetch('/api/track-live', {{
           method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
+          headers: getAuthHeaders(),
           body: JSON.stringify({{ query: q }})
         }});
         const d = await r.json();
@@ -3492,7 +3493,7 @@ def generate_dashboard_html(
       try {{
         const r = await fetch('/api/untrack-live', {{
           method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
+          headers: getAuthHeaders(),
           body: JSON.stringify({{ action: 'untrack', league, event_id: eventId }})
         }});
         const d = await r.json();
@@ -4448,6 +4449,93 @@ def generate_dashboard_html(
     let currentInplayAlertsEnabled = false;
     let currentInplayAlertItems = {{}};
     let currentAppSettings = {{}};
+    let currentFirebaseAuthCfg = {{ enabled: false }};
+    let currentFirebaseIdToken = '';
+    let currentFirebaseUserEmail = '';
+    let currentIsAdmin = true;
+    let firebaseAuthInstance = null;
+
+    function getAuthHeaders(extraHeaders) {{
+      const h = Object.assign({{ 'Content-Type': 'application/json' }}, extraHeaders || {{}});
+      if (currentFirebaseIdToken) {{
+        h['Authorization'] = 'Bearer ' + currentFirebaseIdToken;
+      }}
+      return h;
+    }}
+
+    function updateFirebaseAuthUi() {{
+      const btn = document.getElementById('firebaseAuthBtn');
+      if (!btn) return;
+      if (!currentFirebaseAuthCfg || !currentFirebaseAuthCfg.enabled) {{
+        btn.style.display = 'none';
+        return;
+      }}
+      btn.style.display = 'inline-flex';
+      if (currentFirebaseUserEmail) {{
+        const roleTag = currentIsAdmin ? 'Admin' : 'Viewer';
+        btn.className = currentIsAdmin ? 'btn-export btn-telegram' : 'btn-export';
+        btn.textContent = '🔓 ' + currentFirebaseUserEmail.split('@')[0] + ' (' + roleTag + ')';
+        btn.title = 'Signed in as ' + currentFirebaseUserEmail + ' (' + roleTag + ') — click to sign out';
+      }} else {{
+        btn.className = 'btn-export btn-primary';
+        btn.textContent = '🔐 Admin Sign In';
+        btn.title = 'Sign in with Google (Firebase Auth) to unlock Admin actions';
+      }}
+    }}
+
+    async function initFirebaseAuthIfConfigured(authObj) {{
+      if (!authObj || !authObj.enabled || !authObj.api_key) return;
+      currentFirebaseAuthCfg = authObj;
+      currentIsAdmin = Boolean(authObj.is_admin);
+      updateFirebaseAuthUi();
+      if (firebaseAuthInstance) return;
+      try {{
+        const appMod = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+        const authMod = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+        const fbApp = appMod.initializeApp({{
+          apiKey: authObj.api_key,
+          authDomain: authObj.auth_domain || (authObj.project_id + '.firebaseapp.com'),
+          projectId: authObj.project_id || undefined
+        }});
+        firebaseAuthInstance = {{ auth: authMod.getAuth(fbApp), authMod }};
+        authMod.onAuthStateChanged(firebaseAuthInstance.auth, async (user) => {{
+          if (user) {{
+            currentFirebaseUserEmail = user.email || '';
+            currentFirebaseIdToken = await user.getIdToken();
+            try {{
+              const r = await fetch('/api/auth/config', {{ headers: getAuthHeaders() }});
+              const d = await r.json();
+              currentIsAdmin = Boolean(d.is_admin);
+            }} catch (_) {{}}
+          }} else {{
+            currentFirebaseUserEmail = '';
+            currentFirebaseIdToken = '';
+            currentIsAdmin = false;
+          }}
+          updateFirebaseAuthUi();
+        }});
+      }} catch (_) {{}}
+    }}
+
+    async function triggerFirebaseSignInOut() {{
+      if (!firebaseAuthInstance) {{
+        showToast('ℹ️ Firebase Auth SDK is initializing...');
+        return;
+      }}
+      const {{ auth, authMod }} = firebaseAuthInstance;
+      try {{
+        if (auth.currentUser) {{
+          await authMod.signOut(auth);
+          showToast('🔒 Signed out of BetScout Admin.');
+        }} else {{
+          const provider = new authMod.GoogleAuthProvider();
+          await authMod.signInWithPopup(auth, provider);
+          showToast('✅ Signed in with Google!');
+        }}
+      }} catch (err) {{
+        showToast('⚠️ Sign-in error: ' + String(err.message || err));
+      }}
+    }}
 
     async function openSettingsModal() {{
       const modal = document.getElementById('settingsModal');
@@ -4580,10 +4668,14 @@ def generate_dashboard_html(
         try {{
           const r = await fetch('/api/settings', {{
             method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
+            headers: getAuthHeaders(),
             body: JSON.stringify(payload)
           }});
           const d = await r.json();
+          if (d.auth_required) {{
+            showToast('🔐 ' + (d.error || 'Admin sign-in required to modify server settings (saved locally for your browser).'));
+            return;
+          }}
           if (d.settings) currentAppSettings = d.settings;
           updateSocialEnvBadges(d);
         }} catch (_) {{}}
@@ -4630,7 +4722,7 @@ def generate_dashboard_html(
         try {{
           await fetch('/api/settings/inplay-alerts', {{
             method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
+            headers: getAuthHeaders(),
             body: JSON.stringify({{ item_key: k, enabled: nextVal }})
           }});
           showToast(nextVal ? ('🔔 Live Alert enabled for ' + k.toUpperCase() + '!') : ('🔕 Live Alert muted for ' + k.toUpperCase() + '.'));
@@ -4648,7 +4740,7 @@ def generate_dashboard_html(
         try {{
           await fetch('/api/settings/inplay-alerts', {{
             method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
+            headers: getAuthHeaders(),
             body: JSON.stringify({{ enabled: nextState }})
           }});
           showToast(nextState ? '🔔 Live In-Play Discord Alerts enabled!' : '🔕 Live In-Play Discord Alerts muted (OFF).');
@@ -4673,7 +4765,7 @@ def generate_dashboard_html(
         const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
         const r = await fetch('/api/sync', {{
           method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
+          headers: getAuthHeaders(),
           body: JSON.stringify({{ rescan: Boolean(rescanLive), min_odds: minThr }})
         }});
         const d = await r.json();
@@ -4706,7 +4798,7 @@ def generate_dashboard_html(
         const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
         const r = await fetch('/api/pipeline', {{
           method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
+          headers: getAuthHeaders(),
           body: JSON.stringify({{ full_pipeline: true, min_odds: minThr }})
         }});
         const d = await r.json();
@@ -4731,7 +4823,10 @@ def generate_dashboard_html(
         if (txt) txt.textContent = 'Static Mode';
         return;
       }}
-      fetch('/api/social/status').then(r => r.json()).then(updateSocialEnvBadges).catch(() => {{}});
+      fetch('/api/social/status', {{ headers: getAuthHeaders() }}).then(r => r.json()).then(d => {{
+        updateSocialEnvBadges(d);
+        if (d && d.auth) initFirebaseAuthIfConfigured(d.auth);
+      }}).catch(() => {{}});
       const es = new EventSource('/api/stream');
       es.addEventListener('update', ev => {{
         if (dot) dot.classList.add('online');
@@ -4899,7 +4994,7 @@ def generate_dashboard_html(
           const incImg = Boolean(document.getElementById('attachPngCardChk')?.checked);
           const r = await fetch('/api/discord', {{
             method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
+            headers: getAuthHeaders(),
             body: JSON.stringify({{
               text,
               sport: currentShareSportCat || currentSportFilter || 'all',
@@ -4964,7 +5059,7 @@ def generate_dashboard_html(
           const incImg = Boolean(document.getElementById('attachPngCardChk')?.checked);
           const r = await fetch('/api/telegram', {{
             method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
+            headers: getAuthHeaders(),
             body: JSON.stringify({{
               text,
               sport: currentShareSportCat || currentSportFilter || 'all',
