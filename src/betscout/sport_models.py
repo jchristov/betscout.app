@@ -84,6 +84,7 @@ def evaluate_tennis_gate(
     game_elo_diff: float | None = None,
     all_elo_diff: float | None = None,
     h2h_n: int = 0,
+    open_odds: float | None = None,
 ) -> tuple[bool, float, float | None, str]:
     """Evaluate ATP/WTA Tennis specific gates and market-blend calibration.
     Returns `(passed, blended_win_prob, ev_pct, reason)`:
@@ -96,9 +97,13 @@ def evaluate_tennis_gate(
        When career `all_elo_diff >= 230` inflates `win_prob >= 0.80` on a first-time matchup (`h2h_n == 0`),
        require either `game_elo_diff >= 95.0` or `game_win_pct_diff >= 0.05` (vetoes lower-tier WTA/ITF chalk traps
        like `Carolina Alves vs Julia Grabher` where `all_elo_diff=254.7` but `game_elo_diff=88.9` and `game_win_pct_diff=0.045`).
-    4. **Market-Disagreement & EV Gate:**
+    4. **Adverse Closing-Line Drift + Modest Game-Elo Veto:**
+       When a sub-75% favorite has modest Game-Elo (`game_elo_diff < 60`) and the bookmaker line drifts out against them
+       by >= 4.5% (`open_odds / book_odds - 1.0 <= -0.045`, e.g. `Laura Samson vs Alice Tubello` drifting from `1.383` to `1.47`),
+       veto to avoid late injury/fatigue steam against WTA 125K/ITF favorites.
+    5. **Market-Disagreement & EV Gate:**
        Blends 75% model + 25% devigged bookmaker probability, vetoing >=15pp market disagreements (`p_mkt_devig < 0.60`)
-       or negative EV (`ev_pct < 0.0` when `win_prob < 0.80`).
+       or negative EV (`ev_pct < -1.5` when `win_prob < 0.80`).
     """
     # 1. Stale Career-Elo Veto: career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
     if (all_elo_diff is None or all_elo_diff >= 220.0) and game_win_pct_diff <= -0.009 and form_6m_diff <= 0.0:
@@ -116,6 +121,18 @@ def evaluate_tennis_gate(
         and h2h_n == 0
     ):
         return False, win_prob, None, "VETO_CAREER_ELO_GAME_DIVERGENCE"
+
+    # 2b. Adverse Closing-Line Drift + Modest Game-Elo Veto (e.g. Laura Samson vs Alice Tubello: game_elo_diff=53.9, open=1.383 -> close=1.47, CLV=-5.9%)
+    if (
+        win_prob < 0.75
+        and game_elo_diff is not None
+        and game_elo_diff < 60.0
+        and open_odds is not None
+        and book_odds is not None
+        and book_odds > 1.05
+        and ((open_odds / book_odds) - 1.0) <= -0.045
+    ):
+        return False, win_prob, None, "VETO_ADVERSE_LINE_DRIFT"
 
     # 3. Court-Acclimatization & Travel Fatigue Gate
     if (

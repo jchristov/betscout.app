@@ -600,6 +600,7 @@ def scan_upcoming_tennis(
                             game_elo_diff=round(sgn * d_elo_games * 400.0, 1),
                             all_elo_diff=round(sgn * d_elo_all * 400.0, 1),
                             h2h_n=n_p,
+                            open_odds=open_book_odds,
                         )
                         if not t_passed:
                             continue
@@ -3243,6 +3244,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "settled_outcome": r["settled_outcome"],
                 "exact_score_pred": r.get("exact_score_pred"),
                 "exact_score_hit": r.get("exact_score_hit"),
+                "logged_at": r.get("logged_at"),
+                "updated_at": r.get("updated_at"),
+                "ended_at": (r.get("updated_at") or r.get("notified_at")) if r["status"] == "SETTLED" else None,
                 "notified_at": r.get("notified_at"),
                 "score_str": (
                     r.get("live_score")

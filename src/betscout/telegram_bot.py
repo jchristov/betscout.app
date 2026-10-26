@@ -641,7 +641,9 @@ def notify_new_settlements_to_discord(
                 settle_img_bytes = render_pick_card_png({
                     "sport_cat": _league_to_sport_cat(r0["league"]),
                     "competition": LEAGUE_LABELS.get(r0["league"], r0["league"].upper()),
+                    "announced_at_local": _format_local_time(r0["logged_at"]) if r0.get("logged_at") else "",
                     "date_local": _format_local_time(r0["kickoff"]),
+                    "ended_at_local": _format_local_time(r0.get("updated_at") or claim_iso),
                     "match": f"{r0['home']} vs {r0['away']} [{r0.get('settled_score') or ''}]",
                     "pick_name": f"{r0['home'] if r0['side'] == 'H' else r0['away']} ({'WIN' if pnl0 > 0 else 'LOSS'} {pnl0:+.2f}u)",
                     "tier": r0.get("tier") or "SETTLED",
@@ -654,7 +656,10 @@ def notify_new_settlements_to_discord(
             elif unnotified:
                 slate_rows = [
                     {
+                        "sport_cat": _league_to_sport_cat(r["league"]),
+                        "announced_at_local": _format_local_time(r["logged_at"]) if r.get("logged_at") else "",
                         "date_local": _format_local_time(r["kickoff"]),
+                        "ended_at_local": _format_local_time(r.get("updated_at") or claim_iso),
                         "match": f"{r['home']} vs {r['away']} [{r.get('settled_score') or ''}]",
                         "pick_name": f"{r['home'] if r['side'] == 'H' else r['away']} ({'W' if float(r.get('pnl_best') or 0) > 0 else 'L'} {float(r.get('pnl_best') or 0):+.2f}u)",
                         "win_prob": r.get("p_mkt"),

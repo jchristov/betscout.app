@@ -12,11 +12,108 @@ SPORT_LABELS: dict[str, str] = {
     "soccer": "FOOTBALL / SOCCER",
     "tennis": "ATP / WTA TENNIS",
     "basketball": "BASKETBALL / FIBA / NBA",
-    "volleyball": "NCAA VOLLEYBALL",
+    "volleyball": "VOLLEYBALL",
     "hockey": "ICE HOCKEY / NHL",
     "football": "AMERICAN FOOTBALL / NFL",
     "baseball": "BASEBALL / MLB",
+    "handball": "HANDBALL",
+    "darts": "DARTS",
+    "table_tennis": "TABLE TENNIS",
 }
+
+
+def _infer_sport_cat(raw_val: str | None) -> str:
+    low = str(raw_val or "").lower().strip()
+    if not low:
+        return "soccer"
+    if "table_tennis" in low or "table tennis" in low:
+        return "table_tennis"
+    if "handball" in low:
+        return "handball"
+    if "darts" in low:
+        return "darts"
+    if "tennis" in low or low in ("atp", "wta"):
+        return "tennis"
+    if "volleyball" in low:
+        return "volleyball"
+    if "basketball" in low or low in ("nba", "wnba", "ncaam", "ncaaw", "fiba", "nbl"):
+        return "basketball"
+    if "hockey" in low or low == "nhl":
+        return "hockey"
+    if "american football" in low or low in ("nfl", "football"):
+        return "football"
+    if "baseball" in low or low == "mlb":
+        return "baseball"
+    return "soccer"
+
+
+def _draw_sport_icon(draw: ImageDraw.ImageDraw, sport_cat: str, cx: int, cy: int, radius: int = 12) -> None:
+    """Draw a crisp vector sport icon at `(cx, cy)` so every generated PNG card has a clear visual sport emblem."""
+    import math
+
+    sp = _infer_sport_cat(sport_cat)
+    r = radius
+    bbox = [(cx - r, cy - r), (cx + r, cy + r)]
+
+    if sp == "tennis":
+        # Optic yellow-green tennis ball with white curved seams
+        draw.ellipse(bbox, fill=(163, 230, 53), outline=(34, 197, 94), width=2)
+        draw.arc([(cx - int(r * 1.3), cy - int(r * 0.85)), (cx - int(r * 0.15), cy + int(r * 0.85))], start=-55, end=55, fill=(255, 255, 255), width=2)
+        draw.arc([(cx + int(r * 0.15), cy - int(r * 0.85)), (cx + int(r * 1.3), cy + int(r * 0.85))], start=125, end=235, fill=(255, 255, 255), width=2)
+    elif sp == "basketball":
+        # Orange basketball with dark ribs
+        draw.ellipse(bbox, fill=(249, 115, 22), outline=(251, 146, 60), width=2)
+        draw.line([(cx - r + 2, cy), (cx + r - 2, cy)], fill=(15, 23, 42), width=2)
+        draw.line([(cx, cy - r + 2), (cx, cy + r - 2)], fill=(15, 23, 42), width=2)
+        draw.arc([(cx - int(r * 1.2), cy - int(r * 0.8)), (cx - int(r * 0.1), cy + int(r * 0.8))], start=-55, end=55, fill=(15, 23, 42), width=2)
+        draw.arc([(cx + int(r * 0.1), cy - int(r * 0.8)), (cx + int(r * 1.2), cy + int(r * 0.8))], start=125, end=235, fill=(15, 23, 42), width=2)
+    elif sp == "hockey":
+        # Crossed cyan hockey stick + dark puck
+        draw.ellipse(bbox, fill=(15, 23, 42), outline=(56, 189, 248), width=2)
+        draw.line([(cx - int(r * 0.55), cy - int(r * 0.55)), (cx + int(r * 0.45), cy + int(r * 0.45))], fill=(56, 189, 248), width=3)
+        draw.line([(cx + int(r * 0.45), cy + int(r * 0.45)), (cx + int(r * 0.75), cy + int(r * 0.30))], fill=(56, 189, 248), width=3)
+        draw.ellipse([(cx - int(r * 0.55), cy + int(r * 0.15)), (cx + int(r * 0.15), cy + int(r * 0.55))], fill=(226, 232, 240))
+    elif sp == "football":
+        # NFL prolate football with white laces
+        draw.ellipse([(cx - r, cy - int(r * 0.68)), (cx + r, cy + int(r * 0.68))], fill=(180, 83, 9), outline=(245, 158, 11), width=2)
+        draw.line([(cx - int(r * 0.45), cy), (cx + int(r * 0.45), cy)], fill=(255, 255, 255), width=2)
+        for lx in (-int(r * 0.3), 0, int(r * 0.3)):
+            draw.line([(cx + lx, cy - 3), (cx + lx, cy + 3)], fill=(255, 255, 255), width=2)
+    elif sp == "baseball":
+        # White baseball with red seams
+        draw.ellipse(bbox, fill=(241, 245, 249), outline=(148, 163, 184), width=2)
+        draw.arc([(cx - int(r * 1.25), cy - int(r * 0.8)), (cx - int(r * 0.15), cy + int(r * 0.8))], start=-55, end=55, fill=(239, 68, 68), width=2)
+        draw.arc([(cx + int(r * 0.15), cy - int(r * 0.8)), (cx + int(r * 1.25), cy + int(r * 0.8))], start=125, end=235, fill=(239, 68, 68), width=2)
+    elif sp == "table_tennis":
+        # Red table tennis paddle + white ball
+        draw.ellipse([(cx - int(r * 0.85), cy - int(r * 0.85)), (cx + int(r * 0.45), cy + int(r * 0.45))], fill=(239, 68, 68), outline=(252, 165, 165), width=2)
+        draw.line([(cx + int(r * 0.2), cy + int(r * 0.2)), (cx + int(r * 0.75), cy + int(r * 0.75))], fill=(217, 119, 6), width=4)
+        draw.ellipse([(cx + int(r * 0.25), cy - int(r * 0.75)), (cx + int(r * 0.85), cy - int(r * 0.15))], fill=(255, 255, 255))
+    elif sp == "darts":
+        # Bullseye target rings
+        draw.ellipse(bbox, fill=(15, 23, 42), outline=(239, 68, 68), width=2)
+        r_mid = int(r * 0.62)
+        r_in = int(r * 0.28)
+        draw.ellipse([(cx - r_mid, cy - r_mid), (cx + r_mid, cy + r_mid)], outline=(34, 197, 94), width=2)
+        draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], fill=(239, 68, 68))
+    elif sp in ("volleyball", "handball"):
+        col_fill = (56, 189, 248) if sp == "volleyball" else (245, 158, 11)
+        draw.ellipse(bbox, fill=(15, 23, 42), outline=col_fill, width=2)
+        draw.arc([(cx - r + 2, cy - r + 2), (cx + r - 2, cy + r - 2)], start=20, end=160, fill=col_fill, width=2)
+        draw.arc([(cx - r + 2, cy - r + 2), (cx + r - 2, cy + r - 2)], start=200, end=340, fill=(241, 245, 249), width=2)
+        draw.line([(cx - r + 3, cy), (cx + r - 3, cy)], fill=col_fill, width=2)
+    else:
+        # Football / Soccer ball: outer ring + center pentagon + 5 spoke seams
+        draw.ellipse(bbox, fill=(241, 245, 249), outline=(56, 189, 248), width=2)
+        r_pent = r * 0.44
+        pent_pts = [
+            (cx + r_pent * math.cos(math.radians(-90 + i * 72)), cy + r_pent * math.sin(math.radians(-90 + i * 72)))
+            for i in range(5)
+        ]
+        draw.polygon(pent_pts, fill=(15, 23, 42))
+        for px, py in pent_pts:
+            ang = math.atan2(py - cy, px - cx)
+            draw.line([(px, py), (cx + (r - 2) * math.cos(ang), cy + (r - 2) * math.sin(ang))], fill=(15, 23, 42), width=2)
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -282,7 +379,7 @@ def render_pick_card_png(
     draw.text((104, 45), "BETSCOUT", font=f_brand, fill=(230, 237, 247))
     draw.text((104, 76), "SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE", font=f_sub, fill=(139, 155, 180))
 
-    sport_cat = str(pick_data.get("sport_cat") or pick_data.get("sport") or "soccer").lower()
+    sport_cat = _infer_sport_cat(pick_data.get("sport_cat") or pick_data.get("sport") or pick_data.get("competition") or "soccer")
     comp_raw = _strip_non_ascii_symbols(
         str(pick_data.get("competition") or pick_data.get("sport_league") or SPORT_LABELS.get(sport_cat, "QUANT PICK"))
     )
@@ -299,17 +396,29 @@ def render_pick_card_png(
     # Divider
     draw.line([(48, 110), (w - 48, 110)], fill=(34, 48, 73), width=1)
 
-    # Competition & Kickoff meta row
+    # Competition (with Vector Sport Icon!) & Timestamps (Announced · Start · Ended) row
     kickoff_str = _strip_non_ascii_symbols(str(pick_data.get("date_local") or pick_data.get("date") or "Upcoming Slate"))
+    announced_str = _strip_non_ascii_symbols(str(pick_data.get("announced_at_local") or pick_data.get("announced_at") or pick_data.get("logged_at") or ""))
+    ended_str = _strip_non_ascii_symbols(str(pick_data.get("ended_at_local") or pick_data.get("ended_at") or ""))
+
     sport_tag = SPORT_LABELS.get(sport_cat, sport_cat.upper())
     comp_label = f"{sport_tag}  ·  {comp_raw}" if comp_raw.upper() not in sport_tag else sport_tag
-    f_comp, comp_fit = _fit_font_and_text(draw, comp_label, max_width=560, start_size=14, min_size=11, bold=True)
-    comp_box_w = int(_text_width(draw, comp_fit, f_comp)) + 28
-    draw.rounded_rectangle([(48, 124), (48 + comp_box_w, 156)], radius=8, fill=(15, 23, 42), outline=(56, 189, 248), width=1)
-    draw.text((62, 132), comp_fit, font=f_comp, fill=(56, 189, 248))
+    f_comp, comp_fit = _fit_font_and_text(draw, comp_label, max_width=430, start_size=13, min_size=10, bold=True)
+    comp_box_w = int(_text_width(draw, comp_fit, f_comp)) + 54
+    draw.rounded_rectangle([(48, 122), (48 + comp_box_w, 156)], radius=8, fill=(15, 23, 42), outline=(56, 189, 248), width=1)
+    _draw_sport_icon(draw, sport_cat, 68, 139, radius=11)
+    draw.text((88, 131), comp_fit, font=f_comp, fill=(56, 189, 248))
 
-    ko_label = f"KICKOFF: {kickoff_str}"
-    f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=360, start_size=14, min_size=11, bold=True)
+    # Build right-aligned timeline string: Announced | Start | Ended (if ended)
+    time_parts: list[str] = []
+    if announced_str:
+        time_parts.append(f"ANNOUNCED: {announced_str}")
+    time_parts.append(f"START: {kickoff_str}")
+    if ended_str:
+        time_parts.append(f"ENDED: {ended_str}")
+    ko_label = "   ·   ".join(time_parts)
+    max_ko_w = w - 96 - comp_box_w - 16
+    f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=max(260, max_ko_w), start_size=12, min_size=10, bold=True)
     ko_w = int(_text_width(draw, ko_fit, f_ko))
     draw.text((w - 48 - ko_w, 132), ko_fit, font=f_ko, fill=(148, 163, 184))
 
@@ -426,17 +535,20 @@ def render_digest_slate_png(
     # Table Header
     y_head = 118
     draw.rounded_rectangle([(38, y_head), (w - 38, y_head + 38)], radius=8, fill=(15, 22, 35))
-    draw.text((50, y_head + 11), "KICKOFF", font=f_th, fill=(148, 163, 184))
-    draw.text((220, y_head + 11), "MATCHUP", font=f_th, fill=(148, 163, 184))
-    draw.text((590, y_head + 11), "RECOMMENDED PICK", font=f_th, fill=(148, 163, 184))
-    draw.text((910, y_head + 11), "WIN PROB", font=f_th, fill=(148, 163, 184))
+    draw.text((50, y_head + 11), "START / END TIME", font=f_th, fill=(148, 163, 184))
+    draw.text((255, y_head + 11), "SPORT & MATCHUP", font=f_th, fill=(148, 163, 184))
+    draw.text((610, y_head + 11), "RECOMMENDED PICK", font=f_th, fill=(148, 163, 184))
+    draw.text((915, y_head + 11), "WIN PROB", font=f_th, fill=(148, 163, 184))
     draw.text((1020, y_head + 11), "ODDS", font=f_th, fill=(148, 163, 184))
 
     y_cur = y_head + 46
     for idx, p in enumerate(rows):
         bg_col = (15, 22, 35) if idx % 2 == 1 else (19, 27, 41)
         draw.rounded_rectangle([(38, y_cur), (w - 38, y_cur + row_h - 6)], radius=8, fill=bg_col, outline=(30, 41, 59), width=1)
-        tm = _strip_non_ascii_symbols(str(p.get("date_local") or p.get("date") or ""))
+        row_sp = _infer_sport_cat(p.get("sport_cat") or p.get("sport_league") or p.get("competition") or "soccer")
+        tm_start = _strip_non_ascii_symbols(str(p.get("date_local") or p.get("date") or ""))
+        tm_end = _strip_non_ascii_symbols(str(p.get("ended_at_local") or p.get("ended_at") or ""))
+        tm_ann = _strip_non_ascii_symbols(str(p.get("announced_at_local") or p.get("announced_at") or ""))
         mt = _strip_non_ascii_symbols(str(p.get("match") or f"{p.get('home','')} vs {p.get('away','')}"))
         pk_raw = _strip_non_ascii_symbols(str(p.get("pick_name") or p.get("pick") or ""))
         pk_clean = pk_raw.split("[")[0].split("(Win")[0].strip() or pk_raw
@@ -444,16 +556,29 @@ def render_digest_slate_png(
         wp_s = f"{float(wp)*100:.1f}%" if wp else "—"
         od_s = _strip_non_ascii_symbols(str(p.get("odds_display") or f"{float(p.get('odds') or 0):.2f}"))
 
-        f_tm, tm_fit = _fit_font_and_text(draw, tm, max_width=160, start_size=14, min_size=11, bold=False)
-        f_mt, mt_fit = _fit_font_and_text(draw, mt, max_width=355, start_size=16, min_size=12, bold=True)
-        f_pk, pk_fit = _fit_font_and_text(draw, pk_clean, max_width=305, start_size=16, min_size=12, bold=True)
-        f_wp, wp_fit = _fit_font_and_text(draw, wp_s, max_width=95, start_size=16, min_size=12, bold=True)
-        f_od, od_fit = _fit_font_and_text(draw, od_s, max_width=95, start_size=16, min_size=12, bold=True)
+        f_mt, mt_fit = _fit_font_and_text(draw, mt, max_width=320, start_size=15, min_size=12, bold=True)
+        f_pk, pk_fit = _fit_font_and_text(draw, pk_clean, max_width=290, start_size=15, min_size=12, bold=True)
+        f_wp, wp_fit = _fit_font_and_text(draw, wp_s, max_width=95, start_size=15, min_size=12, bold=True)
+        f_od, od_fit = _fit_font_and_text(draw, od_s, max_width=95, start_size=15, min_size=12, bold=True)
 
-        draw.text((50, y_cur + 21), tm_fit, font=f_tm, fill=(148, 163, 184))
-        draw.text((220, y_cur + 20), mt_fit, font=f_mt, fill=(230, 237, 247))
-        draw.text((590, y_cur + 20), pk_fit, font=f_pk, fill=(34, 197, 94))
-        draw.text((910, y_cur + 20), wp_fit, font=f_wp, fill=(56, 189, 248))
+        if tm_end:
+            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=195, start_size=12, min_size=10, bold=False)
+            f_t2, t2_fit = _fit_font_and_text(draw, f"Ended: {tm_end}", max_width=195, start_size=11, min_size=10, bold=False)
+            draw.text((50, y_cur + 11), t1_fit, font=f_t1, fill=(148, 163, 184))
+            draw.text((50, y_cur + 31), t2_fit, font=f_t2, fill=(56, 189, 248))
+        elif tm_ann:
+            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=195, start_size=12, min_size=10, bold=True)
+            f_t2, t2_fit = _fit_font_and_text(draw, f"Ann: {tm_ann}", max_width=195, start_size=11, min_size=10, bold=False)
+            draw.text((50, y_cur + 11), t1_fit, font=f_t1, fill=(203, 213, 225))
+            draw.text((50, y_cur + 31), t2_fit, font=f_t2, fill=(139, 155, 180))
+        else:
+            f_tm, tm_fit = _fit_font_and_text(draw, tm_start, max_width=195, start_size=13, min_size=11, bold=False)
+            draw.text((50, y_cur + 21), tm_fit, font=f_tm, fill=(148, 163, 184))
+
+        _draw_sport_icon(draw, row_sp, 268, y_cur + 30, radius=11)
+        draw.text((288, y_cur + 20), mt_fit, font=f_mt, fill=(230, 237, 247))
+        draw.text((610, y_cur + 20), pk_fit, font=f_pk, fill=(34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_clean else (239, 68, 68))
+        draw.text((915, y_cur + 20), wp_fit, font=f_wp, fill=(56, 189, 248))
         draw.text((1020, y_cur + 20), od_fit, font=f_od, fill=(245, 158, 11))
         y_cur += row_h
 

@@ -348,6 +348,12 @@ def _build_live_snapshot(
     filtered_trades = []
     for tr in ledger.get("trades") or []:
         tr["kickoff_local"] = _format_local_time(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
+        tr["announced_local"] = _format_local_time(tr.get("logged_at") or rec.get("generated_at") or "", DEFAULT_LOCAL_TZ)
+        tr["ended_local"] = (
+            _format_local_time(tr.get("ended_at") or tr.get("updated_at") or "", DEFAULT_LOCAL_TZ)
+            if tr.get("status") == "SETTLED" and (tr.get("ended_at") or tr.get("updated_at"))
+            else ""
+        )
         tr["day_key"] = _match_day_key(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["league_label"] = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
         tr["sport_cat"] = _league_to_sport_cat(tr["league"])

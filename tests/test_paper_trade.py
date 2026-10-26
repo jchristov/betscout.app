@@ -811,11 +811,15 @@ def test_per_sport_isolated_gates():
     assert tt_bad is False and tt_streak_bad is False
     assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
 
-    # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher)
+    # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher) & Adverse Line Drift Veto (Laura Samson vs Alice Tubello)
     t_alves, _, _, t_alves_reason = evaluate_tennis_gate(
         0.8244, 1.249, 3.80, game_win_pct_diff=0.045, form_6m_diff=0.5, game_elo_diff=88.9, all_elo_diff=254.7, h2h_n=0
     )
     assert t_alves is False and t_alves_reason == "VETO_CAREER_ELO_GAME_DIVERGENCE"
+    t_samson, _, _, t_samson_reason = evaluate_tennis_gate(
+        0.7135, 1.47, 2.55, game_win_pct_diff=0.063, form_6m_diff=0.4, game_elo_diff=53.9, all_elo_diff=170.2, h2h_n=0, open_odds=1.383
+    )
+    assert t_samson is False and t_samson_reason == "VETO_ADVERSE_LINE_DRIFT"
 
     # 7. NBA gate & disabled_sports filtering in build_best_bets_summary
     from betscout.dashboard import build_best_bets_summary
