@@ -57,7 +57,229 @@ const CHISELED_NEEDLES = `
   <polygon points="8,32 27,27 32,32" fill="#0369a1"/>
 `;
 
-// 10 Brand-New Variations (5.1 - 5.10): Various Sports Balls Behind the Pure Chiseled Compass (No Center Dot)
+// 10 Brand-New Variations (6.1 - 6.10): Variations of Option 5.6 (Tilted Prolate Football & Dynamic Diagonal Sports + Chiseled Compass)
+export const PROLATE_56_VARIATIONS: LogoOption[] = [
+  {
+    id: '6.1',
+    name: 'Option 6.1 · Pointed Prolate Football',
+    subtitle: 'Refined 5.6 · Pointed Tips & Gold Stripes',
+    description:
+      'Upgrades 5.6 with authentic pointed prolate football tips, glowing gold end-stripes, crisp laces, and the 3D chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <path d="M 9 32 Q 32 14 55 32 Q 32 50 9 32 Z" fill="#1e1510" stroke="#f59e0b" stroke-width="2.0" stroke-linejoin="round"/>
+        <path d="M 16 25.5 Q 20 32 16 38.5" stroke="#fde047" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M 48 25.5 Q 44 32 48 38.5" stroke="#fde047" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.6"/>
+        <line x1="26" y1="28.8" x2="26" y2="35.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>
+        <line x1="30" y1="28.8" x2="30" y2="35.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>
+        <line x1="34" y1="28.8" x2="34" y2="35.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>
+        <line x1="38" y1="28.8" x2="38" y2="35.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="1.5"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.2',
+    name: 'Option 6.2 · Emerald-Cyan Prolate 5.6',
+    subtitle: 'Emerald/Cyan Football + Chiseled Star',
+    description:
+      'Tilted prolate football styled in BetScout’s signature emerald-and-cyan gradient with gold stripes and laces behind the compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <path d="M 9 32 Q 32 14 55 32 Q 32 50 9 32 Z" fill="#071b26" stroke="url(#cyanEmerald)" stroke-width="2.0" stroke-linejoin="round"/>
+        <path d="M 16 25.5 Q 20 32 16 38.5" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M 48 25.5 Q 44 32 48 38.5" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.6"/>
+        <line x1="26.5" y1="28.8" x2="26.5" y2="35.2" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.5"/>
+        <line x1="32" y1="28.8" x2="32" y2="35.2" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.5"/>
+        <line x1="37.5" y1="28.8" x2="37.5" y2="35.2" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.5"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.3',
+    name: 'Option 6.3 · 3D Split-Shaded 5.6',
+    subtitle: 'Two-Tone Beveled Prolate Football',
+    description:
+      'The tilted prolate football is split into a warm sunlit upper half and deep shadowed lower half to match the 3D chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <path d="M 9 32 Q 32 14 55 32 Z" fill="#3b2110"/>
+        <path d="M 9 32 Q 32 50 55 32 Z" fill="#170e0a"/>
+        <path d="M 9 32 Q 32 14 55 32 Q 32 50 9 32 Z" stroke="url(#goldAmber)" stroke-width="2.0" stroke-linejoin="round"/>
+        <path d="M 16 25.5 Q 20 32 16 38.5" stroke="#fde047" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M 48 25.5 Q 44 32 48 38.5" stroke="#fde047" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-width="1.6"/>
+        <line x1="26.5" y1="28.8" x2="26.5" y2="35.2" stroke="#ffffff" stroke-width="1.5"/>
+        <line x1="32" y1="28.8" x2="32" y2="35.2" stroke="#ffffff" stroke-width="1.5"/>
+        <line x1="37.5" y1="28.8" x2="37.5" y2="35.2" stroke="#ffffff" stroke-width="1.5"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.4',
+    name: 'Option 6.4 · 5.6 + Spiral Pass Orbit',
+    subtitle: 'Prolate Football + Velocity Arc',
+    description:
+      'Adds a glowing cyan-emerald spiral trajectory ring around Option 5.6’s tilted prolate football and chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="21" stroke="#38bdf8" stroke-opacity="0.24" stroke-width="1.2" stroke-dasharray="3 3"/>
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+      </g>
+      <path d="M 13 20 A 22 22 0 0 1 44 13" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M 51 44 A 22 22 0 0 1 20 51" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.5',
+    name: 'Option 6.5 · Crossed Twin Prolate X',
+    subtitle: 'Dual -40° & +40° Prolate Axes',
+    description:
+      'Crosses a -40° amber-gold prolate football with a +40° emerald-cyan prolate stadium orbit behind the chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="12" fill="none" stroke="#38bdf8" stroke-opacity="0.45" stroke-width="1.6" stroke-dasharray="4 3"/>
+      </g>
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.9"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.6',
+    name: 'Option 6.6 · Oversized Compass + 5.6',
+    subtitle: 'Needles Extending Past Prolate Rim',
+    description:
+      'Makes the tilted prolate football slightly more compact so the 4 chiseled compass needles pierce boldly past its rim.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="18.5" ry="11.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <path d="M 17 26.5 Q 20.5 32 17 37.5" stroke="#fde047" stroke-width="1.9" stroke-linecap="round"/>
+        <path d="M 47 26.5 Q 43.5 32 47 37.5" stroke="#fde047" stroke-width="1.9" stroke-linecap="round"/>
+        <line x1="24" y1="32" x2="40" y2="32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="27" y1="29.5" x2="27" y2="34.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.3"/>
+        <line x1="32" y1="29.5" x2="32" y2="34.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.3"/>
+        <line x1="37" y1="29.5" x2="37" y2="34.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.3"/>
+      </g>
+      <!-- Extra-Long Chiseled Needles (6..58) -->
+      <polygon points="32,6 32,32 26.5,26.5" fill="#fde047"/>
+      <polygon points="32,6 37.5,26.5 32,32" fill="#10b981"/>
+      <polygon points="32,58 32,32 37.5,37.5" fill="#34d399"/>
+      <polygon points="32,58 26.5,37.5 32,32" fill="#047857"/>
+      <polygon points="58,32 32,32 37.5,26.5" fill="#7dd3fc"/>
+      <polygon points="58,32 37.5,37.5 32,32" fill="#0284c7"/>
+      <polygon points="6,32 32,32 26.5,37.5" fill="#38bdf8"/>
+      <polygon points="6,32 26.5,26.5 32,32" fill="#0369a1"/>
+    </svg>`,
+  },
+  {
+    id: '6.7',
+    name: 'Option 6.7 · +40° Opposite Tilt 5.6',
+    subtitle: 'South-West to North-East Prolate Axis',
+    description:
+      'Tilts the prolate football along the ascending SW-to-NE (+40°) diagonal axis behind the 3D chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.9"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.4"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.8',
+    name: 'Option 6.8 · Canted Compass + 5.6',
+    subtitle: '+15° Tilted Compass over -40° Football',
+    description:
+      'Both the prolate football (-40°) and the 3D chiseled compass (+15°) are dynamically canted for forward motion.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+      </g>
+      <g transform="rotate(15 32 32)">
+        ${CHISELED_NEEDLES}
+      </g>
+    </svg>`,
+  },
+  {
+    id: '6.9',
+    name: 'Option 6.9 · Rugby/Soccer Hybrid Prolate',
+    subtitle: 'Prolate Ball with Curved Multi-Sport Seams',
+    description:
+      'Tilted prolate ball combining curved multi-sport panel seams (emerald & gold) without cross-laces for a sleeker look.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <path d="M 9 32 Q 32 14 55 32 Q 32 50 9 32 Z" fill="#141824" stroke="url(#emeraldGold)" stroke-width="2.0"/>
+        <path d="M 12 32 Q 32 23 52 32" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.6"/>
+        <path d="M 12 32 Q 32 41 52 32" stroke="#34d399" stroke-opacity="0.7" stroke-width="1.6"/>
+        <path d="M 16 25.5 Q 20 32 16 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 48 25.5 Q 44 32 48 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '6.10',
+    name: 'Option 6.10 · Circular Medallion 5.6',
+    subtitle: 'Round Coin Bezel + 5.6 Prolate & Compass',
+    description:
+      'Places Option 5.6 (tilted prolate football + 3D chiseled compass) inside a circular twin-ring medallion bezel.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${COMMON_DEFS}
+      <circle cx="32" cy="32" r="29" fill="url(#bgGrad)" stroke="url(#rimGrad)" stroke-width="2.4"/>
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+];
+
+// 10 Variations (5.1 - 5.10): Various Sports Balls Behind the Pure Chiseled Compass (No Center Dot)
 export const BALL_BEHIND_COMPASS_OPTIONS: LogoOption[] = [
   {
     id: '5.1',
