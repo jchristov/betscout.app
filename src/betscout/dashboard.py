@@ -2042,7 +2042,7 @@ def generate_dashboard_html(
           <span id="guestAccessText" style="color:var(--text);">Active picks, exact-score targets &amp; 2-leg combos are reserved for <b>BetScout Pro</b> members.</span>
           <a href="javascript:void(0)" onclick="triggerFirebaseSignInOut()" style="color:var(--accent); font-weight:700; text-decoration:none;">Sign In</a>
           <span class="muted">·</span>
-          <a id="guestUpgradeLink" href="https://betscout.vip/#pricing" target="_blank" style="color:var(--green); font-weight:700; text-decoration:none;">🚀 Plans &amp; Pro Access (betscout.vip) &rarr;</a>
+          <a id="guestUpgradeLink" href="/#pricing" style="color:var(--green); font-weight:700; text-decoration:none;">🚀 Plans &amp; Pro Access &rarr;</a>
         </div>
         <div class="btn-group" style="align-items:center; margin-left:auto; justify-content:flex-end;">
           <button id="firebaseAuthBtn" class="btn-export" type="button" style="display:none;" onclick="triggerFirebaseSignInOut()" title="Sign in with Google (Firebase Auth) for Admin Controls">🔐 Admin Sign In</button>
@@ -2892,7 +2892,7 @@ def generate_dashboard_html(
             '<div class="muted" style="margin-bottom:14px;">Full matchup names, H2H history, Dixon-Coles exact-score matrices &amp; 2-leg combos are reserved for active <b>BetScout Pro</b> members.</div>' +
             '<div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">' +
               '<button type="button" class="btn-export btn-primary" onclick="document.getElementById(\\'matchupInspectorModal\\').style.display=\\'none\\'; triggerFirebaseSignInOut();">🔐 Sign In with Google</button>' +
-              '<a href="https://betscout.vip/#pricing" target="_blank" class="btn-export btn-telegram" style="text-decoration:none;">🚀 View Plans &amp; Pricing at betscout.vip &rarr;</a>' +
+              '<a href="/#pricing" class="btn-export btn-telegram" style="text-decoration:none;">🚀 View Membership Plans &amp; Pricing &rarr;</a>' +
             '</div>' +
           '</div>';
         modal.style.display = 'flex';

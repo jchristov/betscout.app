@@ -99,8 +99,8 @@ def get_monetization_config(data_dir: Path | None = None) -> dict[str, Any]:
     load_dotenv(override=False)
     env_enabled = (os.environ.get("MONETIZATION_ENABLED") or "").strip().lower() in ("1", "true", "yes", "on")
     free_preview_n = int((os.environ.get("FREE_PREVIEW_PICKS_COUNT") or "2").strip() or "2")
-    stripe_Monthly_url = (os.environ.get("STRIPE_CHECKOUT_URL_PRO") or "https://betscout.vip/#pricing").strip()
-    stripe_api_url = (os.environ.get("STRIPE_CHECKOUT_URL_API") or "https://betscout.vip/#pricing").strip()
+    stripe_Monthly_url = (os.environ.get("STRIPE_CHECKOUT_URL_PRO") or "https://betscout.app/#pricing").strip()
+    stripe_api_url = (os.environ.get("STRIPE_CHECKOUT_URL_API") or "https://betscout.app/#pricing").strip()
     free_discord_wh = (os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
 
     if data_dir and (data_dir / "webapp_settings.json").exists():

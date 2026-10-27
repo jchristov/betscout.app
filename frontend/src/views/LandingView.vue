@@ -832,7 +832,10 @@
       <div class="max-w-[1240px] mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
         <div class="flex items-center gap-2.5">
           <img src="/betscout-logo.svg?v=2" width="22" height="22" alt="BetScout" class="rounded" />
-          <span><strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp; Score Intelligence</span>
+          <span>
+            &copy; {{ currentYear }} <strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp;
+            Score Intelligence. All rights reserved.
+          </span>
         </div>
         <div class="flex flex-wrap gap-5">
           <router-link to="/app" class="hover:text-white">Live Quant Desk</router-link>
@@ -860,6 +863,7 @@ import { setupIconifyCollections } from '../utils/iconifySetup';
 setupIconifyCollections();
 
 const store = useBetscoutStore();
+const currentYear = new Date().getFullYear();
 const billingCycle = ref<'monthly' | 'annual'>('monthly');
 const openFaq = ref<number | null>(0);
 const mobileMenuOpen = ref<boolean>(false);

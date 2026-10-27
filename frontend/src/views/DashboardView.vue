@@ -1542,6 +1542,21 @@
       </div>
     </div>
 
+    <!-- App Footer -->
+    <footer class="border-t border-slate-700/45 pt-4 mt-4 text-[11.5px] text-slate-400 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-2">
+        <img src="/betscout-logo.svg?v=2" width="18" height="18" alt="BetScout" class="rounded" />
+        <span>
+          &copy; {{ currentYear }} <strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp;
+          Score Intelligence. All rights reserved.
+        </span>
+      </div>
+      <div class="flex flex-wrap gap-4">
+        <router-link to="/" class="hover:text-white">Home &amp; Membership Plans</router-link>
+        <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
+      </div>
+    </footer>
+
     <!-- FLOATING CUSTOM SLIP DOCK (Appears when >=1 matches checked) -->
     <div
       v-if="store.customSelectedMatches.size > 0"
@@ -1939,6 +1954,7 @@ import { type PickCardMeta, renderCanvasPickCard } from '../utils/canvasCard';
 setupIconifyCollections();
 
 const store = useBetscoutStore();
+const currentYear = new Date().getFullYear();
 const activeTab = ref<'picks' | 'studio' | 'ledger' | 'audit'>('picks');
 const trackQuickInput = ref<string>('');
 const betBudget = ref<number>(100);

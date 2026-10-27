@@ -750,7 +750,7 @@ def notify_new_settlements_to_discord(
             free_teaser_wh = (os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
             if free_teaser_wh.startswith("https://discord") and free_teaser_wh != global_wh:
                 send_discord_message(
-                    msg + "\n\n🚀 *Unlock all daily VIP picks, exact-score matrices & 2-leg combos at **https://betscout.app** (Plans & Pricing: **https://betscout.vip**)*",
+                    msg + "\n\n🚀 *Unlock all daily VIP picks, exact-score matrices & 2-leg combos at **https://betscout.app***",
                     webhook_url=free_teaser_wh,
                     dry_run=dry_run,
                     image_bytes=settle_img_bytes,
@@ -845,7 +845,7 @@ def send_free_teaser_to_discord(
         f"💰 Odds: **{teaser_pick.get('odds_display')}**{esc_suffix}",
         "",
         f"🔒 **+{locked_cnt} More High-Conviction VIP Picks, Exact-Score Splits & 2-Leg Combos** are live right now!",
-        "🚀 **Unlock Full Pro App & VIP Discord/Telegram Alerts:** <https://betscout.app> · Plans & Pricing: <https://betscout.vip>",
+        "🚀 **Unlock Full Pro App & VIP Discord/Telegram Alerts:** <https://betscout.app>",
     ]
     msg = "\n".join(lines)
     img_bytes: bytes | None = None
