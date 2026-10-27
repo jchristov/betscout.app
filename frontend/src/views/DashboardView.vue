@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen px-3 sm:px-6 py-4 sm:py-5 pb-24 text-xs text-slate-100 max-w-[1600px] mx-auto w-full relative overflow-x-hidden">
+  <div class="min-h-screen px-3 sm:px-6 py-4 sm:py-5 pb-6 text-xs text-slate-100 max-w-[1600px] mx-auto w-full relative overflow-x-hidden">
     <!-- Ambient Background Glow Orbs for Frosted Glass Refraction -->
     <div
       class="pointer-events-none fixed -top-28 left-1/5 w-[480px] h-[300px] rounded-full bg-sky-500/14 blur-[130px] -z-10"
@@ -491,8 +491,8 @@
       </div>
     </div>
 
-    <!-- Connected Folder-Style Tab Bar & Outlined Content Container -->
-    <div class="mb-6">
+    <!-- Connected Folder-Style Tab Bar & Content -->
+    <div class="mb-2">
       <nav class="workspace-tablist" role="tablist" aria-label="BetScout Workspace Sections">
         <button
           v-for="tab in workspaceTabs"
@@ -500,7 +500,7 @@
           type="button"
           role="tab"
           :aria-selected="activeTab === tab.id"
-          class="workspace-tab flex-1 sm:flex-initial min-w-[165px] whitespace-nowrap"
+          class="workspace-tab flex-1 min-w-[165px] whitespace-nowrap"
           :class="activeTab === tab.id ? 'workspace-tab-active' : 'workspace-tab-inactive'"
           @click="activeTab = tab.id"
         >
@@ -515,7 +515,7 @@
         </button>
       </nav>
 
-      <div class="workspace-tabpanel p-4 sm:p-5" role="tabpanel">
+      <div class="workspace-tabpanel" role="tabpanel">
         <!-- TAB 1: PICKS & LIVE IN-PLAY -->
         <div v-if="activeTab === 'picks'">
       <!-- Live In-Play Header -->
@@ -629,7 +629,7 @@
                   {{ tr.league_label || tr.league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap text-slate-200">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap text-slate-400">
                 {{ tr.kickoff_local || tr.kickoff }}
               </td>
               <td class="py-2.5 px-2.5">
@@ -863,7 +863,7 @@
                   {{ b.competition || b.sport_league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-slate-200 whitespace-nowrap">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400 whitespace-nowrap">
                 {{ store.tzMode === 'utc' ? b.date : b.date_local }}
               </td>
               <td class="py-2.5 px-2.5">
@@ -961,7 +961,7 @@
       <!-- High-Probability Banker Profitability Booster Combos -->
       <section
         v-if="store.bankerBoosterCombos.length > 0"
-        class="card-surface border border-emerald-400/50 rounded-2xl p-4 sm:p-5 mb-6"
+        class="card-surface border border-emerald-400/50 rounded-2xl p-4 sm:p-5 mb-1"
       >
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
@@ -1390,7 +1390,7 @@
         <b class="text-emerald-300">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u</b>)
       </h2>
 
-      <div class="table-surface rounded-2xl overflow-x-auto mb-6">
+      <div class="table-surface rounded-2xl overflow-x-auto mb-1">
         <table class="w-full border-collapse text-xs">
           <thead>
             <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left">
@@ -1425,7 +1425,7 @@
                   {{ tr.league_label || tr.league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-200">{{ tr.kickoff_local || tr.kickoff }}</td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">{{ tr.kickoff_local || tr.kickoff }}</td>
               <td class="py-2.5 px-2.5 font-bold text-white">{{ tr.home }} vs {{ tr.away }}</td>
               <td class="py-2.5 px-2.5">
                 <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
@@ -1466,7 +1466,7 @@
 
     <!-- TAB 4: MODEL AUDIT & BACKTEST -->
     <div v-else-if="activeTab === 'audit'">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-1">
         <div class="card-surface rounded-2xl p-4 border-t-2 border-t-emerald-400">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300 mb-2">
             <Icon icon="fa6-solid:chart-line" class="w-4 h-4" />

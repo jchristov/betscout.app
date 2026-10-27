@@ -238,22 +238,19 @@
 .stagger-2 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.10s both; }
 .stagger-3 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.16s both; }
 
-/* Connected Folder-Style Tab Bar & Outlined Tab Content Container */
+/* Flush Full-Width Folder-Style Tab Bar (No outer surrounding box, zero top/left/right padding) */
 .workspace-tablist {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 6px;
-  padding: 6px 10px 0 10px;
-  background: linear-gradient(180deg, rgba(8, 13, 24, 0.72) 0%, rgba(12, 19, 34, 0.85) 100%);
-  border-top: 1px solid rgba(148, 163, 184, 0.22);
-  border-left: 1px solid rgba(148, 163, 184, 0.22);
-  border-right: 1px solid rgba(148, 163, 184, 0.22);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.38);
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.32);
 }
 
 .workspace-tab {
@@ -276,54 +273,42 @@
 }
 
 .workspace-tab-inactive {
-  background: rgba(15, 23, 42, 0.48);
+  background: rgba(15, 23, 42, 0.50);
   color: #94a3b8;
-  border-top: 1px solid rgba(148, 163, 184, 0.16);
-  border-left: 1px solid rgba(148, 163, 184, 0.16);
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
+  border-top: 1px solid rgba(148, 163, 184, 0.20);
+  border-left: 1px solid rgba(148, 163, 184, 0.20);
+  border-right: 1px solid rgba(148, 163, 184, 0.20);
   border-bottom: 1px solid transparent;
   margin-bottom: 0;
 }
 
 .workspace-tab-inactive:hover {
-  background: rgba(30, 41, 59, 0.68);
+  background: rgba(30, 41, 59, 0.72);
   color: #f1f5f9;
-  border-top-color: rgba(125, 211, 252, 0.35);
+  border-top-color: rgba(125, 211, 252, 0.40);
 }
 
 .workspace-tab-active {
-  background: linear-gradient(180deg, rgba(24, 37, 62, 0.96) 0%, rgba(17, 26, 46, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(24, 38, 64, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
   color: #ffffff;
   border-top: 2px solid #38bdf8;
-  border-left: 1px solid rgba(56, 189, 248, 0.42);
-  border-right: 1px solid rgba(56, 189, 248, 0.42);
-  border-bottom: 1px solid rgba(17, 26, 46, 0.98);
+  border-left: 1px solid rgba(56, 189, 248, 0.45);
+  border-right: 1px solid rgba(56, 189, 248, 0.45);
+  border-bottom: 1px solid #04070e;
   margin-bottom: -1px;
   padding-bottom: 11px;
   z-index: 10;
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
-    0 -6px 20px -4px rgba(56, 189, 248, 0.22);
+    0 -6px 20px -4px rgba(56, 189, 248, 0.20);
 }
 
 .workspace-tabpanel {
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(17, 26, 46, 0.86) 0%,
-    rgba(12, 19, 34, 0.88) 55%,
-    rgba(10, 15, 28, 0.92) 100%
-  );
-  border-left: 1px solid rgba(56, 189, 248, 0.35);
-  border-right: 1px solid rgba(56, 189, 248, 0.35);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.35);
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-  box-shadow:
-    inset 0 0 36px 0 rgba(56, 189, 248, 0.04),
-    0 24px 56px -12px rgba(2, 6, 16, 0.78);
+  padding: 14px 0 0 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 #bsFloatingTooltip {
