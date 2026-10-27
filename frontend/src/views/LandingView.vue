@@ -128,7 +128,7 @@
             trained on
             <strong class="text-white font-bold">{{ store.totalMatches.toLocaleString() }}+ historical matches</strong>
             with direct real-time bookmaker &amp; live match telemetry feeds, Dixon-Coles 28-outcome exact-score
-            matrices, and strict per-sport safety vetoes. Every signal is timestamped before kickoff.
+            matrices, and strict per-sport safety vetoes. Every pick is timestamped before kickoff.
           </p>
 
           <div class="flex flex-wrap justify-center items-center gap-3.5 mb-12">
@@ -194,7 +194,7 @@
               <span>Active Daily Slate</span>
             </span>
             <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-amber-300 my-2 whitespace-nowrap">
-              {{ activeCount }} Live Signals
+              {{ activeCount }} Live Picks
             </div>
             <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono tabular-nums">
               <template v-if="store.activeSportsCounts.length">
@@ -235,7 +235,7 @@
                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-                FREE DAILY TEASER SIGNAL
+                FREE DAILY TEASER PICK
               </span>
               <span
                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border"
@@ -432,7 +432,7 @@
             </a>
           </article>
 
-          <!-- Tier 2: VIP Signals + Pro WebApp (Featured) -->
+          <!-- Tier 2: VIP Picks + Pro WebApp (Featured) -->
           <article
             class="card-surface relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between border-2 border-emerald-400/80 shadow-[0_24px_60px_rgba(0,0,0,0.65),0_0_40px_rgba(16,185,129,0.18)]"
           >
@@ -440,7 +440,7 @@
               <span
                 class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
               >
-                TIER 2 · VIP SIGNALS + PRO APP
+                TIER 2 · VIP PICKS + PRO APP
               </span>
               <span
                 class="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950 text-[10.5px] font-extrabold px-3 py-1 rounded-full tracking-wider shadow"
@@ -493,11 +493,11 @@
             </div>
 
             <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20VIP%20Signals%20%2B%20Pro%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20BetScout%20VIP%20Signals%20%2B%20Pro%20WebApp.%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
+              href="mailto:julian.christ@gmail.com?subject=BetScout%20VIP%20Picks%20%2B%20Pro%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20BetScout%20VIP%20Picks%20%2B%20Pro%20WebApp.%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_8px_24px_rgba(16,185,129,0.3)]"
             >
               <Icon icon="fa6-solid:rocket" class="w-4 h-4" />
-              <span>Get VIP Signals + Pro App</span>
+              <span>Get VIP Picks + Pro App</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4" />
             </a>
           </article>
@@ -532,7 +532,7 @@
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <span><b>Everything in Tier 2 (VIP Signals + Pro WebApp)</b> included</span>
+                  <span><b>Everything in Tier 2 (VIP Picks + Pro WebApp)</b> included</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -729,7 +729,7 @@
             </span>
             <h3 class="text-base font-extrabold text-white mt-3.5 mb-2">Select Your Membership Tier</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
-              Choose Pro WebApp (€49/mo), VIP Signals + Pro App (€79/mo), or Quant API (€199/mo) and send your Google
+              Choose Pro WebApp (€49/mo), VIP Picks + Pro App (€79/mo), or Quant API (€199/mo) and send your Google
               account email.
             </p>
           </div>

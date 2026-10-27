@@ -57,7 +57,209 @@ const CHISELED_NEEDLES = `
   <polygon points="8,32 27,27 32,32" fill="#0369a1"/>
 `;
 
-// 10 Brand-New Variations (4.1 - 4.10): Pure Chiseled Vertex (Zero Center Dot) + Sports Motifs
+// 10 Brand-New Variations (5.1 - 5.10): Various Sports Balls Behind the Pure Chiseled Compass (No Center Dot)
+export const BALL_BEHIND_COMPASS_OPTIONS: LogoOption[] = [
+  {
+    id: '5.1',
+    name: 'Option 5.1 · Classic Soccer Ball',
+    subtitle: 'Telstar Pentagon-Hexagon Football',
+    description:
+      'Authentic 3D soccer ball with filled geometric pentagon patches and hex seams directly behind the chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#071626" stroke="#34d399" stroke-opacity="0.65" stroke-width="1.7"/>
+      <!-- Filled Corner Pentagons & Hex Struts -->
+      <polygon points="32,12 37,15.5 35,21 29,21 27,15.5" fill="#10b981" fill-opacity="0.38" stroke="#34d399" stroke-width="1.2"/>
+      <polygon points="32,52 37,48.5 35,43 29,43 27,48.5" fill="#10b981" fill-opacity="0.38" stroke="#34d399" stroke-width="1.2"/>
+      <polygon points="13,26 18.5,24 21,29.5 17.5,34 12.5,31.5" fill="#38bdf8" fill-opacity="0.35" stroke="#38bdf8" stroke-width="1.2"/>
+      <polygon points="51,26 45.5,24 43,29.5 46.5,34 51.5,31.5" fill="#38bdf8" fill-opacity="0.35" stroke="#38bdf8" stroke-width="1.2"/>
+      <polygon points="18,45 23.5,42 25,47 20,50" fill="#38bdf8" fill-opacity="0.32" stroke="#38bdf8" stroke-width="1.2"/>
+      <polygon points="46,45 40.5,42 39,47 44,50" fill="#38bdf8" fill-opacity="0.32" stroke="#38bdf8" stroke-width="1.2"/>
+      <line x1="27" y1="15.5" x2="18.5" y2="24" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.2"/>
+      <line x1="37" y1="15.5" x2="45.5" y2="24" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.2"/>
+      <line x1="17.5" y1="34" x2="23.5" y2="42" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="1.2"/>
+      <line x1="46.5" y1="34" x2="40.5" y2="42" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="1.2"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.2',
+    name: 'Option 5.2 · Optic Tennis Ball',
+    subtitle: '3D Lime-Emerald Tennis Sphere',
+    description:
+      'Vibrant 3D tennis ball with bold, unmistakable curved white/lime S-seams behind the chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#0d231e" stroke="#a3e635" stroke-opacity="0.8" stroke-width="1.8"/>
+      <circle cx="32" cy="32" r="19.5" fill="#84cc16" fill-opacity="0.14"/>
+      <!-- Bold Tennis Ball Curved Seams -->
+      <path d="M 16.5 18.5 C 25 23, 25 41, 16.5 45.5" stroke="#ecfccb" stroke-opacity="0.85" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M 47.5 18.5 C 39 23, 39 41, 47.5 45.5" stroke="#ecfccb" stroke-opacity="0.85" stroke-width="2.4" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.3',
+    name: 'Option 5.3 · Pro Basketball',
+    subtitle: '8-Panel Ribbed Hoops Sphere',
+    description:
+      '3D basketball sphere with warm amber-orange ribs, equator, meridian, and curved side seams behind the compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#1f140e" stroke="#fb923c" stroke-opacity="0.85" stroke-width="1.8"/>
+      <circle cx="32" cy="32" r="19.5" fill="#f97316" fill-opacity="0.16"/>
+      <!-- Basketball 8-Panel Ribs -->
+      <line x1="11.5" y1="32" x2="52.5" y2="32" stroke="#fdba74" stroke-opacity="0.65" stroke-width="1.6"/>
+      <line x1="32" y1="11.5" x2="32" y2="52.5" stroke="#fdba74" stroke-opacity="0.65" stroke-width="1.6"/>
+      <path d="M 17 17.5 C 26 24, 26 40, 17 46.5" stroke="#fb923c" stroke-opacity="0.85" stroke-width="2.0" stroke-linecap="round"/>
+      <path d="M 47 17.5 C 38 24, 38 40, 47 46.5" stroke="#fb923c" stroke-opacity="0.85" stroke-width="2.0" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.4',
+    name: 'Option 5.4 · 4-Sport Hybrid Ball',
+    subtitle: 'Soccer · Tennis · Basketball · Baseball',
+    description:
+      'Multi-sport sphere split into 4 quadrants: Soccer pentagon (NW), Tennis seam (NE), Basketball ribs (SE), Baseball stitches (SW).',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#071525" stroke="url(#cyanEmerald)" stroke-width="1.8"/>
+      <!-- NW Quadrant: Soccer Pentagon -->
+      <polygon points="21,16 26,18 24,23 19,23 17,18" fill="#10b981" fill-opacity="0.4" stroke="#34d399" stroke-width="1.2"/>
+      <line x1="26" y1="18" x2="32" y2="12" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.2"/>
+      <line x1="17" y1="18" x2="12" y2="26" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.2"/>
+      <!-- NE Quadrant: Tennis Optic Seam -->
+      <path d="M 46.5 17.5 C 39 22, 39 29, 51.5 29" stroke="#a3e635" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- SE Quadrant: Basketball Ribs -->
+      <path d="M 46.5 46.5 C 39 41, 39 34, 51.5 34" stroke="#fb923c" stroke-width="2.0" stroke-linecap="round"/>
+      <line x1="34" y1="44" x2="49" y2="41" stroke="#fb923c" stroke-opacity="0.6" stroke-width="1.3"/>
+      <!-- SW Quadrant: Baseball Stitches -->
+      <path d="M 17.5 46.5 C 25 41, 25 34, 12.5 34" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.5',
+    name: 'Option 5.5 · Stitched Baseball / Cricket',
+    subtitle: 'Double-Chevron Red/Gold Stitched Sphere',
+    description:
+      '3D sphere featuring classic curved baseball/cricket seams with crisp chevron stitch ticks behind the compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#091628" stroke="#7dd3fc" stroke-opacity="0.6" stroke-width="1.7"/>
+      <!-- Curved Seams + Stitch Ticks -->
+      <path d="M 17 18 C 25.5 24, 25.5 40, 17 46" stroke="#f43f5e" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 17 18 C 25.5 24, 25.5 40, 17 46" stroke="#fde047" stroke-width="4.2" stroke-dasharray="1.5 4" stroke-linecap="round"/>
+      <path d="M 47 18 C 38.5 24, 38.5 40, 47 46" stroke="#f43f5e" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 47 18 C 38.5 24, 38.5 40, 47 46" stroke="#fde047" stroke-width="4.2" stroke-dasharray="1.5 4" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.6',
+    name: 'Option 5.6 · Prolate NFL / Rugby Football',
+    subtitle: 'Tilted Laced Prolate Football',
+    description:
+      '45°-tilted prolate American/Rugby football with crisp white laces and end-zone stripes behind the chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="22" ry="13.5" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <path d="M 14 25.5 Q 18 32 14 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 50 25.5 Q 46 32 50 38.5" stroke="#fde047" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="32" x2="41" y2="32" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.5"/>
+        <line x1="26" y1="29" x2="26" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="32" y1="29" x2="32" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+        <line x1="38" y1="29" x2="38" y2="35" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.4"/>
+      </g>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.7',
+    name: 'Option 5.7 · Spiral Volleyball Sphere',
+    subtitle: '18-Panel Swirl Volleyball',
+    description:
+      '3D volleyball with sweeping 3-panel spiral wave seams in cyan, emerald, and gold behind the chiseled compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#071626" stroke="#38bdf8" stroke-opacity="0.7" stroke-width="1.7"/>
+      <path d="M 13 25 Q 28 20 32 32" stroke="#38bdf8" stroke-width="1.6"/>
+      <path d="M 15 20 Q 30 15 36 28" stroke="#38bdf8" stroke-opacity="0.6" stroke-width="1.3"/>
+      <path d="M 51 25 Q 36 44 32 32" stroke="#34d399" stroke-width="1.6"/>
+      <path d="M 49 31 Q 36 48 28 36" stroke="#34d399" stroke-opacity="0.6" stroke-width="1.3"/>
+      <path d="M 24 51 Q 22 34 32 32" stroke="#fde047" stroke-opacity="0.75" stroke-width="1.6"/>
+      <path d="M 32 11.5 Q 42 24 32 32" stroke="#fde047" stroke-opacity="0.75" stroke-width="1.6"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.8',
+    name: 'Option 5.8 · Champions Star-Ball',
+    subtitle: 'European Star-Panel Football Sphere',
+    description:
+      'Iconic championship star-panel football sphere with interlocking emerald and cyan star facets behind the compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#061322" stroke="url(#cyanEmerald)" stroke-width="1.8"/>
+      <!-- Star Panels on the Sphere -->
+      <polygon points="20,16 23,21 28,21 24,25 25.5,30 20,27 14.5,30 16,25 12,21 17,21" fill="#10b981" fill-opacity="0.32" stroke="#34d399" stroke-width="1.1"/>
+      <polygon points="44,16 47,21 52,21 48,25 49.5,30 44,27 38.5,30 40,25 36,21 41,21" fill="#38bdf8" fill-opacity="0.32" stroke="#38bdf8" stroke-width="1.1"/>
+      <polygon points="20,48 23,43 28,43 24,39 25.5,34 20,37 14.5,34 16,39 12,43 17,43" fill="#38bdf8" fill-opacity="0.28" stroke="#38bdf8" stroke-width="1.1"/>
+      <polygon points="44,48 47,43 52,43 48,39 49.5,34 44,37 38.5,34 40,39 36,43 41,43" fill="#10b981" fill-opacity="0.28" stroke="#34d399" stroke-width="1.1"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.9',
+    name: 'Option 5.9 · Dual Soccer + Basketball',
+    subtitle: 'Split Football & Hoops Sphere',
+    description:
+      'Upper hemisphere is a classic pentagon soccer ball (emerald) and lower hemisphere is a ribbed basketball (amber-gold).',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20.5" fill="#071423" stroke="url(#emeraldGold)" stroke-width="1.8"/>
+      <!-- Top Half: Soccer Pentagons -->
+      <polygon points="32,12 37,15.5 35,21 29,21 27,15.5" fill="#10b981" fill-opacity="0.4" stroke="#34d399" stroke-width="1.2"/>
+      <line x1="27" y1="15.5" x2="15" y2="23" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.3"/>
+      <line x1="37" y1="15.5" x2="49" y2="23" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.3"/>
+      <!-- Bottom Half: Basketball Ribs -->
+      <path d="M 16 44 C 24 37, 40 37, 48 44" stroke="#fb923c" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 20 48.5 C 26 42, 38 42, 44 48.5" stroke="#fde047" stroke-opacity="0.75" stroke-width="1.5" stroke-linecap="round"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '5.10',
+    name: 'Option 5.10 · Trio of Sport Balls',
+    subtitle: 'Soccer · Tennis · Basketball Triad',
+    description:
+      'Three distinct mini sports balls (Soccer NW, Tennis NE, Basketball SE, Puck/Baseball SW) tucked into the 4 quadrants behind the compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <circle cx="32" cy="32" r="20" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="1.2"/>
+      <!-- NW Mini Soccer Ball -->
+      <circle cx="20" cy="20" r="5.5" fill="#071a24" stroke="#34d399" stroke-width="1.4"/>
+      <polygon points="20,17.2 22.4,19 21.5,21.8 18.5,21.8 17.6,19" fill="#34d399"/>
+      <!-- NE Mini Tennis Ball -->
+      <circle cx="44" cy="20" r="5.5" fill="#132614" stroke="#a3e635" stroke-width="1.4"/>
+      <path d="M 40.5 17.5 Q 43.5 20 40.5 22.5" stroke="#ecfccb" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M 47.5 17.5 Q 44.5 20 47.5 22.5" stroke="#ecfccb" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- SE Mini Basketball -->
+      <circle cx="44" cy="44" r="5.5" fill="#24140c" stroke="#fb923c" stroke-width="1.4"/>
+      <line x1="38.5" y1="44" x2="49.5" y2="44" stroke="#fdba74" stroke-width="1.1"/>
+      <line x1="44" y1="38.5" x2="44" y2="49.5" stroke="#fdba74" stroke-width="1.1"/>
+      <!-- SW Mini Baseball -->
+      <circle cx="20" cy="44" r="5.5" fill="#0b1829" stroke="#38bdf8" stroke-width="1.4"/>
+      <path d="M 16.5 41.5 Q 19.5 44 16.5 46.5" stroke="#fde047" stroke-width="1.2" stroke-dasharray="1.5 1.5"/>
+      <path d="M 23.5 41.5 Q 20.5 44 23.5 46.5" stroke="#fde047" stroke-width="1.2" stroke-dasharray="1.5 1.5"/>
+      ${CHISELED_NEEDLES}
+    </svg>`,
+  },
+];
+
+// 10 Variations (4.1 - 4.10): Pure Chiseled Vertex (Zero Center Dot) + Sports Motifs
 export const PURE_VERTEX_SPORTS_OPTIONS: LogoOption[] = [
   {
     id: '4.1',

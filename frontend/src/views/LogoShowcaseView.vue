@@ -2,15 +2,16 @@
   <div class="min-h-screen px-4 sm:px-6 py-7 max-w-[1380px] mx-auto text-slate-100">
     <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
       <div>
-        <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
-          LATEST BATCH · 10 PURE CHISELED VERTEX VARIATIONS (NO MIDDLE DOT · 4.1 – 4.10)
+        <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
+          NEWEST BATCH · 10 VARIOUS BALLS BEHIND THE CHISELED COMPASS (5.1 – 5.10)
         </span>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-2">
-          Pure 3D Chiseled Compass Vertex (No Middle Dot) + Sports (4.1 – 4.10)
+          Various Sports Balls Behind the Pure Chiseled Compass (5.1 – 5.10)
         </h1>
         <p class="text-sm text-slate-300 mt-1">
-          The middle dot is removed so all 8 sunlit/shadowed facets meet at a razor-sharp geometric vertex at the
-          center. Previous batches (#3.1–#3.10 and #7.1–#7.10, also without the middle dot) are kept below.
+          10 new variations placing distinct sports balls (Soccer, Tennis, Basketball, 4-Sport Hybrid, Baseball,
+          NFL/Rugby, Volleyball, Champions Star-Ball, Dual Soccer+Hoops, and 4-Ball Triad) behind the pure chiseled
+          compass. Previous batches (#4.1–#4.10, #3.1–#3.10, #7.1–#7.10) are kept below.
         </p>
       </div>
       <div class="flex gap-2">
@@ -29,7 +30,46 @@
       </div>
     </div>
 
-    <!-- LATEST BATCH: 10 Pure-Vertex (No Dot) Sports Variations (4.1 - 4.10) -->
+    <!-- BATCH 4 (NEWEST): 10 Various Sports Balls Behind the Compass (5.1 - 5.10) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
+      <div
+        v-for="opt in BALL_BEHIND_COMPASS_OPTIONS"
+        :key="opt.id"
+        class="card-surface rounded-2xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-400"
+      >
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2.5">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
+              #{{ opt.id }}
+            </span>
+            <span class="text-[11px] font-semibold text-emerald-300 truncate">{{ opt.subtitle }}</span>
+          </div>
+
+          <div class="flex items-center justify-center py-3.5 bg-slate-950/75 rounded-xl border border-slate-800 mb-2.5">
+            <div class="w-[76px] h-[76px]" v-html="opt.svg"></div>
+          </div>
+
+          <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-obsidian/90 border border-slate-800 mb-2.5">
+            <div class="w-[32px] h-[32px] shrink-0" v-html="opt.svg"></div>
+            <span class="text-[17px] font-extrabold tracking-tight whitespace-nowrap">
+              <span class="text-white">Bet</span><span class="text-emerald-400">Scout</span>
+            </span>
+          </div>
+
+          <h2 class="text-sm font-extrabold text-white mb-1">{{ opt.name }}</h2>
+          <p class="text-xs text-slate-300 leading-relaxed">{{ opt.description }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BATCH 3: 10 Pure-Vertex (No Dot) Sports Variations (4.1 - 4.10) -->
+    <div class="mb-4 pt-4 border-t border-slate-800">
+      <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
+        BATCH 3 KEPT · PURE VERTEX VARIATIONS (4.1 – 4.10)
+      </span>
+      <h2 class="text-xl font-extrabold text-white mt-2">Pure Chiseled Vertex + Sports Variations 4.1 – 4.10</h2>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
       <div
         v-for="opt in PURE_VERTEX_SPORTS_OPTIONS"
@@ -63,8 +103,8 @@
 
     <!-- BATCH 2: 10 Sports-Fused Variations of #3 (3.1 - 3.10, Middle Dot Removed) -->
     <div class="mb-4 pt-4 border-t border-slate-800">
-      <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
-        BATCH 2 KEPT (MIDDLE DOT REMOVED) · 3.1 – 3.10
+      <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
+        BATCH 2 KEPT · 3.1 – 3.10
       </span>
       <h2 class="text-xl font-extrabold text-white mt-2">Sports-Fused Variations 3.1 – 3.10 (No Middle Dot)</h2>
     </div>
@@ -73,14 +113,14 @@
       <div
         v-for="opt in SPORTS_COMPASS_3_OPTIONS"
         :key="opt.id"
-        class="card-surface rounded-2xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-400"
+        class="card-surface rounded-2xl p-4 flex flex-col justify-between border-t-2 border-t-sky-400"
       >
         <div>
           <div class="flex items-center justify-between gap-2 mb-2.5">
-            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-400/50">
               #{{ opt.id }}
             </span>
-            <span class="text-[11px] font-semibold text-emerald-300 truncate">{{ opt.subtitle }}</span>
+            <span class="text-[11px] font-semibold text-sky-300 truncate">{{ opt.subtitle }}</span>
           </div>
 
           <div class="flex items-center justify-center py-3.5 bg-slate-950/75 rounded-xl border border-slate-800 mb-2.5">
@@ -102,8 +142,8 @@
 
     <!-- BATCH 1: Original 10 Compass Rose Variations (7.1 - 7.10, Middle Dot Removed) -->
     <div class="mb-4 pt-4 border-t border-slate-800">
-      <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
-        BATCH 1 KEPT (MIDDLE DOT REMOVED) · 7.1 – 7.10
+      <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-violet-500/20 text-violet-300 border border-violet-400/50">
+        BATCH 1 KEPT · 7.1 – 7.10
       </span>
       <h2 class="text-xl font-extrabold text-white mt-2">Original Compass Rose Variations 7.1 – 7.10 (No Middle Dot)</h2>
     </div>
@@ -112,14 +152,14 @@
       <div
         v-for="opt in LOGO_OPTIONS"
         :key="opt.id"
-        class="card-surface rounded-2xl p-4 flex flex-col justify-between border-t-2 border-t-sky-400"
+        class="card-surface rounded-2xl p-4 flex flex-col justify-between border-t-2 border-t-violet-400"
       >
         <div>
           <div class="flex items-center justify-between gap-2 mb-2.5">
-            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-400/50">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-violet-500/20 text-violet-300 border border-violet-400/50">
               #7.{{ opt.id }}
             </span>
-            <span class="text-[11px] font-semibold text-sky-300 truncate">{{ opt.subtitle }}</span>
+            <span class="text-[11px] font-semibold text-violet-300 truncate">{{ opt.subtitle }}</span>
           </div>
 
           <div class="flex items-center justify-center py-3.5 bg-slate-950/75 rounded-xl border border-slate-800 mb-2.5">
@@ -142,5 +182,10 @@
 </template>
 
 <script setup lang="ts">
-import { LOGO_OPTIONS, PURE_VERTEX_SPORTS_OPTIONS, SPORTS_COMPASS_3_OPTIONS } from '../utils/logoOptions';
+import {
+  BALL_BEHIND_COMPASS_OPTIONS,
+  LOGO_OPTIONS,
+  PURE_VERTEX_SPORTS_OPTIONS,
+  SPORTS_COMPASS_3_OPTIONS,
+} from '../utils/logoOptions';
 </script>
