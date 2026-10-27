@@ -62,7 +62,26 @@ mkdir -p public
 cp -f betscout-logo.png betscout-logo.svg public/ 2>/dev/null || true
 npx --yes firebase-tools deploy --only hosting --project "${PROJECT_ID}"
 
-echo "⏰ [5/5] Ensuring 24/7 Cloud Scheduler job (betscout-auto-sync) is active..."
+echo "🔐 [5/6] Ensuring custom domains (betscout.app, betscout.vip, betscout-ai.com) are whitelisted in Firebase Auth..."
+TOK=$(gcloud auth print-access-token 2>/dev/null || true)
+if [ -n "${TOK}" ]; then
+  python3 -c '
+import json, subprocess, sys
+tok = sys.argv[1]
+proj = sys.argv[2]
+url = f"https://identitytoolkit.googleapis.com/admin/v2/projects/{proj}/config"
+out = subprocess.check_output(["curl", "-sS", url, "-H", f"Authorization: Bearer {tok}", "-H", f"x-goog-user-project: {proj}"], text=True)
+cfg = json.loads(out)
+doms = cfg.get("authorizedDomains") or []
+for d in ["localhost", f"{proj}.firebaseapp.com", f"{proj}.web.app", "betscout.app", "www.betscout.app", "betscout.vip", "www.betscout.vip", "betscout-ai.com", "www.betscout-ai.com"]:
+    if d not in doms:
+        doms.append(d)
+subprocess.run(["curl", "-sS", "-X", "PATCH", f"{url}?updateMask=authorizedDomains", "-H", f"Authorization: Bearer {tok}", "-H", f"x-goog-user-project: {proj}", "-H", "Content-Type: application/json", "-d", json.dumps({"authorizedDomains": doms})], check=False, stdout=subprocess.DEVNULL)
+print("   ✓ Firebase Auth authorizedDomains whitelisted:", ", ".join(doms))
+' "${TOK}" "${PROJECT_ID}" || true
+fi
+
+echo "⏰ [6/6] Ensuring 24/7 Cloud Scheduler job (betscout-auto-sync) is active..."
 gcloud services enable cloudscheduler.googleapis.com --project="${PROJECT_ID}" --quiet || true
 CR_URL=$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
 if gcloud scheduler jobs describe betscout-auto-sync --project="${PROJECT_ID}" --location="${REGION}" >/dev/null 2>&1; then

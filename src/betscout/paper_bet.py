@@ -1787,7 +1787,7 @@ def build_recommended_2leg_doubles(
         eid_str = str(p.get("event_id") or "")
 
         # 1. Moneyline / 1X2 candidate
-        if 1.16 <= odds <= 1.78 and p_win >= 0.58:
+        if 1.10 <= odds <= 1.78 and p_win >= 0.58:
             ml_candidates.append({
                 "date_day": ko[:10],
                 "kickoff": ko,
@@ -1894,7 +1894,7 @@ def build_recommended_2leg_doubles(
         t_side = tp.get("side") or ("H" if tp.get("pick") == tp.get("player_1") else "A")
 
         # 1. Tennis Moneyline Banker
-        if 1.14 <= odds <= 1.72 and p_win >= 0.70:
+        if 1.10 <= odds <= 1.72 and p_win >= 0.70:
             ml_candidates.append({
                 "date_day": ko[:10],
                 "kickoff": ko,
@@ -1974,7 +1974,7 @@ def build_recommended_2leg_doubles(
         odds = float(op.get("best_odds") or 0.0)
         p_win = float(op.get("p_model") or 0.0)
         ko = op.get("kickoff") or ""
-        if 1.16 <= odds <= 1.75 and p_win >= 0.62 and float(op.get("composite_score") or 0.0) >= 0.15:
+        if 1.10 <= odds <= 1.75 and p_win >= 0.62 and float(op.get("composite_score") or 0.0) >= 0.15:
             ml_candidates.append({
                 "date_day": ko[:10],
                 "kickoff": ko,
@@ -1991,6 +1991,8 @@ def build_recommended_2leg_doubles(
             })
 
     doubles: list[dict[str, Any]] = []
+    # High-win-probability, low-line-value Bankers (>=72% Win Prob, odds 1.10..1.48)
+    low_odds_bankers = [c for c in ml_candidates if c["prob"] >= 0.72 and 1.10 <= c["odds"] <= 1.48]
 
     def _pair_pool(
         pool_a: list[dict[str, Any]],
@@ -2041,8 +2043,22 @@ def build_recommended_2leg_doubles(
             if added >= limit or len(doubles) >= max_doubles:
                 break
 
+    # 0. When >=2 high-probability low-odds Bankers exist, propose Banker Profitability Booster Combos first (turning ~1.16-1.35 singles into ~1.35-1.95x multipliers)
+    if len(low_odds_bankers) >= 2:
+        _pair_pool(
+            low_odds_bankers,
+            low_odds_bankers,
+            "BANKER_PROFIT_BOOSTER",
+            "Banker Profit Booster",
+            0.54,
+            1.32,
+            2.18,
+            limit=3,
+            require_diff_league=False,
+        )
+
     # 1. Cross-Sport / Uncorrelated Moneyline Bankers (up to 3)
-    _pair_pool(ml_candidates, ml_candidates, "CROSS_SPORT_BANKER", "Cross-Sport Banker ML", 0.48, 1.50, 2.75, limit=3, require_diff_league=True)
+    _pair_pool(ml_candidates, ml_candidates, "CROSS_SPORT_BANKER", "Cross-Sport Banker ML", 0.48, 1.45, 2.75, limit=3, require_diff_league=True)
     # 2. Double-Chance & +1.5 Sets Shield Combos (up to 2, ultra-high hit rate >= 62%)
     _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double-Chance / +1.5 Sets Shield", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
     # 3. Goals & Games O/U Totals Combos (up to 2)

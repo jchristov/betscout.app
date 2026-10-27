@@ -208,6 +208,39 @@ def format_telegram_digest(
             if _format_local_time(d["leg_1"].get("kickoff") or "", tz_name)[:10] in allowed_days
             and _format_local_time(d["leg_2"].get("kickoff") or "", tz_name)[:10] in allowed_days
         ]
+    # Propose Banker Profitability Booster Combos whenever >=2 high-win-probability (>=72%), low-odds (1.10..1.48) bankers exist in the slate
+    banker_pool = sorted(
+        [
+            b for b in best_bets[:max_picks]
+            if float(b.get("win_prob") or 0.0) >= 0.72 and 1.10 <= float(b.get("odds") or 0.0) <= 1.48
+        ],
+        key=lambda x: (-float(x.get("win_prob") or 0.0), float(x.get("odds") or 9.9)),
+    )
+    if len(banker_pool) >= 2:
+        b1, b2 = banker_pool[0], banker_pool[1]
+        o1, o2 = float(b1["odds"]), float(b2["odds"])
+        p1, p2 = float(b1["win_prob"]), float(b2["win_prob"])
+        comb_o2 = o1 * o2
+        comb_p2 = p1 * p2 * 100.0
+        n1 = html.escape(str(b1.get("pick_name") or b1["pick"]))
+        n2 = html.escape(str(b2.get("pick_name") or b2["pick"]))
+        lines.append("")
+        lines.append("🚀 <b>Banker Profitability Booster Combos (Low-Odds Multipliers):</b>")
+        lines.append(
+            f"  • <b>2-Leg Banker Double (@ {comb_o2:.2f}x · +{int(round((comb_o2 - 1)*100))}% Profit · {comb_p2:.1f}% Win Prob):</b> "
+            f"{n1} (@{o1:.2f}) + {n2} (@{o2:.2f})"
+        )
+        if len(banker_pool) >= 3:
+            b3 = banker_pool[2]
+            o3, p3 = float(b3["odds"]), float(b3["win_prob"])
+            n3 = html.escape(str(b3.get("pick_name") or b3["pick"]))
+            comb_o3 = comb_o2 * o3
+            comb_p3 = (p1 * p2 * p3) * 100.0
+            lines.append(
+                f"  • <b>3-Leg Banker Treble (@ {comb_o3:.2f}x · +{int(round((comb_o3 - 1)*100))}% Profit · {comb_p3:.1f}% Win Prob):</b> "
+                f"{n1} (@{o1:.2f}) + {n2} (@{o2:.2f}) + {n3} (@{o3:.2f})"
+            )
+
     if doubles and sport_filter == "all":
         lines.append("")
         lines.append("🔗 <b>Recommended 2-Leg High-Probability Combos (Parlays):</b>")

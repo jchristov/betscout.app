@@ -216,6 +216,7 @@ TIER_TOOLTIPS: dict[str, str] = {
     "high_conf": "high_conf — High-Confidence Multi-Sport Pick (≥68% Win Prob): Backed by Elo, rolling box-score efficiency (FG% / YPP / Save%), and session form.",
     "solid": "solid — Solid Positive-EV Edge (≥58% Win Prob): Confirmed by goalie Save% & shot volume (NHL), yards-per-play (NFL), or shooting & possession security (NBA).",
     "tracked_live": "tracked_live — User-Tracked Live Match: Ad-hoc live or upcoming match added manually via the Live Tracker input.",
+    "banker profit booster": "Banker Profit Booster: Combines 2 or 3 high-win-probability (≥72%), low-odds (1.10–1.48) bankers into a higher-yielding 1.35x–2.15x multiplier ticket.",
     "cross-sport banker ml": "Cross-Sport Banker ML: Uncorrelated 2-leg parlay pairing top moneyline bankers from two different sports or leagues.",
     "double-chance / +1.5 sets shield": "Double-Chance / +1.5 Sets Shield: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap shields.",
     "exact-score cluster parlay": "Exact-Score Cluster Parlay: High-payout 2-leg combo pairing Dixon-Coles exact-score or set-score clusters.",
@@ -2482,6 +2483,17 @@ def generate_dashboard_html(
       </tbody>
     </table>
 
+    <section class="card" id="bankerBoosterCombosSection" style="display:none; margin-bottom:18px; border:1px solid rgba(34,197,94,0.48); background:linear-gradient(180deg, rgba(13,33,29,0.55) 0%, rgba(17,24,39,0.96) 100%);">
+      <div class="card-head" style="margin-bottom:8px;">
+        <div>
+          <b style="font-size:14px; color:var(--green);">🚀 High-Probability Banker Profitability Booster Combos</b>
+          <span class="muted" style="margin-left:8px;" id="bankerBoosterSubtitle">Combines multiple high-win-probability (&ge;72%), lower-odds bankers into higher-yielding 2-Leg &amp; 3-Leg multipliers</span>
+        </div>
+        <button type="button" class="btn-export" onclick="switchWorkspaceTab('studio')" title="Open full Smart Bet Slip &amp; Stake Allocation Studio">🧮 Customize Stake in Studio &rarr;</button>
+      </div>
+      <div id="bankerBoosterGrid" class="cards" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:12px;"></div>
+    </section>
+
     <details class="card" id="sportBreakdownsAccordion" style="margin-bottom:20px; border:1px solid var(--border);">
       <summary style="cursor:pointer; font-weight:700; font-size:13.5px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;">
         <span>📋 Detailed Sport-Specific Breakdowns (⚽ Football Factor Cards · 🎾 Tennis Table · 🌐 Major Leagues Table)</span>
@@ -3105,8 +3117,91 @@ def generate_dashboard_html(
         kpiTotBrk.title = brkStr;
       }}
 
+      if (typeof buildBankerBoosterCombos === 'function') buildBankerBoosterCombos();
       if (typeof buildSmartBetPlan === 'function') buildSmartBetPlan();
       if (typeof populateDutchMatchSelect === 'function') populateDutchMatchSelect();
+    }}
+
+    function buildBankerBoosterCombos() {{
+      const sec = document.getElementById('bankerBoosterCombosSection');
+      const grid = document.getElementById('bankerBoosterGrid');
+      const subEl = document.getElementById('bankerBoosterSubtitle');
+      if (!sec || !grid) return;
+      const items = collectVisibleBestBets().filter(it => !String(it.match || '').includes('🔒'));
+      const bankers = items
+        .filter(it => it.win_prob >= 0.72 && it.odds >= 1.10 && it.odds <= 1.48)
+        .sort((a, b) => (b.win_prob - a.win_prob) || (a.odds - b.odds));
+      if (bankers.length < 2) {{
+        sec.style.display = 'none';
+        return;
+      }}
+      sec.style.display = 'block';
+      const avgSingleOdds = bankers.reduce((acc, x) => acc + x.odds, 0) / bankers.length;
+      const avgSingleYield = Math.round((avgSingleOdds - 1) * 100);
+      if (subEl) {{
+        subEl.innerHTML = 'Detected <b>' + bankers.length + ' high-probability bankers (&ge;72% Win Prob, avg single +' + avgSingleYield + '%)</b> — pair them below to boost net profitability:';
+      }}
+
+      const cardsHtml = [];
+      const makeBoosterCard = (legs, badgeTitle, descText, borderCol) => {{
+        const combOdds = legs.reduce((acc, l) => acc * l.odds, 1.0);
+        const combProb = legs.reduce((acc, l) => acc * l.win_prob, 1.0);
+        const netYieldPct = Math.round((combOdds - 1.0) * 100);
+        const fairOdds = 1.0 / Math.max(0.05, combProb);
+        const legsHtml = legs.map((l, idx) => {{
+          const ico = getSportEmoji(l.sport_cat || l.sport_league);
+          return '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.45); font-size:11.5px;">' +
+            '<span>' + (idx + 1) + '. ' + ico + ' <b>' + escHtml(l.pick_name || l.pick) + '</b> <span class="muted">(' + escHtml(l.match) + ')</span></span>' +
+            '<span><b class="num-pos">@' + l.odds.toFixed(2) + '</b> <span class="muted">(' + (l.win_prob * 100).toFixed(1) + '%)</span></span>' +
+          '</div>';
+        }}).join('');
+        const shareLegsTxt = legs.map((l, idx) => (idx + 1) + '. ' + getSportEmoji(l.sport_cat || l.sport_league) + ' **' + (l.pick_name || l.pick) + '** (' + l.match + ') @ **' + l.odds.toFixed(2) + '** (' + (l.win_prob * 100).toFixed(1) + '% Win Prob)').join('\\n');
+        const summaryStr = 'Combined Odds: ' + combOdds.toFixed(2) + 'x (+' + netYieldPct + '% Profit) · Combined Win Prob: ' + (combProb * 100).toFixed(1) + '% (Fair ' + fairOdds.toFixed(2) + ')';
+        return '<div class="card" style="margin:0; border-color:' + borderCol + ';">' +
+          '<div class="card-head">' +
+            '<div><b>' + escHtml(badgeTitle) + '</b> <span class="pill badge-bet" title="Boosts single banker yield (+' + avgSingleYield + '%) up to +' + netYieldPct + '% net profit!">+' + netYieldPct + '% PROFIT BOOST</span></div>' +
+            '<button type="button" class="btn-mini" title="Share this Banker Booster Combo + PNG Card" onclick="shareStrategyTicket(' + escHtml(JSON.stringify(badgeTitle)) + ', ' + escHtml(JSON.stringify(summaryStr)) + ', ' + escHtml(JSON.stringify(shareLegsTxt)) + ')">📣</button>' +
+          '</div>' +
+          '<div class="muted" style="margin:3px 0 6px;">' + escHtml(descText) + '</div>' +
+          '<div>' + legsHtml + '</div>' +
+          '<div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:12px;">' +
+            '<span>Combined Odds: <b class="num-pos">' + combOdds.toFixed(2) + 'x</b> (Fair ' + fairOdds.toFixed(2) + ')</span>' +
+            '<span>Hit Prob: <b class="num-pos">' + (combProb * 100).toFixed(1) + '%</b> · €100 &rarr; <b class="num-pos">€' + (100 * combOdds).toFixed(2) + '</b></span>' +
+          '</div>' +
+        '</div>';
+      }};
+
+      // 1. Primary 2-Leg Anchor Banker Double (#1 + #2 Highest Win-Prob Bankers)
+      cardsHtml.push(makeBoosterCard(
+        [bankers[0], bankers[1]],
+        '⚡ 2-Leg Anchor Banker Double',
+        'Pairs the 2 highest-probability bankers into a low-variance double',
+        'rgba(34,197,94,0.5)'
+      ));
+
+      // 2. Cross-Sport or Alt 2-Leg Banker Double (#1 + #3 or first cross-sport pair)
+      if (bankers.length >= 3) {{
+        const crossPartner = bankers.slice(1).find(x => x.sport_cat !== bankers[0].sport_cat) || bankers[2];
+        const partnerSecond = (crossPartner === bankers[1]) ? bankers[2] : crossPartner;
+        cardsHtml.push(makeBoosterCard(
+          [bankers[0], partnerSecond],
+          '🌐 2-Leg Cross-League Banker Double',
+          'Pairs top anchor banker with independent 2nd/cross-sport banker',
+          'rgba(56,189,248,0.5)'
+        ));
+      }}
+
+      // 3. 3-Leg Banker Profit Multiplier Treble (#1 + #2 + #3)
+      if (bankers.length >= 3) {{
+        cardsHtml.push(makeBoosterCard(
+          [bankers[0], bankers[1], bankers[2]],
+          '🚀 3-Leg Banker Profit Treble',
+          'Combines the top 3 bankers to multiply low-line singles into a high-yield ticket',
+          'rgba(245,158,11,0.55)'
+        ));
+      }}
+
+      grid.innerHTML = cardsHtml.join('');
     }}
 
     function applyDayFilter(dayKey) {{
@@ -4079,6 +4174,22 @@ def generate_dashboard_html(
           '   🎯 Pick: **' + it.pick + '** · 💰 Odds: **' + it.odds_display + '**'
         );
       }});
+      const bankers = items
+        .filter(it => it.win_prob >= 0.72 && it.odds >= 1.10 && it.odds <= 1.48)
+        .sort((a, b) => (b.win_prob - a.win_prob) || (a.odds - b.odds));
+      if (bankers.length >= 2) {{
+        const b1 = bankers[0], b2 = bankers[1];
+        const o2 = (b1.odds * b2.odds).toFixed(2);
+        const p2 = (b1.win_prob * b2.win_prob * 100).toFixed(1);
+        lines.push('', '🚀 **BANKER PROFITABILITY BOOSTER COMBOS:**');
+        lines.push('• **2-Leg Banker Double (@ ' + o2 + 'x · ' + p2 + '% Win Prob):** ' + (b1.pick_name || b1.pick) + ' + ' + (b2.pick_name || b2.pick));
+        if (bankers.length >= 3) {{
+          const b3 = bankers[2];
+          const o3 = (b1.odds * b2.odds * b3.odds).toFixed(2);
+          const p3 = (b1.win_prob * b2.win_prob * b3.win_prob * 100).toFixed(1);
+          lines.push('• **3-Leg Banker Treble (@ ' + o3 + 'x · ' + p3 + '% Win Prob):** ' + (b1.pick_name || b1.pick) + ' + ' + (b2.pick_name || b2.pick) + ' + ' + (b3.pick_name || b3.pick));
+        }}
+      }}
       lines.push('', '⚡ *BetScout · Sports Edge & Score Intelligence*');
       return lines.join('\\n');
     }}
@@ -5426,6 +5537,7 @@ def generate_dashboard_html(
     initPwaAndVersionWatcher();
     initFloatingTooltips();
     restoreSlipPrefsFromStorage();
+    buildBankerBoosterCombos();
     buildSmartBetPlan();
     populateDutchMatchSelect();
     setTimeout(() => hidePageLoader(), 260);
