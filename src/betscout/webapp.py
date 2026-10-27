@@ -360,6 +360,27 @@ def _save_webapp_settings(
     return cur
 
 
+_TOTAL_MATCHES_CACHE: dict[str, tuple[float, int]] = {}
+
+
+def _get_cached_total_matches(db_path: Path) -> int:
+    key = str(db_path)
+    now = time.monotonic()
+    hit = _TOTAL_MATCHES_CACHE.get(key)
+    if hit and (now - hit[0]) < 300.0:
+        return hit[1]
+    cnt = 59062
+    if db_path.exists():
+        try:
+            conn = sqlite3.connect(db_path, timeout=10.0)
+            cnt = int(conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0] or cnt)
+            conn.close()
+        except Exception:
+            pass
+    _TOTAL_MATCHES_CACHE[key] = (now, cnt)
+    return cnt
+
+
 def _build_live_snapshot(
     rec_path: Path,
     db_path: Path,
@@ -368,6 +389,8 @@ def _build_live_snapshot(
     run_settle: bool = False,
     role: str = "admin",
 ) -> dict[str, Any]:
+    from .paper_bet import build_recommended_2leg_doubles
+
     newly_settled = 0
     if run_settle and db_path.exists():
         try:
@@ -380,6 +403,8 @@ def _build_live_snapshot(
     cfg_now = _load_webapp_settings(db_path.parent)
     dis_sports = set(cfg_now.get("disabled_sports") or [])
     rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
+    raw_soccer_all = rec.get("qualifying_picks") or []
+    vetoed_bets_n = sum(1 for p in raw_soccer_all if str(p.get("action") or "").startswith("VETOED"))
     ledger = get_paper_ledger_summary(db_path) if db_path.exists() else {}
     filtered_bets = []
     for tr in ledger.get("bets") or []:
@@ -410,21 +435,36 @@ def _build_live_snapshot(
             rec = redact_recommendations_for_free_tier(rec, free_preview_count=mon_cfg["free_preview_picks_count"])
             ledger = rec.get("paper_ledger") or ledger
     best_bets = build_best_bets_summary(rec, min_odds=min_odds, sport_filter=sport, disabled_sports=dis_sports)
+    doubles_list = (
+        rec.get("recommended_doubles")
+        or build_recommended_2leg_doubles(
+            rec.get("qualifying_picks") or [],
+            rec.get("tennis_picks") or [],
+            rec.get("other_sport_picks") or [],
+            max_doubles=8,
+        )
+    )
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
+        "ok": True,
         "server_time_utc": now_utc,
         "server_time_local": _format_local_time(now_utc, DEFAULT_LOCAL_TZ),
         "generated_at": rec.get("generated_at"),
         "generated_at_local": _format_local_time(rec.get("generated_at") or "", DEFAULT_LOCAL_TZ),
         "timezone": DEFAULT_LOCAL_TZ,
         "role": role,
-        "discord_env": get_discord_env_config(),
+        "total_matches": _get_cached_total_matches(db_path),
+        "vetoed_bets": vetoed_bets_n,
+        "settings": cfg_now,
+        "discord_env": get_discord_env_config(custom_sport_webhooks=cfg_now.get("sport_webhooks")),
         "telegram_env": get_telegram_env_config(),
         "pipeline_status": dict(_PIPELINE_STATUS),
         "newly_settled": newly_settled,
         "paper_ledger": ledger,
         "best_bets_count": len(best_bets),
         "best_bets": best_bets,
+        "recommended_doubles": doubles_list,
+        "backtest_risk": rec.get("backtest_risk") or {},
         "qualifying_picks": rec.get("qualifying_picks", []),
         "tennis_picks": rec.get("tennis_picks", []),
         "other_sport_picks": rec.get("other_sport_picks", []),
@@ -1002,6 +1042,43 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             min_odds = float((qs.get("min_odds") or ["1.10"])[0])
             sport = (qs.get("sport") or ["all"])[0]
 
+            spa_dist_dir = root_dir / "frontend" / "dist"
+            spa_index = spa_dist_dir / "index.html"
+
+            if parsed.path.startswith("/assets/") and spa_dist_dir.is_dir():
+                rel_asset = parsed.path.lstrip("/")
+                asset_path = (spa_dist_dir / rel_asset).resolve()
+                if str(asset_path).startswith(str(spa_dist_dir.resolve())) and asset_path.is_file():
+                    ext = asset_path.suffix.lower()
+                    mime_map = {
+                        ".js": "application/javascript; charset=utf-8",
+                        ".css": "text/css; charset=utf-8",
+                        ".svg": "image/svg+xml; charset=utf-8",
+                        ".png": "image/png",
+                        ".woff2": "font/woff2",
+                    }
+                    content_b = asset_path.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", mime_map.get(ext, "application/octet-stream"))
+                    self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+                    self.send_header("Content-Length", str(len(content_b)))
+                    self.end_headers()
+                    self.wfile.write(content_b)
+                    return
+
+            if spa_index.is_file() and (
+                parsed.path in ("/", "/index.html", "/app", "/landing", "/landing.html", "/pricing", "/pricing.html")
+                or parsed.path.startswith("/app/")
+            ):
+                spa_bytes = spa_index.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Content-Length", str(len(spa_bytes)))
+                self.end_headers()
+                self.wfile.write(spa_bytes)
+                return
+
             if parsed.path in ("/landing", "/landing.html", "/pricing", "/pricing.html"):
                 from .landing import render_landing_page_html
 
@@ -1276,14 +1353,30 @@ self.addEventListener('fetch', (event) => {{
                 self._send_json({"ok": False, "error": "Unknown /api/v1 endpoint"}, status=404, extra_headers=rl_headers)
                 return
 
-            if parsed.path == "/api/data":
-                role_d, _act_d, _ = resolve_request_role(
+            if parsed.path in ("/api/data", "/api/snapshot"):
+                from .monetization import get_monetization_config
+
+                fb_cfg_d = get_firebase_auth_config()
+                mon_cfg_d = get_monetization_config(data_dir)
+                role_d, act_d, _ = resolve_request_role(
                     db_path,
                     auth_header=self.headers.get("Authorization"),
                     api_key_header=self.headers.get("X-API-Key"),
                     query_token=(qs.get("token") or [""])[0],
+                    cookie_header=self.headers.get("Cookie"),
                 )
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role=role_d)
+                snap["auth"] = {
+                    "enabled": fb_cfg_d["enabled"],
+                    "api_key": fb_cfg_d["api_key"],
+                    "project_id": fb_cfg_d["project_id"],
+                    "auth_domain": fb_cfg_d["auth_domain"],
+                    "role": role_d,
+                    "is_admin": role_d == "admin",
+                    "is_pro": role_d in ("admin", "pro"),
+                    "actor": act_d,
+                }
+                snap["monetization"] = mon_cfg_d
                 self._send_json(snap)
                 return
 

@@ -24,9 +24,10 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN uv sync --no-dev --default-index https://pypi.org/simple
 
-# Copy static assets, CLI scripts & ingestion config
+# Copy static assets, CLI scripts, Vue 3 SPA bundle & ingestion config
 COPY ingestion_config.json betscout-logo.svg betscout-logo.png ./
 COPY scripts ./scripts
+COPY frontend/dist ./frontend/dist
 RUN mkdir -p /app/data && chmod +x /app/scripts/cloud_entrypoint.sh
 
 EXPOSE 8080

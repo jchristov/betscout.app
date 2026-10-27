@@ -493,7 +493,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         for t in threads:
             t.join()
 
-    assert len(send_calls) >= 1 and sum(1 for m in send_calls if "NEW SETTLED PAPER-BET ALERT (" in m and "BETSCOUT (" not in m) == 1, (
+    assert len(send_calls) >= 1 and sum(
+        1 for m in send_calls if "NEW SETTLED PAPER-BET ALERT (" in m and "BETSCOUT (" not in m and "Unlock all daily VIP picks" not in m
+    ) == 1, (
         f"Expected exactly 1 global Discord notification across 4 concurrent threads, got {len(send_calls)}"
     )
 

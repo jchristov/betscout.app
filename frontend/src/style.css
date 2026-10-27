@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #263859 #05080f;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: #05080f;
+    border-radius: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #24344f 0%, #1e2d45 100%);
+    border-radius: 8px;
+    border: 1.5px solid #05080f;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%);
+  }
+  *::-webkit-scrollbar-corner {
+    background: #05080f;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #05080f;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -15%, rgba(56, 189, 248, 0.13), transparent),
+      radial-gradient(ellipse 60% 40% at 85% 20%, rgba(34, 197, 94, 0.08), transparent),
+      linear-gradient(rgba(148, 163, 184, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.025) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    color: #f1f5f9;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.card-surface {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 16, 28, 0.97) 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 12px 32px -4px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(148, 163, 184, 0.13);
+}
+
+.btn-press {
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.btn-press:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-1 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.04s both; }
+.stagger-2 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.10s both; }
+.stagger-3 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.16s both; }
+
+#bsFloatingTooltip {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  display: none;
+  max-width: 340px;
+  background: rgba(9, 13, 21, 0.97);
+  color: #f1f5f9;
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 11.5px;
+  line-height: 1.42;
+  font-weight: 500;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(56, 189, 248, 0.22);
+  backdrop-filter: blur(8px);
+}

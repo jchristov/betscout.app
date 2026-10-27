@@ -40,7 +40,11 @@ for f in recommendations.json webapp_settings.json best_bets.json best_bets.csv 
   fi
 done
 
-echo "🐳 [3/4] Building & deploying Cloud Run service ${SERVICE_NAME} (${REGION})..."
+echo "🧪 [3/6] Running Vitest unit tests & building Vue 3 + Tailwind SPA (frontend/dist)..."
+(cd frontend && npm run test && npm run build)
+cp -f betscout-logo.png betscout-logo.svg frontend/dist/ 2>/dev/null || true
+
+echo "🐳 [4/6] Building & deploying Cloud Run service ${SERVICE_NAME} (${REGION})..."
 gcloud run deploy "${SERVICE_NAME}" \
   --quiet \
   --project="${PROJECT_ID}" \
