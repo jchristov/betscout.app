@@ -280,7 +280,7 @@
         <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
           {{ settledCount }} Graded ·
           <span
-            class="border-b border-dotted border-slate-400 cursor-help text-sky-300"
+            class="cursor-help text-sky-300"
             title="Exact Score / Cluster Hit Rate: Share of graded matches where the final score landed inside BetScout's pre-match projected exact-score or set-score cluster."
           >
             Score Hits: {{ store.paperLedger?.exact_score_hits || 0 }}/{{ store.paperLedger?.exact_score_graded || 0 }}
@@ -305,14 +305,14 @@
         </b>
         <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
           <span
-            class="border-b border-dotted border-slate-400 cursor-help"
+            class="cursor-help"
             title="Quarter-Kelly Bankroll Growth (¼-Kelly): Compounded percentage bankroll growth using optimal ¼-Kelly fractional staking."
           >
             ¼-Kelly:
             <b class="text-emerald-300">+{{ Number(store.paperLedger?.kelly_growth_pct || 0).toFixed(2) }}%</b>
           </span>
           ·
-          <span class="border-b border-dotted border-slate-400 cursor-help" :title="CLV_TOOLTIP">
+          <span class="cursor-help" :title="CLV_TOOLTIP">
             CLV:
             <b :class="meanClv >= 0 ? 'text-emerald-300' : 'text-rose-400'">
               {{ meanClv >= 0 ? '+' : '' }}{{ meanClv.toFixed(2) }}%
@@ -491,35 +491,33 @@
       </div>
     </div>
 
-    <!-- 4 Sticky Workspace Tabs -->
-    <nav
-      class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl p-1.5 mb-4 sticky top-2 z-40 backdrop-blur-2xl shadow-2xl"
-    >
-      <button
-        v-for="tab in workspaceTabs"
-        :key="tab.id"
-        type="button"
-        class="btn-press min-h-[40px] inline-flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs font-bold border whitespace-nowrap"
-        :class="
-          activeTab === tab.id
-            ? 'bg-gradient-to-r from-sky-500/25 via-cyan-500/20 to-emerald-500/20 text-white border-sky-400 shadow-[0_0_16px_rgba(56,189,248,0.25)]'
-            : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:border-slate-600'
-        "
-        @click="activeTab = tab.id"
-      >
-        <Icon :icon="tab.icon" class="w-4 h-4 shrink-0" :class="tab.iconColor" />
-        <span class="truncate">{{ tab.label }}</span>
-        <span
-          class="hidden sm:inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
-          :class="tab.badgeClass"
+    <!-- Connected Folder-Style Tab Bar & Outlined Content Container -->
+    <div class="mb-6">
+      <nav class="workspace-tablist" role="tablist" aria-label="BetScout Workspace Sections">
+        <button
+          v-for="tab in workspaceTabs"
+          :key="tab.id"
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
+          class="workspace-tab flex-1 sm:flex-initial min-w-[165px] whitespace-nowrap"
+          :class="activeTab === tab.id ? 'workspace-tab-active' : 'workspace-tab-inactive'"
+          @click="activeTab = tab.id"
         >
-          {{ tab.badge }}
-        </span>
-      </button>
-    </nav>
+          <Icon :icon="tab.icon" class="w-4 h-4 shrink-0" :class="tab.iconColor" />
+          <span class="truncate">{{ tab.label }}</span>
+          <span
+            class="hidden sm:inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
+            :class="tab.badgeClass"
+          >
+            {{ tab.badge }}
+          </span>
+        </button>
+      </nav>
 
-    <!-- TAB 1: PICKS & LIVE IN-PLAY -->
-    <div v-if="activeTab === 'picks'">
+      <div class="workspace-tabpanel p-4 sm:p-5" role="tabpanel">
+        <!-- TAB 1: PICKS & LIVE IN-PLAY -->
+        <div v-if="activeTab === 'picks'">
       <!-- Live In-Play Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-rose-300 m-0">
@@ -637,7 +635,7 @@
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
-                  class="font-bold text-white hover:text-sky-300 border-b border-dashed border-sky-400/50 text-left"
+                  class="font-bold text-white hover:text-sky-300 text-left transition-colors"
                   @click="openMatchupModal(tr.home, tr.away, tr.league)"
                 >
                   {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
@@ -871,7 +869,7 @@
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
-                  class="font-bold text-white hover:text-sky-300 border-b border-dashed border-sky-400/50 text-left"
+                  class="font-bold text-white hover:text-sky-300 text-left transition-colors"
                   @click="openMatchupModal(b.home, b.away, b.sport_league)"
                 >
                   {{ b.match }}
@@ -929,7 +927,7 @@
                 <div class="flex flex-wrap items-center gap-1.5">
                   <b class="text-amber-300">{{ b.odds_display }}</b>
                   <span
-                    class="whitespace-nowrap text-slate-300 border-b border-dotted border-slate-500 cursor-help"
+                    class="whitespace-nowrap text-slate-300 cursor-help"
                     :title="CLV_TOOLTIP"
                   >
                     (CLV
@@ -1545,6 +1543,8 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
       </div>
     </div>
 
