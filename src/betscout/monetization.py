@@ -681,7 +681,7 @@ def build_openapi_v1_spec() -> dict[str, Any]:
             "/api/sync": {
                 "post": {
                     "tags": ["Admin & Pipeline Operations"],
-                    "summary": "Settle finished paper-bets via Sportradar/ESPN and optionally rescan live odds (Admin/Cron)",
+                    "summary": "Settle finished paper-bets against official match results and optionally rescan live odds (Admin/Cron)",
                     "responses": {"200": {"description": "Sync & settlement result"}},
                 }
             },

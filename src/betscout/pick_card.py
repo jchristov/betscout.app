@@ -354,66 +354,31 @@ def render_logo_png(
         width=rim_w,
     )
 
-    # Subtle calibrated radar ring
-    r_ring = S * (20.0 / 64.0)
-    dash_w = max(2, int(S * (1.2 / 64.0)))
-    for deg in range(0, 360, 15):
-        draw.arc(
-            [(cx - r_ring, cy - r_ring), (cx + r_ring, cy + r_ring)],
-            start=deg,
-            end=deg + 8,
-            fill=(56, 189, 248, 52),
-            width=dash_w,
-        )
+    # Subtle calibrated azimuth ring (r = 18/64)
+    r_ring = S * (18.0 / 64.0)
+    draw.ellipse(
+        [(cx - r_ring, cy - r_ring), (cx + r_ring, cy + r_ring)],
+        outline=(56, 189, 248, 78),
+        width=max(2, int(S * (1.5 / 64.0))),
+    )
 
     def _pt(ux: float, uy: float) -> tuple[float, float]:
         return (S * (ux / 64.0), S * (uy / 64.0))
 
-    # 4 ascending quant distribution bars
-    bars = [
-        (13.5, 38.0, 6.5, 12.0, (56, 189, 248, 76)),
-        (23.5, 30.0, 6.5, 20.0, (56, 189, 248, 92)),
-        (33.5, 34.0, 6.5, 16.0, (56, 189, 248, 84)),
-        (43.5, 21.0, 6.5, 29.0, (52, 211, 153, 115)),
-    ]
-    bar_r = max(2, int(S * (2.5 / 64.0)))
-    for bx, by, bw, bh, bcol in bars:
-        x0, y0 = _pt(bx, by)
-        x1, y1 = _pt(bx + bw, by + bh)
-        draw.rounded_rectangle([(x0, y0), (x1, y1)], radius=bar_r, fill=bcol)
+    # Option 7: 4-Point Compass Rose Needles
+    # North Needle (Emerald-Gold)
+    draw.polygon([_pt(32.0, 9.0), _pt(36.5, 27.5), _pt(32.0, 32.0), _pt(27.5, 27.5)], fill=(52, 211, 153, 255))
+    draw.polygon([_pt(32.0, 9.0), _pt(36.5, 27.5), _pt(32.0, 22.0)], fill=(253, 224, 71, 235))
+    # South Needle (Deep Emerald)
+    draw.polygon([_pt(32.0, 55.0), _pt(36.5, 36.5), _pt(32.0, 32.0), _pt(27.5, 36.5)], fill=(16, 185, 129, 195))
+    # East Needle (Electric Cyan)
+    draw.polygon([_pt(55.0, 32.0), _pt(36.5, 36.5), _pt(32.0, 32.0), _pt(36.5, 27.5)], fill=(56, 189, 248, 255))
+    # West Needle (Ocean Blue)
+    draw.polygon([_pt(9.0, 32.0), _pt(27.5, 36.5), _pt(32.0, 32.0), _pt(27.5, 27.5)], fill=(2, 132, 199, 205))
 
-    # Rising Alpha Vector
-    v_pts = [_pt(14.0, 43.0), _pt(26.5, 29.5), _pt(35.5, 35.5), _pt(47.5, 17.5)]
-    vec_w = max(6, int(S * (4.0 / 64.0)))
-    glow_w = int(vec_w * 2.1)
-    draw.line(v_pts, fill=(52, 211, 153, 60), width=glow_w, joint="curve")
-    draw.line([v_pts[0], v_pts[1]], fill=(56, 189, 248, 255), width=vec_w)
-    draw.line([v_pts[1], v_pts[2]], fill=(52, 211, 153, 255), width=vec_w)
-    draw.line([v_pts[2], v_pts[3]], fill=(253, 224, 71, 255), width=vec_w)
-    for vx, vy in v_pts:
-        draw.ellipse([(vx - vec_w / 2, vy - vec_w / 2), (vx + vec_w / 2, vy + vec_w / 2)], fill=(52, 211, 153, 255))
-
-    # Arrowhead at (47.5, 17.5)
-    ah_pts = [_pt(40.5, 17.5), _pt(47.8, 17.5), _pt(47.8, 24.8)]
-    ah_w = max(5, int(S * (3.0 / 64.0)))
-    draw.line(ah_pts, fill=(253, 224, 71, 255), width=ah_w, joint="curve")
-
-    # Nodes
-    for nx, ny, ncol in ((26.5, 29.5, (56, 189, 248, 255)), (35.5, 35.5, (52, 211, 153, 255))):
-        n_pt = _pt(nx, ny)
-        nr = S * (2.6 / 64.0)
-        draw.ellipse([(n_pt[0] - nr, n_pt[1] - nr), (n_pt[0] + nr, n_pt[1] + nr)], fill=ncol)
-
-    # Target apex ring & gold dot at (47.5, 17.5)
-    t_pt = _pt(47.5, 17.5)
-    tr_outer = S * (5.2 / 64.0)
-    tr_inner = S * (2.7 / 64.0)
-    draw.ellipse(
-        [(t_pt[0] - tr_outer, t_pt[1] - tr_outer), (t_pt[0] + tr_outer, t_pt[1] + tr_outer)],
-        outline=(52, 211, 153, 145),
-        width=max(2, int(S * (1.4 / 64.0))),
-    )
-    draw.ellipse([(t_pt[0] - tr_inner, t_pt[1] - tr_inner), (t_pt[0] + tr_inner, t_pt[1] + tr_inner)], fill=(253, 224, 71, 255))
+    # White center pivot dot (r = 3.5/64)
+    c_r = S * (3.5 / 64.0)
+    draw.ellipse([(cx - c_r, cy - c_r), (cx + c_r, cy + c_r)], fill=(255, 255, 255, 255))
 
     # Downsample 4x -> 1x with LANCZOS anti-aliasing
     final_img = img.resize((size, size), resample=Image.Resampling.LANCZOS)

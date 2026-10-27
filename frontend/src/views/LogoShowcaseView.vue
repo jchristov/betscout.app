@@ -3,10 +3,10 @@
     <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
       <div>
         <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
-          BETSCOUT BRAND STUDIO · 10 BESPOKE CONCEPTS
+          BETSCOUT BRAND STUDIO · 10 VARIATIONS OF OPTION 7 (THE COMPASS ROSE)
         </span>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-2">
-          Choose Your BetScout App Emblem (Options 1–10)
+          Choose Your Compass Rose Variation (7.1 – 7.10)
         </h1>
         <p class="text-sm text-slate-300 mt-1">
           Every option is shown at both <b>App Icon size (76×76)</b> and <b>Live Header Lockup size (36×36)</b>. Tell me

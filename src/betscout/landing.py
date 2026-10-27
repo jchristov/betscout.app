@@ -890,7 +890,7 @@ def render_landing_page_html(
         <span class="serif-italic">Engineered for Consistent Alpha.</span>
       </h1>
       <p class="hero-lead">
-        BetScout combines <strong>{total_matches:,}+ historical matches</strong>, direct real-time bookmaker &amp; Sportradar feeds,
+        BetScout combines <strong>{total_matches:,}+ historical matches</strong>, direct real-time bookmaker &amp; live telemetry feeds,
         Dixon-Coles 28-outcome exact-score matrices, and strict per-sport safety vetoes. Every signal is timestamped before kickoff.
       </p>
       <div class="hero-cta-row">
@@ -1082,7 +1082,7 @@ def render_landing_page_html(
           <div class="pillar-icon">🔴</div>
           <div>
             <h3>6-Second In-Play Dominance Stream</h3>
-            <p>Live Sportradar timeline delta tracking detects when a pre-match favorite is level or trailing despite dominating Shots-on-Target (SoT) or 76–90m late-goal pressure.</p>
+            <p>Real-time match timeline delta tracking detects when a pre-match favorite is level or trailing despite dominating Shots-on-Target (SoT) or 76–90m late-goal pressure.</p>
           </div>
         </div>
       </div>

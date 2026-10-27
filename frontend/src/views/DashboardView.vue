@@ -347,7 +347,7 @@
 
       <div
         class="card-surface border-t-2 border-t-rose-400 rounded-xl px-3.5 py-3"
-        title="Currently in-play matches (streaming every 6s via Sportradar) and pending pre-match bets in the ledger."
+        title="Currently in-play matches (streaming every 6s via live match telemetry) and pending pre-match bets in the ledger."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-rose-300">
           <Icon icon="fa6-solid:tower-broadcast" class="w-3.5 h-3.5 text-rose-400" />

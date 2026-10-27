@@ -212,6 +212,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('betscout.app');
     expect(wrapper.text()).not.toContain('/api/');
     expect(wrapper.text()).not.toContain('https://');
+    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore/);
   });
 
   it('renders DashboardView with 4 workspace tabs, sortable table, and custom slip dock', async () => {
@@ -246,6 +247,8 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('betscout.app');
     expect(wrapper.text()).not.toContain('/api/');
     expect(wrapper.text()).not.toContain('https://');
+
+    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore/);
 
     // Select a match to trigger floating custom slip dock
     store.toggleCustomMatch('AS Roma vs Cagliari');

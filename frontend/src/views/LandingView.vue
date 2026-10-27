@@ -127,8 +127,8 @@
             <strong class="text-emerald-300 font-bold">ultra-fast, fine-tuned AI decision model</strong>
             trained on
             <strong class="text-white font-bold">{{ store.totalMatches.toLocaleString() }}+ historical matches</strong>
-            with direct real-time bookmaker &amp; Sportradar feeds, Dixon-Coles 28-outcome exact-score matrices, and
-            strict per-sport safety vetoes. Every signal is timestamped before kickoff.
+            with direct real-time bookmaker &amp; live match telemetry feeds, Dixon-Coles 28-outcome exact-score
+            matrices, and strict per-sport safety vetoes. Every signal is timestamped before kickoff.
           </p>
 
           <div class="flex flex-wrap justify-center items-center gap-3.5 mb-12">
@@ -613,7 +613,7 @@
             </div>
             <h3 class="text-base font-extrabold text-white mb-2">6-Second In-Play Dominance Stream</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
-              Live Sportradar timeline delta tracking detects when a pre-match favorite is level or trailing despite
+              Real-time match timeline delta tracking detects when a pre-match favorite is level or trailing despite
               dominating Shots-on-Target (SoT) or 76–90m late-goal pressure.
             </p>
           </div>
@@ -890,7 +890,7 @@ const recentSettledRows = computed(() => {
 const faqs = [
   {
     q: 'Are all settled results and ROI metrics verified out-of-sample?',
-    a: 'Yes. Every BetScout pick is timestamped and logged in the prospective Paper-Bet Ledger before kickoff with live bookmaker odds. Results are graded automatically via official Sportradar & ESPN scoreboards with zero retroactive edits.',
+    a: 'Yes. Every BetScout pick is timestamped and logged in the prospective Paper-Bet Ledger before kickoff with live bookmaker odds. Results are graded automatically against official final match scoreboards with zero retroactive edits.',
   },
   {
     q: 'How does the Banker Profitability Booster work when single odds are low?',
