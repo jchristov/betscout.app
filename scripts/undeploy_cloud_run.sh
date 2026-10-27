@@ -20,11 +20,13 @@ SERVICE_NAME="${CLOUD_RUN_SERVICE:-betscout-app}"
 BUCKET_NAME="${GCS_DATA_BUCKET:-${PROJECT_ID}-data}"
 PURGE_DATA="${1:-}"
 
-echo "🛑 [1/4] Deleting 24/7 Cloud Scheduler job betscout-auto-sync (${REGION})..."
-gcloud scheduler jobs delete betscout-auto-sync \
-  --project="${PROJECT_ID}" \
-  --location="${REGION}" \
-  --quiet 2>/dev/null || echo "   (Cloud Scheduler job betscout-auto-sync already deleted)"
+echo "🛑 [1/4] Deleting 24/7 Cloud Scheduler jobs (${REGION})..."
+for JOB_NAME in betscout-auto-sync betscout-auto-rescan betscout-morning-digest; do
+  gcloud scheduler jobs delete "${JOB_NAME}" \
+    --project="${PROJECT_ID}" \
+    --location="${REGION}" \
+    --quiet 2>/dev/null || echo "   (Cloud Scheduler job ${JOB_NAME} already deleted)"
+done
 
 echo "🛑 [2/4] Deleting Cloud Run service ${SERVICE_NAME} (${REGION}) in project ${PROJECT_ID}..."
 gcloud run services delete "${SERVICE_NAME}" \

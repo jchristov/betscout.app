@@ -132,4 +132,30 @@ else
     --quiet || true
 fi
 
+if gcloud scheduler jobs describe betscout-morning-digest --project="${PROJECT_ID}" --location="${REGION}" >/dev/null 2>&1; then
+  gcloud scheduler jobs update http betscout-morning-digest \
+    --project="${PROJECT_ID}" \
+    --location="${REGION}" \
+    --schedule="0 9 * * *" \
+    --time-zone="Europe/Vienna" \
+    --uri="${CR_URL}/api/daily-digest" \
+    --http-method=POST \
+    --update-headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
+    --message-body='{"days":3,"min_odds":1.15,"day":"today"}' \
+    --attempt-deadline=900s \
+    --quiet || true
+else
+  gcloud scheduler jobs create http betscout-morning-digest \
+    --project="${PROJECT_ID}" \
+    --location="${REGION}" \
+    --schedule="0 9 * * *" \
+    --time-zone="Europe/Vienna" \
+    --uri="${CR_URL}/api/daily-digest" \
+    --http-method=POST \
+    --headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
+    --message-body='{"days":3,"min_odds":1.15,"day":"today"}' \
+    --attempt-deadline=900s \
+    --quiet || true
+fi
+
 echo "✅ Deployment complete! BetScout is live on Firebase Hosting + Cloud Run + 24/7 Cloud Scheduler."

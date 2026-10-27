@@ -1742,6 +1742,122 @@ self.addEventListener('fetch', (event) => {{
                 self._send_json({"ok": True, **snap})
                 return
 
+            if parsed.path == "/api/daily-digest":
+                import os
+                import shutil
+                from .pick_card import render_digest_slate_png
+                from .telegram_bot import resolve_discord_webhook_for_sport, send_free_teaser_to_discord
+
+                min_odds_d = float(body.get("min_odds") or 1.15)
+                days_d = int(body.get("days") or 3)
+                day_f_d = str(body.get("day") or "today")
+                dry_run_d = bool(body.get("dry_run", False))
+                try:
+                    _PIPELINE_STATUS["running"] = True
+                    _PIPELINE_STATUS["step"] = "[1/4] Settling overnight paper bets & scanning upcoming fixtures..."
+                    settle_pending_paper_bets(db_path)
+                    notify_new_settlements_to_discord(db_path, dry_run=dry_run_d)
+                    scan_upcoming_and_log_paper_bets(
+                        db_path=db_path,
+                        days_ahead=days_d,
+                        decision_backend="laya",
+                        export_json_path=rec_path,
+                    )
+                    _PIPELINE_STATUS["step"] = "[2/4] Regenerating dashboard & flushing state to persistent storage..."
+                    generate_dashboard_html(
+                        rec_path,
+                        db_path,
+                        dash_path,
+                        min_odds=1.10,
+                        csv_export_path=best_csv_path,
+                        json_export_path=best_json_path,
+                    )
+                    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
+                    if gcs_dir.is_dir():
+                        for fname in ("betscout.db", "recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
+                            src_f = data_dir / fname
+                            if src_f.is_file():
+                                try:
+                                    shutil.copy2(src_f, gcs_dir / fname)
+                                except Exception:
+                                    pass
+
+                    _PIPELINE_STATUS["step"] = "[3/4] Broadcasting Morning Daily Digest & Free Teaser to Discord & Telegram..."
+                    cfg_d = _load_webapp_settings(data_dir)
+                    rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
+                    msg_disc = format_discord_digest(
+                        rec=rec,
+                        db_path=db_path,
+                        min_odds=min_odds_d,
+                        sport_filter="all",
+                        day_filter=day_f_d,
+                        max_picks=12,
+                    )
+                    b_slate = build_best_bets_summary(rec, min_odds=min_odds_d, sport_filter="all")
+                    slate_png = render_digest_slate_png(b_slate[:10]) if b_slate else None
+                    disc_res = send_discord_message(
+                        text=msg_disc,
+                        dry_run=dry_run_d,
+                        sport="all",
+                        custom_sport_webhooks=cfg_d.get("sport_webhooks"),
+                        image_bytes=slate_png,
+                    )
+                    teaser_res = send_free_teaser_to_discord(rec=rec, db_path=db_path, dry_run=dry_run_d)
+
+                    # Route per-sport morning digests to dedicated sport webhooks
+                    global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
+                    sport_sent = 0
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                        sp_wh = resolve_discord_webhook_for_sport(sp_cat_k, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
+                        if sp_wh and sp_wh != global_wh:
+                            sp_bets = build_best_bets_summary(rec, min_odds=min_odds_d, sport_filter=sp_cat_k)
+                            if sp_bets:
+                                sp_msg = format_discord_digest(
+                                    rec=rec,
+                                    db_path=db_path,
+                                    min_odds=min_odds_d,
+                                    sport_filter=sp_cat_k,
+                                    day_filter=day_f_d,
+                                    max_picks=12,
+                                    include_settled=False,
+                                )
+                                sp_img = render_digest_slate_png(sp_bets[:10], title=f"{sp_cat_k.upper()} HIGH-CONVICTION PICKS")
+                                send_discord_message(
+                                    text=sp_msg,
+                                    webhook_url=sp_wh,
+                                    dry_run=dry_run_d,
+                                    image_bytes=sp_img,
+                                    also_send_to_global=False,
+                                )
+                                sport_sent += 1
+
+                    # Also broadcast to Telegram if configured
+                    tg_cfg = get_telegram_env_config()
+                    tg_res = {"ok": False, "skipped": True}
+                    if tg_cfg.get("configured"):
+                        msg_tg = format_telegram_digest(
+                            rec=rec,
+                            db_path=db_path,
+                            min_odds=min_odds_d,
+                            sport_filter="all",
+                            day_filter=day_f_d,
+                            max_picks=12,
+                        )
+                        tg_res = send_telegram_message(text=msg_tg, dry_run=dry_run_d, image_bytes=slate_png)
+                finally:
+                    _PIPELINE_STATUS["running"] = False
+                    _PIPELINE_STATUS["step"] = "Idle"
+
+                self._send_json({
+                    "ok": True,
+                    "active_picks_count": len(b_slate),
+                    "discord_vip": disc_res,
+                    "discord_free_teaser": teaser_res,
+                    "sport_channels_sent": sport_sent,
+                    "telegram": tg_res,
+                })
+                return
+
             if parsed.path == "/api/discord":
                 from .pick_card import render_digest_slate_png, render_pick_card_png
 
