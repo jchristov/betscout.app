@@ -717,7 +717,7 @@ def notify_new_settlements_to_discord(
             free_teaser_wh = (os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
             if free_teaser_wh.startswith("https://discord") and free_teaser_wh != global_wh:
                 send_discord_message(
-                    msg + "\n\n🚀 *Unlock all daily VIP picks & exact-score matrices at **betscout.app***",
+                    msg + "\n\n🚀 *Unlock all daily VIP picks, exact-score matrices & 2-leg combos at **https://betscout.app** (Plans & Pricing: **https://betscout.vip**)*",
                     webhook_url=free_teaser_wh,
                     dry_run=dry_run,
                     image_bytes=settle_img_bytes,
@@ -758,6 +758,77 @@ def notify_new_settlements_to_discord(
 
 
 _INPLAY_NOTIFIED_MEMORY: set[str] = set()
+
+
+def send_free_teaser_to_discord(
+    rec: dict[str, Any],
+    db_path: Path | None = None,
+    webhook_url: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Format and send a high-converting Free Daily Teaser (1 unlocked pick + PNG Pick Card + verified track record + locked VIP count)
+    to `DISCORD_WEBHOOK_URL_FREE_TEASER`."""
+    from .pick_card import render_pick_card_png
+
+    load_dotenv(override=False)
+    target_wh = (webhook_url or os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
+    if not target_wh.startswith("https://discord"):
+        return {"ok": False, "error": "DISCORD_WEBHOOK_URL_FREE_TEASER not configured"}
+
+    ledger = rec.get("paper_ledger") or {}
+    if db_path and db_path.exists():
+        try:
+            ledger = get_paper_ledger_summary(db_path)
+        except Exception:
+            pass
+
+    s_cnt = int(ledger.get("settled_count") or 0)
+    s_wins = int(ledger.get("settled_wins") or 0)
+    s_loss = int(ledger.get("settled_losses") or 0)
+    s_wr = (s_wins / max(1, s_cnt)) * 100.0 if s_cnt else 0.0
+    s_prof = float(ledger.get("settled_profit_u") or 0.0)
+    s_roi = float(ledger.get("settled_roi_best") or 0.0) * 100.0
+
+    all_bets = build_best_bets_summary(rec, min_odds=1.12, sport_filter="all")
+    if not all_bets:
+        return {"ok": False, "error": "No active picks available for teaser"}
+
+    teaser_pick = all_bets[0]
+    locked_cnt = max(0, len(all_bets) - 1)
+    sp_cat = teaser_pick.get("sport_cat") or "soccer"
+    sp_ico = SPORT_EMOJIS.get(sp_cat, "🎯")
+    wp_pct = float(teaser_pick.get("win_prob") or 0.75) * 100.0
+    esc_str = teaser_pick.get("exact_score_pick") or ""
+    esc_suffix = f" · 🎲 Score Target: **{esc_str}**" if (esc_str and esc_str != "—") else ""
+
+    lines = [
+        "🔓 **BETSCOUT — FREE DAILY TEASER PICK & VERIFIED TRACK RECORD**",
+        f"📊 **Verified Ledger:** `{s_cnt} Graded` (`{s_wins}W – {s_loss}L` · **`{s_wr:.1f}% Win Rate`**) · **Profit:** `{s_prof:+.2f}u` (**`{s_roi:+.1f}% ROI`**)",
+        "",
+        f"🎁 **FREE PICK OF THE DAY (1 of {len(all_bets)} Active Picks):**",
+        f"{sp_ico} **{teaser_pick.get('match')}** (*{teaser_pick.get('competition') or teaser_pick.get('sport_league')}*)",
+        f"🕒 Start: `{teaser_pick.get('date_local') or teaser_pick.get('date')}`",
+        f"✅ Pick: **{teaser_pick.get('pick_name') or teaser_pick.get('pick')}** (`{wp_pct:.1f}%` Model Win Prob)",
+        f"💰 Odds: **{teaser_pick.get('odds_display')}**{esc_suffix}",
+        "",
+        f"🔒 **+{locked_cnt} More High-Conviction VIP Picks, Exact-Score Splits & 2-Leg Combos** are live right now!",
+        "🚀 **Unlock Full Pro App & VIP Discord/Telegram Alerts:** <https://betscout.app> · Plans & Pricing: <https://betscout.vip>",
+    ]
+    msg = "\n".join(lines)
+    img_bytes: bytes | None = None
+    try:
+        img_bytes = render_pick_card_png(teaser_pick)
+    except Exception:
+        img_bytes = None
+
+    return send_discord_message(
+        text=msg,
+        webhook_url=target_wh,
+        dry_run=dry_run,
+        image_bytes=img_bytes,
+        image_filename="betscout_free_teaser.png",
+        also_send_to_global=False,
+    )
 
 
 def notify_inplay_rebound_edges_to_discord(

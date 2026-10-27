@@ -1798,7 +1798,12 @@ def generate_dashboard_html(
     --bg: #0b0f17; --panel: #131b29; --border: #223049; --text: #e6edf7;
     --muted: #8b9bb4; --accent: #38bdf8; --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
   }}
-  * {{ box-sizing: border-box; }}
+  * {{ box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #263859 #0b0f17; }}
+  *::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+  *::-webkit-scrollbar-track {{ background: #0b0f17; border-radius: 8px; }}
+  *::-webkit-scrollbar-thumb {{ background: linear-gradient(180deg, #24344f 0%, #1e2d45 100%); border-radius: 8px; border: 1.5px solid #0b0f17; }}
+  *::-webkit-scrollbar-thumb:hover {{ background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%); }}
+  *::-webkit-scrollbar-corner {{ background: #0b0f17; }}
   body {{ margin: 0; padding: 20px 24px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; }}
   header {{ display: flex; align-items: flex-start; gap: 12px; background: linear-gradient(135deg, #0f172a 0%, #131b29 60%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }}
   .brand-logo {{ width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28)); transition: transform 0.2s ease; margin-top: 2px; }}
@@ -2036,7 +2041,7 @@ def generate_dashboard_html(
           <span id="guestAccessText" style="color:var(--text);">Active picks, exact-score targets &amp; 2-leg combos are reserved for <b>BetScout Pro</b> members.</span>
           <a href="javascript:void(0)" onclick="triggerFirebaseSignInOut()" style="color:var(--accent); font-weight:700; text-decoration:none;">Sign In</a>
           <span class="muted">·</span>
-          <a id="guestUpgradeLink" href="mailto:julian.christov@gmail.com?subject=BetScout%20Pro%20%26%20API%20Access" style="color:var(--green); font-weight:700; text-decoration:none;">🚀 Get Pro / API Access &rarr;</a>
+          <a id="guestUpgradeLink" href="https://betscout.vip/#pricing" target="_blank" style="color:var(--green); font-weight:700; text-decoration:none;">🚀 Plans &amp; Pro Access (betscout.vip) &rarr;</a>
         </div>
         <div class="btn-group" style="align-items:center; margin-left:auto; justify-content:flex-end;">
           <button id="firebaseAuthBtn" class="btn-export" type="button" style="display:none;" onclick="triggerFirebaseSignInOut()" title="Sign in with Google (Firebase Auth) for Admin Controls">🔐 Admin Sign In</button>
@@ -2868,6 +2873,19 @@ def generate_dashboard_html(
       const bodyEl = document.getElementById('miBody');
       if (!modal || !titleEl || !bodyEl) return;
       titleEl.textContent = '🔍 ' + home + ' vs ' + away;
+      if (String(home || '').includes('🔒') || String(away || '').includes('🔒')) {{
+        bodyEl.innerHTML =
+          '<div style="padding:14px; background:#0b0f17; border:1px solid var(--accent); border-radius:10px; text-align:center;">' +
+            '<div style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:6px;">🔒 BetScout Pro Subscriber Pick</div>' +
+            '<div class="muted" style="margin-bottom:14px;">Full matchup names, H2H history, Dixon-Coles exact-score matrices &amp; 2-leg combos are reserved for active <b>BetScout Pro</b> members.</div>' +
+            '<div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">' +
+              '<button type="button" class="btn-export btn-primary" onclick="document.getElementById(\\'matchupInspectorModal\\').style.display=\\'none\\'; triggerFirebaseSignInOut();">🔐 Sign In with Google</button>' +
+              '<a href="https://betscout.vip/#pricing" target="_blank" class="btn-export btn-telegram" style="text-decoration:none;">🚀 View Plans &amp; Pricing at betscout.vip &rarr;</a>' +
+            '</div>' +
+          '</div>';
+        modal.style.display = 'flex';
+        return;
+      }}
       bodyEl.innerHTML = '<div style="padding:12px 0;"><span class="spinner"></span> Fetching H2H history, Last-6 form &amp; Score Matrix from BetScout database...</div>';
       modal.style.display = 'flex';
       document.getElementById('topLoadingBar')?.classList.add('is-active');

@@ -995,7 +995,40 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             min_odds = float((qs.get("min_odds") or ["1.10"])[0])
             sport = (qs.get("sport") or ["all"])[0]
 
+            if parsed.path in ("/landing", "/landing.html", "/pricing", "/pricing.html"):
+                from .landing import render_landing_page_html
+
+                l_html = render_landing_page_html(db_path=db_path, rec_path=rec_path).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "public, max-age=120")
+                self.send_header("Content-Length", str(len(l_html)))
+                self.end_headers()
+                self.wfile.write(l_html)
+                return
+
             if parsed.path in ("/", "/index.html", "/dashboard.html"):
+                req_host = (
+                    self.headers.get("X-Forwarded-Host")
+                    or self.headers.get("Host")
+                    or ""
+                ).lower()
+                is_landing_domain = any(
+                    d in req_host
+                    for d in ("betscout-ai.com", "betscout.vip", "betscout.vop", "betscout-landing")
+                ) or ((qs.get("view") or [""])[0].lower() == "landing")
+                if is_landing_domain and parsed.path in ("/", "/index.html"):
+                    from .landing import render_landing_page_html
+
+                    l_html = render_landing_page_html(db_path=db_path, rec_path=rec_path).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Cache-Control", "public, max-age=120")
+                    self.send_header("Content-Length", str(len(l_html)))
+                    self.end_headers()
+                    self.wfile.write(l_html)
+                    return
+
                 from .monetization import get_monetization_config
 
                 mon_cfg_g = get_monetization_config(data_dir)
@@ -1659,6 +1692,19 @@ self.addEventListener('fetch', (event) => {{
                         csv_export_path=best_csv_path,
                         json_export_path=best_json_path,
                     )
+                    # Immediately flush updated betscout.db & recommendations.json to /mnt/gcs if mounted on Cloud Run
+                    import os
+                    import shutil
+
+                    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
+                    if gcs_dir.is_dir():
+                        for fname in ("betscout.db", "recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
+                            src_f = data_dir / fname
+                            if src_f.is_file():
+                                try:
+                                    shutil.copy2(src_f, gcs_dir / fname)
+                                except Exception:
+                                    pass
                 finally:
                     _PIPELINE_STATUS["running"] = False
                     _PIPELINE_STATUS["step"] = "Idle"
@@ -1711,7 +1757,12 @@ self.addEventListener('fetch', (event) => {{
                 )
                 # Also route daily digest picks per sport to any dedicated sport webhooks configured in .env
                 if sp_f == "all" and not body.get("webhook_url") and not body.get("pick_card"):
-                    from .telegram_bot import resolve_discord_webhook_for_sport
+                    from .telegram_bot import resolve_discord_webhook_for_sport, send_free_teaser_to_discord
+
+                    try:
+                        send_free_teaser_to_discord(rec=rec, db_path=db_path, dry_run=bool(body.get("dry_run", False)))
+                    except Exception:
+                        pass
 
                     global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
                     for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
