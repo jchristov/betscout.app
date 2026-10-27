@@ -1,11 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg width="512" height="512" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bsGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#22c55e"/>
+    <linearGradient id="bsSquircleBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#132038"/>
+      <stop offset="52%" stop-color="#0b1324"/>
+      <stop offset="100%" stop-color="#060b16"/>
     </linearGradient>
+    <linearGradient id="bsRimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="bsBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="bsBarHighGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="bsAlphaLine" x1="12" y1="46" x2="50" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="55%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#fde047"/>
+    </linearGradient>
+    <filter id="bsGlow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#0d1729" stroke="url(#bsGrad)" stroke-width="2.5"/>
-  <path d="M16 42 L26 30 L34 36 L48 18" fill="none" stroke="url(#bsGrad)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="48" cy="18" r="4.5" fill="#22c55e"/>
+
+  <!-- Modern Rounded Squircle App Badge (No Hexagon) -->
+  <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#bsSquircleBg)" stroke="url(#bsRimGrad)" stroke-width="2.4"/>
+  <!-- Top Inner Glass Specular Highlight -->
+  <path d="M 19 5.5 H 45 C 52 5.5 56.5 10 56.5 17" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- Subtle Calibrated Radar Arc -->
+  <circle cx="32" cy="32" r="20" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="1.2" stroke-dasharray="3 3"/>
+
+  <!-- Ascending Quantitative Distribution Bars -->
+  <rect x="13.5" y="38" width="6.5" height="12" rx="2.5" fill="url(#bsBarGrad)"/>
+  <rect x="23.5" y="30" width="6.5" height="20" rx="2.5" fill="url(#bsBarGrad)"/>
+  <rect x="33.5" y="34" width="6.5" height="16" rx="2.5" fill="url(#bsBarGrad)"/>
+  <rect x="43.5" y="21" width="6.5" height="29" rx="2.5" fill="url(#bsBarHighGrad)"/>
+
+  <!-- Rising Alpha Vector & Target Apex -->
+  <path d="M 14 43 L 26.5 29.5 L 35.5 35.5 L 47.5 17.5" stroke="url(#bsAlphaLine)" stroke-width="4.0" stroke-linecap="round" stroke-linejoin="round" filter="url(#bsGlow)"/>
+  <path d="M 40.5 17.5 H 47.8 V 24.8" stroke="#fde047" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="26.5" cy="29.5" r="2.6" fill="#38bdf8"/>
+  <circle cx="35.5" cy="35.5" r="2.6" fill="#34d399"/>
+  <circle cx="47.5" cy="17.5" r="5.2" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.4"/>
+  <circle cx="47.5" cy="17.5" r="2.7" fill="#fde047"/>
 </svg>

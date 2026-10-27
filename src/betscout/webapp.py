@@ -1191,7 +1191,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 svg_bytes = svg_file.read_bytes() if svg_file.exists() else b"<svg xmlns='http://www.w3.org/2000/svg'/>"
                 self.send_response(200)
                 self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
-                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Cache-Control", "no-cache")
                 self.send_header("Content-Length", str(len(svg_bytes)))
                 self.end_headers()
                 self.wfile.write(svg_bytes)

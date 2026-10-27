@@ -12,22 +12,22 @@
     ></div>
 
     <!-- Top Sticky Glass Navigation (Zero Overlap + Mobile Drawer) -->
-    <header class="sticky top-0 z-50 bg-obsidian/80 backdrop-blur-2xl border-b border-slate-300/15">
-      <div class="max-w-[1240px] mx-auto px-4 sm:px-6 min-h-[68px] py-2.5 flex items-center justify-between gap-3">
+    <header class="sticky top-0 z-50 w-full bg-obsidian/80 backdrop-blur-2xl border-b border-slate-300/15">
+      <div class="w-full max-w-[1240px] mx-auto px-4 sm:px-6 min-h-[66px] py-2.5 flex items-center justify-between gap-2 sm:gap-4">
         <!-- Brand Logo -->
-        <router-link to="/" class="inline-flex items-center gap-2.5 text-slate-100 no-underline shrink-0">
+        <router-link to="/" class="inline-flex items-center gap-2.5 text-slate-100 no-underline min-w-0">
           <img
-            src="/betscout-logo.svg"
-            width="36"
-            height="36"
+            src="/betscout-logo.svg?v=2"
+            width="34"
+            height="34"
             alt="BetScout Logo"
-            class="rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.25)]"
+            class="rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.25)] shrink-0"
           />
-          <span class="text-[21px] font-extrabold tracking-tight whitespace-nowrap">
+          <span class="text-[20px] sm:text-[21px] font-extrabold tracking-tight whitespace-nowrap">
             <span class="text-white">Bet</span><span class="text-emerald-400">Scout</span>
           </span>
           <span
-            class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/45 whitespace-nowrap tabular-nums shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+            class="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/45 whitespace-nowrap tabular-nums shadow-[0_0_12px_rgba(16,185,129,0.2)]"
           >
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
             {{ winRatePct.toFixed(1) }}% WIN RATE
@@ -35,19 +35,11 @@
         </router-link>
 
         <!-- Desktop Navigation Links (lg and up — never wraps) -->
-        <nav class="hidden lg:flex items-center gap-6 text-[13px] font-semibold text-slate-300 whitespace-nowrap">
+        <nav class="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] font-semibold text-slate-300 whitespace-nowrap">
           <a href="#pricing" class="hover:text-sky-300 transition-colors">Membership Plans</a>
           <a href="#architecture" class="hover:text-sky-300 transition-colors">Quant Architecture</a>
           <a href="#ledger" class="hover:text-sky-300 transition-colors">Audited Ledger</a>
           <a href="#onboarding" class="hover:text-sky-300 transition-colors">How to Join</a>
-          <a
-            href="/api/docs"
-            target="_blank"
-            class="inline-flex items-center gap-1.5 text-sky-300 hover:text-white transition-colors"
-          >
-            <Icon icon="fa6-solid:book-open" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span>Interactive API Docs</span>
-          </a>
         </nav>
 
         <!-- Right CTA Buttons + Mobile Menu Trigger -->
@@ -55,7 +47,7 @@
           <button
             v-if="store.canInstallPwa"
             type="button"
-            class="btn-press hidden sm:inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold bg-violet-500/20 text-violet-200 border border-violet-400/45 whitespace-nowrap"
+            class="btn-press hidden xl:inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold bg-violet-500/20 text-violet-200 border border-violet-400/45 whitespace-nowrap"
             @click="store.promptPwaInstall()"
           >
             <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300" />
@@ -64,17 +56,17 @@
 
           <router-link
             to="/app"
-            class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs sm:text-[13px] font-bold bg-slate-800/80 text-white border border-sky-400/45 hover:bg-sky-500/20 hover:border-sky-300 whitespace-nowrap"
+            class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-[12.5px] font-bold bg-slate-800/80 text-white border border-sky-400/45 hover:bg-sky-500/20 hover:border-sky-300 whitespace-nowrap"
           >
-            <Icon icon="fa6-solid:chart-column" class="w-4 h-4 text-sky-400 shrink-0" />
+            <Icon icon="fa6-solid:chart-column" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>Open Live Desk</span>
           </router-link>
 
           <a
             href="#pricing"
-            class="btn-press hidden sm:inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-xl text-[13px] font-bold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_6px_20px_rgba(16,185,129,0.32)] hover:-translate-y-0.5 whitespace-nowrap"
+            class="btn-press hidden sm:inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs sm:text-[12.5px] font-bold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_6px_20px_rgba(16,185,129,0.32)] hover:-translate-y-0.5 whitespace-nowrap"
           >
-            <Icon icon="fa6-solid:wand-magic-sparkles" class="w-4 h-4 shrink-0" />
+            <Icon icon="fa6-solid:wand-magic-sparkles" class="w-3.5 h-3.5 shrink-0" />
             <span>Get Pro Access</span>
           </a>
 
@@ -106,15 +98,6 @@
         </a>
         <a href="#onboarding" class="block py-1.5 text-slate-200 hover:text-sky-300" @click="mobileMenuOpen = false">
           How to Join
-        </a>
-        <a
-          href="/api/docs"
-          target="_blank"
-          class="flex items-center gap-2 py-1.5 text-sky-300"
-          @click="mobileMenuOpen = false"
-        >
-          <Icon icon="fa6-solid:book-open" class="w-4 h-4" />
-          <span>Interactive API Docs</span>
         </a>
       </div>
     </header>
@@ -845,13 +828,13 @@
     <footer class="border-t border-slate-400/15 py-8 mt-12 text-xs text-slate-400">
       <div class="max-w-[1240px] mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
         <div class="flex items-center gap-2.5">
-          <img src="/betscout-logo.svg" width="22" height="22" alt="BetScout" class="rounded" />
+          <img src="/betscout-logo.svg?v=2" width="22" height="22" alt="BetScout" class="rounded" />
           <span><strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp; Score Intelligence</span>
         </div>
         <div class="flex flex-wrap gap-5">
           <router-link to="/app" class="hover:text-white">Live Quant Desk</router-link>
           <a href="#pricing" class="hover:text-white">Membership Plans</a>
-          <a href="/api/docs" target="_blank" class="hover:text-white">Interactive API Documentation</a>
+          <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
           <a href="mailto:julian.christ@gmail.com" class="hover:text-white">Contact &amp; Support</a>
         </div>
       </div>

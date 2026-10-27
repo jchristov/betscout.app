@@ -50,7 +50,7 @@
         class="w-[40px] h-[40px] sm:w-[42px] sm:h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.22)] hover:scale-105 transition-transform"
         title="Back to BetScout Home & Membership Plans"
       >
-        <img src="/betscout-logo.svg" width="42" height="42" alt="BetScout" />
+        <img src="/betscout-logo.svg?v=2" width="42" height="42" alt="BetScout" />
       </router-link>
 
       <div class="flex-1 min-w-0 flex flex-col gap-2.5">
@@ -205,14 +205,6 @@
               <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400" />
               <span>Home &amp; Plans</span>
             </router-link>
-            <a
-              href="/api/docs"
-              target="_blank"
-              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
-            >
-              <Icon icon="fa6-solid:book-open" class="w-3.5 h-3.5 text-cyan-400" />
-              <span>Interactive API Docs</span>
-            </a>
             <button
               v-if="store.firebaseAuthCfg?.enabled"
               type="button"

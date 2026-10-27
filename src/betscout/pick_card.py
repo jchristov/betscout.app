@@ -320,121 +320,100 @@ def render_logo_png(
     size: int = 512,
     output_path: Path | None = None,
 ) -> bytes:
-    """Render a high-resolution supersampled (4x AA) RGBA PNG of the BetScout hexagonal radar-shield logo."""
-    import math
-
+    """Render a high-resolution supersampled (4x AA) RGBA PNG of the BetScout rounded-squircle quant logo."""
     scale = 4
     S = size * scale
     cx = cy = S / 2.0
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # Hexagon vertices (matching SVG viewBox 0..64 -> radius ~ 29/64 of width)
-    R_outer = S * (29.0 / 64.0)
-    hex_pts = [
-        (cx + R_outer * math.cos(math.radians(-90 + i * 60)), cy + R_outer * math.sin(math.radians(-90 + i * 60)))
-        for i in range(6)
-    ]
+    pad = int(S * (3.0 / 64.0))
+    corner_r = int(S * (16.0 / 64.0))
+    rim_w = max(4, int(S * (2.4 / 64.0)))
 
-    # Create mask for interior of hexagon
+    # Rounded squircle mask
     mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).polygon(hex_pts, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle([(pad, pad), (S - pad, S - pad)], radius=corner_r, fill=255)
 
-    # Diagonal gradient background inside hexagon (#0f172a -> #131b29 -> #0b2436)
-    bg = Image.new("RGBA", (S, S), (15, 23, 42, 255))
+    # Deep obsidian-navy vertical gradient inside squircle
+    bg = Image.new("RGBA", (S, S), (19, 32, 56, 255))
     bg_draw = ImageDraw.Draw(bg, "RGBA")
     for y in range(S):
         t = y / max(1, S - 1)
-        r = int(15 * (1 - t) + 11 * t)
-        g = int(23 * (1 - t) + 36 * t)
-        b = int(42 * (1 - t) + 54 * t)
+        r = int(19 * (1 - t) + 6 * t)
+        g = int(32 * (1 - t) + 11 * t)
+        b = int(56 * (1 - t) + 22 * t)
         bg_draw.line([(0, y), (S, y)], fill=(r, g, b, 255))
     img.paste(bg, (0, 0), mask)
 
-    # Radar sweep sector (-90 deg to -25 deg)
-    r_outer_ring = S * (19.0 / 64.0)
-    r_inner_ring = S * (11.0 / 64.0)
-    draw.pieslice(
-        [(cx - r_outer_ring, cy - r_outer_ring), (cx + r_outer_ring, cy + r_outer_ring)],
-        start=-90,
-        end=-25,
-        fill=(34, 197, 94, 48),
+    # Outer squircle rim
+    draw.rounded_rectangle(
+        [(pad, pad), (S - pad, S - pad)],
+        radius=corner_r,
+        outline=(45, 212, 191, 255),
+        width=rim_w,
     )
 
-    # Outer hex border (cyan-emerald gradient rim)
-    rim_w = max(4, int(S * (2.4 / 64.0)))
-    for i in range(6):
-        p1 = hex_pts[i]
-        p2 = hex_pts[(i + 1) % 6]
-        col = (56, 189, 248, 255) if i in (0, 4, 5) else ((16, 185, 129, 255) if i in (1, 3) else (34, 197, 94, 255))
-        draw.line([p1, p2], fill=col, width=rim_w)
-        draw.ellipse([(p1[0] - rim_w / 2, p1[1] - rim_w / 2), (p1[0] + rim_w / 2, p1[1] + rim_w / 2)], fill=col)
-
-    # Dashed outer radar ring (r = 19/64)
+    # Subtle calibrated radar ring
+    r_ring = S * (20.0 / 64.0)
     dash_w = max(2, int(S * (1.2 / 64.0)))
     for deg in range(0, 360, 15):
         draw.arc(
-            [(cx - r_outer_ring, cy - r_outer_ring), (cx + r_outer_ring, cy + r_outer_ring)],
+            [(cx - r_ring, cy - r_ring), (cx + r_ring, cy + r_ring)],
             start=deg,
-            end=deg + 9,
-            fill=(56, 189, 248, 72),
+            end=deg + 8,
+            fill=(56, 189, 248, 52),
             width=dash_w,
         )
 
-    # Solid inner reticle ring (r = 11/64)
-    draw.ellipse(
-        [(cx - r_inner_ring, cy - r_inner_ring), (cx + r_inner_ring, cy + r_inner_ring)],
-        outline=(56, 189, 248, 90),
-        width=max(2, int(S * (1.1 / 64.0))),
-    )
-
-    # Cardinal crosshair ticks (N, S, W, E)
-    tick_w = max(3, int(S * (1.8 / 64.0)))
-    t_out = S * (23.5 / 64.0)
-    t_in = S * (18.5 / 64.0)
-    for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
-        draw.line(
-            [(cx + dx * t_in, cy + dy * t_in), (cx + dx * t_out, cy + dy * t_out)],
-            fill=(56, 189, 248, 195),
-            width=tick_w,
-        )
-
-    # Rising Scout Edge Vector (M16 44 L27 33 L33 38 L46 18 in 64x64 space)
     def _pt(ux: float, uy: float) -> tuple[float, float]:
         return (S * (ux / 64.0), S * (uy / 64.0))
 
-    v_pts = [_pt(16, 44), _pt(27, 33), _pt(33, 38), _pt(46, 18)]
-    vec_w = max(6, int(S * (3.8 / 64.0)))
-    # Soft glow pass
+    # 4 ascending quant distribution bars
+    bars = [
+        (13.5, 38.0, 6.5, 12.0, (56, 189, 248, 76)),
+        (23.5, 30.0, 6.5, 20.0, (56, 189, 248, 92)),
+        (33.5, 34.0, 6.5, 16.0, (56, 189, 248, 84)),
+        (43.5, 21.0, 6.5, 29.0, (52, 211, 153, 115)),
+    ]
+    bar_r = max(2, int(S * (2.5 / 64.0)))
+    for bx, by, bw, bh, bcol in bars:
+        x0, y0 = _pt(bx, by)
+        x1, y1 = _pt(bx + bw, by + bh)
+        draw.rounded_rectangle([(x0, y0), (x1, y1)], radius=bar_r, fill=bcol)
+
+    # Rising Alpha Vector
+    v_pts = [_pt(14.0, 43.0), _pt(26.5, 29.5), _pt(35.5, 35.5), _pt(47.5, 17.5)]
+    vec_w = max(6, int(S * (4.0 / 64.0)))
     glow_w = int(vec_w * 2.1)
-    draw.line(v_pts, fill=(34, 197, 94, 55), width=glow_w, joint="curve")
-    # Main vector segments (cyan -> mint -> emerald)
+    draw.line(v_pts, fill=(52, 211, 153, 60), width=glow_w, joint="curve")
     draw.line([v_pts[0], v_pts[1]], fill=(56, 189, 248, 255), width=vec_w)
     draw.line([v_pts[1], v_pts[2]], fill=(52, 211, 153, 255), width=vec_w)
-    draw.line([v_pts[2], v_pts[3]], fill=(34, 197, 94, 255), width=vec_w)
+    draw.line([v_pts[2], v_pts[3]], fill=(253, 224, 71, 255), width=vec_w)
     for vx, vy in v_pts:
         draw.ellipse([(vx - vec_w / 2, vy - vec_w / 2), (vx + vec_w / 2, vy + vec_w / 2)], fill=(52, 211, 153, 255))
 
-    # Arrowhead at (46, 18)
-    ah_pts = [_pt(39.5, 17.5), _pt(46.5, 17.5), _pt(46.5, 24.5)]
+    # Arrowhead at (47.5, 17.5)
+    ah_pts = [_pt(40.5, 17.5), _pt(47.8, 17.5), _pt(47.8, 24.8)]
     ah_w = max(5, int(S * (3.0 / 64.0)))
-    draw.line(ah_pts, fill=(34, 197, 94, 255), width=ah_w, joint="curve")
+    draw.line(ah_pts, fill=(253, 224, 71, 255), width=ah_w, joint="curve")
 
-    # Mid-node at (27, 33)
-    m_pt = _pt(27, 33)
-    mr = S * (2.5 / 64.0)
-    draw.ellipse([(m_pt[0] - mr, m_pt[1] - mr), (m_pt[0] + mr, m_pt[1] + mr)], fill=(56, 189, 248, 255))
+    # Nodes
+    for nx, ny, ncol in ((26.5, 29.5, (56, 189, 248, 255)), (35.5, 35.5, (52, 211, 153, 255))):
+        n_pt = _pt(nx, ny)
+        nr = S * (2.6 / 64.0)
+        draw.ellipse([(n_pt[0] - nr, n_pt[1] - nr), (n_pt[0] + nr, n_pt[1] + nr)], fill=ncol)
 
-    # Target lock ring & center dot at (46, 18)
-    t_pt = _pt(46, 18)
-    tr_outer = S * (5.6 / 64.0)
-    tr_inner = S * (2.8 / 64.0)
+    # Target apex ring & gold dot at (47.5, 17.5)
+    t_pt = _pt(47.5, 17.5)
+    tr_outer = S * (5.2 / 64.0)
+    tr_inner = S * (2.7 / 64.0)
     draw.ellipse(
         [(t_pt[0] - tr_outer, t_pt[1] - tr_outer), (t_pt[0] + tr_outer, t_pt[1] + tr_outer)],
-        outline=(34, 197, 94, 140),
-        width=max(2, int(S * (1.3 / 64.0))),
+        outline=(52, 211, 153, 145),
+        width=max(2, int(S * (1.4 / 64.0))),
     )
-    draw.ellipse([(t_pt[0] - tr_inner, t_pt[1] - tr_inner), (t_pt[0] + tr_inner, t_pt[1] + tr_inner)], fill=(34, 197, 94, 255))
+    draw.ellipse([(t_pt[0] - tr_inner, t_pt[1] - tr_inner), (t_pt[0] + tr_inner, t_pt[1] + tr_inner)], fill=(253, 224, 71, 255))
 
     # Downsample 4x -> 1x with LANCZOS anti-aliasing
     final_img = img.resize((size, size), resample=Image.Resampling.LANCZOS)
