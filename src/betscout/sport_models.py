@@ -105,8 +105,17 @@ def evaluate_tennis_gate(
        Blends 75% model + 25% devigged bookmaker probability, vetoing >=15pp market disagreements (`p_mkt_devig < 0.60`)
        or negative EV (`ev_pct < -1.5` when `win_prob < 0.80`).
     """
-    # 1. Stale Career-Elo Veto: career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
+    # 1. Stale Career-Elo & Sub-72.5% Weak Game-Dominance Veto:
+    # - Career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
+    # - Or sub-72.5% favorite has zero 6m match-win edge (form_6m_diff <= 0.0), minimal game-win edge (game_win_pct_diff < 0.03), and game_elo_diff < 75 (e.g. Tereza Valentova vs Mia Pohankova 1-6, 4-6)
     if (all_elo_diff is None or all_elo_diff >= 220.0) and game_win_pct_diff <= -0.009 and form_6m_diff <= 0.0:
+        return False, win_prob, None, "VETO_STALE_TENNIS_FORM"
+    if (
+        win_prob < 0.725
+        and (game_elo_diff is None or game_elo_diff < 75.0)
+        and game_win_pct_diff < 0.03
+        and form_6m_diff <= 0.0
+    ):
         return False, win_prob, None, "VETO_STALE_TENNIS_FORM"
     if form_6m_diff < -0.15:
         return False, win_prob, None, "VETO_NEGATIVE_6M_FORM"

@@ -789,9 +789,18 @@ def test_per_sport_isolated_gates():
         == "top_10pct"
     )
 
-    # 4. Tennis: Samsonova vs Watson (game_win_pct_diff=-0.01, form_6m_diff=0.0) is vetoed by stale-form gate
+    # 4. Tennis: Samsonova vs Watson (game_win_pct_diff=-0.01, form_6m_diff=0.0) and Valentova vs Pohankova (win_prob=0.710, game_elo_diff=72.3, game_win_pct_diff=0.016, form_6m_diff=0.0) are vetoed by stale-form gate
     t_ok, _, _, t_reason = evaluate_tennis_gate(0.80, 1.30, 3.50, game_win_pct_diff=-0.01, form_6m_diff=0.0)
     assert t_ok is False and t_reason == "VETO_STALE_TENNIS_FORM"
+    t_val_ok, _, _, t_val_reason = evaluate_tennis_gate(
+        0.710, 1.40, 2.80, game_win_pct_diff=0.016, form_6m_diff=0.0, game_elo_diff=72.3, all_elo_diff=157.0
+    )
+    assert t_val_ok is False and t_val_reason == "VETO_STALE_TENNIS_FORM"
+    # Paula Badosa vs Young Suh Lee (win_prob=0.741, game_elo_diff=78.2, game_win_pct_diff=0.062, form_6m_diff=0.0) still passes!
+    t_bad_ok, _, _, _ = evaluate_tennis_gate(
+        0.741, 1.346, None, game_win_pct_diff=0.062, form_6m_diff=0.0, game_elo_diff=78.2, all_elo_diff=172.9
+    )
+    assert t_bad_ok is True
 
     # 5. NFL: Steelers (+69.2 yds, +1.22 ypp, comp=0.425) and Vikings (+68.7 yds, +1.20 ypp, comp=0.595) pass;
     #    Texans (1.20 odds, +18 yds, -14.9pp Elo gap) and Jets (-11.4pp Elo gap) are vetoed
