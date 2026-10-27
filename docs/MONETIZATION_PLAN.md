@@ -2,7 +2,7 @@
 
 This document details the technical, product, and billing architecture to monetize **BetScout** across three independent, high-margin revenue streams on top of the **Option D (Firebase Hosting + Firebase Auth + Cloud Run + SQLite)** stack:
 
-1. **Stream 1 — Paid B2B / Developer API (`api.betscout.app` / `/api/v1/*`):** Metered API keys (`X-API-Key: bs_live_...`), tiered rate limits, usage analytics, and OpenAPI/RapidAPI/Stripe distribution for 3rd-party apps, syndicates, and trading bots.
+1. **Stream 1 — Paid B2B / Developer API (`api.betscout.app` / `/api/v1/*`):** Metered API keys (`X-API-Key: bs_live_...`), tiered rate limits, usage analytics, and OpenAPI/RapidAPI/Stripe distribution for 3rd-party apps, syndicates, and automated betting systems.
 2. **Stream 2 — Paid SaaS WebApp / PWA (`betscout.app`):** Freemium + Pro subscription tiers using **Firebase Auth + Stripe Checkout**, where paying subscribers get full real-time read-only access (plus personal bankroll/slip tools), while free/anonymous visitors see the verified historical ledger + 1–2 unlocked daily preview picks (with `top_8pct` / `banker_70pct` / `💎 Mispriced` picks blurred behind a `🔒 Unlock Pro` paywall).
 3. **Stream 3 — Paid VIP Discord & Telegram Channels:** Automated membership gating via **Whop / LaunchPass / Stripe Discord Role Sync** (or multi-tenant customer webhooks), plus Free Teaser vs. VIP Full-Slate dual-channel broadcasting.
 
