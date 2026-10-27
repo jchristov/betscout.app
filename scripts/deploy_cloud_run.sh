@@ -81,7 +81,7 @@ print("   ✓ Firebase Auth authorizedDomains whitelisted:", ", ".join(doms))
 ' "${TOK}" "${PROJECT_ID}" || true
 fi
 
-echo "⏰ [6/6] Ensuring 24/7 Cloud Scheduler job (betscout-auto-sync) is active..."
+echo "⏰ [6/6] Ensuring 24/7 Cloud Scheduler jobs (betscout-auto-sync & betscout-auto-rescan) are active..."
 gcloud services enable cloudscheduler.googleapis.com --project="${PROJECT_ID}" --quiet || true
 CR_URL=$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
 if gcloud scheduler jobs describe betscout-auto-sync --project="${PROJECT_ID}" --location="${REGION}" >/dev/null 2>&1; then
@@ -105,6 +105,30 @@ else
     --headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
     --message-body='{"rescan":false,"min_odds":1.10}' \
     --attempt-deadline=600s \
+    --quiet || true
+fi
+
+if gcloud scheduler jobs describe betscout-auto-rescan --project="${PROJECT_ID}" --location="${REGION}" >/dev/null 2>&1; then
+  gcloud scheduler jobs update http betscout-auto-rescan \
+    --project="${PROJECT_ID}" \
+    --location="${REGION}" \
+    --schedule="10 */3 * * *" \
+    --uri="${CR_URL}/api/sync" \
+    --http-method=POST \
+    --update-headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
+    --message-body='{"rescan":true,"days":3,"min_odds":1.10}' \
+    --attempt-deadline=900s \
+    --quiet || true
+else
+  gcloud scheduler jobs create http betscout-auto-rescan \
+    --project="${PROJECT_ID}" \
+    --location="${REGION}" \
+    --schedule="10 */3 * * *" \
+    --uri="${CR_URL}/api/sync" \
+    --http-method=POST \
+    --headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
+    --message-body='{"rescan":true,"days":3,"min_odds":1.10}' \
+    --attempt-deadline=900s \
     --quiet || true
 fi
 

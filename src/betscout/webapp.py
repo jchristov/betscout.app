@@ -925,6 +925,13 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                         )
                     send_discord_message("\n".join(lines))
                 if settled_n > 0 or vetoes:
+                    if rec_path.exists():
+                        try:
+                            rec_obj = json.loads(rec_path.read_text(encoding="utf-8"))
+                            rec_obj["paper_ledger"] = get_paper_ledger_summary(db_path)
+                            rec_path.write_text(json.dumps(rec_obj, indent=2), encoding="utf-8")
+                        except Exception:
+                            pass
                     generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
 
                 # Optional Morning Daily Digest Scheduler (set DAILY_DIGEST_HOUR=9 in model/.env; default disabled unless configured)
@@ -1681,6 +1688,26 @@ self.addEventListener('fetch', (event) => {{
                     else:
                         _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against live scores..."
                         newly_settled = settle_pending_paper_bets(db_path)
+                        try:
+                            xi_vetoes = refresh_t60_starting_xi_gates(db_path)
+                            if xi_vetoes:
+                                xi_lines = ["🚨 **BETSCOUT — T-60m STARTING XI VETO ALERT**", ""]
+                                for v in xi_vetoes:
+                                    xi_lines.append(
+                                        f"⛔ **{v['home']} vs {v['away']}** ({v['league'].upper()}) — "
+                                        f"`{v['status']}` (Attack Share: {v['attack_share']*100:.0f}%) -> Removed from active Paper-Bets!"
+                                    )
+                                send_discord_message("\n".join(xi_lines))
+                        except Exception:
+                            pass
+                        # Persist updated paper_ledger into recommendations.json so settled matches are immediately excluded from active slates
+                        if rec_path.exists():
+                            try:
+                                rec_obj = json.loads(rec_path.read_text(encoding="utf-8"))
+                                rec_obj["paper_ledger"] = get_paper_ledger_summary(db_path)
+                                rec_path.write_text(json.dumps(rec_obj, indent=2), encoding="utf-8")
+                            except Exception:
+                                pass
 
                     _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement alerts & regenerating dashboard..."
                     notify_new_settlements_to_discord(db_path)
