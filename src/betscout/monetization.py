@@ -554,18 +554,23 @@ def handle_stripe_webhook_event(
 
 
 def build_openapi_v1_spec() -> dict[str, Any]:
-    """Return the OpenAPI 3.1.0 specification for BetScout's Paid Developer API (`/api/v1/*`)."""
+    """Return the complete OpenAPI 3.1.0 specification for BetScout's Backend & Paid Developer API."""
     return {
         "openapi": "3.1.0",
         "info": {
             "title": "BetScout Quantitative Sports Edge & Score Intelligence API",
             "version": "1.0.0",
             "description": (
-                "Commercial REST API providing calibrated multi-sport probabilities, Dixon-Coles exact-score & "
-                "tennis set-score dutching matrices, 2-leg uncorrelated parlays, bookmaker mispricing dislocations, "
-                "and verified paper-betting ledger attribution."
+                "Official OpenAPI 3.1 specification for BetScout's quantitative prediction, "
+                "Dixon-Coles 28-score & tennis set-score dutching matrices, high-probability banker combos, "
+                "bookmaker mispricing dislocations, real-time in-play SSE streams, and audited paper-betting ledger."
             ),
         },
+        "tags": [
+            {"name": "Quant Desk & Live Feed", "description": "Endpoints powering the BetScout WebApp Desk & real-time SSE stream"},
+            {"name": "Commercial Syndicate API (v1)", "description": "Metered B2B REST endpoints authenticated via X-API-Key or Bearer token"},
+            {"name": "Admin & Pipeline Operations", "description": "Protected settlement, rescan, and Discord/Telegram publishing endpoints"},
+        ],
         "components": {
             "securitySchemes": {
                 "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
@@ -574,45 +579,174 @@ def build_openapi_v1_spec() -> dict[str, Any]:
         },
         "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
         "paths": {
+            "/api/snapshot": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Get complete role-aware Quant Desk snapshot (Picks, Ledger, Combos, Backtest & Auth config)",
+                    "parameters": [
+                        {"name": "sport", "in": "query", "schema": {"type": "string", "default": "all"}},
+                        {"name": "min_odds", "in": "query", "schema": {"type": "number", "default": 1.10}},
+                    ],
+                    "responses": {"200": {"description": "Role-aware live snapshot JSON"}},
+                }
+            },
+            "/api/matchup": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Inspect historical H2H meetings and Last-6 form for a specific matchup",
+                    "parameters": [
+                        {"name": "home", "in": "query", "required": True, "schema": {"type": "string"}},
+                        {"name": "away", "in": "query", "required": True, "schema": {"type": "string"}},
+                        {"name": "league", "in": "query", "required": False, "schema": {"type": "string"}},
+                    ],
+                    "responses": {"200": {"description": "H2H and rolling form breakdown"}},
+                }
+            },
+            "/api/analyze-live": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Run on-demand multi-market quantitative analysis for any live or upcoming matchup",
+                    "parameters": [
+                        {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "example": "Roma vs Cagliari"}},
+                    ],
+                    "responses": {"200": {"description": "Live matchup evaluation & fair odds"}},
+                }
+            },
+            "/api/stream": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Subscribe to 6-second real-time Server-Sent Events (SSE) for in-play scores & settlements",
+                    "responses": {"200": {"description": "text/event-stream SSE feed"}},
+                }
+            },
+            "/api/version": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Get current BetScout engine version and latest recommendation snapshot timestamp",
+                    "responses": {"200": {"description": "Version metadata"}},
+                }
+            },
             "/api/v1/picks": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "List upcoming high-conviction picks across all 10 sports (Starter+)",
                     "parameters": [
                         {"name": "sport", "in": "query", "schema": {"type": "string", "default": "all"}},
                         {"name": "min_odds", "in": "query", "schema": {"type": "number", "default": 1.15}},
                     ],
+                    "responses": {"200": {"description": "Calibrated upcoming picks"}},
                 }
             },
             "/api/v1/ledger": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "Get verified settled paper-betting ledger, ROI, CLV & sport/tier attribution (Starter+)",
+                    "responses": {"200": {"description": "Prospective paper-bet ledger summary"}},
                 }
             },
             "/api/v1/dutching": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "Get 28-score Dixon-Coles & tennis set-score equal-payout dutching matrices (Pro+)",
                     "parameters": [
                         {"name": "stake", "in": "query", "schema": {"type": "number", "default": 25.0}},
                     ],
+                    "responses": {"200": {"description": "Exact-score & set-score dutching splits"}},
                 }
             },
             "/api/v1/combos": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "Get recommended 2-leg high-probability combos & parlays across 4 archetypes (Pro+)",
+                    "responses": {"200": {"description": "Recommended 2-leg & banker booster combos"}},
                 }
             },
             "/api/v1/mispriced": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "Get confirmed bookmaker odds mispricings (>= +2.0pp edge & >= +2.0% EV) (Pro+)",
+                    "responses": {"200": {"description": "Mispriced bookmaker lines"}},
                 }
             },
             "/api/v1/analyze": {
                 "get": {
+                    "tags": ["Commercial Syndicate API (v1)"],
                     "summary": "Run on-demand live matchup analysis for any Tennis or Football pair (Pro+)",
                     "parameters": [
                         {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
                     ],
+                    "responses": {"200": {"description": "Quantitative matchup analysis"}},
+                }
+            },
+            "/api/sync": {
+                "post": {
+                    "tags": ["Admin & Pipeline Operations"],
+                    "summary": "Settle finished paper-bets via Sportradar/ESPN and optionally rescan live odds (Admin/Cron)",
+                    "responses": {"200": {"description": "Sync & settlement result"}},
+                }
+            },
+            "/api/daily-digest": {
+                "post": {
+                    "tags": ["Admin & Pipeline Operations"],
+                    "summary": "Run morning rescan and publish Daily High-Conviction Slate + Free Teaser to Discord/Telegram",
+                    "responses": {"200": {"description": "Daily digest dispatch result"}},
                 }
             },
         },
     }
+
+
+def build_swagger_ui_html() -> str:
+    """Return a themed interactive Swagger UI page for `/api/docs`."""
+    return """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BetScout — Interactive API Documentation (Swagger UI)</title>
+  <link rel="icon" type="image/svg+xml" href="/betscout-logo.svg" />
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #070b12; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
+    .bs-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; background: #0d1422; border-bottom: 1px solid #1e293b;
+    }
+    .bs-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; color: #f8fafc; text-decoration: none; }
+    .bs-links { display: flex; gap: 12px; }
+    .bs-btn {
+      padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+      text-decoration: none; color: #e2e8f0; background: #131c2e; border: 1px solid #334155;
+    }
+    .bs-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+    #swagger-ui { max-width: 1280px; margin: 0 auto; padding: 16px; background: #f8fafc; border-radius: 14px; margin-top: 18px; margin-bottom: 32px; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <header class="bs-topbar">
+    <a href="/" class="bs-brand">
+      <img src="/betscout-logo.svg" width="28" height="28" alt="BetScout" />
+      <span>BetScout · Interactive Swagger API Documentation</span>
+    </a>
+    <nav class="bs-links">
+      <a href="/" class="bs-btn">Home &amp; Membership Plans</a>
+      <a href="/app" class="bs-btn">Open Live Quant Desk</a>
+    </nav>
+  </header>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: '/api/v1/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        docExpansion: 'list',
+        persistAuthorization: true
+      });
+    };
+  </script>
+</body>
+</html>
+"""

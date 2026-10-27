@@ -5,10 +5,8 @@
       <div class="h-full w-1/3 bg-gradient-to-r from-sky-400 via-emerald-400 to-sky-400 animate-pulse"></div>
     </div>
 
-    <!-- Main Dashboard Header (Concentric radius: rounded-2xl p-3.5 -> inner rounded-xl) -->
-    <header
-      class="card-surface flex items-start gap-3.5 rounded-2xl px-4 py-3.5 mb-3.5"
-    >
+    <!-- Main Dashboard Header -->
+    <header class="card-surface flex items-start gap-3.5 rounded-2xl px-4 py-3.5 mb-3.5">
       <router-link
         to="/"
         class="w-[42px] h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/10 hover:scale-105 transition-transform"
@@ -22,12 +20,15 @@
         <div class="flex flex-wrap justify-between items-center gap-3">
           <div class="flex flex-wrap items-center gap-2">
             <h1
-              class="m-0 text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-sky-400 to-emerald-400 bg-clip-text text-transparent"
+              class="m-0 inline-block pr-1.5 text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-sky-300 to-emerald-400 bg-clip-text text-transparent"
             >
               BetScout
             </h1>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">
-              LIVE AI
+            <span
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
+            >
+              <Zap class="w-3 h-3" />
+              <span>LIVE AI</span>
             </span>
             <span class="text-xs text-slate-300 font-medium">
               Sports Edge, Exact-Score &amp; Paper-Betting Intelligence
@@ -35,14 +36,17 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 ml-auto tabular-nums">
-            <span class="inline-flex items-center gap-1 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              🕒 Updated: <b class="text-slate-100">{{ store.generatedAtLocal }}</b>
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
+              <Clock class="w-3 h-3 text-sky-400" />
+              <span>Updated: <b class="text-slate-100">{{ store.generatedAtLocal }}</b></span>
             </span>
-            <span class="inline-flex items-center gap-1 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              🗄️ <b class="text-slate-100">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
+              <Database class="w-3 h-3 text-emerald-400" />
+              <span><b class="text-slate-100">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
             </span>
-            <span class="inline-flex items-center gap-1 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              📡 <span>{{ store.serverTimeLocal }}</span>
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
+              <Radio class="w-3 h-3 text-sky-400" />
+              <span>{{ store.serverTimeLocal }}</span>
             </span>
             <span
               class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-border rounded-full px-2.5 py-0.5 text-[11px]"
@@ -63,26 +67,29 @@
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45 hover:bg-sky-500/25 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45 hover:bg-sky-500/25 disabled:opacity-50"
               @click="store.syncAndSettle(false)"
             >
-              🔄 Sync &amp; Settle
+              <RefreshCw class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
+              <span>Sync &amp; Settle</span>
             </button>
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
               @click="store.syncAndSettle(true)"
             >
-              ⚡ Rescan Live
+              <Zap class="w-3.5 h-3.5 text-amber-400" />
+              <span>Rescan Live</span>
             </button>
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
               @click="store.runFullPipeline()"
             >
-              🚀 Full Pipeline
+              <Rocket class="w-3.5 h-3.5 text-emerald-400" />
+              <span>Full Pipeline</span>
             </button>
           </div>
 
@@ -92,14 +99,16 @@
             class="inline-flex flex-wrap items-center gap-2 bg-sky-500/10 border border-sky-400/35 rounded-xl px-3 py-1 text-[11.5px]"
           >
             <span
-              class="px-2 py-0.5 rounded-md text-[10px] font-bold"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
               :class="
                 store.isPro
                   ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
                   : 'bg-amber-500/15 text-amber-400 border border-amber-500/40'
               "
             >
-              {{ store.isPro ? '🔓 PRO READ-ONLY' : '🔒 GUEST PREVIEW' }}
+              <Unlock v-if="store.isPro" class="w-3 h-3" />
+              <Lock v-else class="w-3 h-3" />
+              <span>{{ store.isPro ? 'PRO READ-ONLY' : 'GUEST PREVIEW' }}</span>
             </span>
             <span v-if="store.isPro" class="text-slate-200">
               Signed in as <b>{{ store.userEmail || 'Pro Member' }}</b> · Real-time picks, exact-score targets &amp; SSE
@@ -117,8 +126,9 @@
               Sign In
             </button>
             <span class="text-slate-500">·</span>
-            <router-link to="/#pricing" class="text-emerald-400 font-bold hover:underline">
-              🚀 Membership Plans &rarr;
+            <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-400 font-bold hover:underline">
+              <span>Membership Plans</span>
+              <ArrowRight class="w-3 h-3" />
             </router-link>
           </div>
 
@@ -126,14 +136,23 @@
           <div class="flex flex-wrap items-center gap-1.5 ml-auto">
             <router-link
               to="/"
-              class="btn-press min-h-[34px] inline-flex items-center px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
+              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
             >
-              🏠 Home &amp; Plans
+              <Home class="w-3.5 h-3.5 text-sky-400" />
+              <span>Home &amp; Plans</span>
             </router-link>
+            <a
+              href="/api/docs"
+              target="_blank"
+              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
+            >
+              <BookOpen class="w-3.5 h-3.5 text-sky-400" />
+              <span>Interactive API Docs</span>
+            </a>
             <button
               v-if="store.firebaseAuthCfg?.enabled"
               type="button"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
               :class="
                 store.userEmail
                   ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/45'
@@ -141,26 +160,32 @@
               "
               @click="store.triggerSignInOut()"
             >
-              {{
-                store.userEmail
-                  ? `🔓 ${store.userEmail.split('@')[0]} (${store.isAdmin ? 'Admin' : 'Pro'})`
-                  : '🔐 Sign In'
-              }}
+              <Unlock v-if="store.userEmail" class="w-3.5 h-3.5" />
+              <Lock v-else class="w-3.5 h-3.5" />
+              <span>
+                {{
+                  store.userEmail
+                    ? `${store.userEmail.split('@')[0]} (${store.isAdmin ? 'Admin' : 'Pro'})`
+                    : 'Sign In'
+                }}
+              </span>
             </button>
             <button
               v-if="store.isAdmin"
               type="button"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
               @click="openShareSlateModal()"
             >
-              💬 Share Picks
+              <Share2 class="w-3.5 h-3.5" />
+              <span>Share Picks</span>
             </button>
             <button
               type="button"
-              class="btn-press min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400"
               @click="settingsModalOpen = true"
             >
-              ⚙️ Settings
+              <Settings class="w-3.5 h-3.5 text-slate-300" />
+              <span>Settings</span>
             </button>
           </div>
         </div>
@@ -247,15 +272,30 @@
         title="Currently in-play matches (streaming every 6s via Sportradar) and pending pre-match bets in the ledger."
       >
         <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">Live &amp; Pending Ledger</span>
-        <b class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
-          <span :class="store.liveBets.length > 0 ? 'text-emerald-400' : 'text-slate-200'">
-            🔴 {{ store.liveBets.length }} Live
+        <b class="flex items-center gap-1.5 text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
+          <span
+            class="inline-flex items-center gap-1.5"
+            :class="store.liveBets.length > 0 ? 'text-emerald-400' : 'text-slate-200'"
+          >
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></span>
+            <span>{{ store.liveBets.length }} Live</span>
           </span>
-          · ⏳ {{ store.pendingBets.length }}
+          <span class="text-slate-500">·</span>
+          <span class="inline-flex items-center gap-1 text-slate-200">
+            <Clock class="w-3.5 h-3.5 text-amber-400" />
+            <span>{{ store.pendingBets.length }}</span>
+          </span>
         </b>
-        <small class="block text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
-          🔗 {{ store.recommendedDoubles.length }} Combos ·
-          <span :class="store.vetoedBets > 0 ? 'text-danger' : ''">🛡️ {{ store.vetoedBets }} Vetoes</span>
+        <small class="flex items-center gap-2 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
+          <span class="inline-flex items-center gap-1">
+            <Link2 class="w-3 h-3 text-sky-400" />
+            <span>{{ store.recommendedDoubles.length }} Combos</span>
+          </span>
+          <span>·</span>
+          <span class="inline-flex items-center gap-1" :class="store.vetoedBets > 0 ? 'text-danger' : ''">
+            <ShieldCheck class="w-3 h-3" />
+            <span>{{ store.vetoedBets }} Vetoes</span>
+          </span>
         </small>
       </div>
 
@@ -269,16 +309,15 @@
         <b class="block text-lg font-mono tabular-nums text-emerald-400 mt-0.5 whitespace-nowrap">
           {{ store.visibleBestBets.length }}
         </b>
-        <small class="block text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
-          💎 {{ store.mispricedBets.length }} Mispriced · {{ store.totalMatches.toLocaleString() }} Matches
+        <small class="flex items-center gap-1.5 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
+          <Sparkles class="w-3 h-3 text-sky-400 shrink-0" />
+          <span>{{ store.mispricedBets.length }} Mispriced · {{ store.totalMatches.toLocaleString() }} Matches</span>
         </small>
       </div>
     </section>
 
     <!-- Filter Bar -->
-    <div
-      class="card-surface flex flex-wrap items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3 text-[11.5px]"
-    >
+    <div class="card-surface flex flex-wrap items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3 text-[11.5px]">
       <b>Sport:</b>
       <div class="flex flex-wrap gap-1">
         <button
@@ -349,15 +388,16 @@
         />
         <button
           type="button"
-          class="btn-press min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
+          class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
           @click="analyzerModalOpen = true"
         >
-          🔍 Analyze Match
+          <Search class="w-3.5 h-3.5" />
+          <span>Analyze Match</span>
         </button>
       </div>
     </div>
 
-    <!-- 4 Sticky Workspace Tabs (Concentric radius: outer rounded-xl p-1.5 -> inner rounded-lg) -->
+    <!-- 4 Sticky Workspace Tabs -->
     <nav
       class="flex flex-wrap gap-2 bg-navy-950/95 border border-border rounded-xl p-1.5 mb-4 sticky top-2 z-40 backdrop-blur-md shadow-xl"
     >
@@ -365,7 +405,7 @@
         v-for="tab in workspaceTabs"
         :key="tab.id"
         type="button"
-        class="btn-press flex-1 min-w-[180px] min-h-[38px] inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold border"
+        class="btn-press flex-1 min-w-[210px] min-h-[38px] inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold border whitespace-nowrap"
         :class="
           activeTab === tab.id
             ? 'bg-gradient-to-br from-sky-500/20 to-emerald-500/15 text-white border-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.18)]'
@@ -373,9 +413,10 @@
         "
         @click="activeTab = tab.id"
       >
-        <span>{{ tab.label }}</span>
+        <component :is="tab.icon" class="w-4 h-4 text-sky-400 shrink-0" />
+        <span class="whitespace-nowrap">{{ tab.label }}</span>
         <span
-          class="px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-sky-500/15 text-sky-400 border border-sky-400/35"
+          class="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-sky-500/15 text-sky-400 border border-sky-400/35"
         >
           {{ tab.badge }}
         </span>
@@ -386,8 +427,9 @@
     <div v-if="activeTab === 'picks'">
       <!-- Live In-Play Table -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-        <h2 class="text-sm font-bold text-sky-400 m-0">
-          🔴 Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: {{ store.liveBets.length }})
+        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-400 m-0">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></span>
+          <span>Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: {{ store.liveBets.length }})</span>
         </h2>
         <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5">
           <input
@@ -399,10 +441,11 @@
           />
           <button
             type="button"
-            class="btn-press px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
             @click="onTrackLiveQuick"
           >
-            📌 Track &amp; Analyze Live
+            <Pin class="w-3.5 h-3.5" />
+            <span>Track &amp; Analyze Live</span>
           </button>
         </div>
       </div>
@@ -434,42 +477,46 @@
             >
               <td class="py-2.5 px-2.5 text-center text-base">{{ getSportEmoji(tr.sport_cat) }}</td>
               <td class="py-2.5 px-2.5">
-                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35">
+                <span
+                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
+                >
                   {{ tr.league_label || tr.league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums">{{ tr.kickoff_local || tr.kickoff }}</td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">{{ tr.kickoff_local || tr.kickoff }}</td>
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
-                  class="font-bold text-slate-100 hover:text-sky-400 border-b border-dashed border-sky-400/40"
+                  class="font-bold text-slate-100 hover:text-sky-400 border-b border-dashed border-sky-400/40 text-left"
                   @click="openMatchupModal(tr.home, tr.away, tr.league)"
                 >
                   {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
                 </button>
               </td>
               <td class="py-2.5 px-2.5">
-                <b class="text-emerald-400">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
-                <span
-                  class="pill-tip ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
-                  :title="getBadgeTooltipText(tr.tier)"
-                >
-                  {{ tr.tier }}
-                </span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <b class="text-emerald-400">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
+                  <span
+                    class="pill-tip inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
+                    :title="getBadgeTooltipText(tr.tier)"
+                  >
+                    {{ tr.tier }}
+                  </span>
+                </div>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-white">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-white whitespace-nowrap">
                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span>
                 {{ tr.live_score || tr.score_str || '0-0 (LIVE)' }}
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">
                 <b>{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
                 <span class="text-slate-400 ml-1">
                   (Close {{ Number(tr.latest_close_odds || tr.logged_best_odds || 1.3).toFixed(2) }})
                 </span>
               </td>
-              <td class="py-2.5 px-2.5">
+              <td class="py-2.5 px-2.5 whitespace-nowrap">
                 <span
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold border"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold border"
                   :class="
                     Number(tr.live_pnl || 0) > 0
                       ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
@@ -489,10 +536,10 @@
                 <button
                   v-if="tr.tier === 'tracked_live' && store.isAdmin"
                   type="button"
-                  class="btn-press ml-1.5 px-1.5 py-0.5 rounded border border-red-500/40 text-danger text-[10px]"
+                  class="btn-press ml-1.5 inline-flex items-center p-1 rounded border border-red-500/40 text-danger"
                   @click="store.untrackLiveMatchup(tr.league, tr.event_id)"
                 >
-                  ✕
+                  <X class="w-3 h-3" />
                 </button>
               </td>
             </tr>
@@ -503,23 +550,25 @@
       <!-- Best Bets Summary Table -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="text-sm font-bold text-sky-400 m-0">
-          Best Bets Summary Table (Click Any Header to Sort · Click Matchup for H2H · Check ☑️ Rows for Custom Slip)
+          Best Bets Summary Table (Click Any Header to Sort · Click Matchup for H2H · Select Rows for Custom Slip)
         </h2>
         <div class="flex flex-wrap items-center gap-1.5">
           <button
             v-if="store.customSelectedMatches.size > 0"
             type="button"
-            class="btn-press px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/40"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/40"
             @click="store.clearCustomSelection()"
           >
-            ✕ Clear Custom Selection ({{ store.customSelectedMatches.size }})
+            <X class="w-3 h-3" />
+            <span>Clear Custom Selection ({{ store.customSelectedMatches.size }})</span>
           </button>
           <button
             type="button"
-            class="btn-press px-3 py-1 rounded-lg text-[11px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
             @click="activeTab = 'studio'"
           >
-            🧮 Open in Bet Slip &amp; Dutching Studio
+            <Calculator class="w-3.5 h-3.5" />
+            <span>Open in Bet Slip &amp; Dutching Studio</span>
           </button>
         </div>
       </div>
@@ -527,8 +576,10 @@
       <div class="card-surface rounded-2xl overflow-x-auto mb-5">
         <table class="w-full border-collapse text-xs">
           <thead>
-            <tr class="bg-navy-900/90 text-slate-400 text-[11px] uppercase tracking-wider border-b border-border text-left select-none">
-              <th class="py-2.5 px-2 w-9 text-center">☑️</th>
+            <tr
+              class="bg-navy-900/90 text-slate-400 text-[11px] uppercase tracking-wider border-b border-border text-left select-none"
+            >
+              <th class="py-2.5 px-2 w-9 text-center">Slip</th>
               <th class="py-2.5 px-2 w-11 text-center">Sport</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-white" @click="setBestBetsSort('comp')">
                 Competition {{ sortInd('comp') }}
@@ -574,11 +625,13 @@
               </td>
               <td class="py-2.5 px-2 text-center text-base">{{ b.sport_icon || getSportEmoji(b.sport_cat) }}</td>
               <td class="py-2.5 px-2.5">
-                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35">
+                <span
+                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
+                >
                   {{ b.competition || b.sport_league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-slate-200">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-slate-200 whitespace-nowrap">
                 {{ store.tzMode === 'utc' ? b.date : b.date_local }}
               </td>
               <td class="py-2.5 px-2.5">
@@ -591,66 +644,74 @@
                 </button>
               </td>
               <td class="py-2.5 px-2.5">
-                <b class="text-emerald-400">{{ b.pick_name || b.pick }}</b>
-                <span
-                  v-if="b.tier"
-                  class="pill-tip ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
-                  :title="getBadgeTooltipText(b.tier)"
-                >
-                  {{ b.tier }}
-                </span>
-                <span
-                  v-if="b.is_mispriced"
-                  class="pill-tip ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
-                  :title="`Bookmaker Odds Mispricing: +${Number(b.edge_pp || 0).toFixed(1)}pp probability edge (${b.mispricing_drivers || 'Model Edge'})`"
-                >
-                  💎 EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp
-                </span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <b class="text-emerald-400">{{ b.pick_name || b.pick }}</b>
+                  <span
+                    v-if="b.tier"
+                    class="pill-tip inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
+                    :title="getBadgeTooltipText(b.tier)"
+                  >
+                    {{ b.tier }}
+                  </span>
+                  <span
+                    v-if="b.is_mispriced"
+                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
+                    :title="`Bookmaker Odds Mispricing: +${Number(b.edge_pp || 0).toFixed(1)}pp probability edge (${b.mispricing_drivers || 'Model Edge'})`"
+                  >
+                    <Sparkles class="w-2.5 h-2.5" />
+                    <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
+                  </span>
+                </div>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-emerald-400">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-emerald-400 whitespace-nowrap">
                 {{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-300">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-300 whitespace-nowrap">
                 {{ Number(b.min_fair_odds || 1.35).toFixed(2) }}
               </td>
               <td class="py-2.5 px-2.5">
-                <span class="text-sky-400 font-semibold">{{ b.exact_score_pick || '—' }}</span>
-                <button
-                  v-if="b.score_cluster_items?.length"
-                  type="button"
-                  class="btn-press ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-navy-900 text-amber-400 border border-amber-500/40 hover:bg-amber-500/15"
-                  @click="selectMatchForDutching(b.match)"
-                >
-                  🎲 Split €
-                </button>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-sky-400 font-semibold">{{ b.exact_score_pick || '—' }}</span>
+                  <button
+                    v-if="b.score_cluster_items?.length"
+                    type="button"
+                    class="btn-press inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-navy-900 text-amber-400 border border-amber-500/40 hover:bg-amber-500/15"
+                    @click="selectMatchForDutching(b.match)"
+                  >
+                    <Dices class="w-3 h-3" />
+                    <span>Split €</span>
+                  </button>
+                </div>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums">
-                <b>{{ b.odds_display }}</b>
-                <span
-                  class="ml-1 text-slate-400 border-b border-dotted border-slate-500 cursor-help"
-                  :title="CLV_TOOLTIP"
-                >
-                  (CLV
-                  <b :class="Number(b.clv_pct || 0) >= 0 ? 'text-emerald-400' : 'text-danger'">
-                    {{ Number(b.clv_pct || 0) >= 0 ? '+' : '' }}{{ Number(b.clv_pct || 0).toFixed(1) }}%
-                  </b>
-                  )
-                </span>
-                <span
-                  v-if="Number(b.clv_pct || 0) >= 3.0"
-                  class="pill-tip ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
-                  :title="`Sharp Closing-Line Steam Move (+${Number(b.clv_pct || 0).toFixed(1)}% CLV)`"
-                >
-                  🔥 STEAM +{{ Number(b.clv_pct || 0).toFixed(1) }}%
-                </span>
-                <button
-                  type="button"
-                  class="btn-press ml-1.5 px-1.5 py-0.5 rounded bg-navy-900 border border-border hover:border-sky-400 text-[10.5px]"
-                  title="Share this pick + PNG Card to Discord / Telegram"
-                  @click="openShareSinglePickModal(b)"
-                >
-                  📣
-                </button>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <b>{{ b.odds_display }}</b>
+                  <span
+                    class="whitespace-nowrap text-slate-400 border-b border-dotted border-slate-500 cursor-help"
+                    :title="CLV_TOOLTIP"
+                  >
+                    (CLV
+                    <b :class="Number(b.clv_pct || 0) >= 0 ? 'text-emerald-400' : 'text-danger'">
+                      {{ Number(b.clv_pct || 0) >= 0 ? '+' : '' }}{{ Number(b.clv_pct || 0).toFixed(1) }}%
+                    </b>)
+                  </span>
+                  <span
+                    v-if="Number(b.clv_pct || 0) >= 3.0"
+                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
+                    :title="`Sharp Closing-Line Steam Move (+${Number(b.clv_pct || 0).toFixed(1)}% CLV)`"
+                  >
+                    <Flame class="w-3 h-3" />
+                    <span>STEAM +{{ Number(b.clv_pct || 0).toFixed(1) }}%</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="btn-press inline-flex items-center p-1 rounded bg-navy-900 border border-border hover:border-sky-400 text-sky-400"
+                    title="Share this pick + PNG Card to Discord / Telegram"
+                    @click="openShareSinglePickModal(b)"
+                  >
+                    <Megaphone class="w-3 h-3" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -663,19 +724,22 @@
         class="bg-gradient-to-b from-emerald-950/35 to-navy-800/95 border border-emerald-500/45 rounded-2xl p-4 mb-6 shadow-xl"
       >
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-          <div>
-            <b class="text-sm text-emerald-400">🚀 High-Probability Banker Profitability Booster Combos</b>
-            <span class="text-slate-400 ml-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <Rocket class="w-4 h-4 text-emerald-400" />
+            <b class="text-sm text-emerald-400">High-Probability Banker Profitability Booster Combos</b>
+            <span class="text-slate-400">
               Combines multiple high-win-probability (&ge;72%), lower-odds bankers into higher-yielding 2-Leg &amp;
               3-Leg multipliers
             </span>
           </div>
           <button
             type="button"
-            class="btn-press px-3 py-1 rounded-lg text-[11px] font-semibold bg-navy-900 text-slate-200 border border-border hover:border-sky-400"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-navy-900 text-slate-200 border border-border hover:border-sky-400"
             @click="activeTab = 'studio'"
           >
-            🧮 Customize Stake in Studio &rarr;
+            <Calculator class="w-3.5 h-3.5 text-sky-400" />
+            <span>Customize Stake in Studio</span>
+            <ArrowRight class="w-3 h-3" />
           </button>
         </div>
 
@@ -689,15 +753,17 @@
               <div class="flex justify-between items-center gap-2 mb-1">
                 <b>{{ combo.title }}</b>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">
+                  <span
+                    class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
+                  >
                     +{{ combo.netYieldPct }}% PROFIT BOOST
                   </span>
                   <button
                     type="button"
-                    class="btn-press px-1.5 py-0.5 rounded bg-navy-900 border border-border hover:border-sky-400 text-[10.5px]"
+                    class="btn-press inline-flex items-center p-1 rounded bg-navy-900 border border-border hover:border-sky-400 text-sky-400"
                     @click="openShareBoosterModal(combo)"
                   >
-                    📣
+                    <Megaphone class="w-3 h-3" />
                   </button>
                 </div>
               </div>
@@ -713,7 +779,7 @@
                     <b>{{ leg.pick_name || leg.pick }}</b>
                     <span class="text-slate-400">({{ leg.match }})</span>
                   </span>
-                  <span class="font-mono tabular-nums">
+                  <span class="font-mono tabular-nums whitespace-nowrap">
                     <b class="text-emerald-400">@{{ leg.odds.toFixed(2) }}</b>
                     <span class="text-slate-400 ml-1">({{ (leg.win_prob * 100).toFixed(1) }}%)</span>
                   </span>
@@ -740,9 +806,10 @@
       <!-- Smart Bet Slip & Stake Allocation Optimizer -->
       <section class="card-surface rounded-2xl p-4 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
-          <div>
-            <b class="text-sm text-sky-400">🎯 Smart Bet Slip &amp; Stake Allocation Optimizer</b>
-            <span class="text-slate-400 ml-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <Calculator class="w-4 h-4 text-sky-400" />
+            <b class="text-sm text-sky-400">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
+            <span class="text-slate-400">
               Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid
               65/35 Split
             </span>
@@ -861,7 +928,7 @@
               <div class="flex justify-between items-center mb-1">
                 <b>Option C · 65/35 Core Singles + Combo Booster</b>
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">
-                  ★ OPTIMAL SHARPE
+                  OPTIMAL SHARPE
                 </span>
               </div>
               <div class="text-slate-400 text-[11px] mb-2">
@@ -871,7 +938,7 @@
               </div>
               <div class="space-y-1 text-[11.5px]">
                 <div class="flex justify-between py-1 border-b border-slate-800">
-                  <span>🛡️ Core Single #1: <b>{{ slipComboLegs[0]?.pick_name || '—' }}</b></span>
+                  <span>Core Single #1: <b>{{ slipComboLegs[0]?.pick_name || '—' }}</b></span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.325).toFixed(2) }} &rarr;
                     <b class="text-emerald-400">
@@ -880,7 +947,7 @@
                   </span>
                 </div>
                 <div class="flex justify-between py-1 border-b border-slate-800">
-                  <span>🛡️ Core Single #2: <b>{{ slipComboLegs[1]?.pick_name || '—' }}</b></span>
+                  <span>Core Single #2: <b>{{ slipComboLegs[1]?.pick_name || '—' }}</b></span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.325).toFixed(2) }} &rarr;
                     <b class="text-emerald-400">
@@ -889,7 +956,7 @@
                   </span>
                 </div>
                 <div class="flex justify-between py-1">
-                  <span>🚀 2-Leg Combo Booster (@{{ slipComboOdds.toFixed(2) }}x)</span>
+                  <span>2-Leg Combo Booster (@{{ slipComboOdds.toFixed(2) }}x)</span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.35).toFixed(2) }} &rarr;
                     <b class="text-emerald-400">€{{ (betBudget * 0.35 * slipComboOdds).toFixed(2) }}</b>
@@ -910,9 +977,10 @@
       <!-- Exact-Score & Set-Score Dutching Splitter -->
       <section class="card-surface rounded-2xl p-4 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
-          <div>
-            <b class="text-sm text-amber-400">🎲 Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
-            <span class="text-slate-400 ml-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <Dices class="w-4 h-4 text-amber-400" />
+            <b class="text-sm text-amber-400">Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
+            <span class="text-slate-400">
               Pick any high-conviction match and enter your investment (€) — generates 2-Score &amp; 3-Score
               equal-payout splits
             </span>
@@ -1004,15 +1072,12 @@
 
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
-        <h2 class="text-sm font-bold text-sky-400 mb-2.5">
-          🔗 Recommended 2-Leg High-Probability Combos &amp; Parlays ({{ store.recommendedDoubles.length }} Variations)
+        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-400 mb-2.5">
+          <Link2 class="w-4 h-4" />
+          <span>Recommended 2-Leg High-Probability Combos &amp; Parlays ({{ store.recommendedDoubles.length }} Variations)</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-6">
-          <div
-            v-for="(d, idx) in store.recommendedDoubles"
-            :key="idx"
-            class="card-surface rounded-xl p-4"
-          >
+          <div v-for="(d, idx) in store.recommendedDoubles" :key="idx" class="card-surface rounded-xl p-4">
             <div class="flex justify-between items-center mb-2">
               <div class="flex items-center gap-1.5">
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">
@@ -1029,13 +1094,13 @@
             </div>
             <div class="space-y-1 text-xs">
               <div>
-                1️⃣ {{ getSportEmoji(d.leg_1?.sport_cat || d.leg_1?.league) }}
+                1. {{ getSportEmoji(d.leg_1?.sport_cat || d.leg_1?.league) }}
                 <b>{{ d.leg_1?.match }}</b> &rarr;
                 <b class="text-emerald-400">{{ d.leg_1?.pick }}</b> @
                 <b class="font-mono tabular-nums">{{ Number(d.leg_1?.odds || 1).toFixed(2) }}</b>
               </div>
               <div>
-                2️⃣ {{ getSportEmoji(d.leg_2?.sport_cat || d.leg_2?.league) }}
+                2. {{ getSportEmoji(d.leg_2?.sport_cat || d.leg_2?.league) }}
                 <b>{{ d.leg_2?.match }}</b> &rarr;
                 <b class="text-emerald-400">{{ d.leg_2?.pick }}</b> @
                 <b class="font-mono tabular-nums">{{ Number(d.leg_2?.odds || 1).toFixed(2) }}</b>
@@ -1119,7 +1184,10 @@
     <div v-else-if="activeTab === 'audit'">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="card-surface rounded-2xl p-4">
-          <b class="text-sm text-sky-400 block mb-2">📊 By-Sport Settled Attribution</b>
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
+            <TrendingUp class="w-4 h-4" />
+            <span>By-Sport Settled Attribution</span>
+          </b>
           <table class="w-full border-collapse text-xs">
             <thead>
               <tr class="text-left text-[11px] uppercase text-slate-400 border-b border-border">
@@ -1154,7 +1222,10 @@
         </div>
 
         <div class="card-surface rounded-2xl p-4">
-          <b class="text-sm text-sky-400 block mb-2">🎯 Calibration &amp; Tier Attribution</b>
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
+            <Microscope class="w-4 h-4" />
+            <span>Calibration &amp; Tier Attribution</span>
+          </b>
           <table class="w-full border-collapse text-xs">
             <thead>
               <tr class="text-left text-[11px] uppercase text-slate-400 border-b border-border">
@@ -1197,8 +1268,11 @@
       class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-4 bg-navy-950/95 border border-emerald-400/60 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-md"
     >
       <div class="flex items-center gap-2">
-        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 tabular-nums">
-          ☑️ {{ store.customSelectedMatches.size }} Selected
+        <span
+          class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 tabular-nums"
+        >
+          <CheckSquare class="w-3.5 h-3.5" />
+          <span>{{ store.customSelectedMatches.size }} Selected</span>
         </span>
         <span class="text-xs text-slate-300 font-mono tabular-nums">
           Combined Odds: <b class="text-emerald-400">{{ customSlipCombinedOdds.toFixed(2) }}x</b>
@@ -1207,17 +1281,20 @@
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="btn-press px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950"
+          class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950"
           @click="activeTab = 'studio'"
         >
-          🧮 Optimize in Bet Slip Studio &rarr;
+          <Calculator class="w-3.5 h-3.5" />
+          <span>Optimize in Bet Slip Studio</span>
+          <ArrowRight class="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          class="btn-press px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 border border-border"
+          class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 border border-border"
           @click="store.clearCustomSelection()"
         >
-          ✕ Clear
+          <X class="w-3.5 h-3.5" />
+          <span>Clear</span>
         </button>
       </div>
     </div>
@@ -1230,18 +1307,25 @@
     >
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="text-sm text-sky-400">🔍 {{ inspectorTitle }}</b>
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
+            <Search class="w-4 h-4" />
+            <span>{{ inspectorTitle }}</span>
+          </b>
           <button
             type="button"
-            class="btn-press px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="inspectorModalOpen = false"
           >
-            Close ✕
+            <span>Close</span>
+            <X class="w-3.5 h-3.5" />
           </button>
         </div>
         <div v-if="inspectorLoading" class="py-6 text-slate-400">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
         <div v-else-if="inspectorLockedPro" class="p-4 bg-navy-900 border border-sky-400/40 rounded-xl text-center">
-          <div class="text-base font-extrabold text-white mb-1.5">🔒 BetScout Pro Subscriber Pick</div>
+          <div class="inline-flex items-center gap-1.5 text-base font-extrabold text-white mb-1.5">
+            <Lock class="w-4 h-4 text-amber-400" />
+            <span>BetScout Pro Subscriber Pick</span>
+          </div>
           <div class="text-slate-400 mb-4">
             Full matchup names, H2H history, Dixon-Coles exact-score matrices &amp; 2-leg combos are reserved for
             active <b>BetScout Pro</b> members.
@@ -1249,27 +1333,30 @@
           <div class="flex justify-center gap-3">
             <button
               type="button"
-              class="btn-press px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
+              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
               @click="
                 inspectorModalOpen = false;
                 store.triggerSignInOut();
               "
             >
-              🔐 Sign In with Google
+              <Lock class="w-3.5 h-3.5" />
+              <span>Sign In with Google</span>
             </button>
             <router-link
               to="/#pricing"
-              class="btn-press px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 font-bold no-underline"
+              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 font-bold no-underline"
               @click="inspectorModalOpen = false"
             >
-              🚀 View Membership Plans &rarr;
+              <Rocket class="w-3.5 h-3.5" />
+              <span>View Membership Plans</span>
+              <ArrowRight class="w-3.5 h-3.5" />
             </router-link>
           </div>
         </div>
         <div v-else-if="inspectorData" class="space-y-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <b class="block mb-1.5 text-white">📈 {{ inspectorData.home }} — Last 6</b>
+              <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
               <div v-if="!inspectorData.form_home?.length" class="text-slate-400">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_home"
@@ -1286,7 +1373,7 @@
               </div>
             </div>
             <div>
-              <b class="block mb-1.5 text-white">📈 {{ inspectorData.away }} — Last 6</b>
+              <b class="block mb-1.5 text-white">{{ inspectorData.away }} — Last 6</b>
               <div v-if="!inspectorData.form_away?.length" class="text-slate-400">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_away"
@@ -1305,7 +1392,7 @@
           </div>
 
           <div>
-            <b class="block mb-1.5 text-white">⚔️ Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
+            <b class="block mb-1.5 text-white">Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
             <div v-if="!inspectorData.h2h?.length" class="text-slate-400">First tracked meeting in current DB window.</div>
             <div
               v-for="(h, idx) in inspectorData.h2h"
@@ -1329,17 +1416,21 @@
       <div class="card-surface rounded-2xl max-w-[740px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
           <div>
-            <b class="text-sm text-emerald-400">🔍 On-Demand Any-Matchup Live Analyzer</b>
+            <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
+              <Search class="w-4 h-4" />
+              <span>On-Demand Any-Matchup Live Analyzer</span>
+            </b>
             <div class="text-slate-400 text-[11px]">
               Analyze any Tennis or Football matchup — checks live bookmaker odds, Last-5 form, H2H &amp; turnaround
             </div>
           </div>
           <button
             type="button"
-            class="btn-press px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="analyzerModalOpen = false"
           >
-            ✕ Close
+            <X class="w-3.5 h-3.5" />
+            <span>Close</span>
           </button>
         </div>
 
@@ -1353,10 +1444,11 @@
           />
           <button
             type="button"
-            class="btn-press px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
+            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
             @click="runLiveAnalyzer"
           >
-            ⚡ Analyze Matchup
+            <Zap class="w-3.5 h-3.5" />
+            <span>Analyze Matchup</span>
           </button>
         </div>
 
@@ -1382,25 +1474,30 @@
     >
       <div class="card-surface rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="text-sm text-emerald-400">💬 Share Pick &amp; High-Res PNG Card Publisher</b>
+          <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
+            <Share2 class="w-4 h-4" />
+            <span>Share Pick &amp; High-Res PNG Card Publisher</span>
+          </b>
           <button
             type="button"
-            class="btn-press px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="shareModalOpen = false"
           >
-            ✕ Close
+            <X class="w-3.5 h-3.5" />
+            <span>Close</span>
           </button>
         </div>
 
         <div class="bg-obsidian border border-border rounded-xl p-2.5 mb-3">
           <div class="flex justify-between items-center mb-1.5">
-            <span class="text-[11px] font-bold text-sky-400">🖼️ Generated Pick Card Image (1080×560 PNG)</span>
+            <span class="text-[11px] font-bold text-sky-400">Generated Pick Card Image (1080×560 PNG)</span>
             <button
               type="button"
-              class="btn-press px-2.5 py-0.5 rounded-lg bg-navy-900 border border-border text-[11px]"
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-navy-900 border border-border text-[11px]"
               @click="downloadCanvasPng"
             >
-              ⬇️ Download PNG Card
+              <Download class="w-3 h-3 text-sky-400" />
+              <span>Download PNG Card</span>
             </button>
           </div>
           <canvas
@@ -1420,17 +1517,19 @@
         <div class="flex justify-end gap-2">
           <button
             type="button"
-            class="btn-press px-3 py-1.5 rounded-lg bg-navy-900 border border-border text-xs font-semibold"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-900 border border-border text-xs font-semibold"
             @click="copyShareMessage"
           >
-            📋 Copy Text
+            <Copy class="w-3.5 h-3.5 text-sky-400" />
+            <span>Copy Text</span>
           </button>
           <button
             type="button"
-            class="btn-press px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-xs font-bold"
+            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-xs font-bold"
             @click="postShareToDiscord"
           >
-            🚀 Send to Discord
+            <Rocket class="w-3.5 h-3.5" />
+            <span>Send to Discord</span>
           </button>
         </div>
       </div>
@@ -1444,19 +1543,23 @@
     >
       <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="text-sm text-sky-400">⚙️ BetScout Settings &amp; Active Sport Toggles</b>
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
+            <Settings class="w-4 h-4" />
+            <span>BetScout Settings &amp; Active Sport Toggles</span>
+          </b>
           <button
             type="button"
-            class="btn-press px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="settingsModalOpen = false"
           >
-            Close ✕
+            <span>Close</span>
+            <X class="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div class="space-y-4">
           <div class="p-3.5 bg-navy-900 border border-border rounded-xl">
-            <b class="block text-emerald-400 mb-2">🏅 Active Sports On/Off Filter</b>
+            <b class="block text-emerald-400 mb-2">Active Sports On/Off Filter</b>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <label
                 v-for="(lbl, spKey) in sportToggleItems"
@@ -1511,6 +1614,36 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
+import {
+  ArrowRight,
+  BookOpen,
+  Calculator,
+  CheckSquare,
+  Clock,
+  Copy,
+  Database,
+  Dices,
+  Download,
+  Flame,
+  Home,
+  Link2,
+  Lock,
+  Megaphone,
+  Microscope,
+  Pin,
+  Radio,
+  RefreshCw,
+  Rocket,
+  Search,
+  Settings,
+  Share2,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Unlock,
+  X,
+  Zap,
+} from 'lucide-vue-next';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
   type BankerBoosterCombo,
@@ -1610,18 +1743,20 @@ const roiPct = computed(() => Number(store.paperLedger?.settled_roi_best ?? 0.35
 const meanClv = computed(() => Number(store.paperLedger?.mean_clv_pct ?? 0.0067) * 100);
 
 const workspaceTabs = computed(() => [
-  { id: 'picks' as const, label: '🎯 Picks & Live In-Play', badge: `${store.visibleBestBets.length}` },
+  { id: 'picks' as const, icon: Zap, label: 'Picks & Live In-Play', badge: `${store.visibleBestBets.length}` },
   {
     id: 'studio' as const,
-    label: '🧮 Bet Slip, Dutching & Combos',
-    badge: `${store.recommendedDoubles.length} Combos · ${store.mispricedBets.length} 💎`,
+    icon: Calculator,
+    label: 'Bet Slip, Dutching & Combos',
+    badge: `${store.recommendedDoubles.length} Combos · ${store.mispricedBets.length} Edge`,
   },
   {
     id: 'ledger' as const,
-    label: '📊 Paper-Bet Ledger & ROI',
+    icon: TrendingUp,
+    label: 'Paper-Bet Ledger & ROI',
     badge: `${settledWins.value}W–${settledLosses.value}L (${profitU.value >= 0 ? '+' : ''}${profitU.value.toFixed(1)}u)`,
   },
-  { id: 'audit' as const, label: '🔬 Model Audit & Backtest', badge: '+18.9% ROI' },
+  { id: 'audit' as const, icon: Microscope, label: 'Model Audit & Backtest', badge: '+18.9% ROI' },
 ]);
 
 // Smart Bet Slip calculations
@@ -1863,7 +1998,7 @@ function downloadCanvasPng() {
 
 function copyShareMessage() {
   navigator.clipboard?.writeText(shareMessageText.value);
-  store.showToast('📋 Copied formatted message to clipboard!');
+  store.showToast('Copied formatted message to clipboard!');
 }
 
 async function postShareToDiscord() {
@@ -1880,13 +2015,13 @@ async function postShareToDiscord() {
     });
     const d = await resp.json();
     if (d.ok) {
-      store.showToast('🚀 Posted pick & PNG card to Discord!');
+      store.showToast('Posted pick & PNG card to Discord!');
       shareModalOpen.value = false;
     } else {
-      store.showToast(`❌ Discord error: ${d.error || 'Failed'}`);
+      store.showToast(`Discord error: ${d.error || 'Failed'}`);
     }
   } catch (err) {
-    store.showToast(`❌ Network error: ${err}`);
+    store.showToast(`Network error: ${err}`);
   }
 }
 </script>

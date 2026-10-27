@@ -1274,13 +1274,27 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(sw_bytes)
                 return
 
-            if parsed.path.startswith("/api/v1/"):
-                from .monetization import build_openapi_v1_spec, validate_and_meter_api_key
-                from .paper_bet import build_recommended_2leg_doubles
+            if parsed.path in ("/api/docs", "/api/v1/docs", "/docs"):
+                from .monetization import build_swagger_ui_html
 
-                if parsed.path == "/api/v1/openapi.json":
-                    self._send_json(build_openapi_v1_spec())
-                    return
+                swagger_b = build_swagger_ui_html().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "public, max-age=300")
+                self.send_header("Content-Length", str(len(swagger_b)))
+                self.end_headers()
+                self.wfile.write(swagger_b)
+                return
+
+            if parsed.path in ("/api/openapi.json", "/api/v1/openapi.json"):
+                from .monetization import build_openapi_v1_spec
+
+                self._send_json(build_openapi_v1_spec())
+                return
+
+            if parsed.path.startswith("/api/v1/"):
+                from .monetization import validate_and_meter_api_key
+                from .paper_bet import build_recommended_2leg_doubles
 
                 raw_k = self.headers.get("X-API-Key") or (qs.get("api_key") or [""])[0]
                 if not raw_k and self.headers.get("Authorization", "").lower().startswith("bearer "):

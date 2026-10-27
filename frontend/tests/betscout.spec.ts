@@ -193,6 +193,10 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('€79');
     expect(wrapper.text()).toContain('€199');
     expect(wrapper.text()).toContain('AS Roma vs Cagliari');
+    expect(wrapper.text()).toContain('Interactive API Docs');
+    expect(wrapper.text()).not.toContain('betscout.app');
+    expect(wrapper.text()).not.toContain('/api/');
+    expect(wrapper.text()).not.toContain('https://');
   });
 
   it('renders DashboardView with 4 workspace tabs, sortable table, and custom slip dock', async () => {
@@ -223,6 +227,10 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('Realized Profit / ROI');
     expect(wrapper.text()).toContain('AS Roma vs Cagliari');
     expect(wrapper.text()).toContain('High-Probability Banker Profitability Booster Combos');
+    expect(wrapper.text()).toContain('Interactive API Docs');
+    expect(wrapper.text()).not.toContain('betscout.app');
+    expect(wrapper.text()).not.toContain('/api/');
+    expect(wrapper.text()).not.toContain('https://');
 
     // Select a match to trigger floating custom slip dock
     store.toggleCustomMatch('AS Roma vs Cagliari');
