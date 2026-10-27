@@ -1070,8 +1070,33 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     self.wfile.write(content_b)
                     return
 
+            docs_dir = (root_dir / "docs") if (root_dir / "docs").is_dir() else (root_dir.parent / "docs")
+            if parsed.path in ("/docs/png-notification-cards.html", "/cards"):
+                cards_f = docs_dir / "png-notification-cards.html"
+                if cards_f.is_file():
+                    cb = cards_f.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Content-Length", str(len(cb)))
+                    self.end_headers()
+                    self.wfile.write(cb)
+                    return
+
+            if parsed.path in ("/docs/logo-studio.html", "/logos"):
+                logos_f = docs_dir / "logo-studio.html"
+                if logos_f.is_file():
+                    lb = logos_f.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Content-Length", str(len(lb)))
+                    self.end_headers()
+                    self.wfile.write(lb)
+                    return
+
             if spa_index.is_file() and (
-                parsed.path in ("/", "/index.html", "/app", "/logos", "/landing", "/landing.html", "/pricing", "/pricing.html")
+                parsed.path in ("/", "/index.html", "/app", "/landing", "/landing.html", "/pricing", "/pricing.html")
                 or parsed.path.startswith("/app/")
             ):
                 spa_bytes = spa_index.read_bytes()

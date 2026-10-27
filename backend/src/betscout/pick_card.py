@@ -357,53 +357,26 @@ def render_logo_png(
     def _pt(ux: float, uy: float) -> tuple[float, float]:
         return (S * (ux / 64.0), S * (uy / 64.0))
 
-    # Option 8.2: -40° Tilted Rectangular Stadium Pitch (rect x=13.5, y=21, w=37, h=22, rx=4)
-    pitch_layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    p_draw = ImageDraw.Draw(pitch_layer, "RGBA")
-    px0, py0 = _pt(13.5, 21.0)
-    px1, py1 = _pt(50.5, 43.0)
-    p_rx = int(S * (4.0 / 64.0))
-    p_stroke = max(3, int(S * (1.8 / 64.0)))
-    line_w = max(2, int(S * (1.3 / 64.0)))
-
-    # Pitch turf & touchline
-    p_draw.rounded_rectangle(
-        [(px0, py0), (px1, py1)],
-        radius=p_rx,
-        fill=(7, 34, 27, 255),
-        outline=(52, 211, 153, 255),
-        width=p_stroke,
+    # Option 7.3: Subtle Azimuth Ring (r = 18.5 / 64) + 8-Facet 3D Chiseled Bevel Compass (No Center Dot)
+    r_ring = S * (18.5 / 64.0)
+    draw.ellipse(
+        [(cx - r_ring, cy - r_ring), (cx + r_ring, cy + r_ring)],
+        outline=(56, 189, 248, 72),
+        width=max(2, int(S * (1.4 / 64.0))),
     )
-    # Halfway line & center circle
-    p_draw.line([_pt(32.0, 21.0), _pt(32.0, 43.0)], fill=(255, 255, 255, 180), width=line_w)
-    cc_r = S * (5.0 / 64.0)
-    p_draw.ellipse(
-        [(cx - cc_r, cy - cc_r), (cx + cc_r, cy + cc_r)],
-        outline=(255, 255, 255, 180),
-        width=line_w,
-    )
-    # Left & Right Gold Penalty Boxes
-    p_draw.rectangle([_pt(13.5, 26.5), _pt(19.5, 37.5)], outline=(253, 224, 71, 218), width=line_w)
-    p_draw.rectangle([_pt(44.5, 26.5), _pt(50.5, 37.5)], outline=(253, 224, 71, 218), width=line_w)
 
-    # Rotate pitch layer -40 degrees (counter-clockwise = +40 in PIL rotate)
-    pitch_rot = pitch_layer.rotate(40, resample=Image.Resampling.BICUBIC)
-    img = Image.alpha_composite(img, pitch_rot)
-    draw = ImageDraw.Draw(img, "RGBA")
-
-    # Option 8.2: Oversized 6..58 8-Facet 3D Chiseled Compass Needles (No Center Dot)
     # North split bevel
-    draw.polygon([_pt(32.0, 6.0), _pt(32.0, 32.0), _pt(26.5, 26.5)], fill=(253, 224, 71, 255))
-    draw.polygon([_pt(32.0, 6.0), _pt(37.5, 26.5), _pt(32.0, 32.0)], fill=(16, 185, 129, 255))
+    draw.polygon([_pt(32.0, 8.0), _pt(32.0, 32.0), _pt(27.0, 27.0)], fill=(253, 224, 71, 255))
+    draw.polygon([_pt(32.0, 8.0), _pt(37.0, 27.0), _pt(32.0, 32.0)], fill=(16, 185, 129, 255))
     # South split bevel
-    draw.polygon([_pt(32.0, 58.0), _pt(32.0, 32.0), _pt(37.5, 37.5)], fill=(52, 211, 153, 255))
-    draw.polygon([_pt(32.0, 58.0), _pt(26.5, 37.5), _pt(32.0, 32.0)], fill=(4, 120, 87, 255))
+    draw.polygon([_pt(32.0, 56.0), _pt(32.0, 32.0), _pt(37.0, 37.0)], fill=(52, 211, 153, 255))
+    draw.polygon([_pt(32.0, 56.0), _pt(27.0, 37.0), _pt(32.0, 32.0)], fill=(4, 120, 87, 255))
     # East split bevel
-    draw.polygon([_pt(58.0, 32.0), _pt(32.0, 32.0), _pt(37.5, 26.5)], fill=(125, 211, 252, 255))
-    draw.polygon([_pt(58.0, 32.0), _pt(37.5, 37.5), _pt(32.0, 32.0)], fill=(2, 132, 199, 255))
+    draw.polygon([_pt(56.0, 32.0), _pt(32.0, 32.0), _pt(37.0, 27.0)], fill=(125, 211, 252, 255))
+    draw.polygon([_pt(56.0, 32.0), _pt(37.0, 37.0), _pt(32.0, 32.0)], fill=(2, 132, 199, 255))
     # West split bevel
-    draw.polygon([_pt(6.0, 32.0), _pt(32.0, 32.0), _pt(26.5, 37.5)], fill=(56, 189, 248, 255))
-    draw.polygon([_pt(6.0, 32.0), _pt(26.5, 26.5), _pt(32.0, 32.0)], fill=(3, 105, 161, 255))
+    draw.polygon([_pt(8.0, 32.0), _pt(32.0, 32.0), _pt(27.0, 37.0)], fill=(56, 189, 248, 255))
+    draw.polygon([_pt(8.0, 32.0), _pt(27.0, 27.0), _pt(32.0, 32.0)], fill=(3, 105, 161, 255))
 
     # Downsample 4x -> 1x with LANCZOS anti-aliasing
     final_img = img.resize((size, size), resample=Image.Resampling.LANCZOS)
