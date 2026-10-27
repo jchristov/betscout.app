@@ -206,6 +206,47 @@ def _fmt_signed(val: float, fmt: str = "+.2f", suffix: str = "") -> str:
     return f"<b{class_attr}>{format(val, fmt)}{suffix}</b>"
 
 
+TIER_TOOLTIPS: dict[str, str] = {
+    "banker_70pct": "banker_70pct — High-Conviction Tennis / Euro-Sport Banker (≥70% Model Win Prob): Passes surface-specific Elo, 6-month Game-Win%, rest/turnaround, and closing-line steam gates.",
+    "top_8pct": "top_8pct — Elite Top 8% Football Quantitative Edge: Ranks in the top 8% of 7-factor composite scores across Big-5 & European leagues (>81% out-of-sample win rate, +18.9% ROI).",
+    "top_10pct": "top_10pct — Top 10% Football Quantitative Edge: High-conviction pick combining Market Prob, Low Vig, Shots-on-Target dominance, Discipline, H2H, Rebound Momentum & Low Draw rate.",
+    "top_15pct": "top_15pct — Top 15% Quantitative Edge: Strong multi-factor edge in Football or US Major Leagues (NBA/NFL/NHL) where Elo, box-score efficiency & market probability align.",
+    "top_25pct": "top_25pct — Top 25% Quantitative Edge: Upper-quartile model edge passing all sport-specific safety and positive-EV gates.",
+    "uefa_edge": "uefa_edge — UEFA Knockout / League-Phase Edge: Specialized European club tournament signal requiring positive Shots-on-Target dominance and rebound momentum.",
+    "high_conf": "high_conf — High-Confidence Multi-Sport Pick (≥68% Win Prob): Backed by Elo, rolling box-score efficiency (FG% / YPP / Save%), and session form.",
+    "solid": "solid — Solid Positive-EV Edge (≥58% Win Prob): Confirmed by goalie Save% & shot volume (NHL), yards-per-play (NFL), or shooting & possession security (NBA).",
+    "tracked_live": "tracked_live — User-Tracked Live Match: Ad-hoc live or upcoming match added manually via the Live Tracker input.",
+    "cross-sport banker ml": "Cross-Sport Banker ML: Uncorrelated 2-leg parlay pairing top moneyline bankers from two different sports or leagues.",
+    "double-chance / +1.5 sets shield": "Double-Chance / +1.5 Sets Shield: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap shields.",
+    "exact-score cluster parlay": "Exact-Score Cluster Parlay: High-payout 2-leg combo pairing Dixon-Coles exact-score or set-score clusters.",
+    "high-value ev parlay": "High-Value EV Parlay: 2-leg multiplier combining the highest positive Expected Value (+EV) edges of the day.",
+}
+
+FACTOR_TOOLTIPS: dict[str, str] = {
+    "p_mkt": "p_mkt — Vig-Free Market Implied Probability z-score: Baseline bookmaker consensus strength stripped of overround.",
+    "vig_neg": "vig_neg — Low Bookmaker Vig / Tight Market Spread: Higher values indicate sharper, lower-margin bookmaker pricing.",
+    "sot_d": "sot_d — Rolling Shots-on-Target (SoT) Dominance Differential: Measures true on-target attacking creation vs. suppression.",
+    "discipline": "discipline — Foul & Card Discipline Edge: Positive when the backed team commits fewer fouls/cards than the opponent.",
+    "h2h_adv": "h2h_adv — Head-to-Head (H2H) Historical Dominance: Goal and win margin across prior meetings between these two clubs.",
+    "dom_rebound": "dom_rebound — Dominance Rebound Signal: Positive when the team dominated shots-on-target in its previous match despite dropping points.",
+    "recent_draws": "recent_draws — Anti-Stalemate / Low-Draw Propensity: Positive when both teams rarely settle for low-event draws (negative values warn of stalemate draw traps).",
+}
+
+CLV_TOOLTIP = "Closing Line Value (CLV): Percentage edge between the bookmaker odds when BetScout logged the pick vs. the latest/closing market price (Logged Odds ÷ Close Odds − 1). Positive CLV proves you beat the closing market line."
+
+
+def _tier_tooltip(tier_str: str) -> str:
+    raw = str(tier_str or "").strip()
+    low = raw.lower()
+    if low in TIER_TOOLTIPS:
+        return TIER_TOOLTIPS[low]
+    if low.startswith("vetoed"):
+        return f"{raw} — Automatically filtered out by BetScout's pre-match safety gates (injury/lineup depletion, stalemate draw risk, or negative EV)."
+    if low == "paper_bet":
+        return "PAPER_BET — Verified pre-match model pick that passed all sport-specific safety gates and is actively tracked in the Paper-Bet Ledger."
+    return f"Model Conviction Tier / Market: {raw}"
+
+
 def build_best_bets_summary(
     rec: dict[str, Any],
     min_odds: float = 1.10,
@@ -738,8 +779,9 @@ def generate_dashboard_html(
         for k, v in factors.items():
             pct = min(max(abs(v) * 100.0, 4.0), 100.0)
             cls = "pos" if v >= 0 else "neg"
+            ftip = html.escape(FACTOR_TOOLTIPS.get(k, f"Standardized z-score factor: {k}"))
             items.append(
-                f'<div class="f-row"><span class="f-name">{html.escape(k)}</span>'
+                f'<div class="f-row" title="{ftip}"><span class="f-name">{html.escape(k)}</span>'
                 f'<div class="f-track"><div class="f-fill {cls}" style="width:{pct:.0f}%"></div></div>'
                 f'<span class="f-val {cls}">{v:+.2f}</span></div>'
             )
@@ -803,8 +845,8 @@ def generate_dashboard_html(
               <div class="card-head">
                 <div>
                   <span class="pill">{p_comp_logo}{html.escape(lg_label)}</span>
-                  <span class="pill tier">{html.escape(p['tier'])}</span>
-                  <span class="pill {badge_cls}">{html.escape(act)}</span>
+                  <span class="pill tier" title="{html.escape(_tier_tooltip(p['tier']))}">{html.escape(p['tier'])}</span>
+                  <span class="pill {badge_cls}" title="{html.escape(_tier_tooltip(act))}">{html.escape(act)}</span>
                   {live_pill}
                 </div>
                 <div class="score">Score: {_fmt_signed(float(p['score']), '+.4f')} · EV: {_fmt_signed(ev_pct, '+.1f', '%')} · <button type="button" class="btn-mini" title="Inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector({html.escape(json.dumps(p['home']))}, {html.escape(json.dumps(p['away']))}, {html.escape(json.dumps(p['league']))})">🔍 H2H</button> <button type="button" class="btn-mini" title="Open Exact-Score Investment Splitter for this match" onclick="selectMatchForDutching({p_match_plain_js})">🎲 Split €</button> <button type="button" class="btn-mini" title="Share this pick to Discord / Telegram" onclick="shareSinglePick({sh_match}, {sh_pick}, {sh_odds}, {sh_time}, 'soccer')">📣</button></div>
@@ -879,7 +921,7 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(t_comp_str)}"><span class="pill">{t_comp_img}{html.escape(tp['tour'])}</span> <span class="pill surf-{html.escape(tp['surface'])}">{html.escape(tp['surface'].upper())}</span> {html.escape(tp['tournament'])}</td>
               <td data-sort="{html.escape(tp['kickoff'])}">{_time_span(tp['kickoff'], time_valid=tp.get('time_valid'))}</td>
               <td data-sort="{html.escape(t_match_str)}">{t_match_html}</td>
-              <td data-sort="{html.escape(tp['pick'])}"><span class="matchup-inline">{t_pick_img}<b class="num-pos">{html.escape(tp['pick'])}</b> <span class="pill tier">{html.escape(tp['tier'])}</span></span></td>
+              <td data-sort="{html.escape(tp['pick'])}"><span class="matchup-inline">{t_pick_img}<b class="num-pos">{html.escape(tp['pick'])}</b> <span class="pill tier" title="{html.escape(_tier_tooltip(tp['tier']))}">{html.escape(tp['tier'])}</span></span></td>
               <td data-sort="{tp['win_prob']*100:.2f}"><b class="num-pos">{tp['win_prob']*100:.1f}%</b></td>
               <td data-sort="{sp_pred.get('straight_sets_prob', 0.0)*100:.2f}">{set_cell}</td>
               <td data-sort="{tp['min_fair_odds']:.3f}">{tp['min_fair_odds']:.2f}</td>
@@ -920,7 +962,7 @@ def generate_dashboard_html(
               <td data-sort="{html.escape(op_comp)}"><span class="pill">{op_comp_img}{html.escape(op_comp)}</span></td>
               <td data-sort="{html.escape(op['kickoff'])}">{_time_span(op['kickoff'], time_valid=op.get('time_valid'))}</td>
               <td data-sort="{html.escape(op_match)}">{op_match_html}</td>
-              <td data-sort="{html.escape(op['pick'])}"><span class="matchup-inline">{op_pick_img}<b class="num-pos">{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier">{html.escape(op['tier'])}</span></span></td>
+              <td data-sort="{html.escape(op['pick'])}"><span class="matchup-inline">{op_pick_img}<b class="num-pos">{html.escape(op['pick'])} ({html.escape(op['side'])})</b> <span class="pill tier" title="{html.escape(_tier_tooltip(op['tier']))}">{html.escape(op['tier'])}</span></span></td>
               <td data-sort="{op_win*100:.2f}"><b class="num-pos">{op_win*100:.1f}%</b> <span class="muted">(Mkt {op['p_mkt']*100:.1f}%)</span></td>
               <td data-sort="{op_fair:.3f}">{op_fair:.2f}</td>
               <td data-sort="{op['best_odds']:.3f}"><b>{op['best_odds']:.2f}</b></td>
@@ -1198,10 +1240,10 @@ def generate_dashboard_html(
             if b_clv >= 3.0
             else ""
         )
-        b_clv_html = f" (CLV {_fmt_signed(b_clv, '+.1f', '%')})"
+        b_clv_html = f' (<span class="tip-term" title="{html.escape(CLV_TOOLTIP)}">CLV {_fmt_signed(b_clv, "+.1f", "%")}</span>)'
         b_pick_name = html.escape(str(b.get("pick_name") or b["pick"].split("[", 1)[0].split("(Win", 1)[0].strip()))
         b_tier_str = str(b.get("tier") or "")
-        b_tier_pill = f' <span class="pill tier">{html.escape(b_tier_str)}</span>' if b_tier_str else ""
+        b_tier_pill = f' <span class="pill tier" title="{html.escape(_tier_tooltip(b_tier_str))}">{html.escape(b_tier_str)}</span>' if b_tier_str else ""
         b_is_tennis = b["sport_cat"] == "tennis"
         b_comp_img = _img_tag(b.get("competition_logo"), b_comp, "comp-logo")
         b_match_html = (
@@ -1215,12 +1257,12 @@ def generate_dashboard_html(
         b_pick_img = _img_tag(b.get("pick_logo"), b_pick_name, "player-avatar" if b_is_tennis else "team-logo", fallback_url=b.get("pick_flag"))
         b_ev_raw = max((b_win_pct / 100.0) * float(b["odds"]) - 1.0, 0.015)
         b_qk_pct = min(max(0.25 * (b_ev_raw / max(float(b["odds"]) - 1.0, 0.05)) * 100.0, 0.50), 2.50)
-        b_kelly_pill = f' <span class="pill badge-bet kelly-stake" data-kelly-pct="{b_qk_pct:.3f}" title="Recommended Quarter-Kelly Stake">{b_qk_pct:.2f}% (€{b_qk_pct * 10.0:.2f})</span>'
+        b_kelly_pill = f' <span class="pill badge-bet kelly-stake" data-kelly-pct="{b_qk_pct:.3f}" title="Quarter-Kelly Stake Sizing (¼-Kelly): Recommended bankroll allocation ({b_qk_pct:.2f}% = €{b_qk_pct * 10.0:.2f} on €1,000 bankroll) that maximizes compound growth while capping drawdown risk.">{b_qk_pct:.2f}% (€{b_qk_pct * 10.0:.2f})</span>'
         b_drv_esc = html.escape(str(b.get("mispricing_drivers") or ""))
         b_edge_v = float(b.get("edge_pp") or 0.0)
         b_ev_v = float(b.get("ev_pct") or 0.0)
         b_mp_pill = (
-            f' <span class="pill badge-bet" title="Unpriced Edge Drivers: {b_drv_esc}">💎 EDGE {b_edge_v:+.1f}pp (EV {b_ev_v:+.1f}%)</span>'
+            f' <span class="pill badge-bet" title="Bookmaker Odds Mispricing: BetScout model win probability exceeds the vig-free bookmaker probability by {b_edge_v:+.1f} percentage points ({b_ev_v:+.1f}% Expected Value). Drivers: {b_drv_esc}">💎 EDGE {b_edge_v:+.1f}pp (EV {b_ev_v:+.1f}%)</span>'
             if b.get("is_mispriced")
             else ""
         )
@@ -1302,9 +1344,9 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
-                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier" title="{html.escape(_tier_tooltip(tr['tier']))}">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(score_str)}"><b>{html.escape(score_str)}</b>{esc_badge}</td>
-                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
+                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (<span class="tip-term" title="{html.escape(CLV_TOOLTIP)}">CLV {_fmt_signed(clv_v, '+.1f', '%')}</span>)</td>
                   <td data-sort="{pnl_f:.3f}">{st_badge}{tr_share_btn}</td>
                 </tr>
                 """
@@ -1347,9 +1389,9 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True)}</td>
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
-                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier" title="{html.escape(_tier_tooltip(tr['tier']))}">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(l_sc_disp)}"><span class="event-stream-dot" data-event-key="{item_k_l}" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>{html.escape(l_sc_disp)}</b>{mom_badge}{esc_badge_l}</td>
-                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')})</td>
+                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, <span class="tip-term" title="{html.escape(CLV_TOOLTIP)}">CLV {_fmt_signed(clv_v, '+.1f', '%')}</span>)</td>
                   <td data-sort="{l_pnl_f:.3f}">{l_badge}{live_alert_btn}{tr_share_btn}{untrack_btn_html}</td>
                 </tr>
                 """
@@ -1375,10 +1417,10 @@ def generate_dashboard_html(
                   <td data-sort="{html.escape(lg_name)}"><span class="pill">{tr_comp_img}{html.escape(lg_name)}</span></td>
                   <td data-sort="{html.escape(tr['kickoff'])}">{_time_span(tr['kickoff'], bold=True, time_valid=tr.get('time_valid'))}</td>
                   <td data-sort="{html.escape(tr_match)}">{tr_match_html}</td>
-                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier">{html.escape(tr['tier'])}</span></span></td>
+                  <td data-sort="{html.escape(pick_team)}"><span class="matchup-inline">{tr_pick_img}<b class="num-pos">{html.escape(pick_team)} ({html.escape(tr['side'])})</b> <span class="pill tier" title="{html.escape(_tier_tooltip(tr['tier']))}">{html.escape(tr['tier'])}</span></span></td>
                   <td data-sort="{html.escape(esc_short or '—')}">{pend_score_cell}</td>
-                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, CLV {_fmt_signed(clv_v, '+.1f', '%')}){tr_steam_pill}</td>
-                  <td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>{tr_share_btn}</td>
+                  <td data-sort="{tr['logged_best_odds']:.3f}"><b>{tr['logged_best_odds']:.2f}</b> (Close {tr['latest_close_odds']:.2f}, <span class="tip-term" title="{html.escape(CLV_TOOLTIP)}">CLV {_fmt_signed(clv_v, '+.1f', '%')}</span>){tr_steam_pill}</td>
+                  <td data-sort="0.000"><span class="pill tier" title="Awaiting match completion and official result settlement.">PENDING (0.00u)</span>{tr_share_btn}</td>
                 </tr>
                 """
             )
@@ -1796,6 +1838,9 @@ def generate_dashboard_html(
   .kpi small b, .kpi small span {{ display: inline !important; font-size: inherit !important; margin: 0 !important; text-transform: none; letter-spacing: normal; }}
   .kpi b.pos, .num-pos {{ color: var(--green) !important; }}
   .kpi b.neg, .num-neg {{ color: var(--red) !important; }}
+  .tip-term, .pill[title], .f-row[title] {{ cursor: help; }}
+  .tip-term {{ border-bottom: 1px dotted rgba(148, 163, 184, 0.55); }}
+  #bsFloatingTooltip {{ position: fixed; z-index: 99999; pointer-events: none; display: none; max-width: 340px; background: rgba(11, 15, 23, 0.97); color: #f1f5f9; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 11px; font-size: 11.5px; line-height: 1.42; font-weight: 500; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(56, 189, 248, 0.22); backdrop-filter: blur(8px); }}
   .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }}
   .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }}
   .card-veto {{ border-color: #7f1d1d; opacity: 0.88; }}
@@ -2313,30 +2358,30 @@ def generate_dashboard_html(
   </div>
 
   <section class="kpi-grid" style="grid-template-columns: repeat(5, minmax(175px, 1fr)); margin-bottom: 12px;">
-    <div class="kpi">
+    <div class="kpi" title="Settled Win Rate &amp; Exact-Score Accuracy across all graded paper-bets in the prospective ledger.">
       <span>Settled Win Rate</span>
       <b id="kpiSettledRecord"><span class="num-pos">{settled_wins_n}W</span> – <span class="{'num-neg' if settled_losses_n > 0 else ''}">{settled_losses_n}L</span> (<span class="num-pos">{settled_win_rate_pct:.1f}%</span>)</b>
-      <small class="muted" style="font-size:10.5px;">{settled_count_n} Graded · Score Hits: {esc_hits_kpi}/{esc_graded_kpi} ({esc_rate_kpi:.0f}%)</small>
+      <small class="muted" style="font-size:10.5px;">{settled_count_n} Graded · <span class="tip-term" title="Exact Score / Cluster Hit Rate: Share of graded matches where the final score landed inside BetScout's pre-match projected exact-score or set-score cluster.">Score Hits: {esc_hits_kpi}/{esc_graded_kpi} ({esc_rate_kpi:.0f}%)</span></small>
     </div>
-    <div class="kpi">
+    <div class="kpi" title="Realized Flat-Unit Profit (1.00u per pick) and Return on Investment (ROI%) across all settled bets.">
       <span>Realized Profit / ROI</span>
       <b class="{'pos' if settled_profit_u >= 0 else 'neg'}" id="kpiRealizedProfit">{settled_profit_u:+.2f}u ({settled_roi_pct:+.1f}%)</b>
-      <small class="muted" style="font-size:10.5px;">¼-Kelly: {_fmt_signed(float(ledger.get('kelly_growth_pct') or 0.0), '+.2f', '%')} · CLV: {_fmt_signed(mean_clv, '+.2f', '%')}</small>
+      <small class="muted" style="font-size:10.5px;"><span class="tip-term" title="Quarter-Kelly Bankroll Growth (¼-Kelly): Compounded percentage bankroll growth using optimal ¼-Kelly fractional staking.">¼-Kelly: {_fmt_signed(float(ledger.get('kelly_growth_pct') or 0.0), '+.2f', '%')}</span> · <span class="tip-term" title="{html.escape(CLV_TOOLTIP)}">CLV: {_fmt_signed(mean_clv, '+.2f', '%')}</span></small>
     </div>
-    <div class="kpi">
+    <div class="kpi" title="Total Upcoming &amp; Live Qualifying Picks passing all sport-specific safety gates.">
       <span>Total Active Picks</span>
       <b class="pos" id="kpiTotalActive">{total_active_picks_n} Picks</b>
       <small class="muted" id="kpiTotalActiveBreakdown" style="font-size:10.5px;" title="{html.escape(active_sports_breakdown_str)}">{active_sports_breakdown_str}</small>
     </div>
-    <div class="kpi">
+    <div class="kpi" title="Currently in-play matches (streaming every 6s via Sportradar) and pending pre-match bets in the ledger.">
       <span>Live &amp; Pending Ledger</span>
       <b id="kpiLivePending"><span class="{'num-pos' if live_inplay_n > 0 else ''}">🔴 {live_inplay_n} Live</span> · ⏳ {pending_ledger_n}</b>
-      <small class="muted" style="font-size:10.5px;">{len(doubles_list)} Combos · <span class="{'num-neg' if vetoed_bets > 0 else ''}">🛡️ {vetoed_bets} Vetoes</span></small>
+      <small class="muted" style="font-size:10.5px;"><span class="tip-term" title="Active 2-Leg High-Probability Parlays / Combos.">🔗 {len(doubles_list)} Combos</span> · <span class="tip-term {'num-neg' if vetoed_bets > 0 else ''}" title="Safety Vetoes: Matches automatically filtered out by BetScout's pre-match injury, stalemate-draw, rust, or line-drift gates.">🛡️ {vetoed_bets} Vetoes</span></small>
     </div>
-    <div class="kpi">
+    <div class="kpi" title="Number of picks currently visible after applying your Sport, Day, Min Odds, and Search filters.">
       <span>Filtered Best Bets (&gt;{min_odds:.2f})</span>
       <b id="visibleBestBetsKpi" class="pos">{len(best_bets)}</b>
-      <small class="muted" style="font-size:10.5px;">💎 {len(mispriced_rows)} Mispriced · {total_matches:,} Matches</small>
+      <small class="muted" style="font-size:10.5px;"><span class="tip-term" title="Bookmaker Odds Mispricings: Matches where BetScout's model win probability exceeds the bookmaker's vig-free probability by ≥ +2.0pp and ≥ +2.0% EV.">💎 {len(mispriced_rows)} Mispriced</span> · {total_matches:,} Matches</small>
     </div>
   </section>
 
@@ -4429,7 +4474,7 @@ def generate_dashboard_html(
         const aArg = escHtml(JSON.stringify(tr.away || ''));
         const lgArg = escHtml(JSON.stringify(tr.league || ''));
         const matchRichHtml = '<span class="matchup-inline matchup-clickable" title="Click to inspect H2H, Last-6 Form &amp; Score Matrix" onclick="openMatchupInspector(' + hArg + ', ' + aArg + ', ' + lgArg + ')">' + hLogoHtml + '<span>' + escHtml(tr.home) + '</span><span class="muted">vs</span>' + aLogoHtml + '<span>' + escHtml(tr.away) + '</span></span>';
-        const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier">' + escHtml(tr.tier) + '</span></span>';
+        const pickRichHtml = '<span class="matchup-inline">' + pLogoHtml + '<b class="num-pos">' + escHtml(pickTeam) + ' (' + escHtml(tr.side) + ')</b> <span class="pill tier" title="' + escHtml(getBadgeTooltipText(tr.tier)) + '">' + escHtml(tr.tier) + '</span></span>';
         const escPredRaw = String(tr.exact_score_pred || '');
         const escShort = escPredRaw ? escPredRaw.split('(')[0].trim() : '';
         const shMatchArg = escHtml(JSON.stringify(matchStr));
@@ -4440,6 +4485,7 @@ def generate_dashboard_html(
         const shAnnArg = escHtml(JSON.stringify(tr.announced_local || ''));
         const shEndArg = escHtml(JSON.stringify(tr.status === 'SETTLED' ? (tr.ended_local || '') : ''));
         const shareBtnHtml = ' <button type="button" class="btn-mini" title="Share this event + PNG Card to Discord / Telegram" onclick="shareSinglePick(' + shMatchArg + ', ' + shPickArg + ', ' + shOddsArg + ', ' + shTimeArg + ', ' + shCatArg + ', ' + shAnnArg + ', ' + shEndArg + ')">📣</button>';
+        const clvTipAttr = ' title="Closing Line Value (CLV): Percentage edge between the bookmaker odds when BetScout logged the pick vs. the latest/closing market price (Logged Odds ÷ Close Odds − 1)."';
         if (tr.status === 'SETTLED' && tr.pnl_best !== null && tr.pnl_best !== undefined) {{
           const pnl = Number(tr.pnl_best);
           const badge = pnl > 0
@@ -4453,7 +4499,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(tr.score_str || '—') + '"><b>' + escHtml(tr.score_str || '—') + '</b></td>' +
-              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
+              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (<span class="tip-term"' + clvTipAttr + '>CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + '</span>)</td>' +
               '<td data-sort="' + pnl.toFixed(3) + '">' + badge + shareBtnHtml + '</td>' +
             '</tr>'
           );
@@ -4494,7 +4540,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(lSc) + '"><span class="event-stream-dot' + pulseCls + '" data-event-key="' + escHtml(itemKey) + '" title="Live In-Play Stream Active (pulses when score or odds update)"></span><b>' + escHtml(lSc) + '</b>' + momBadgeHtml + '</td>' +
-              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + ')</td>' +
+              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', <span class="tip-term"' + clvTipAttr + '>CLV ' + fmtSignedHtml(tr.clv_pct || 0, 1, '%') + '</span>)</td>' +
               '<td data-sort="' + lPnl.toFixed(3) + '">' + lBadge + itemBtnHtml + shareBtnHtml + untrackBtnHtml + '</td>' +
             '</tr>'
           );
@@ -4516,7 +4562,7 @@ def generate_dashboard_html(
               '<td data-sort="' + escHtml(matchStr) + '">' + matchRichHtml + '</td>' +
               '<td data-sort="' + escHtml(pickTeam) + '">' + pickRichHtml + '</td>' +
               '<td data-sort="' + escHtml(escShort || '—') + '">' + pendScCell + '</td>' +
-              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', CLV ' + fmtSignedHtml(clvNum, 1, '%') + ')' + steamPillHtml + '</td>' +
+              '<td data-sort="' + o.toFixed(3) + '"><b>' + o.toFixed(2) + '</b> (Close ' + closeO.toFixed(2) + ', <span class="tip-term"' + clvTipAttr + '>CLV ' + fmtSignedHtml(clvNum, 1, '%') + '</span>)' + steamPillHtml + '</td>' +
               '<td data-sort="0.000"><span class="pill tier">PENDING (0.00u)</span>' + shareBtnHtml + '</td>' +
             '</tr>'
           );
@@ -5281,8 +5327,86 @@ def generate_dashboard_html(
       }}, 300000);
     }}
 
+    const BADGE_TOOLTIPS_JS = {{
+      banker_70pct: 'banker_70pct — High-Conviction Tennis / Euro-Sport Banker (≥70% Model Win Prob): Passes surface-specific Elo, 6-month Game-Win%, rest/turnaround, and closing-line steam gates.',
+      top_8pct: 'top_8pct — Elite Top 8% Football Quantitative Edge: Ranks in the top 8% of 7-factor composite scores across Big-5 & European leagues (>81% out-of-sample win rate, +18.9% ROI).',
+      top_10pct: 'top_10pct — Top 10% Football Quantitative Edge: High-conviction pick combining Market Prob, Low Vig, Shots-on-Target dominance, Discipline, H2H, Rebound Momentum & Low Draw rate.',
+      top_15pct: 'top_15pct — Top 15% Quantitative Edge: Strong multi-factor edge in Football or US Major Leagues (NBA/NFL/NHL) where Elo, box-score efficiency & market probability align.',
+      top_25pct: 'top_25pct — Top 25% Quantitative Edge: Upper-quartile model edge passing all sport-specific safety and positive-EV gates.',
+      uefa_edge: 'uefa_edge — UEFA Knockout / League-Phase Edge: Specialized European club tournament signal requiring positive Shots-on-Target dominance and rebound momentum.',
+      high_conf: 'high_conf — High-Confidence Multi-Sport Pick (≥68% Win Prob): Backed by Elo, rolling box-score efficiency (FG% / YPP / Save%), and session form.',
+      solid: 'solid — Solid Positive-EV Edge (≥58% Win Prob): Confirmed by goalie Save% & shot volume (NHL), yards-per-play (NFL), or shooting & possession security (NBA).',
+      tracked_live: 'tracked_live — User-Tracked Live Match: Ad-hoc live or upcoming match added manually via the Live Tracker input.'
+    }};
+
+    function getBadgeTooltipText(rawLabel) {{
+      const s = String(rawLabel || '').trim();
+      const low = s.toLowerCase();
+      if (BADGE_TOOLTIPS_JS[low]) return BADGE_TOOLTIPS_JS[low];
+      if (low.includes('steam')) return 'Sharp Closing-Line Steam Move (CLV ≥ +3.0%): Bookmaker odds have shortened significantly since BetScout logged this pick, confirming sharp money on our side.';
+      if (low.includes('edge') || low.includes('mispriced')) return 'Bookmaker Odds Mispricing: BetScout calibrated win probability exceeds the bookmaker vig-free implied probability by ≥ +2.0pp with ≥ +2.0% Expected Value.';
+      if (low.includes('rebound')) return 'Live In-Play Dominance Rebound Signal: Backed favorite is level or trailing despite dominating live Shots on Target (SoT) and ball possession.';
+      if (low.includes('late goal') || low.includes('1h goal')) return 'Live Goal-Timing Window Alert: High historical 15-minute goal scoring/conceding rate combined with active in-play attacking pressure.';
+      if (low.startsWith('vetoed')) return s + ' — Automatically filtered out by BetScout pre-match safety gates.';
+      if (low === 'paper_bet') return 'PAPER_BET — Verified pre-match model pick actively tracked in the Paper-Bet Ledger.';
+      if (low.includes('cross-sport banker')) return 'Cross-Sport Banker ML: Uncorrelated 2-leg parlay pairing top moneyline bankers from two different sports or leagues.';
+      if (low.includes('double-chance') || low.includes('+1.5 sets')) return 'Double-Chance / +1.5 Sets Shield: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap shields.';
+      if (low.includes('cluster')) return 'Exact-Score Cluster Parlay: High-payout 2-leg combo pairing Dixon-Coles exact-score or set-score clusters.';
+      return '';
+    }}
+
+    function initFloatingTooltips() {{
+      let tipEl = document.getElementById('bsFloatingTooltip');
+      if (!tipEl) {{
+        tipEl = document.createElement('div');
+        tipEl.id = 'bsFloatingTooltip';
+        document.body.appendChild(tipEl);
+      }}
+      document.addEventListener('mouseover', (e) => {{
+        const target = e.target.closest('[data-tip], [title], .pill');
+        if (!target) {{
+          tipEl.style.display = 'none';
+          return;
+        }}
+        let msg = target.getAttribute('data-tip') || '';
+        if (!msg && target.hasAttribute('title')) {{
+          msg = target.getAttribute('title') || '';
+          if (msg) {{
+            target.setAttribute('data-tip', msg);
+            target.removeAttribute('title');
+          }}
+        }}
+        if (!msg && target.classList.contains('pill')) {{
+          msg = getBadgeTooltipText(target.textContent);
+          if (msg) target.setAttribute('data-tip', msg);
+        }}
+        if (!msg) {{
+          tipEl.style.display = 'none';
+          return;
+        }}
+        tipEl.textContent = msg;
+        tipEl.style.display = 'block';
+        const rect = target.getBoundingClientRect();
+        const tipRect = tipEl.getBoundingClientRect();
+        let top = rect.top - tipRect.height - 8;
+        if (top < 8) top = rect.bottom + 8;
+        let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+        left = Math.max(8, Math.min(window.innerWidth - tipRect.width - 8, left));
+        tipEl.style.top = Math.round(top) + 'px';
+        tipEl.style.left = Math.round(left) + 'px';
+      }});
+      document.addEventListener('mouseout', (e) => {{
+        const related = e.relatedTarget;
+        if (!related || !related.closest || !related.closest('[data-tip], [title], .pill')) {{
+          tipEl.style.display = 'none';
+        }}
+      }});
+      window.addEventListener('scroll', () => {{ tipEl.style.display = 'none'; }}, {{ passive: true }});
+    }}
+
     initLiveEventStream();
     initPwaAndVersionWatcher();
+    initFloatingTooltips();
     restoreSlipPrefsFromStorage();
     buildSmartBetPlan();
     populateDutchMatchSelect();
