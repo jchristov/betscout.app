@@ -1981,16 +1981,23 @@ def generate_dashboard_html(
         </div>
       </div>
       <div class="header-actions-row">
-        <div class="btn-group" style="align-items:center;">
+        <div class="btn-group" id="adminLeftActionsGroup" style="align-items:center; {'display:none;' if role == 'free' else ''}">
           <button id="syncLedgerBtn" class="btn-export btn-primary js-action-btn" type="button" onclick="syncAndSettleLedger(false)" title="Sync &amp; grade finished or in-play matches">🔄 Sync &amp; Settle</button>
           <button id="rescanLiveBtn" class="btn-export js-action-btn" type="button" onclick="syncAndSettleLedger(true)" title="Rescan live &amp; upcoming matches and odds">⚡ Rescan Live</button>
           <button id="runFullPipelineBtn" class="btn-export js-action-btn" type="button" onclick="runFullDailyPipeline()" title="Run full 4-stage ingestion, quality &amp; model pipeline">🚀 Full Pipeline</button>
         </div>
+        <div id="guestAccessBanner" style="display:{'inline-flex' if role == 'free' else 'none'}; align-items:center; gap:8px; flex-wrap:wrap; background:rgba(56, 189, 248, 0.08); border:1px solid rgba(56, 189, 248, 0.32); border-radius:8px; padding:4px 10px; font-size:11.5px;">
+          <span class="pill tier" id="guestRolePill" style="margin:0;">🔒 GUEST PREVIEW</span>
+          <span id="guestAccessText" style="color:var(--text);">Active picks, exact-score targets &amp; 2-leg combos are reserved for <b>BetScout Pro</b> members.</span>
+          <a href="javascript:void(0)" onclick="triggerFirebaseSignInOut()" style="color:var(--accent); font-weight:700; text-decoration:none;">Sign In</a>
+          <span class="muted">·</span>
+          <a id="guestUpgradeLink" href="mailto:julian.christov@gmail.com?subject=BetScout%20Pro%20%26%20API%20Access" style="color:var(--green); font-weight:700; text-decoration:none;">🚀 Get Pro / API Access &rarr;</a>
+        </div>
         <div class="btn-group" style="align-items:center; margin-left:auto; justify-content:flex-end;">
           <button id="firebaseAuthBtn" class="btn-export" type="button" style="display:none;" onclick="triggerFirebaseSignInOut()" title="Sign in with Google (Firebase Auth) for Admin Controls">🔐 Admin Sign In</button>
           <button id="pwaInstallBtn" class="btn-export btn-primary" type="button" style="display:none;" onclick="triggerPwaInstall()" title="Install BetScout as a standalone app on this device">📲 Install App</button>
-          <button id="inplayAlertsToggleBtn" class="btn-export" type="button" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
-          <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
+          <button id="inplayAlertsToggleBtn" class="btn-export" type="button" style="{'display:none;' if role == 'free' else ''}" onclick="toggleInplayDiscordAlerts()" title="Toggle automated Discord push alerts for Live In-Play Dominance / Set-1 Rebound edges (Default: OFF)">🔕 Live Alerts: OFF</button>
+          <button id="topTelegramBtn" class="btn-export btn-telegram" type="button" style="{'display:none;' if role == 'free' else ''}" onclick="openTelegramPanel()" title="Open Share Pick &amp; Notification Publisher">💬 Share Picks</button>
           <button id="topSettingsBtn" class="btn-export" type="button" onclick="openSettingsModal()" title="Open BetScout Settings &amp; Per-Sport Discord Webhooks">⚙️ Settings</button>
         </div>
       </div>
@@ -4659,6 +4666,21 @@ def generate_dashboard_html(
     function updateFirebaseAuthUi() {{
       const btn = document.getElementById('firebaseAuthBtn');
       const isAdm = Boolean(currentIsAdmin);
+      const leftGrp = document.getElementById('adminLeftActionsGroup');
+      if (leftGrp) leftGrp.style.display = isAdm ? 'flex' : 'none';
+      const guestBanner = document.getElementById('guestAccessBanner');
+      if (guestBanner) {{
+        guestBanner.style.display = isAdm ? 'none' : 'inline-flex';
+        const gPill = document.getElementById('guestRolePill');
+        const gTxt = document.getElementById('guestAccessText');
+        if (currentFirebaseUserEmail && !isAdm) {{
+          if (gPill) {{ gPill.className = 'pill badge-bet'; gPill.textContent = '🔓 PRO READ-ONLY'; }}
+          if (gTxt) gTxt.innerHTML = 'Signed in as <b>' + escHtml(currentFirebaseUserEmail) + '</b> · Real-time picks, exact-score targets &amp; live SSE feed active.';
+        }} else if (!isAdm) {{
+          if (gPill) {{ gPill.className = 'pill tier'; gPill.textContent = '🔒 GUEST PREVIEW'; }}
+          if (gTxt) gTxt.innerHTML = 'Active picks, exact-score targets &amp; 2-leg combos are reserved for <b>BetScout Pro</b> members.';
+        }}
+      }}
       // Hide server-mutating admin controls when a non-admin (read-only Pro or Free) user is viewing the cloud app
       ['syncLedgerBtn', 'rescanLiveBtn', 'runFullPipelineBtn', 'inplayAlertsToggleBtn', 'topTelegramBtn', 'syncLedgerTableBtn', 'settingsAdminMonetizationBlock', 'settingsAdminWebhooksBlock'].forEach(id => {{
         const el = document.getElementById(id);
