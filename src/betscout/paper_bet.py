@@ -742,13 +742,13 @@ def _strip_accents(s: str) -> str:
 
 def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str, Any]:
     """Live scoreboard, point-by-point `gamescore`, & completed result lookup via Sportradar's 3-second
-    `match_timelinedelta` stream (primary) with SofaScore fallback for ATP/WTA Qualifying matches."""
+    `match_timelinedelta` stream (primary) with SofaScore strictly as a last-resort fallback when Sportradar has no entry."""
     try:
         from .sportradar_statshub import fetch_live_match_timelinedelta
 
         sr_live = fetch_live_match_timelinedelta(player_1, player_2, sport="tennis")
-        if sr_live and sr_live.get("state") in ("in", "post"):
-            return sr_live
+        if sr_live and sr_live.get("state") in ("pre", "in", "post"):
+            return sr_live if sr_live.get("state") in ("in", "post") else {}
     except Exception:
         pass
     p1_last = _strip_accents(player_1.split()[-1])
@@ -773,10 +773,17 @@ def _fetch_sofascore_tennis_live_state(player_1: str, player_2: str) -> dict[str
             continue
         ev_data = _fetch_live_json(f"https://api.sofascore.com/api/v1/event/{eid}", ttl_sec=45.0)
         ev = ev_data.get("event") or ent
+        start_ts = int(ev.get("startTimestamp") or ent.get("startTimestamp") or 0)
+        now_ts = time.time()
+        # Never match historical H2H meetings from previous tournaments/years: require startTimestamp within 24h of now
+        if not start_ts or abs(now_ts - start_ts) > 86400:
+            continue
         st_obj = ev.get("status") or {}
         st_type = str(st_obj.get("type") or "")
         st_desc = str(st_obj.get("description") or "LIVE")
         if st_type not in ("inprogress", "finished"):
+            continue
+        if st_type == "finished" and now_ts < (start_ts + 1800):
             continue
         hs_obj = (ev.get("awayScore") if flipped else ev.get("homeScore")) or {}
         as_obj = (ev.get("homeScore") if flipped else ev.get("awayScore")) or {}
@@ -833,7 +840,7 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | N
         "p1_last_tourn": None, "p2_last_tourn": None, "p1_rest_hours": None, "p2_rest_hours": None,
     }
     try:
-        from .sportradar_statshub import lookup_sportradar_daily_odds
+        from .sportradar_statshub import fetch_statshub_gismo, lookup_sportradar_daily_odds
 
         sr_t = lookup_sportradar_daily_odds(player_1, player_2, sport="tennis", date_ymd=date_ymd_dash)
         if sr_t.get("odds_home") and sr_t.get("odds_away"):
@@ -847,6 +854,37 @@ def _fetch_sofascore_tennis_odds(player_1: str, player_2: str, date_ymd: str | N
                 empty["odds_under"] = sr_t.get("odds_under")
             if sr_t.get("start_utc"):
                 empty["start_utc"] = sr_t["start_utc"]
+            ref_uts = int(sr_t.get("start_uts") or datetime.now(timezone.utc).timestamp())
+            for key_lbl, t_lbl, r_lbl, uid_v in (
+                ("p1_last5_win_rate", "p1_last_tourn", "p1_rest_hours", sr_t.get("home_uid")),
+                ("p2_last5_win_rate", "p2_last_tourn", "p2_rest_hours", sr_t.get("away_uid")),
+            ):
+                if uid_v:
+                    lx = fetch_statshub_gismo(f"stats_team_lastx/{uid_v}/6", ttl_sec=1800.0) or {}
+                    prev_ms = [
+                        m_x for m_x in (lx.get("matches") or [])
+                        if int(((m_x.get("time") or {}).get("uts")) or 0) < ref_uts
+                        and (m_x.get("result") or {}).get("winner") in ("home", "away")
+                    ][:5]
+                    if len(prev_ms) >= 3:
+                        w_cnt = sum(
+                            1 for m_x in prev_ms
+                            if (
+                                str(((m_x.get("teams") or {}).get("home") or {}).get("uid")) == str(uid_v)
+                                and (m_x.get("result") or {}).get("winner") == "home"
+                            )
+                            or (
+                                str(((m_x.get("teams") or {}).get("away") or {}).get("uid")) == str(uid_v)
+                                and (m_x.get("result") or {}).get("winner") == "away"
+                            )
+                        )
+                        empty[key_lbl] = round(w_cnt / len(prev_ms), 3)
+                    if prev_ms:
+                        last_uts = int(((prev_ms[0].get("time") or {}).get("uts")) or 0)
+                        if last_uts > 0 and ref_uts > last_uts:
+                            empty[r_lbl] = round((ref_uts - last_uts) / 3600.0, 1)
+            # Sportradar resolved odds, start_utc, and Last-5 form/rest — return directly without querying SofaScore!
+            return empty
     except Exception:
         pass
     p1_last = _strip_accents(player_1.split()[-1])
@@ -1210,13 +1248,16 @@ def settle_pending_paper_bets(db_path: Path) -> int:
         if (outcome is None or score_str is None or needs_tennis_detail or needs_logos) and (row["kickoff"] < now_iso or is_unconfirmed_time or needs_logos or (was_pending and lg.lower() in ("atp", "wta"))):
             sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
             sp = sport_map.get(lg.lower(), "soccer")
-            # Primary fast Sportradar live/completed result check across all sports
-            if outcome is None and row["kickoff"] <= now_iso:
+            # Primary fast Sportradar live/completed/pre-match check across all sports
+            sr_found = False
+            if outcome is None:
                 try:
                     from .sportradar_statshub import fetch_live_match_timelinedelta
 
                     sr_sp = lg.lower() if (str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma")) else sp
                     sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=sr_sp, date_ymd=row["kickoff"][:10])
+                    if sr_delta.get("state") in ("pre", "in", "post"):
+                        sr_found = True
                     if sr_delta.get("state") == "post" and sr_delta.get("outcome") in ("H", "D", "A"):
                         outcome = sr_delta["outcome"]
                         score_str = sr_delta.get("score_str") or score_str
@@ -1230,12 +1271,24 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (l_sc, l_pnl, now_iso, lg, eid),
                         )
+                    elif sr_delta.get("state") == "pre" and was_pending:
+                        sr_ko = sr_delta.get("start_utc") or ""
+                        if sr_ko and (sr_ko != row["kickoff"] or int(row_t_valid) == 0):
+                            conn.execute(
+                                "UPDATE paper_bets SET kickoff = ?, time_valid = 1, is_live = 0, live_score = NULL, live_pnl = NULL, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (sr_ko, now_iso, lg, eid),
+                            )
+                        elif row["is_live"]:
+                            conn.execute(
+                                "UPDATE paper_bets SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (lg, eid),
+                            )
                 except Exception:
                     pass
             if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
                 pass
-            elif outcome is not None and score_str and not needs_logos:
-                # Sportradar already resolved final outcome and score_str; skip slower ESPN fallback
+            elif sr_found and not needs_logos:
+                # Sportradar already resolved pre/live/post state for this match; skip ESPN/SofaScore fallback entirely
                 pass
             elif sp != "tennis":
                 s_url = f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}"
@@ -1254,12 +1307,15 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     new_ko = c0.get("date") or ""
                     c0_st = (c0.get("status") or {}).get("type") or {}
                     c0_tv = 1 if (c0.get("timeValid") is not False and str(c0_st.get("shortDetail") or "").upper() != "TBD") else 0
-                    if was_pending and new_ko and (new_ko != row["kickoff"] or c0_tv != int(row_t_valid)):
+                    if sr_found:
+                        # Sportradar owns state/score/kickoff; only used ESPN above for team/comp logos
+                        pass
+                    elif was_pending and new_ko and (new_ko != row["kickoff"] or c0_tv != int(row_t_valid)):
                         conn.execute(
                             "UPDATE paper_bets SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (new_ko, c0_tv, now_iso, lg, eid),
                         )
-                    if c0_st.get("completed"):
+                    if not sr_found and c0_st.get("completed"):
                         h_c = _competitor(c0, "home")
                         a_c = _competitor(c0, "away")
                         if h_c and a_c:
@@ -1267,7 +1323,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             outcome = _outcome(hs, as_)
                             if hs is not None and as_ is not None:
                                 score_str = f"{int(hs)}-{int(as_)}"
-                    elif c0_st.get("state") == "in" and was_pending:
+                    elif not sr_found and c0_st.get("state") == "in" and was_pending:
                         h_c = _competitor(c0, "home")
                         a_c = _competitor(c0, "away")
                         if h_c and a_c:
@@ -1299,7 +1355,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                 "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                 (l_sc, l_pnl, mom_json, now_iso, lg, eid),
                             )
-                    elif was_pending and row["is_live"]:
+                    elif not sr_found and was_pending and row["is_live"]:
                         conn.execute(
                             "UPDATE paper_bets SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (lg, eid),
@@ -1333,6 +1389,9 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                             (lg, eid),
                                         )
                                         continue
+                                if sr_found:
+                                    # Sportradar already resolved state/score/kickoff; only used ESPN above for player/country logos
+                                    continue
                                 new_ko = comp.get("date") or ""
                                 c_st = (comp.get("status") or {}).get("type") or {}
                                 c_tv = 1 if (comp.get("timeValid") is not False and str(c_st.get("shortDetail") or "").upper() != "TBD" and not new_ko.endswith("T04:00Z")) else 0
@@ -1386,8 +1445,8 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                             "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                             (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
                                         )
-                                elif c_st.get("state") == "pre" and was_pending and row["kickoff"] <= now_iso:
-                                    # Fallback to SofaScore live score when ESPN leaves Qualifying matches in state == 'pre' during live play
+                                elif c_st.get("state") == "pre" and was_pending and row["kickoff"] <= now_iso and not sr_found:
+                                    # Last-resort fallback to SofaScore live score ONLY when neither Sportradar nor ESPN has live state
                                     sf_live = _fetch_sofascore_tennis_live_state(row["home"], row["away"])
                                     if sf_live.get("state") == "post" and sf_live.get("outcome") in ("H", "A"):
                                         outcome = sf_live["outcome"]

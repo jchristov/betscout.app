@@ -556,9 +556,15 @@ def lookup_sportradar_daily_odds(
         if dt_uts
         else None
     )
+    teams_m = matched_m.get("teams") or {}
+    h_team_m = teams_m.get("away" if flipped else "home") or {}
+    a_team_m = teams_m.get("home" if flipped else "away") or {}
     return {
         "sr_match_id": mid,
         "start_utc": start_utc,
+        "start_uts": int(dt_uts) if dt_uts else None,
+        "home_uid": h_team_m.get("uid") or h_team_m.get("_id"),
+        "away_uid": a_team_m.get("uid") or a_team_m.get("_id"),
         "odds_home": merged.get("odds_home"),
         "odds_draw": merged.get("odds_draw"),
         "odds_away": merged.get("odds_away"),
@@ -1047,8 +1053,24 @@ def fetch_live_match_timelinedelta(
     st_obj = m.get("status") or {}
     st_id = int(st_obj.get("_id") or 0)
     st_name = str(st_obj.get("name") or st_obj.get("shortName") or "LIVE")
-    if st_id in (0, 60, 61, 70):  # not_started / postponed / delayed / cancelled
+    dt_uts_m = ((m.get("_dt") or matched_m.get("_dt") or {}).get("uts")) or 0
+    start_utc_m = (
+        datetime.fromtimestamp(int(dt_uts_m), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+        if dt_uts_m
+        else None
+    )
+    if st_id == 70:  # cancelled
         return {}
+    if st_id in (0, 60, 61):  # not_started / postponed / delayed
+        return {
+            "sr_match_id": mid,
+            "sr_season_id": matched_m.get("_seasonid"),
+            "status_id": st_id,
+            "state": "pre",
+            "status_desc": st_name,
+            "start_utc": start_utc_m,
+            "outcome": None,
+        }
 
     is_finished = st_id in (91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 110, 111, 120)
     res_obj = m.get("result") or {}
@@ -1056,7 +1078,15 @@ def fetch_live_match_timelinedelta(
     raw_a = res_obj.get("home" if flipped else "away")
     # Status 22 = "About to start" (players not yet playing points; result is None). Treat as pre-match ('pre') until first point/game starts!
     if st_id == 22 and raw_h is None and raw_a is None and not m.get("periods"):
-        return {}
+        return {
+            "sr_match_id": mid,
+            "sr_season_id": matched_m.get("_seasonid"),
+            "status_id": st_id,
+            "state": "pre",
+            "status_desc": st_name,
+            "start_utc": start_utc_m,
+            "outcome": None,
+        }
     h_main = int(raw_h) if raw_h is not None else 0
     a_main = int(raw_a) if raw_a is not None else 0
 
