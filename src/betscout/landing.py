@@ -1,4 +1,4 @@
-"""Sleek Marketing, Track-Record & Subscription Pricing Landing Page for `betscout-ai.com` and `betscout.vip`."""
+"""High-End Institutional Quantitative Landing & Subscription Page for `betscout.vip` and `betscout-ai.com`."""
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ def render_landing_page_html(
     rec_path: Path | None = None,
     app_url: str = "https://betscout.app",
 ) -> str:
-    """Render the high-conversion dark-mode marketing & subscription landing page for `betscout-ai.com` and `betscout.vip`."""
+    """Render a pixel-perfect, institutional-grade dark-mode landing & pricing page for `betscout.vip` and `betscout-ai.com`."""
     total_matches = 59062
-    settled_wins = 54
+    settled_wins = 55
     settled_losses = 2
-    settled_count = 56
-    win_rate_pct = 96.4
+    settled_count = 57
+    win_rate_pct = 96.5
     profit_u = 19.80
     roi_pct = 35.4
     kelly_growth_pct = 27.25
@@ -51,7 +51,7 @@ def render_landing_page_html(
         except Exception:
             pass
 
-    teaser_pick_html = ""
+    teaser_section_html = ""
     if rec_path and rec_path.exists():
         try:
             from .dashboard import build_best_bets_summary
@@ -65,31 +65,50 @@ def render_landing_page_html(
                 t_comp = html.escape(str(t0.get("competition") or t0.get("sport_league") or "Featured Edge"))
                 t_match = html.escape(str(t0.get("match") or ""))
                 t_pick = html.escape(str(t0.get("pick_name") or t0.get("pick") or ""))
-                t_odds = html.escape(str(t0.get("odds_display") or f"{float(t0.get('odds') or 1.3):.2f}"))
+                t_odds_raw = str(t0.get("odds_display") or f"{float(t0.get('odds') or 1.3):.2f}")
+                t_odds_main = html.escape(t_odds_raw.split("(")[0].strip() or t_odds_raw)
+                t_odds_sub = html.escape(t_odds_raw[t_odds_raw.find("(") + 1 : -1].strip()) if "(" in t_odds_raw and t_odds_raw.endswith(")") else "Verified Market Line"
                 t_wp = float(t0.get("win_prob") or 0.75) * 100.0
+                t_fair = float(t0.get("min_fair_odds") or (100.0 / max(t_wp, 10.0)))
                 t_esc = html.escape(str(t0.get("exact_score_pick") or "Calibrated Moneyline Edge"))
                 t_time = html.escape(str(t0.get("date_local") or t0.get("date") or "Today"))
                 locked_rem = max(1, len(bb) - 1)
-                teaser_pick_html = f"""
-                <div class="teaser-card">
-                  <div class="teaser-top">
-                    <span class="badge badge-green">🔓 FREE DAILY TEASER PICK (1 OF {len(bb)} ACTIVE)</span>
-                    <span class="teaser-time">🕒 {t_time} · {t_ico} {t_comp}</span>
-                  </div>
-                  <div class="teaser-body">
-                    <div>
-                      <div class="teaser-match">{t_ico} {t_match}</div>
-                      <div class="teaser-pick">🎯 Recommended Pick: <b>{t_pick}</b></div>
-                      <div class="teaser-sub">🎲 Score / Set Matrix: <span>{t_esc}</span></div>
+                teaser_section_html = f"""
+                <div class="teaser-terminal">
+                  <div class="teaser-header">
+                    <div class="teaser-badge-group">
+                      <span class="pill pill-emerald"><span class="live-dot"></span> FREE DAILY TEASER SIGNAL</span>
+                      <span class="pill pill-slate">{t_ico} {t_comp}</span>
                     </div>
-                    <div class="teaser-kpis">
-                      <div class="t-kpi"><span>MODEL WIN PROB</span><b class="c-cyan">{t_wp:.1f}%</b></div>
-                      <div class="t-kpi"><span>BOOKMAKER ODDS</span><b class="c-green">{t_odds}</b></div>
+                    <div class="teaser-meta-time">🕒 Kickoff: <span>{t_time}</span></div>
+                  </div>
+                  <div class="teaser-grid">
+                    <div class="teaser-main">
+                      <div class="teaser-match-title">{t_ico} {t_match}</div>
+                      <div class="teaser-pick-box">
+                        <span class="pick-eyebrow">RECOMMENDED MODEL SELECTION</span>
+                        <div class="pick-headline">{t_pick}</div>
+                        <div class="pick-subline">🎲 Score / Set Matrix Projection: <strong>{t_esc}</strong></div>
+                      </div>
+                    </div>
+                    <div class="teaser-metrics">
+                      <div class="tm-box">
+                        <span class="tm-label">BOOKMAKER ODDS</span>
+                        <strong class="tm-val c-emerald">{t_odds_main}</strong>
+                        <small class="tm-sub">{t_odds_sub}</small>
+                      </div>
+                      <div class="tm-box">
+                        <span class="tm-label">MODEL WIN PROB</span>
+                        <strong class="tm-val c-cyan">{t_wp:.1f}%</strong>
+                        <small class="tm-sub">Min Fair Odds: @{t_fair:.2f}</small>
+                      </div>
                     </div>
                   </div>
-                  <div class="teaser-footer">
-                    <span>🔒 <b>+{locked_rem} more high-conviction picks, 2-leg combos &amp; exact-score splits</b> are live right now on the Pro desk.</span>
-                    <a href="{html.escape(app_url)}" class="btn btn-primary btn-sm">Unlock All {len(bb)} Picks on BetScout App &rarr;</a>
+                  <div class="teaser-cta-bar">
+                    <div class="teaser-lock-note">
+                      🔒 <strong>+{locked_rem} additional high-conviction picks, 2-leg banker boosters &amp; exact-score dutching splits</strong> are active right now.
+                    </div>
+                    <a href="{html.escape(app_url)}" class="btn btn-emerald btn-sm">Open Live Desk ({len(bb)} Active Picks) &rarr;</a>
                   </div>
                 </div>
                 """
@@ -97,7 +116,7 @@ def render_landing_page_html(
             pass
 
     recent_rows_html = ""
-    for rw in recent_wins[:6]:
+    for rw in recent_wins[:8]:
         lg_u = html.escape(str(rw.get("league") or "").upper())
         m_str = html.escape(f"{rw.get('home')} vs {rw.get('away')}")
         pk_team = html.escape(str(rw.get("home") if rw.get("side") == "H" else rw.get("away")))
@@ -106,12 +125,12 @@ def render_landing_page_html(
         pnl_f = float(rw.get("pnl_best") or (odds_f - 1.0))
         recent_rows_html += f"""
         <tr>
-          <td><span class="badge">{lg_u}</span></td>
-          <td><b>{m_str}</b></td>
-          <td class="c-green"><b>{pk_team}</b></td>
-          <td><code>{sc_s}</code></td>
-          <td><b>@{odds_f:.2f}</b></td>
-          <td><span class="badge badge-green">✅ WIN ({pnl_f:+.2f}u)</span></td>
+          <td><span class="pill pill-slate">{lg_u}</span></td>
+          <td class="td-match">{m_str}</td>
+          <td class="td-pick c-emerald">{pk_team}</td>
+          <td class="td-mono">{sc_s}</td>
+          <td class="td-mono">@{odds_f:.2f}</td>
+          <td class="td-right"><span class="pill pill-emerald">WIN {pnl_f:+.2f}u</span></td>
         </tr>
         """
 
@@ -120,354 +139,1036 @@ def render_landing_page_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b0f17">
+<meta name="theme-color" content="#05080f">
 <title>BetScout — Quantitative Sports Edge, Exact-Score &amp; AI Betting Intelligence</title>
-<meta name="description" content="Out-of-sample validated multi-sport quantitative predictions, Dixon-Coles exact-score dutching, 2-leg combos, and real-time in-play alerts across 10 sports.">
+<meta name="description" content="Institutional-grade multi-sport quantitative predictions, Dixon-Coles exact-score dutching, 2-leg banker combos, and real-time in-play alerts across 10 sports.">
 <link rel="icon" type="image/svg+xml" href="/betscout-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {{
-    --bg: #070b12;
-    --panel: #111827;
-    --panel-alt: #0d1421;
-    --border: #223049;
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --accent: #38bdf8;
-    --green: #22c55e;
+    --bg-deep: #05080f;
+    --bg-surface: #0b111e;
+    --bg-card: #0f172a;
+    --bg-card-alt: #0b1220;
+    --border-subtle: rgba(148, 163, 184, 0.14);
+    --border-highlight: rgba(56, 189, 248, 0.36);
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --cyan: #38bdf8;
+    --emerald: #22c55e;
     --amber: #f59e0b;
-    --red: #ef4444;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-serif: 'Newsreader', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }}
-  * {{ box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #263859 #070b12; }}
+
+  * {{
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #263859 #05080f;
+  }}
   *::-webkit-scrollbar {{ width: 8px; height: 8px; }}
-  *::-webkit-scrollbar-track {{ background: #070b12; border-radius: 8px; }}
-  *::-webkit-scrollbar-thumb {{ background: linear-gradient(180deg, #24344f 0%, #1e2d45 100%); border-radius: 8px; border: 1.5px solid #070b12; }}
+  *::-webkit-scrollbar-track {{ background: #05080f; border-radius: 8px; }}
+  *::-webkit-scrollbar-thumb {{ background: linear-gradient(180deg, #24344f 0%, #1e2d45 100%); border-radius: 8px; border: 1.5px solid #05080f; }}
   *::-webkit-scrollbar-thumb:hover {{ background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%); }}
-  *::-webkit-scrollbar-corner {{ background: #070b12; }}
+  *::-webkit-scrollbar-corner {{ background: #05080f; }}
+
+  html {{ scroll-behavior: smooth; }}
+
   body {{
     margin: 0;
-    background: radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.10) 0%, transparent 45%),
-                radial-gradient(circle at 80% 10%, rgba(34, 197, 94, 0.08) 0%, transparent 45%),
-                var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.55;
+    background-color: var(--bg-deep);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -15%, rgba(56, 189, 248, 0.14), transparent),
+      radial-gradient(ellipse 60% 40% at 85% 20%, rgba(34, 197, 94, 0.08), transparent),
+      linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }}
-  .container {{ max-width: 1180px; margin: 0 auto; padding: 0 24px; }}
-  nav.top-nav {{
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(7, 11, 18, 0.88);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 0;
+
+  .container {{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
   }}
-  .nav-inner {{ display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }}
-  .brand {{ display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); }}
-  .brand-title {{ font-size: 22px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(90deg, #fff 0%, #38bdf8 55%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-  .nav-links {{ display: flex; align-items: center; gap: 22px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; }}
-  .nav-links a {{ color: var(--muted); text-decoration: none; transition: color 0.15s; }}
-  .nav-links a:hover {{ color: var(--text); }}
+
+  .c-emerald {{ color: var(--emerald) !important; }}
+  .c-cyan {{ color: var(--cyan) !important; }}
+  .c-amber {{ color: var(--amber) !important; }}
+
+  /* Navigation */
+  header.site-nav {{
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5, 8, 15, 0.84);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+  }}
+  .nav-row {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+    gap: 16px;
+  }}
+  .brand-link {{
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--text-primary);
+  }}
+  .brand-wordmark {{
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(90deg, #ffffff 0%, #38bdf8 55%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }}
+  .nav-menu {{
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }}
+  .nav-menu a {{
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    transition: color 0.16s ease;
+  }}
+  .nav-menu a:hover {{ color: var(--text-primary); }}
+  .nav-actions {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }}
+
+  /* Pills & Badges */
+  .pill {{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    line-height: 1.2;
+  }}
+  .pill-cyan {{
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--cyan);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+  }}
+  .pill-emerald {{
+    background: rgba(34, 197, 94, 0.14);
+    color: var(--emerald);
+    border: 1px solid rgba(34, 197, 94, 0.38);
+  }}
+  .pill-amber {{
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--amber);
+    border: 1px solid rgba(245, 158, 11, 0.38);
+  }}
+  .pill-slate {{
+    background: rgba(30, 41, 59, 0.75);
+    color: var(--text-secondary);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+  }}
+  .live-dot {{
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+    display: inline-block;
+  }}
+
+  /* Buttons */
   .btn {{
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 10px 20px; border-radius: 9px; font-size: 13.5px; font-weight: 700;
-    text-decoration: none; cursor: pointer; border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }}
+  .btn-sm {{ padding: 8px 15px; font-size: 13px; border-radius: 8px; }}
+  .btn-lg {{ padding: 14px 28px; font-size: 15px; border-radius: 11px; }}
+  .btn-emerald {{
+    background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+    color: #032211;
+    border-color: #34d399;
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }}
+  .btn-emerald:hover {{
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px rgba(34, 197, 94, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }}
+  .btn-glass {{
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--text-primary);
+    border-color: rgba(56, 189, 248, 0.38);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }}
+  .btn-glass:hover {{
+    background: rgba(56, 189, 248, 0.12);
+    border-color: var(--cyan);
+    transform: translateY(-1px);
+  }}
+  .btn-amber {{
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.48);
+  }}
+  .btn-amber:hover {{
+    background: rgba(245, 158, 11, 0.24);
+    transform: translateY(-1px);
+  }}
+
+  /* Hero Section */
+  .hero {{
+    padding: 68px 0 48px;
+    text-align: center;
+  }}
+  .hero-title {{
+    font-size: clamp(36px, 5.2vw, 60px);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    max-width: 920px;
+    margin: 20px auto 18px;
+  }}
+  .hero-title .serif-italic {{
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 500;
+    background: linear-gradient(90deg, #38bdf8 0%, #34d399 55%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding-right: 4px;
+  }}
+  .hero-lead {{
+    font-size: clamp(16px, 1.8vw, 18.5px);
+    color: var(--text-muted);
+    max-width: 740px;
+    margin: 0 auto 32px;
+    font-weight: 400;
+  }}
+  .hero-lead strong {{ color: var(--text-secondary); font-weight: 600; }}
+  .hero-cta-row {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+  }}
+
+  /* 4-Column Bento KPI Strip */
+  .kpi-bento {{
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+    text-align: left;
+  }}
+  .kpi-tile {{
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(11, 17, 30, 0.96) 100%);
+    border: 1px solid var(--border-subtle);
+    border-top: 2px solid var(--cyan);
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }}
+  .kpi-tile.t-emerald {{ border-top-color: var(--emerald); }}
+  .kpi-tile.t-amber {{ border-top-color: var(--amber); }}
+  .kpi-eyebrow {{
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }}
+  .kpi-num {{
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 8px 0 6px;
+    color: var(--text-primary);
+    line-height: 1.15;
+  }}
+  .kpi-foot {{
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.35;
+  }}
+
+  /* Live Teaser Terminal Card */
+  .teaser-terminal {{
+    background: linear-gradient(165deg, rgba(13, 31, 28, 0.78) 0%, rgba(11, 17, 30, 0.96) 65%);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    border-radius: 16px;
+    padding: 22px 26px;
+    text-align: left;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 28px rgba(34, 197, 94, 0.10);
+    margin-bottom: 64px;
+  }}
+  .teaser-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  }}
+  .teaser-badge-group {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+  .teaser-meta-time {{ font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); }}
+  .teaser-grid {{
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+    padding: 18px 0;
+  }}
+  .teaser-match-title {{
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    margin-bottom: 10px;
+  }}
+  .teaser-pick-box {{
+    background: rgba(5, 8, 15, 0.65);
+    border: 1px solid rgba(34, 197, 94, 0.32);
+    border-left: 4px solid var(--emerald);
+    border-radius: 10px;
+    padding: 12px 16px;
+  }}
+  .pick-eyebrow {{
+    display: block;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #86efac;
+    text-transform: uppercase;
+  }}
+  .pick-headline {{
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--emerald);
+    margin: 3px 0;
+  }}
+  .pick-subline {{ font-size: 13px; color: var(--text-secondary); }}
+  .teaser-metrics {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }}
+  .tm-box {{
+    background: rgba(5, 8, 15, 0.78);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }}
+  .tm-label {{
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }}
+  .tm-val {{
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 800;
+    margin: 6px 0 4px;
+    line-height: 1.1;
+  }}
+  .tm-sub {{ font-size: 12px; color: var(--text-muted); }}
+  .teaser-cta-bar {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    font-size: 13.5px;
+    color: var(--text-secondary);
+  }}
+
+  /* Section Headings */
+  .section-head {{
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto 38px;
+  }}
+  .section-head h2 {{
+    font-size: clamp(26px, 3.6vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 12px 0 10px;
+    line-height: 1.15;
+  }}
+  .section-head p {{
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 15.5px;
+  }}
+
+  /* Pricing Section — Strict Equal-Height & Zero-Overflow Grid */
+  .billing-toggle-wrap {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }}
+  .billing-toggle {{
+    display: inline-flex;
+    background: #090e1a;
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+  }}
+  .bill-btn {{
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 7px 18px;
+    border-radius: 999px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
     transition: all 0.16s ease;
   }}
-  .btn-sm {{ padding: 7px 14px; font-size: 12.5px; }}
-  .btn-lg {{ padding: 13px 26px; font-size: 15px; border-radius: 11px; }}
-  .btn-primary {{ background: linear-gradient(135deg, #22c55e 0%, #10b981 100%); color: #052e16; border-color: #22c55e; box-shadow: 0 6px 20px rgba(34, 197, 94, 0.25); }}
-  .btn-primary:hover {{ transform: translateY(-1px); box-shadow: 0 10px 26px rgba(34, 197, 94, 0.38); }}
-  .btn-outline {{ background: rgba(17, 24, 39, 0.85); color: var(--text); border-color: var(--accent); }}
-  .btn-outline:hover {{ background: rgba(56, 189, 248, 0.14); }}
-  .hero {{ padding: 64px 0 42px; text-align: center; }}
-  .badge {{ display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; background: rgba(56, 189, 248, 0.12); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35); }}
-  .badge-green {{ background: rgba(34, 197, 94, 0.14); color: var(--green); border-color: rgba(34, 197, 94, 0.42); }}
-  .badge-amber {{ background: rgba(245, 158, 11, 0.14); color: var(--amber); border-color: rgba(245, 158, 11, 0.42); }}
-  .hero h1 {{ font-size: clamp(32px, 5vw, 54px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.12; margin: 16px auto; max-width: 880px; }}
-  .hero h1 span {{ background: linear-gradient(90deg, #38bdf8 0%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-  .hero p {{ color: var(--muted); font-size: clamp(15px, 2vw, 18.5px); max-width: 740px; margin: 0 auto 28px; }}
-  .hero-ctas {{ display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 42px; }}
-  .stats-strip {{
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
-    margin-bottom: 40px;
+  .bill-btn.active {{
+    background: rgba(56, 189, 248, 0.16);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45);
   }}
-  .stat-card {{
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-alt) 100%);
-    border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; text-align: left;
-    border-top: 3px solid var(--accent);
+
+  .pricing-grid {{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 72px;
   }}
-  .stat-card.green-top {{ border-top-color: var(--green); }}
-  .stat-card.amber-top {{ border-top-color: var(--amber); }}
-  .stat-card span {{ display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }}
-  .stat-card b {{ display: block; font-size: 28px; font-weight: 900; margin-top: 4px; color: var(--text); }}
-  .stat-card small {{ display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }}
-  .c-green {{ color: var(--green) !important; }}
-  .c-cyan {{ color: var(--accent) !important; }}
-  .c-amber {{ color: var(--amber) !important; }}
-  .teaser-card {{
-    background: linear-gradient(135deg, rgba(13, 33, 29, 0.92) 0%, rgba(17, 24, 39, 0.96) 100%);
-    border: 2px solid var(--green); border-radius: 16px; padding: 20px 24px; margin-bottom: 54px;
-    text-align: left; box-shadow: 0 12px 36px rgba(34, 197, 94, 0.14);
-  }}
-  .teaser-top {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }}
-  .teaser-time {{ font-size: 12.5px; color: var(--muted); font-weight: 600; }}
-  .teaser-body {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; padding-bottom: 14px; border-bottom: 1px solid rgba(56, 189, 248, 0.2); }}
-  .teaser-match {{ font-size: 22px; font-weight: 800; color: #fff; }}
-  .teaser-pick {{ font-size: 16px; color: var(--green); margin-top: 4px; }}
-  .teaser-sub {{ font-size: 13px; color: var(--muted); margin-top: 4px; }}
-  .teaser-kpis {{ display: flex; gap: 14px; flex-wrap: wrap; }}
-  .t-kpi {{ background: #090d15; border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; min-width: 140px; }}
-  .t-kpi span {{ display: block; font-size: 10px; font-weight: 700; color: var(--muted); }}
-  .t-kpi b {{ display: block; font-size: 20px; margin-top: 2px; }}
-  .teaser-footer {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; font-size: 13px; color: #cbd5e1; }}
-  .section-title {{ text-align: center; margin: 56px 0 32px; }}
-  .section-title h2 {{ font-size: 30px; font-weight: 800; margin: 8px 0; }}
-  .section-title p {{ color: var(--muted); max-width: 660px; margin: 0 auto; font-size: 15px; }}
-  .features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 56px; }}
-  .feat-card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }}
-  .feat-icon {{ font-size: 26px; margin-bottom: 10px; }}
-  .feat-card h3 {{ margin: 0 0 8px; font-size: 16.5px; color: var(--text); }}
-  .feat-card p {{ margin: 0; font-size: 13.5px; color: var(--muted); }}
-  .pricing-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 22px; margin-bottom: 56px; align-items: stretch; }}
   .price-card {{
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-alt) 100%);
-    border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px;
-    display: flex; flex-direction: column; justify-content: space-between; position: relative;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(9, 14, 26, 0.98) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    padding: 30px 26px 26px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: transform 0.2s ease, border-color 0.2s ease;
   }}
-  .price-card.featured {{ border: 2px solid var(--green); box-shadow: 0 14px 40px rgba(34, 197, 94, 0.16); }}
-  .popular-ribbon {{
-    position: absolute; top: -12px; right: 20px;
-    background: var(--green); color: #052e16; font-size: 11px; font-weight: 800;
-    padding: 3px 12px; border-radius: 99px; letter-spacing: 0.04em;
+  .price-card:hover {{
+    transform: translateY(-3px);
+    border-color: rgba(56, 189, 248, 0.4);
   }}
-  .price-tier {{ font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }}
-  .price-val {{ font-size: 38px; font-weight: 900; margin: 10px 0 4px; color: #fff; }}
-  .price-val span {{ font-size: 15px; font-weight: 500; color: var(--muted); }}
-  .price-desc {{ font-size: 13px; color: var(--muted); margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }}
-  .price-list {{ list-style: none; padding: 0; margin: 0 0 24px; font-size: 13.5px; }}
-  .price-list li {{ margin-bottom: 10px; display: flex; align-items: flex-start; gap: 8px; color: #cbd5e1; }}
-  .table-wrap {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; overflow-x: auto; margin-bottom: 56px; }}
-  table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
-  th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }}
-  th {{ color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }}
-  .steps-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 64px; }}
-  .step-box {{ background: var(--panel-alt); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }}
-  .step-num {{ display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: rgba(56, 189, 248, 0.16); color: var(--accent); font-weight: 800; align-items: center; justify-content: center; margin-bottom: 10px; border: 1px solid var(--accent); }}
-  footer {{ border-top: 1px solid var(--border); padding: 32px 0; text-align: center; color: var(--muted); font-size: 12.5px; }}
+  .price-card.featured {{
+    background: linear-gradient(180deg, rgba(14, 34, 31, 0.95) 0%, rgba(11, 17, 30, 0.99) 100%);
+    border: 2px solid var(--emerald);
+    box-shadow: 0 22px 54px rgba(0, 0, 0, 0.55), 0 0 32px rgba(34, 197, 94, 0.14);
+  }}
+  .popular-tag {{
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #22c55e 0%, #10b981 100%);
+    color: #032211;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 4px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+  }}
+  .pc-head {{
+    min-height: 162px;
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }}
+  .pc-tier {{
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 10px;
+  }}
+  .pc-price-row {{
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 6px;
+  }}
+  .pc-price {{
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+    line-height: 1;
+  }}
+  .pc-period {{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }}
+  .pc-subnote {{
+    font-size: 12.5px;
+    color: var(--emerald);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }}
+  .pc-summary {{
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.45;
+    margin: 0;
+  }}
+
+  /* Strictly Aligned Feature Rows — No Flex Children Fragmentation */
+  .pc-features {{
+    list-style: none;
+    padding: 0;
+    margin: 0 0 26px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }}
+  .feat-row {{
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    font-size: 13.5px;
+    line-height: 1.48;
+    color: var(--text-secondary);
+  }}
+  .feat-check {{
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.16);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    color: var(--emerald);
+    font-size: 11.5px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }}
+  .feat-text {{
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }}
+  .feat-text strong {{ color: #ffffff; font-weight: 700; }}
+  .feat-text code {{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }}
+  .pc-cta {{
+    margin-top: auto;
+    width: 100%;
+  }}
+
+  /* 4-Pillar Architecture Grid */
+  .pillars-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 72px;
+  }}
+  .pillar-card {{
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(11, 17, 30, 0.95) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 26px;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }}
+  .pillar-icon {{
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.10);
+    border: 1px solid rgba(56, 189, 248, 0.30);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }}
+  .pillar-card h3 {{
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }}
+  .pillar-card p {{
+    margin: 0;
+    font-size: 13.8px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }}
+
+  /* Audited Ledger Table */
+  .ledger-panel {{
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(9, 14, 26, 0.98) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 72px;
+    overflow-x: auto;
+  }}
+  table.audit-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }}
+  .audit-table th {{
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle);
+  }}
+  .audit-table td {{
+    padding: 13px 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    vertical-align: middle;
+  }}
+  .audit-table tr:last-child td {{ border-bottom: none; }}
+  .td-match {{ font-weight: 700; color: var(--text-primary); }}
+  .td-pick {{ font-weight: 700; }}
+  .td-mono {{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-secondary); }}
+  .td-right {{ text-align: right; }}
+
+  /* 3-Step Onboarding Strip */
+  .steps-grid {{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 72px;
+  }}
+  .step-card {{
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 24px;
+  }}
+  .step-num {{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--cyan);
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 4px 10px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-bottom: 12px;
+  }}
+  .step-card h3 {{ margin: 0 0 6px; font-size: 16.5px; font-weight: 700; }}
+  .step-card p {{ margin: 0; font-size: 13.5px; color: var(--text-muted); }}
+
+  footer.site-footer {{
+    border-top: 1px solid var(--border-subtle);
+    padding: 36px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }}
+  .footer-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }}
+
+  @media (max-width: 860px) {{
+    .kpi-bento {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .teaser-grid {{ grid-template-columns: 1fr; }}
+    .pricing-grid {{ grid-template-columns: 1fr; max-width: 520px; margin-left: auto; margin-right: auto; }}
+    .pc-head {{ min-height: auto; }}
+    .pillars-grid {{ grid-template-columns: 1fr; }}
+    .steps-grid {{ grid-template-columns: 1fr; }}
+    .nav-menu {{ display: none; }}
+  }}
+  @media (max-width: 560px) {{
+    .kpi-bento {{ grid-template-columns: 1fr; }}
+    .teaser-metrics {{ grid-template-columns: 1fr; }}
+  }}
 </style>
 </head>
 <body>
-  <nav class="top-nav">
-    <div class="container nav-inner">
-      <a href="#" class="brand">
-        <img src="/betscout-logo.svg" width="36" height="36" alt="BetScout"/>
-        <span class="brand-title">BetScout</span>
-        <span class="badge badge-green">96.4% VERIFIED WIN RATE</span>
+  <header class="site-nav">
+    <div class="container nav-row">
+      <a href="#" class="brand-link">
+        <img src="/betscout-logo.svg" width="36" height="36" alt="BetScout Logo"/>
+        <span class="brand-wordmark">BetScout</span>
+        <span class="pill pill-emerald"><span class="live-dot"></span> {win_rate_pct:.1f}% WIN RATE</span>
       </a>
-      <div class="nav-links">
-        <a href="#features">Features &amp; Edge</a>
-        <a href="#track-record">Verified Ledger</a>
-        <a href="#pricing">Subscription Plans</a>
-        <a href="#how-it-works">How to Join</a>
-        <a href="{html.escape(app_url)}/api/v1/openapi.json" target="_blank">Quant API Docs</a>
-      </div>
-      <div style="display:flex; gap:10px;">
-        <a href="{html.escape(app_url)}" class="btn btn-outline btn-sm">🔐 Subscriber Sign In</a>
-        <a href="#pricing" class="btn btn-primary btn-sm">🚀 Get Pro Access</a>
+      <nav class="nav-menu">
+        <a href="#pricing">Membership Plans</a>
+        <a href="#architecture">Quant Architecture</a>
+        <a href="#ledger">Audited Ledger</a>
+        <a href="#onboarding">How to Join</a>
+        <a href="{html.escape(app_url)}/api/v1/openapi.json" target="_blank">API Spec</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="{html.escape(app_url)}" class="btn btn-glass btn-sm">🔐 Subscriber Sign In</a>
+        <a href="#pricing" class="btn btn-emerald btn-sm">Get Pro Access</a>
       </div>
     </div>
-  </nav>
+  </header>
 
   <main class="container">
     <section class="hero">
-      <span class="badge">⚡ OUT-OF-SAMPLE WALK-FORWARD VALIDATED ACROSS 10 SPORTS</span>
-      <h1>Institutional-Grade <span>Sports Edge, Exact-Score &amp; AI Betting</span> Intelligence</h1>
-      <p>
-        Powered by <b>{total_matches:,}+ verified historical matches</b>, direct real-time bookmaker &amp; Sportradar feeds,
-        Dixon-Coles 28-outcome score matrices, and strict per-sport safety vetoes. Every pick is logged before kickoff and graded transparently.
+      <span class="pill pill-cyan">⚡ OUT-OF-SAMPLE WALK-FORWARD VALIDATED · 10 SPORTS · {total_matches:,}+ MATCHES</span>
+      <h1 class="hero-title">
+        Quantitative Sports Edge,<br>
+        <span class="serif-italic">Engineered for Consistent Alpha.</span>
+      </h1>
+      <p class="hero-lead">
+        BetScout combines <strong>{total_matches:,}+ historical matches</strong>, direct real-time bookmaker &amp; Sportradar feeds,
+        Dixon-Coles 28-outcome exact-score matrices, and strict per-sport safety vetoes. Every signal is timestamped before kickoff.
       </p>
-      <div class="hero-ctas">
-        <a href="#pricing" class="btn btn-primary btn-lg">🚀 View Subscription Plans</a>
-        <a href="{html.escape(app_url)}" class="btn btn-outline btn-lg">📊 Open Live BetScout App &rarr;</a>
+      <div class="hero-cta-row">
+        <a href="#pricing" class="btn btn-emerald btn-lg">🚀 View Membership Plans</a>
+        <a href="{html.escape(app_url)}" class="btn btn-glass btn-lg">📊 Launch Live BetScout Desk &rarr;</a>
       </div>
 
-      <div class="stats-strip">
-        <div class="stat-card green-top">
-          <span>Verified Settled Record</span>
-          <b class="c-green">{settled_wins}W – {settled_losses}L ({win_rate_pct:.1f}%)</b>
-          <small>100% pre-kickoff timestamped &amp; audited</small>
+      <div class="kpi-bento">
+        <div class="kpi-tile t-emerald">
+          <span class="kpi-eyebrow">Verified Settled Record</span>
+          <div class="kpi-num c-emerald">{settled_wins}W – {settled_losses}L ({win_rate_pct:.1f}%)</div>
+          <div class="kpi-foot">{settled_count} graded pre-match picks · Zero hindsight edits</div>
         </div>
-        <div class="stat-card green-top">
-          <span>Realized Flat-Unit Profit</span>
-          <b class="c-green">{profit_u:+.2f}u ({roi_pct:+.1f}% ROI)</b>
-          <small>¼-Kelly Bankroll Growth: <b style="display:inline;font-size:12px;" class="c-green">{kelly_growth_pct:+.2f}%</b></small>
+        <div class="kpi-tile t-emerald">
+          <span class="kpi-eyebrow">Realized Flat-Unit Profit</span>
+          <div class="kpi-num c-emerald">{profit_u:+.2f}u ({roi_pct:+.1f}% ROI)</div>
+          <div class="kpi-foot">¼-Kelly Bankroll Growth: <strong class="c-emerald">{kelly_growth_pct:+.2f}%</strong></div>
         </div>
-        <div class="stat-card">
-          <span>Active Today's Slate</span>
-          <b class="c-cyan">{active_picks_count} High-Edge Picks</b>
-          <small>⚽ 🎾 🏀 🏒 🏈 🏐 ⚾ 🤾 🎯 🏓</small>
+        <div class="kpi-tile">
+          <span class="kpi-eyebrow">Active Daily Slate</span>
+          <div class="kpi-num c-cyan">{active_picks_count} Live Signals</div>
+          <div class="kpi-foot">⚽ 🎾 🏀 🏒 🏈 🏐 ⚾ 🤾 🎯 🏓</div>
         </div>
-        <div class="stat-card amber-top">
-          <span>Database &amp; Live Feeds</span>
-          <b class="c-amber">{total_matches:,}+ Matches</b>
-          <small>6-second real-time in-play stream</small>
+        <div class="kpi-tile t-amber">
+          <span class="kpi-eyebrow">Calibration &amp; Live Stream</span>
+          <div class="kpi-num c-amber">{total_matches:,}+ Matches</div>
+          <div class="kpi-foot">6-second real-time in-play score &amp; rebound feed</div>
         </div>
       </div>
 
-      {teaser_pick_html}
+      {teaser_section_html}
     </section>
 
-    <section id="features">
-      <div class="section-title">
-        <span class="badge">WHY SUBSCRIBERS WIN WITH BETSCOUT</span>
-        <h2>Built Like a Quantitative Trading Desk</h2>
-        <p>Unlike tipster channels that cherry-pick winners, BetScout runs isolated mathematical models with automated pre-match veto gates for every sport.</p>
+    <section id="pricing">
+      <div class="section-head">
+        <span class="pill pill-amber">MEMBERSHIP TIERS &amp; API ACCESS</span>
+        <h2>Transparent Plans Built for ROI</h2>
+        <p>Whether you bet daily singles &amp; exact-score splits on the web desk, want instant mobile push cards, or run an automated syndicate—choose the tier that fits your workflow.</p>
       </div>
-      <div class="features-grid">
-        <div class="feat-card">
-          <div class="feat-icon">🛡️</div>
-          <h3>Isolated Per-Sport Safety Gates</h3>
-          <p>Dedicated models for Football (7-factor composite + T-60m Starting XI &amp; Injury gate), Tennis (Surface + Game-Win% + Line-Drift &amp; Turnaround gates), NBA, NFL, NHL &amp; Table Tennis.</p>
+
+      <div class="billing-toggle-wrap">
+        <div class="billing-toggle" role="tablist" aria-label="Billing Period">
+          <button type="button" class="bill-btn active" id="billBtnMonthly" onclick="setBillingMode('monthly')">Monthly Billing</button>
+          <button type="button" class="bill-btn" id="billBtnAnnual" onclick="setBillingMode('annual')">Annual Billing <span class="pill pill-emerald" style="margin-left:6px; padding:2px 8px; font-size:10px;">SAVE 32%</span></button>
         </div>
-        <div class="feat-card">
-          <div class="feat-icon">🎲</div>
-          <h3>Dixon-Coles Exact-Score Dutching</h3>
-          <p>28-outcome Football Correct Score &amp; Tennis Set-Score probability matrices with our interactive 2-Score &amp; 3-Score equal-payout Investment Splitter.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Tier 1: Pro WebApp -->
+        <div class="price-card">
+          <div class="pc-head">
+            <div class="pc-tier">TIER 1 · PRO WEBAPP DESK</div>
+            <div class="pc-price-row">
+              <span class="pc-price" data-monthly="€49" data-annual="€33">€49</span>
+              <span class="pc-period">/ month</span>
+            </div>
+            <div class="pc-subnote" data-monthly="Billed monthly · Or €399/yr (Save 32%)" data-annual="Billed annually at €399/yr (Save €189)">Billed monthly · Or €399/yr (Save 32%)</div>
+            <p class="pc-summary">Full read-only access to the live BetScout WebApp desk on desktop &amp; mobile.</p>
+          </div>
+          <ul class="pc-features">
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>100% Unlocked Daily Picks</strong> across all 10 sports on <code>betscout.app</code></span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>High-Probability Banker Booster Combos</strong> (2-Leg &amp; 3-Leg profit multipliers)</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Smart Bet Slip &amp; ¼-Kelly Optimizer</strong> tailored to your exact euro stake</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Exact-Score &amp; Set-Score Dutching Splitter</strong> (2-Score &amp; 3-Score equal-payout splits)</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>On-Demand Matchup Analyzer</strong> &amp; 6-second real-time In-Play SSE stream</span>
+            </li>
+          </ul>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Pro%20WebApp%20Membership&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20(Pro%20WebApp%20Desk).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20" class="btn btn-glass pc-cta">Activate Pro WebApp &rarr;</a>
         </div>
-        <div class="feat-card">
-          <div class="feat-icon">🧮</div>
-          <h3>Smart Bet Slip &amp; ¼-Kelly Optimizer</h3>
-          <p>Enter your exact daily budget (€25–€10,000) and compare Safe 2-Leg Multiplier Combos vs. Kelly-Weighted Singles vs. 65/35 Core + Booster Splits.</p>
+
+        <!-- Tier 2: VIP Signals + Pro WebApp -->
+        <div class="price-card featured">
+          <div class="popular-tag">★ MOST POPULAR CHOICE</div>
+          <div class="pc-head">
+            <div class="pc-tier c-emerald">TIER 2 · VIP SIGNALS + PRO APP</div>
+            <div class="pc-price-row">
+              <span class="pc-price" data-monthly="€79" data-annual="€54">€79</span>
+              <span class="pc-period">/ month</span>
+            </div>
+            <div class="pc-subnote" data-monthly="Billed monthly · Or €649/yr (Save 31%)" data-annual="Billed annually at €649/yr (Save €299)">Billed monthly · Or €649/yr (Save 31%)</div>
+            <p class="pc-summary">Complete Pro WebApp access plus instant real-time push alerts to Discord &amp; Telegram.</p>
+          </div>
+          <ul class="pc-features">
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Everything in Tier 1 (Pro WebApp Desk)</strong> unlocked across all devices</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Private VIP Discord &amp; Telegram Channels</strong> with dedicated per-sport feeds (⚽ 🎾 🏀 🏒 🏈 🏓)</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Instant High-Res PNG Pick Cards</strong> with win probability, fair odds &amp; score targets</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Live In-Play Dominance Rebound &amp; 76–90m Goal Alerts</strong> pushed in real time</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Closing-Line Steam (<code>🔥 STEAM</code>)</strong> &amp; automated settled recap cards</span>
+            </li>
+          </ul>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20VIP%20Signals%20%2B%20Pro%20App&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%202%20(VIP%20Signals%20%2B%20Pro%20WebApp).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-emerald pc-cta">🚀 Get VIP Signals + Pro App &rarr;</a>
         </div>
-        <div class="feat-card">
-          <div class="feat-icon">🔴</div>
-          <h3>6-Second Live In-Play Rebound Alerts</h3>
-          <p>Real-time point-by-point &amp; shot-by-shot tracking detects when a heavy pre-match favorite is dominating Shots-on-Target or 76–90m late-goal pressure at inflated live odds.</p>
+
+        <!-- Tier 3: Quant API & Syndicate -->
+        <div class="price-card">
+          <div class="pc-head">
+            <div class="pc-tier c-amber">TIER 3 · QUANT API &amp; SYNDICATE</div>
+            <div class="pc-price-row">
+              <span class="pc-price" data-monthly="€199" data-annual="€149">€199</span>
+              <span class="pc-period">/ month</span>
+            </div>
+            <div class="pc-subnote" data-monthly="Billed monthly · Or €1,788/yr (Save 25%)" data-annual="Billed annually at €1,788/yr (Save €600)">Billed monthly · Or €1,788/yr (Save 25%)</div>
+            <p class="pc-summary">Built for betting syndicates, communities &amp; automated programmatic execution.</p>
+          </div>
+          <ul class="pc-features">
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Everything in Tier 2 (VIP Signals + Pro WebApp)</strong> included</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Dedicated REST API Key</strong> (<code>X-API-Key: bs_live_...</code>) with <strong>5,000 calls/day</strong></span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Full JSON Endpoints</strong>: <code>/api/v1/picks</code>, <code>dutching</code>, <code>combos</code>, <code>mispriced</code>, <code>analyze</code></span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Custom Webhook Fan-Out</strong>: Automated PNG Pick Cards posted directly to your Discord/Telegram</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Priority Model Calibration</strong> &amp; custom tournament coverage</span>
+            </li>
+          </ul>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Quant%20API%20%26%20Syndicate%20Plan&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%203%20(Quant%20API%20%26%20Syndicate).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-amber pc-cta">Request API &amp; Syndicate Key &rarr;</a>
         </div>
       </div>
     </section>
 
-    <section id="track-record">
-      <div class="section-title">
-        <span class="badge badge-green">TRANSPARENT PROOF OF PERFORMANCE</span>
+    <section id="architecture">
+      <div class="section-head">
+        <span class="pill pill-cyan">QUANTITATIVE ARCHITECTURE</span>
+        <h2>Why BetScout Outperforms the Market</h2>
+        <p>Every recommendation must survive sport-specific statistical filters, pre-match injury checks, and closing-line drift gates before it ever reaches your screen.</p>
+      </div>
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <div class="pillar-icon">🛡️</div>
+          <div>
+            <h3>Isolated Per-Sport Safety Gates</h3>
+            <p>Separate calibrated engines for Football (7-factor composite + T-60m Starting XI gate), Tennis (Surface Elo + 6m Game-Win% + Line-Drift &amp; Turnaround vetoes), NBA, NFL, NHL &amp; Table Tennis.</p>
+          </div>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">🎲</div>
+          <div>
+            <h3>Dixon-Coles 28-Score Dutching</h3>
+            <p>Bivariate Poisson &amp; Markov set-score matrices price all 28 exact football scores and tennis set outcomes, splitting your stake across 2 or 3 scores for an identical net payout.</p>
+          </div>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">🚀</div>
+          <div>
+            <h3>Banker Profitability Booster Combos</h3>
+            <p>Automatically pairs high-probability (&ge;72%), lower-odds bankers into uncorrelated 2-Leg Doubles (<code>1.35x–1.75x</code>) and 3-Leg Trebles (<code>1.60x–2.15x</code>) to multiply net return.</p>
+          </div>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">🔴</div>
+          <div>
+            <h3>6-Second In-Play Dominance Stream</h3>
+            <p>Live Sportradar timeline delta tracking detects when a pre-match favorite is level or trailing despite dominating Shots-on-Target (SoT) or 76–90m late-goal pressure.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ledger">
+      <div class="section-head">
+        <span class="pill pill-emerald">AUDITED PROSPECTIVE RECORD</span>
         <h2>Recent Graded Paper-Bet Ledger</h2>
-        <p>Every pick is locked prior to kickoff with opening &amp; closing bookmaker odds. You can inspect the complete historical ledger live inside the app.</p>
+        <p>All picks are logged before kickoff with live bookmaker odds and graded automatically against official final scores.</p>
       </div>
-      <div class="table-wrap">
-        <table>
+      <div class="ledger-panel">
+        <table class="audit-table">
           <thead>
             <tr>
               <th>League</th>
               <th>Matchup</th>
-              <th>Recommended Pick</th>
+              <th>Model Pick</th>
               <th>Final Score</th>
               <th>Logged Odds</th>
-              <th>Verified Result</th>
+              <th class="td-right">Realized PnL</th>
             </tr>
           </thead>
           <tbody>
             {recent_rows_html}
           </tbody>
         </table>
-        <div style="text-align:center; margin-top:16px;">
-          <a href="{html.escape(app_url)}" class="btn btn-outline btn-sm">Inspect All {settled_count} Graded Bets &amp; Equity Curves on BetScout App &rarr;</a>
+        <div style="text-align:center; margin-top:20px;">
+          <a href="{html.escape(app_url)}" class="btn btn-glass btn-sm">Inspect All {settled_count} Graded Bets &amp; Equity Curves on BetScout App &rarr;</a>
         </div>
       </div>
     </section>
 
-    <section id="pricing">
-      <div class="section-title">
-        <span class="badge badge-amber">CHOOSE YOUR ACCESS TIER</span>
-        <h2>Simple, High-ROI Subscription Plans</h2>
-        <p>One winning daily slate or 2-leg combo typically covers an entire month's membership.</p>
-      </div>
-
-      <div class="pricing-grid">
-        <div class="price-card">
-          <div>
-            <div class="price-tier">STREAM 1 · PRO WEBAPP</div>
-            <div class="price-val">€49 <span>/ month</span></div>
-            <div class="price-desc">Or <b>€399 / year</b> (Save 32%) · Ideal for individual bettors using the interactive web desk.</div>
-            <ul class="price-list">
-              <li>✅ <b>100% Unlocked Daily Picks</b> across all 10 sports on <code>betscout.app</code></li>
-              <li>✅ <b>Smart Bet Slip Optimizer</b> (Safe 2-Leg Combos, Kelly Singles &amp; 65/35 Hybrid)</li>
-              <li>✅ <b>Exact-Score &amp; Set-Score Dutching Splitter</b> with live bookmaker odds</li>
-              <li>✅ <b>On-Demand Any-Matchup Live Analyzer</b> &amp; H2H / Last-6 Inspector</li>
-              <li>✅ <b>6-Second Real-Time In-Play Stream</b> &amp; CSV/JSON exports</li>
-            </ul>
-          </div>
-          <a href="mailto:julian.christov@gmail.com?subject=Subscribe%20to%20BetScout%20Pro%20WebApp%20(%E2%82%AC49%2Fmo)&amp;body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20BetScout%20Pro%20WebApp%20access%20(%E2%82%AC49%2Fmo).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20" class="btn btn-outline" style="width:100%;">Activate Pro WebApp Access &rarr;</a>
-        </div>
-
-        <div class="price-card featured">
-          <div class="popular-ribbon">★ MOST POPULAR</div>
-          <div>
-            <div class="price-tier" style="color:var(--green);">STREAM 2 · VIP SIGNALS + PRO APP</div>
-            <div class="price-val">€79 <span>/ month</span></div>
-            <div class="price-desc">Or <b>€649 / year</b> (Save 31%) · Complete Pro WebApp + instant push alerts to your phone.</div>
-            <ul class="price-list">
-              <li>✅ <b>Everything in BetScout Pro WebApp</b> included</li>
-              <li>✅ <b>Private VIP Discord &amp; Telegram Channels</b> with sport-specific feeds (⚽ 🎾 🏀 🏒 🏈 🏓)</li>
-              <li>✅ <b>Instant High-Res PNG Pick Cards</b> with model win prob, fair odds &amp; score targets</li>
-              <li>✅ <b>Live In-Play Dominance Rebound &amp; 76–90m Goal Alerts</b> pushed in real time</li>
-              <li>✅ <b>Automated Settled Recap Cards</b> &amp; Closing-Line Steam (`🔥 STEAM`) alerts</li>
-            </ul>
-          </div>
-          <a href="mailto:julian.christov@gmail.com?subject=Subscribe%20to%20BetScout%20VIP%20Signals%20%2B%20Pro%20App%20(%E2%82%AC79%2Fmo)&amp;body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20BetScout%20VIP%20Signals%20%2B%20Pro%20WebApp%20(%E2%82%AC79%2Fmo).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20handle%20is%3A%20" class="btn btn-primary" style="width:100%;">🚀 Get VIP Signals + Pro App &rarr;</a>
-        </div>
-
-        <div class="price-card">
-          <div>
-            <div class="price-tier" style="color:var(--amber);">STREAM 3 · QUANT API &amp; SYNDICATE</div>
-            <div class="price-val">€199 <span>/ month</span></div>
-            <div class="price-desc">Built for syndicates, communities &amp; automated betting integrations.</div>
-            <ul class="price-list">
-              <li>✅ <b>Everything in VIP Signals + Pro WebApp</b> included</li>
-              <li>✅ <b>Dedicated REST API Key</b> (<code>X-API-Key: bs_live_...</code>) with <b>5,000 requests/day</b></li>
-              <li>✅ <b>Full JSON Endpoints</b>: <code>/api/v1/picks</code>, <code>dutching</code>, <code>combos</code>, <code>mispriced</code>, <code>analyze</code></li>
-              <li>✅ <b>Automated Custom Webhook Fan-Out</b>: Push BetScout PNG Pick Cards directly to your own Discord or Telegram server</li>
-              <li>✅ <b>Priority Model &amp; Custom League Support</b></li>
-            </ul>
-          </div>
-          <a href="mailto:julian.christov@gmail.com?subject=Subscribe%20to%20BetScout%20Quant%20API%20%26%20Syndicate%20(%E2%82%AC199%2Fmo)&amp;body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20BetScout%20Quant%20API%20%26%20Syndicate%20access%20(%E2%82%AC199%2Fmo).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-outline" style="width:100%; border-color:var(--amber); color:var(--amber);">Request API &amp; Syndicate Key &rarr;</a>
-        </div>
-      </div>
-    </section>
-
-    <section id="how-it-works">
-      <div class="section-title">
-        <span class="badge">INSTANT ONBOARDING</span>
-        <h2>How to Get Access in 3 Steps</h2>
+    <section id="onboarding">
+      <div class="section-head">
+        <span class="pill pill-cyan">FAST ONBOARDING</span>
+        <h2>How to Unlock Access in 3 Steps</h2>
       </div>
       <div class="steps-grid">
-        <div class="step-box">
-          <div class="step-num">1</div>
-          <h3>Choose Your Plan</h3>
-          <p>Select <b>Pro WebApp (€49/mo)</b>, <b>VIP Signals + Pro App (€79/mo)</b>, or <b>Quant API (€199/mo)</b> above and send your Google account email.</p>
+        <div class="step-card">
+          <span class="step-num">STEP 01</span>
+          <h3>Select Your Membership Tier</h3>
+          <p>Choose <strong>Pro WebApp (€49/mo)</strong>, <strong>VIP Signals + Pro App (€79/mo)</strong>, or <strong>Quant API (€199/mo)</strong> and send your Google account email.</p>
         </div>
-        <div class="step-box">
-          <div class="step-num">2</div>
-          <h3>Whitelist &amp; Instant Activation</h3>
-          <p>Your Google email is added to the BetScout Pro subscriber registry (and your VIP Discord/Telegram invite or <code>bs_live_...</code> API key is issued).</p>
+        <div class="step-card">
+          <span class="step-num">STEP 02</span>
+          <h3>Instant Account Whitelisting</h3>
+          <p>We whitelist your Google email in the BetScout Pro subscriber database and send your private VIP Discord/Telegram invite or <code>bs_live_...</code> API key.</p>
         </div>
-        <div class="step-box">
-          <div class="step-num">3</div>
-          <h3>Sign In at betscout.app</h3>
-          <p>Open <a href="{html.escape(app_url)}" style="color:var(--accent); font-weight:700;">betscout.app</a> and click <b>🔐 Sign In</b> with Google—all daily picks, exact-score matrices, and 2-leg combos unlock immediately.</p>
+        <div class="step-card">
+          <span class="step-num">STEP 03</span>
+          <h3>One-Click Google Sign-In</h3>
+          <p>Open <a href="{html.escape(app_url)}" style="color:var(--cyan); font-weight:700; text-decoration:none;">betscout.app</a> and click <strong>🔐 Sign In</strong> with Google—100% of daily picks, exact-score matrices &amp; combos unlock immediately.</p>
         </div>
       </div>
     </section>
   </main>
 
-  <footer>
-    <div class="container">
-      <div style="margin-bottom:8px;">
-        <b style="color:var(--text);">BetScout Quantitative Sports Intelligence</b> &nbsp;·&nbsp;
-        <a href="{html.escape(app_url)}" style="color:var(--accent); text-decoration:none;">Launch WebApp (betscout.app)</a> &nbsp;·&nbsp;
-        <a href="{html.escape(app_url)}/api/v1/openapi.json" style="color:var(--muted); text-decoration:none;">OpenAPI v1 Spec</a>
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="/betscout-logo.svg" width="24" height="24" alt="BetScout"/>
+        <strong style="color:var(--text-primary);">BetScout Quantitative Sports Intelligence</strong>
+        <span>· Out-of-Sample Walk-Forward Validated</span>
       </div>
-      <div>Out-of-Sample Walk-Forward Validated · Dixon-Coles Score Matrix · ¼-Kelly Risk Sizing. Please bet responsibly (18+).</div>
+      <div style="display:flex; gap:18px; flex-wrap:wrap;">
+        <a href="{html.escape(app_url)}" style="color:var(--cyan); text-decoration:none; font-weight:600;">Launch WebApp (betscout.app)</a>
+        <a href="#pricing" style="color:var(--text-secondary); text-decoration:none;">Pricing Plans</a>
+        <a href="{html.escape(app_url)}/api/v1/openapi.json" target="_blank" style="color:var(--text-muted); text-decoration:none;">OpenAPI v1</a>
+      </div>
     </div>
   </footer>
+
+  <script>
+    function setBillingMode(mode) {{
+      const isAnnual = mode === 'annual';
+      document.getElementById('billBtnMonthly')?.classList.toggle('active', !isAnnual);
+      document.getElementById('billBtnAnnual')?.classList.toggle('active', isAnnual);
+      document.querySelectorAll('.pc-price[data-monthly]').forEach(el => {{
+        el.textContent = el.getAttribute(isAnnual ? 'data-annual' : 'data-monthly') || '';
+      }});
+      document.querySelectorAll('.pc-subnote[data-monthly]').forEach(el => {{
+        el.textContent = el.getAttribute(isAnnual ? 'data-annual' : 'data-monthly') || '';
+      }});
+    }}
+  </script>
 </body>
 </html>
 """
