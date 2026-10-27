@@ -157,10 +157,14 @@
               <Icon icon="fa6-solid:trophy" class="w-3.5 h-3.5 text-emerald-400" />
               <span>Verified Settled Record</span>
             </span>
-            <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-white my-2 whitespace-nowrap">
-              <span class="text-emerald-400">{{ settledWins }}W</span> –
-              <span class="text-rose-400">{{ settledLosses }}L</span>
-              <span class="text-emerald-300 ml-1">({{ winRatePct.toFixed(1) }}%)</span>
+            <div class="flex flex-wrap items-center gap-2 font-mono tabular-nums my-2">
+              <span class="text-[22px] font-extrabold tracking-tight text-white whitespace-nowrap">
+                <span class="text-emerald-400">{{ settledWins }}W</span> –
+                <span class="text-rose-400">{{ settledLosses }}L</span>
+              </span>
+              <span class="px-2 py-0.5 rounded-md text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 whitespace-nowrap">
+                {{ winRatePct.toFixed(1) }}%
+              </span>
             </div>
             <div class="text-xs text-slate-300">{{ settledCount }} graded pre-match picks · Zero hindsight edits</div>
           </div>
@@ -170,8 +174,13 @@
               <Icon icon="fa6-solid:chart-line" class="w-3.5 h-3.5 text-cyan-400" />
               <span>Realized Flat-Unit Profit</span>
             </span>
-            <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-cyan-300 my-2 whitespace-nowrap">
-              {{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u ({{ roiPct >= 0 ? '+' : '' }}{{ roiPct.toFixed(1) }}% ROI)
+            <div class="flex flex-wrap items-center gap-2 font-mono tabular-nums my-2">
+              <span class="text-[22px] font-extrabold tracking-tight text-cyan-300 whitespace-nowrap">
+                {{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u
+              </span>
+              <span class="px-2 py-0.5 rounded-md text-xs font-extrabold bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 whitespace-nowrap">
+                {{ roiPct >= 0 ? '+' : '' }}{{ roiPct.toFixed(1) }}% ROI
+              </span>
             </div>
             <div class="text-xs text-slate-300">
               ¼-Kelly Bankroll Growth:
