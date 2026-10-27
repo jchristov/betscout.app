@@ -7,6 +7,12 @@ import './style.css';
 
 setupIconifyCollections();
 
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);

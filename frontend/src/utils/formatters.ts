@@ -68,6 +68,69 @@ export function getSportIconify(catOrLeague?: string | null): string {
   return 'mdi:soccer';
 }
 
+export function getSportIconColor(catOrLeague?: string | null): string {
+  const low = String(catOrLeague || '').toLowerCase().trim();
+  if (low.includes('table tennis') || low.includes('table_tennis')) return 'text-fuchsia-400';
+  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'text-lime-400';
+  if (low.includes('basketball') || low.includes('nba')) return 'text-orange-400';
+  if (low.includes('hockey') || low.includes('nhl')) return 'text-cyan-400';
+  if (low.includes('nfl') || low.includes('football') && !low.includes('soccer')) return 'text-amber-400';
+  if (low.includes('volleyball')) return 'text-yellow-400';
+  if (low.includes('baseball') || low.includes('mlb')) return 'text-rose-400';
+  if (low.includes('handball')) return 'text-indigo-400';
+  if (low.includes('darts')) return 'text-red-400';
+  if (low === 'all') return 'text-sky-400';
+  return 'text-emerald-400';
+}
+
+export function getSportBadgeTheme(catOrLeague?: string | null): string {
+  const low = String(catOrLeague || '').toLowerCase().trim();
+  if (low.includes('table tennis') || low.includes('table_tennis'))
+    return 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/40';
+  if (low.includes('tennis') || low.includes('atp') || low.includes('wta'))
+    return 'bg-lime-500/15 text-lime-300 border-lime-400/40';
+  if (low.includes('basketball') || low.includes('nba'))
+    return 'bg-orange-500/15 text-orange-300 border-orange-400/40';
+  if (low.includes('hockey') || low.includes('nhl'))
+    return 'bg-cyan-500/15 text-cyan-300 border-cyan-400/40';
+  if (low.includes('nfl') || (low.includes('football') && !low.includes('soccer')))
+    return 'bg-amber-500/15 text-amber-300 border-amber-400/40';
+  if (low.includes('volleyball'))
+    return 'bg-yellow-500/15 text-yellow-300 border-yellow-400/40';
+  if (low.includes('baseball') || low.includes('mlb'))
+    return 'bg-rose-500/15 text-rose-300 border-rose-400/40';
+  if (low.includes('handball'))
+    return 'bg-indigo-500/15 text-indigo-300 border-indigo-400/40';
+  if (low.includes('darts'))
+    return 'bg-red-500/15 text-red-300 border-red-400/40';
+  return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40';
+}
+
+export function getTierBadgeClass(tier?: string | null): string {
+  const low = String(tier || '').toLowerCase().trim();
+  if (low.includes('tier_0') || low.includes('top_8pct')) {
+    return 'bg-violet-500/20 text-violet-200 border-violet-400/55 shadow-[0_0_10px_rgba(139,92,246,0.22)]';
+  }
+  if (low.includes('banker') || low.includes('tier_1') || low.includes('top_10pct')) {
+    return 'bg-amber-500/20 text-amber-300 border-amber-400/55 shadow-[0_0_10px_rgba(245,158,11,0.16)]';
+  }
+  if (low.includes('top_15pct') || low.includes('high_conf') || low.includes('uefa')) {
+    return 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50';
+  }
+  if (low.includes('tracked')) {
+    return 'bg-rose-500/20 text-rose-300 border-rose-400/50';
+  }
+  return 'bg-indigo-500/20 text-indigo-300 border-indigo-400/50';
+}
+
+export function getWinProbBarColor(prob?: number): string {
+  const p = Number(prob || 0);
+  if (p >= 0.8) return 'bg-gradient-to-r from-emerald-400 to-teal-300';
+  if (p >= 0.7) return 'bg-gradient-to-r from-sky-400 to-cyan-300';
+  if (p >= 0.6) return 'bg-gradient-to-r from-amber-400 to-yellow-300';
+  return 'bg-gradient-to-r from-indigo-400 to-violet-300';
+}
+
 export const BADGE_TOOLTIPS: Record<string, string> = {
   tier_0_96:
     'Tier 0 Ultra-Banker (≥96% Calibration Confidence): Highest-conviction quantitative tier passing all sport-specific safety gates.',

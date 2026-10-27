@@ -7,8 +7,11 @@ import {
   computeBankerBoosterCombos,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
+  getSportBadgeTheme,
   getSportEmoji,
   getSportIconify,
+  getTierBadgeClass,
+  getWinProbBarColor,
 } from '../src/utils/formatters';
 import { useBetscoutStore } from '../src/stores/betscoutStore';
 import LandingView from '../src/views/LandingView.vue';
@@ -54,6 +57,13 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(getSportIconify('soccer')).toBe('mdi:soccer');
     expect(getSportIconify('tennis')).toBe('mdi:tennis');
     expect(getSportIconify('table_tennis')).toBe('mdi:table-tennis');
+    expect(getSportBadgeTheme('soccer')).toContain('emerald');
+    expect(getSportBadgeTheme('tennis')).toContain('lime');
+    expect(getSportBadgeTheme('table_tennis')).toContain('fuchsia');
+    expect(getTierBadgeClass('top_8pct')).toContain('violet');
+    expect(getTierBadgeClass('banker_70pct')).toContain('amber');
+    expect(getTierBadgeClass('high_conf')).toContain('cyan');
+    expect(getWinProbBarColor(0.85)).toContain('emerald');
   });
 
   it('returns detailed explanations for safety-gate tier and edge badges', () => {

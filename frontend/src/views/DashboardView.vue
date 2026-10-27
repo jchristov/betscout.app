@@ -1,73 +1,127 @@
 <template>
-  <div class="min-h-screen px-4 sm:px-6 py-5 pb-20 text-xs text-slate-100 max-w-[1600px] mx-auto w-full">
+  <div class="min-h-screen px-3 sm:px-6 py-4 sm:py-5 pb-24 text-xs text-slate-100 max-w-[1600px] mx-auto w-full relative overflow-x-hidden">
+    <!-- Ambient Background Glow Orbs for Frosted Glass Refraction -->
+    <div
+      class="pointer-events-none fixed -top-28 left-1/5 w-[480px] h-[300px] rounded-full bg-sky-500/14 blur-[130px] -z-10"
+    ></div>
+    <div
+      class="pointer-events-none fixed top-56 right-1/6 w-[440px] h-[280px] rounded-full bg-emerald-500/12 blur-[130px] -z-10"
+    ></div>
+    <div
+      class="pointer-events-none fixed bottom-16 left-1/3 w-[440px] h-[280px] rounded-full bg-violet-500/10 blur-[140px] -z-10"
+    ></div>
+
     <!-- Top Indeterminate Progress Bar -->
     <div v-if="store.loading || store.actionBusy" class="fixed top-0 left-0 right-0 h-1 z-50 bg-sky-500/20 overflow-hidden">
       <div class="h-full w-1/3 bg-gradient-to-r from-sky-400 via-emerald-400 to-sky-400 animate-pulse"></div>
     </div>
 
+    <!-- Offline / Pending Sync Banner (PWA Offline Support) -->
+    <div
+      v-if="store.isOffline || store.pendingOfflineQueueCount > 0"
+      class="card-surface flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 mb-3 border border-amber-400/50"
+    >
+      <div class="flex items-center gap-2 text-amber-200">
+        <Icon :icon="store.isOffline ? 'lucide:wifi-off' : 'lucide:wifi'" class="w-4 h-4 text-amber-400 shrink-0" />
+        <span>
+          <b v-if="store.isOffline">Offline PWA Mode Active:</b>
+          <b v-else>Local Storage Queue Ready:</b>
+          Showing locally cached snapshot ({{ store.lastLocalCacheTime || 'Saved' }}).
+          <template v-if="store.pendingOfflineQueueCount > 0">
+            <b>{{ store.pendingOfflineQueueCount }}</b> action(s) queued for automatic sync.
+          </template>
+        </span>
+      </div>
+      <button
+        v-if="!store.isOffline && store.pendingOfflineQueueCount > 0"
+        type="button"
+        class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+        @click="store.flushOfflineQueue()"
+      >
+        <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" />
+        <span>Sync Queued Changes Now</span>
+      </button>
+    </div>
+
     <!-- Main Dashboard Header -->
-    <header class="card-surface flex items-start gap-3.5 rounded-2xl px-4 py-3.5 mb-3.5">
+    <header class="card-surface flex items-start gap-3 sm:gap-3.5 rounded-2xl px-3.5 sm:px-4 py-3.5 mb-3.5">
       <router-link
         to="/"
-        class="w-[42px] h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/10 hover:scale-105 transition-transform"
+        class="w-[40px] h-[40px] sm:w-[42px] sm:h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.22)] hover:scale-105 transition-transform"
         title="Back to BetScout Home & Membership Plans"
       >
         <img src="/betscout-logo.svg" width="42" height="42" alt="BetScout" />
       </router-link>
 
-      <div class="flex-1 min-w-0 flex flex-col gap-2">
+      <div class="flex-1 min-w-0 flex flex-col gap-2.5">
         <!-- Top Row -->
-        <div class="flex flex-wrap justify-between items-center gap-3">
+        <div class="flex flex-wrap justify-between items-center gap-2.5">
           <div class="flex flex-wrap items-center gap-2">
-            <h1
-              class="m-0 inline-block pr-1.5 text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-sky-300 to-emerald-400 bg-clip-text text-transparent"
-            >
-              BetScout
+            <h1 class="m-0 text-lg sm:text-xl font-extrabold tracking-tight whitespace-nowrap">
+              <span class="text-white">Bet</span><span class="text-emerald-400">Scout</span>
             </h1>
             <span
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 whitespace-nowrap"
             >
-              <Icon icon="lucide:zap" class="w-3 h-3" />
+              <Icon icon="lucide:zap" class="w-3 h-3 text-emerald-400" />
               <span>LIVE AI</span>
             </span>
-            <span class="text-xs text-slate-300 font-medium">
+            <span class="hidden sm:inline text-xs text-slate-300 font-medium">
               Sports Edge, Exact-Score &amp; Paper-Betting Intelligence
             </span>
           </div>
 
-          <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 ml-auto tabular-nums">
-            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
+          <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300 ml-auto tabular-nums">
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
               <Icon icon="lucide:clock" class="w-3 h-3 text-sky-400" />
-              <span>Updated: <b class="text-slate-100">{{ store.generatedAtLocal }}</b></span>
+              <span>Updated: <b class="text-white">{{ store.generatedAtLocal }}</b></span>
             </span>
-            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
+            <span class="hidden md:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
               <Icon icon="lucide:database" class="w-3 h-3 text-emerald-400" />
-              <span><b class="text-slate-100">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
-            </span>
-            <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              <Icon icon="lucide:radio" class="w-3 h-3 text-sky-400" />
-              <span>{{ store.serverTimeLocal }}</span>
+              <span><b class="text-white">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
             </span>
             <span
-              class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-border rounded-full px-2.5 py-0.5 text-[11px]"
+              v-if="store.lastLocalCacheTime"
+              class="hidden lg:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5"
+              title="Snapshot & filter preferences are automatically persisted in browser LocalStorage for instant offline PWA access."
+            >
+              <Icon icon="lucide:check-circle-2" class="w-3 h-3 text-cyan-400" />
+              <span>Local Cache: <b class="text-cyan-300">{{ store.lastLocalCacheTime }}</b></span>
+            </span>
+            <span
+              class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-full px-2.5 py-0.5 text-[11px]"
             >
               <span
                 class="w-2 h-2 rounded-full"
-                :class="store.streamStatus === 'online' ? 'bg-emerald-400 shadow-[0_0_8px_#22c55e]' : 'bg-amber-400'"
+                :class="
+                  store.streamStatus === 'online'
+                    ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
+                    : store.streamStatus === 'offline'
+                      ? 'bg-rose-400'
+                      : 'bg-amber-400'
+                "
               ></span>
-              <span>{{ store.streamStatus === 'online' ? 'Connected' : 'Reconnecting...' }}</span>
+              <span>
+                {{
+                  store.streamStatus === 'online'
+                    ? 'Connected'
+                    : store.streamStatus === 'offline'
+                      ? 'Offline Cached'
+                      : 'Reconnecting...'
+                }}
+              </span>
             </span>
           </div>
         </div>
 
         <!-- Bottom Action Row -->
-        <div class="flex flex-wrap justify-between items-center gap-2.5 w-full">
+        <div class="flex flex-wrap justify-between items-center gap-2 w-full">
           <!-- Admin Action Buttons -->
           <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45 hover:bg-sky-500/25 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50"
               @click="store.syncAndSettle(false)"
             >
               <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
@@ -76,7 +130,7 @@
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50"
               @click="store.syncAndSettle(true)"
             >
               <Icon icon="lucide:zap" class="w-3.5 h-3.5 text-amber-400" />
@@ -85,7 +139,7 @@
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50"
               @click="store.runFullPipeline()"
             >
               <Icon icon="lucide:rocket" class="w-3.5 h-3.5 text-emerald-400" />
@@ -96,14 +150,14 @@
           <!-- Guest / Pro Banner when not Admin -->
           <div
             v-else
-            class="inline-flex flex-wrap items-center gap-2 bg-sky-500/10 border border-sky-400/35 rounded-xl px-3 py-1 text-[11.5px]"
+            class="inline-flex flex-wrap items-center gap-2 bg-sky-500/15 border border-sky-400/40 rounded-xl px-3 py-1 text-[11.5px]"
           >
             <span
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
               :class="
                 store.isPro
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-amber-500/15 text-amber-400 border border-amber-500/40'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
               "
             >
               <Icon :icon="store.isPro ? 'lucide:unlock' : 'lucide:lock'" class="w-3 h-3" />
@@ -119,13 +173,13 @@
             <button
               v-if="!store.userEmail"
               type="button"
-              class="text-sky-400 font-bold hover:underline"
+              class="text-sky-300 font-bold hover:underline"
               @click="store.triggerSignInOut()"
             >
               Sign In
             </button>
             <span class="text-slate-500">·</span>
-            <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-400 font-bold hover:underline">
+            <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-300 font-bold hover:underline">
               <span>Membership Plans</span>
               <Icon icon="lucide:arrow-right" class="w-3 h-3" />
             </router-link>
@@ -133,9 +187,18 @@
 
           <!-- Right Controls -->
           <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+            <button
+              v-if="store.canInstallPwa"
+              type="button"
+              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50"
+              @click="store.promptPwaInstall()"
+            >
+              <Icon icon="lucide:smartphone" class="w-3.5 h-3.5 text-violet-300" />
+              <span>Install App</span>
+            </button>
             <router-link
               to="/"
-              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
+              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
             >
               <Icon icon="lucide:home" class="w-3.5 h-3.5 text-sky-400" />
               <span>Home &amp; Plans</span>
@@ -143,9 +206,9 @@
             <a
               href="/api/docs"
               target="_blank"
-              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
+              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
             >
-              <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-sky-400" />
+              <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-cyan-400" />
               <span>Interactive API Docs</span>
             </a>
             <button
@@ -154,8 +217,8 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
               :class="
                 store.userEmail
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/45'
-                  : 'bg-sky-500/15 text-sky-400 border-sky-400/45'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                  : 'bg-sky-500/20 text-sky-300 border-sky-400/50'
               "
               @click="store.triggerSignInOut()"
             >
@@ -171,7 +234,7 @@
             <button
               v-if="store.isAdmin"
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
               @click="openShareSlateModal()"
             >
               <Icon icon="lucide:share-2" class="w-3.5 h-3.5" />
@@ -179,7 +242,7 @@
             </button>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400"
+              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400"
               @click="settingsModalOpen = true"
             >
               <Icon icon="lucide:settings" class="w-3.5 h-3.5 text-slate-300" />
@@ -193,28 +256,31 @@
     <!-- Action Progress Banner -->
     <div
       v-if="store.actionBusy"
-      class="flex items-center gap-3 bg-navy-800 border border-sky-400/50 rounded-xl px-4 py-2.5 mb-3.5"
+      class="card-surface flex items-center gap-3 border border-sky-400/55 rounded-xl px-4 py-2.5 mb-3.5"
     >
       <span class="w-3.5 h-3.5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin"></span>
-      <b class="text-sky-400">{{ store.actionProgressText }}</b>
+      <b class="text-sky-300">{{ store.actionProgressText }}</b>
     </div>
 
-    <!-- 5-Tile KPI Bento Strip -->
+    <!-- 5-Tile KPI Bento Strip (Color-Coded Top Accents + Frosted Glass) -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-3.5">
       <div
-        class="card-surface rounded-xl px-3.5 py-3"
+        class="card-surface border-t-2 border-t-emerald-400 rounded-xl px-3.5 py-3"
         title="Settled Win Rate & Exact-Score Accuracy across all graded paper-bets in the prospective ledger."
       >
-        <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">Settled Win Rate</span>
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-300">
+          <Icon icon="lucide:trophy" class="w-3.5 h-3.5 text-emerald-400" />
+          <span>Settled Win Rate</span>
+        </span>
         <b class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
           <span class="text-emerald-400">{{ settledWins }}W</span> –
-          <span :class="settledLosses > 0 ? 'text-danger' : 'text-slate-200'">{{ settledLosses }}L</span>
-          (<span class="text-emerald-400">{{ winRatePct.toFixed(1) }}%</span>)
+          <span :class="settledLosses > 0 ? 'text-rose-400' : 'text-slate-200'">{{ settledLosses }}L</span>
+          (<span class="text-emerald-300">{{ winRatePct.toFixed(1) }}%</span>)
         </b>
-        <small class="block text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
+        <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
           {{ settledCount }} Graded ·
           <span
-            class="border-b border-dotted border-slate-500 cursor-help"
+            class="border-b border-dotted border-slate-400 cursor-help text-sky-300"
             title="Exact Score / Cluster Hit Rate: Share of graded matches where the final score landed inside BetScout's pre-match projected exact-score or set-score cluster."
           >
             Score Hits: {{ store.paperLedger?.exact_score_hits || 0 }}/{{ store.paperLedger?.exact_score_graded || 0 }}
@@ -224,28 +290,31 @@
       </div>
 
       <div
-        class="card-surface rounded-xl px-3.5 py-3"
+        class="card-surface border-t-2 border-t-cyan-400 rounded-xl px-3.5 py-3"
         title="Realized Flat-Unit Profit (1.00u per pick) and Return on Investment (ROI%) across all settled bets."
       >
-        <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">Realized Profit / ROI</span>
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-cyan-300">
+          <Icon icon="lucide:trending-up" class="w-3.5 h-3.5 text-cyan-400" />
+          <span>Realized Profit / ROI</span>
+        </span>
         <b
           class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap"
-          :class="profitU >= 0 ? 'text-emerald-400' : 'text-danger'"
+          :class="profitU >= 0 ? 'text-cyan-300' : 'text-rose-400'"
         >
           {{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u ({{ roiPct >= 0 ? '+' : '' }}{{ roiPct.toFixed(1) }}%)
         </b>
-        <small class="block text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
+        <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
           <span
-            class="border-b border-dotted border-slate-500 cursor-help"
+            class="border-b border-dotted border-slate-400 cursor-help"
             title="Quarter-Kelly Bankroll Growth (¼-Kelly): Compounded percentage bankroll growth using optimal ¼-Kelly fractional staking."
           >
             ¼-Kelly:
-            <b class="text-emerald-400">+{{ Number(store.paperLedger?.kelly_growth_pct || 0).toFixed(2) }}%</b>
+            <b class="text-emerald-300">+{{ Number(store.paperLedger?.kelly_growth_pct || 0).toFixed(2) }}%</b>
           </span>
           ·
-          <span class="border-b border-dotted border-slate-500 cursor-help" :title="CLV_TOOLTIP">
+          <span class="border-b border-dotted border-slate-400 cursor-help" :title="CLV_TOOLTIP">
             CLV:
-            <b :class="meanClv >= 0 ? 'text-emerald-400' : 'text-danger'">
+            <b :class="meanClv >= 0 ? 'text-emerald-300' : 'text-rose-400'">
               {{ meanClv >= 0 ? '+' : '' }}{{ meanClv.toFixed(2) }}%
             </b>
           </span>
@@ -253,57 +322,64 @@
       </div>
 
       <div
-        class="card-surface rounded-xl px-3.5 py-3"
+        class="card-surface border-t-2 border-t-sky-400 rounded-xl px-3.5 py-3"
         title="Total Upcoming & Live Qualifying Picks passing all sport-specific safety gates."
       >
-        <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">Total Active Picks</span>
-        <b class="block text-lg font-mono tabular-nums text-emerald-400 mt-0.5 whitespace-nowrap">
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-sky-300">
+          <Icon icon="lucide:layers" class="w-3.5 h-3.5 text-sky-400" />
+          <span>Total Active Picks</span>
+        </span>
+        <b class="block text-lg font-mono tabular-nums text-white mt-0.5 whitespace-nowrap">
           {{ store.activeBestBets.length }} Picks
         </b>
-        <small
-          class="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-300 mt-0.5 truncate font-mono tabular-nums"
+        <div
+          class="flex flex-wrap items-center gap-1 text-[10.5px] mt-1 font-mono tabular-nums"
           :title="store.activeSportsBreakdown"
         >
           <template v-if="store.activeSportsCounts.length">
             <span
               v-for="sp in store.activeSportsCounts"
               :key="sp.cat"
-              class="inline-flex items-center gap-1"
+              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold"
+              :class="getSportBadgeTheme(sp.cat)"
             >
-              <Icon :icon="sp.icon" class="w-3.5 h-3.5 text-sky-400" />
+              <Icon :icon="sp.icon" class="w-3 h-3" />
               <span>{{ sp.count }}</span>
             </span>
           </template>
-          <span v-else>{{ store.activeSportsBreakdown }}</span>
-        </small>
+          <span v-else class="text-slate-300">{{ store.activeSportsBreakdown }}</span>
+        </div>
       </div>
 
       <div
-        class="card-surface rounded-xl px-3.5 py-3"
+        class="card-surface border-t-2 border-t-rose-400 rounded-xl px-3.5 py-3"
         title="Currently in-play matches (streaming every 6s via Sportradar) and pending pre-match bets in the ledger."
       >
-        <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">Live &amp; Pending Ledger</span>
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-rose-300">
+          <Icon icon="lucide:radio" class="w-3.5 h-3.5 text-rose-400" />
+          <span>Live &amp; Pending Ledger</span>
+        </span>
         <b class="flex items-center gap-1.5 text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
           <span
             class="inline-flex items-center gap-1.5"
-            :class="store.liveBets.length > 0 ? 'text-emerald-400' : 'text-slate-200'"
+            :class="store.liveBets.length > 0 ? 'text-emerald-300' : 'text-slate-200'"
           >
-            <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
             <span>{{ store.liveBets.length }} Live</span>
           </span>
           <span class="text-slate-500">·</span>
-          <span class="inline-flex items-center gap-1 text-slate-200">
+          <span class="inline-flex items-center gap-1 text-amber-300">
             <Icon icon="lucide:clock" class="w-3.5 h-3.5 text-amber-400" />
             <span>{{ store.pendingBets.length }}</span>
           </span>
         </b>
-        <small class="flex items-center gap-2 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
-          <span class="inline-flex items-center gap-1">
+        <small class="flex items-center gap-2 text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
+          <span class="inline-flex items-center gap-1 text-sky-300">
             <Icon icon="lucide:link-2" class="w-3 h-3 text-sky-400" />
             <span>{{ store.recommendedDoubles.length }} Combos</span>
           </span>
           <span>·</span>
-          <span class="inline-flex items-center gap-1" :class="store.vetoedBets > 0 ? 'text-danger' : ''">
+          <span class="inline-flex items-center gap-1" :class="store.vetoedBets > 0 ? 'text-rose-400 font-bold' : ''">
             <Icon icon="lucide:shield-check" class="w-3 h-3" />
             <span>{{ store.vetoedBets }} Vetoes</span>
           </span>
@@ -311,53 +387,59 @@
       </div>
 
       <div
-        class="card-surface rounded-xl px-3.5 py-3"
+        class="card-surface border-t-2 border-t-violet-400 rounded-xl px-3.5 py-3"
         title="Number of picks currently visible after applying your Sport, Day, Min Odds, and Search filters."
       >
-        <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-          Filtered Best Bets (&gt;{{ store.minOdds.toFixed(2) }})
+        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-violet-300">
+          <Icon icon="lucide:sparkles" class="w-3.5 h-3.5 text-violet-400" />
+          <span>Filtered Best Bets (&gt;{{ store.minOdds.toFixed(2) }})</span>
         </span>
-        <b class="block text-lg font-mono tabular-nums text-emerald-400 mt-0.5 whitespace-nowrap">
-          {{ store.visibleBestBets.length }}
+        <b class="block text-lg font-mono tabular-nums text-violet-200 mt-0.5 whitespace-nowrap">
+          {{ store.visibleBestBets.length }} Visible
         </b>
-        <small class="flex items-center gap-1.5 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
-          <Icon icon="lucide:sparkles" class="w-3 h-3 text-sky-400 shrink-0" />
-          <span>{{ store.mispricedBets.length }} Mispriced · {{ store.totalMatches.toLocaleString() }} Matches</span>
+        <small class="flex items-center gap-1.5 text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
+          <span class="text-emerald-300 font-bold">{{ store.mispricedBets.length }} Mispriced</span>
+          <span>·</span>
+          <span>{{ store.totalMatches.toLocaleString() }} Matches</span>
         </small>
       </div>
     </section>
 
-    <!-- Filter Bar -->
+    <!-- Color-Coded Filter Bar -->
     <div class="card-surface flex flex-wrap items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3 text-[11.5px]">
-      <b>Sport:</b>
-      <div class="flex flex-wrap gap-1">
+      <b class="text-slate-200">Sport:</b>
+      <div class="flex flex-wrap gap-1.5">
         <button
           v-for="(label, key) in SPORT_CLEAN_LABELS"
           :key="key"
           type="button"
-          class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+          class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap"
           :class="
             store.sportFilter === key
-              ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-              : 'bg-navy-900 border-border text-slate-400 hover:text-slate-200'
+              ? getSportBadgeTheme(key) + ' shadow-[0_0_12px_rgba(56,189,248,0.2)]'
+              : 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-500'
           "
           @click="store.sportFilter = key"
         >
-          <Icon :icon="SPORT_ICONIFY_NAMES[key] || 'lucide:globe'" class="w-3.5 h-3.5 shrink-0" />
+          <Icon
+            :icon="SPORT_ICONIFY_NAMES[key] || 'lucide:globe'"
+            class="w-3.5 h-3.5 shrink-0"
+            :class="store.sportFilter === key ? '' : getSportIconColor(key)"
+          />
           <span>{{ label }}</span>
         </button>
       </div>
 
-      <span class="text-slate-700">|</span>
-      <b>Day:</b>
-      <div class="flex flex-wrap gap-1">
+      <span class="hidden sm:inline text-slate-700">|</span>
+      <b class="text-slate-200">Day:</b>
+      <div class="flex flex-wrap gap-1.5">
         <button
           type="button"
-          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-semibold border tabular-nums"
+          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
           :class="
             store.dayFilter === 'all'
-              ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-              : 'bg-navy-900 border-border text-slate-400'
+              ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+              : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
           "
           @click="store.dayFilter = 'all'"
         >
@@ -367,11 +449,11 @@
           v-for="dObj in store.availableDays"
           :key="dObj.day"
           type="button"
-          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-semibold border tabular-nums"
+          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
           :class="
             store.dayFilter === dObj.day
-              ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-              : 'bg-navy-900 border-border text-slate-400'
+              ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+              : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
           "
           @click="store.dayFilter = dObj.day"
         >
@@ -379,28 +461,28 @@
         </button>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 ml-auto">
-        <b>Min Odds:</b>
+      <div class="flex flex-wrap items-center gap-2 ml-auto w-full sm:w-auto pt-1 sm:pt-0">
+        <b class="text-slate-200">Min Odds:</b>
         <input
           v-model.number="store.minOdds"
           type="range"
           min="1.05"
           max="2.00"
           step="0.05"
-          class="w-28 accent-sky-400 cursor-pointer"
+          class="w-24 sm:w-28 accent-sky-400 cursor-pointer"
         />
-        <span class="font-mono tabular-nums">
+        <span class="font-mono tabular-nums text-amber-300">
           &gt;<b>{{ store.minOdds.toFixed(2) }}</b> (+{{ Math.round((store.minOdds - 1) * 100) }}%)
         </span>
         <input
           v-model="store.searchQuery"
           type="search"
           placeholder="Search team, player, league..."
-          class="bg-navy-900 text-slate-100 border border-border rounded-lg px-2.5 py-1 text-[11.5px] min-w-[180px]"
+          class="bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px] flex-1 sm:min-w-[180px]"
         />
         <button
           type="button"
-          class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
+          class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
           @click="analyzerModalOpen = true"
         >
           <Icon icon="lucide:search" class="w-3.5 h-3.5" />
@@ -411,24 +493,25 @@
 
     <!-- 4 Sticky Workspace Tabs -->
     <nav
-      class="flex flex-wrap gap-2 bg-navy-950/95 border border-border rounded-xl p-1.5 mb-4 sticky top-2 z-40 backdrop-blur-md shadow-xl"
+      class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-950/90 border border-slate-700/80 rounded-xl p-1.5 mb-4 sticky top-2 z-40 backdrop-blur-2xl shadow-2xl"
     >
       <button
         v-for="tab in workspaceTabs"
         :key="tab.id"
         type="button"
-        class="btn-press flex-1 min-w-[210px] min-h-[38px] inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold border whitespace-nowrap"
+        class="btn-press min-h-[40px] inline-flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs font-bold border whitespace-nowrap"
         :class="
           activeTab === tab.id
-            ? 'bg-gradient-to-br from-sky-500/20 to-emerald-500/15 text-white border-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.18)]'
-            : 'bg-navy-800 text-slate-400 border-border hover:text-slate-100'
+            ? 'bg-gradient-to-r from-sky-500/25 via-cyan-500/20 to-emerald-500/20 text-white border-sky-400 shadow-[0_0_16px_rgba(56,189,248,0.25)]'
+            : 'bg-slate-900/80 text-slate-300 border-slate-800 hover:text-white hover:border-slate-600'
         "
         @click="activeTab = tab.id"
       >
-        <Icon :icon="tab.icon" class="w-4 h-4 text-sky-400 shrink-0" />
-        <span class="whitespace-nowrap">{{ tab.label }}</span>
+        <Icon :icon="tab.icon" class="w-4 h-4 shrink-0" :class="tab.iconColor" />
+        <span class="truncate">{{ tab.label }}</span>
         <span
-          class="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-sky-500/15 text-sky-400 border border-sky-400/35"
+          class="hidden sm:inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
+          :class="tab.badgeClass"
         >
           {{ tab.badge }}
         </span>
@@ -437,23 +520,23 @@
 
     <!-- TAB 1: PICKS & LIVE IN-PLAY -->
     <div v-if="activeTab === 'picks'">
-      <!-- Live In-Play Table -->
+      <!-- Live In-Play Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-400 m-0">
-          <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></span>
+        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-rose-300 m-0">
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
           <span>Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: {{ store.liveBets.length }})</span>
         </h2>
-        <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5">
+        <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
           <input
             v-model="trackQuickInput"
             type="search"
             placeholder="+ Track any live/upcoming match (e.g. Shelton vs Kovacevic)..."
-            class="min-w-[280px] bg-navy-900 text-slate-100 border border-border rounded-lg px-2.5 py-1 text-[11.5px]"
+            class="flex-1 sm:min-w-[280px] bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px]"
             @keydown.enter="onTrackLiveQuick"
           />
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
             @click="onTrackLiveQuick"
           >
             <Icon icon="lucide:pin" class="w-3.5 h-3.5" />
@@ -462,10 +545,56 @@
         </div>
       </div>
 
-      <div class="card-surface rounded-2xl overflow-x-auto mb-5">
+      <!-- Mobile Live In-Play Cards (<768px) -->
+      <div class="md:hidden space-y-2.5 mb-5">
+        <div v-if="!store.liveBets.length" class="card-surface rounded-xl p-3.5 text-slate-300">
+          No logged paper bets are currently in-play. Active matches move here automatically during kickoff!
+        </div>
+        <div
+          v-for="tr in store.liveBets"
+          :key="`mob-live-${tr.league}:${tr.event_id}`"
+          class="card-surface rounded-xl p-3.5 border-l-2 border-l-rose-400"
+        >
+          <div class="flex justify-between items-center gap-2 mb-1.5">
+            <span
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+              :class="getSportBadgeTheme(tr.sport_cat)"
+            >
+              <Icon :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5" />
+              <span>{{ tr.league_label || tr.league }}</span>
+            </span>
+            <span class="font-mono tabular-nums text-[11px] text-slate-300">{{ tr.kickoff_local || tr.kickoff }}</span>
+          </div>
+          <button
+            type="button"
+            class="font-extrabold text-sm text-white hover:text-sky-300 text-left block mb-1.5"
+            @click="openMatchupModal(tr.home, tr.away, tr.league)"
+          >
+            {{ tr.home }} vs {{ tr.away }}
+          </button>
+          <div class="flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-1.5">
+              <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
+              <span
+                class="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                :class="getTierBadgeClass(tr.tier)"
+              >
+                {{ tr.tier }}
+              </span>
+            </div>
+            <div class="font-mono tabular-nums font-bold text-white">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1 animate-ping"></span>
+              {{ tr.live_score || tr.score_str || '0-0 (LIVE)' }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Live In-Play Table (>=768px) -->
+      <div class="hidden md:block table-surface rounded-2xl overflow-x-auto mb-5">
         <table class="w-full border-collapse text-xs">
           <thead>
-            <tr class="bg-navy-900/90 text-slate-400 text-[11px] uppercase tracking-wider border-b border-border text-left">
+            <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left">
               <th class="py-2.5 px-2.5 w-11 text-center">Sport</th>
               <th class="py-2.5 px-2.5">Competition</th>
               <th class="py-2.5 px-2.5">Kickoff</th>
@@ -478,30 +607,37 @@
           </thead>
           <tbody>
             <tr v-if="!store.liveBets.length">
-              <td colspan="8" class="py-3.5 px-3 text-slate-400">
+              <td colspan="8" class="py-3.5 px-3 text-slate-300">
                 No logged paper bets are currently in-play. Active matches move here automatically during kickoff!
               </td>
             </tr>
             <tr
               v-for="tr in store.liveBets"
               :key="`${tr.league}:${tr.event_id}`"
-              class="border-b border-border/60 last:border-none hover:bg-slate-800/40"
+              class="border-b border-slate-800/80 last:border-none hover:bg-slate-800/45"
             >
               <td class="py-2.5 px-2.5 text-center">
-                <Icon :icon="getSportIconify(tr.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
+                <Icon
+                  :icon="getSportIconify(tr.sport_cat)"
+                  class="w-4 h-4 mx-auto"
+                  :class="getSportIconColor(tr.sport_cat)"
+                />
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
+                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  :class="getSportBadgeTheme(tr.sport_cat)"
                 >
                   {{ tr.league_label || tr.league }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">{{ tr.kickoff_local || tr.kickoff }}</td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap text-slate-200">
+                {{ tr.kickoff_local || tr.kickoff }}
+              </td>
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
-                  class="font-bold text-slate-100 hover:text-sky-400 border-b border-dashed border-sky-400/40 text-left"
+                  class="font-bold text-white hover:text-sky-300 border-b border-dashed border-sky-400/50 text-left"
                   @click="openMatchupModal(tr.home, tr.away, tr.league)"
                 >
                   {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
@@ -509,9 +645,10 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <b class="text-emerald-400">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
+                  <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
                   <span
-                    class="pill-tip inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
+                    class="pill-tip inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-help"
+                    :class="getTierBadgeClass(tr.tier)"
                     :title="getBadgeTooltipText(tr.tier)"
                   >
                     {{ tr.tier }}
@@ -523,8 +660,8 @@
                 {{ tr.live_score || tr.score_str || '0-0 (LIVE)' }}
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">
-                <b>{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
-                <span class="text-slate-400 ml-1">
+                <b class="text-amber-300">{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
+                <span class="text-slate-300 ml-1">
                   (Close {{ Number(tr.latest_close_odds || tr.logged_best_odds || 1.3).toFixed(2) }})
                 </span>
               </td>
@@ -533,10 +670,10 @@
                   class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold border"
                   :class="
                     Number(tr.live_pnl || 0) > 0
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
                       : Number(tr.live_pnl || 0) < 0
-                        ? 'bg-red-500/15 text-danger border-red-500/40'
-                        : 'bg-amber-500/15 text-amber-400 border-amber-500/40'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-400/50'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-400/50'
                   "
                 >
                   {{
@@ -550,7 +687,7 @@
                 <button
                   v-if="tr.tier === 'tracked_live' && store.isAdmin"
                   type="button"
-                  class="btn-press ml-1.5 inline-flex items-center p-1 rounded border border-red-500/40 text-danger"
+                  class="btn-press ml-1.5 inline-flex items-center p-1 rounded border border-rose-500/50 text-rose-400"
                   @click="store.untrackLiveMatchup(tr.league, tr.event_id)"
                 >
                   <Icon icon="lucide:x" class="w-3 h-3" />
@@ -561,16 +698,16 @@
         </table>
       </div>
 
-      <!-- Best Bets Summary Table -->
+      <!-- Best Bets Summary Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-        <h2 class="text-sm font-bold text-sky-400 m-0">
+        <h2 class="text-sm font-bold text-sky-300 m-0">
           Best Bets Summary Table (Click Any Header to Sort · Click Matchup for H2H · Select Rows for Custom Slip)
         </h2>
         <div class="flex flex-wrap items-center gap-1.5">
           <button
             v-if="store.customSelectedMatches.size > 0"
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/40"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50"
             @click="store.clearCustomSelection()"
           >
             <Icon icon="lucide:x" class="w-3 h-3" />
@@ -578,7 +715,7 @@
           </button>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
             @click="activeTab = 'studio'"
           >
             <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
@@ -587,11 +724,87 @@
         </div>
       </div>
 
-      <div class="card-surface rounded-2xl overflow-x-auto mb-5">
+      <!-- Responsive Mobile Best Bets Cards (<768px) -->
+      <div class="md:hidden space-y-3 mb-5">
+        <div v-if="!sortedBestBets.length" class="card-surface rounded-xl p-4 text-slate-300">
+          No qualifying best bets match the current filter criteria.
+        </div>
+        <div
+          v-for="b in sortedBestBets"
+          :key="`mob-bet-${b.date}:${b.match}`"
+          class="card-surface rounded-xl p-3.5"
+          :class="store.customSelectedMatches.has(b.match) ? 'border-emerald-400/70' : ''"
+        >
+          <div class="flex justify-between items-center gap-2 mb-2">
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="store.customSelectedMatches.has(b.match)"
+                class="accent-emerald-400 w-4 h-4"
+                @change="store.toggleCustomMatch(b.match)"
+              />
+              <span
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                :class="getSportBadgeTheme(b.sport_cat)"
+              >
+                <Icon :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5" />
+                <span>{{ b.competition || b.sport_league }}</span>
+              </span>
+            </label>
+            <span class="font-mono tabular-nums text-[11px] text-slate-300">
+              {{ store.tzMode === 'utc' ? b.date : b.date_local }}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            class="font-extrabold text-sm text-white hover:text-sky-300 text-left block mb-2"
+            @click="openMatchupModal(b.home, b.away, b.sport_league)"
+          >
+            {{ b.match }}
+          </button>
+
+          <div class="flex flex-wrap items-center gap-1.5 mb-2.5">
+            <b class="text-emerald-300 text-xs">{{ b.pick_name || b.pick }}</b>
+            <span
+              v-if="b.tier"
+              class="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+              :class="getTierBadgeClass(b.tier)"
+            >
+              {{ b.tier }}
+            </span>
+            <span
+              v-if="b.is_mispriced"
+              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+            >
+              <Icon icon="lucide:sparkles" class="w-2.5 h-2.5" />
+              <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/60 font-mono tabular-nums text-[11px]">
+            <div>
+              <span class="text-slate-400 block text-[10px]">WIN PROB</span>
+              <b class="text-emerald-300">{{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%</b>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">FAIR ODDS</span>
+              <b class="text-slate-200">@{{ Number(b.min_fair_odds || 1.35).toFixed(2) }}</b>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">MARKET ODDS</span>
+              <b class="text-amber-300">{{ Number(b.odds || 1.3).toFixed(2) }}</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Best Bets Table (>=768px) -->
+      <div class="hidden md:block table-surface rounded-2xl overflow-x-auto mb-5">
         <table class="w-full border-collapse text-xs">
           <thead>
             <tr
-              class="bg-navy-900/90 text-slate-400 text-[11px] uppercase tracking-wider border-b border-border text-left select-none"
+              class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left select-none"
             >
               <th class="py-2.5 px-2 w-9 text-center">Slip</th>
               <th class="py-2.5 px-2 w-11 text-center">Sport</th>
@@ -619,15 +832,15 @@
           </thead>
           <tbody>
             <tr v-if="!sortedBestBets.length">
-              <td colspan="10" class="py-4 px-3 text-slate-400">
+              <td colspan="10" class="py-4 px-3 text-slate-300">
                 No qualifying best bets match the current filter criteria.
               </td>
             </tr>
             <tr
               v-for="b in sortedBestBets"
               :key="`${b.date}:${b.match}`"
-              class="border-b border-border/60 last:border-none hover:bg-slate-800/40"
-              :class="store.customSelectedMatches.has(b.match) ? 'bg-sky-500/10' : ''"
+              class="border-b border-slate-800/80 last:border-none hover:bg-slate-800/45 transition-colors"
+              :class="store.customSelectedMatches.has(b.match) ? 'bg-sky-500/15' : ''"
             >
               <td class="py-2.5 px-2 text-center">
                 <input
@@ -638,11 +851,16 @@
                 />
               </td>
               <td class="py-2.5 px-2 text-center">
-                <Icon :icon="getSportIconify(b.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
+                <Icon
+                  :icon="getSportIconify(b.sport_cat)"
+                  class="w-4 h-4 mx-auto"
+                  :class="getSportIconColor(b.sport_cat)"
+                />
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
+                  class="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  :class="getSportBadgeTheme(b.sport_cat)"
                 >
                   {{ b.competition || b.sport_league }}
                 </span>
@@ -653,7 +871,7 @@
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
-                  class="font-bold text-white hover:text-sky-400 border-b border-dashed border-sky-400/40 text-left"
+                  class="font-bold text-white hover:text-sky-300 border-b border-dashed border-sky-400/50 text-left"
                   @click="openMatchupModal(b.home, b.away, b.sport_league)"
                 >
                   {{ b.match }}
@@ -661,17 +879,18 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <b class="text-emerald-400">{{ b.pick_name || b.pick }}</b>
+                  <b class="text-emerald-300">{{ b.pick_name || b.pick }}</b>
                   <span
                     v-if="b.tier"
-                    class="pill-tip inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-help"
+                    class="pill-tip inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-help"
+                    :class="getTierBadgeClass(b.tier)"
                     :title="getBadgeTooltipText(b.tier)"
                   >
                     {{ b.tier }}
                   </span>
                   <span
                     v-if="b.is_mispriced"
-                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
+                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/55 cursor-help shadow-[0_0_10px_rgba(16,185,129,0.2)]"
                     :title="`Bookmaker Odds Mispricing: +${Number(b.edge_pp || 0).toFixed(1)}pp probability edge (${b.mispricing_drivers || 'Model Edge'})`"
                   >
                     <Icon icon="lucide:sparkles" class="w-2.5 h-2.5" />
@@ -679,19 +898,26 @@
                   </span>
                 </div>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-emerald-400 whitespace-nowrap">
-                {{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%
+              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">
+                <div class="font-bold text-emerald-300">{{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%</div>
+                <div class="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden mt-1">
+                  <div
+                    class="h-full rounded-full"
+                    :class="getWinProbBarColor(b.win_prob)"
+                    :style="{ width: `${Math.min(100, Math.max(15, Number(b.win_prob || 0.5) * 100))}%` }"
+                  ></div>
+                </div>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-300 whitespace-nowrap">
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-200 whitespace-nowrap">
                 {{ Number(b.min_fair_odds || 1.35).toFixed(2) }}
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="text-sky-400 font-semibold">{{ b.exact_score_pick || '—' }}</span>
+                  <span class="text-sky-300 font-semibold">{{ b.exact_score_pick || '—' }}</span>
                   <button
                     v-if="b.score_cluster_items?.length"
                     type="button"
-                    class="btn-press inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-navy-900 text-amber-400 border border-amber-500/40 hover:bg-amber-500/15"
+                    class="btn-press inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/50 hover:bg-fuchsia-500/30"
                     @click="selectMatchForDutching(b.match)"
                   >
                     <Icon icon="lucide:dices" class="w-3 h-3" />
@@ -701,19 +927,19 @@
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <b>{{ b.odds_display }}</b>
+                  <b class="text-amber-300">{{ b.odds_display }}</b>
                   <span
-                    class="whitespace-nowrap text-slate-400 border-b border-dotted border-slate-500 cursor-help"
+                    class="whitespace-nowrap text-slate-300 border-b border-dotted border-slate-500 cursor-help"
                     :title="CLV_TOOLTIP"
                   >
                     (CLV
-                    <b :class="Number(b.clv_pct || 0) >= 0 ? 'text-emerald-400' : 'text-danger'">
+                    <b :class="Number(b.clv_pct || 0) >= 0 ? 'text-emerald-300' : 'text-rose-400'">
                       {{ Number(b.clv_pct || 0) >= 0 ? '+' : '' }}{{ Number(b.clv_pct || 0).toFixed(1) }}%
                     </b>)
                   </span>
                   <span
                     v-if="Number(b.clv_pct || 0) >= 3.0"
-                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
+                    class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-400/55 cursor-help"
                     :title="`Sharp Closing-Line Steam Move (+${Number(b.clv_pct || 0).toFixed(1)}% CLV)`"
                   >
                     <Icon icon="lucide:flame" class="w-3 h-3" />
@@ -721,7 +947,7 @@
                   </span>
                   <button
                     type="button"
-                    class="btn-press inline-flex items-center p-1 rounded bg-navy-900 border border-border hover:border-sky-400 text-sky-400"
+                    class="btn-press inline-flex items-center p-1 rounded-md bg-slate-900 border border-slate-700 hover:border-sky-400 text-sky-300"
                     title="Share this pick + PNG Card to Discord / Telegram"
                     @click="openShareSinglePickModal(b)"
                   >
@@ -737,23 +963,23 @@
       <!-- High-Probability Banker Profitability Booster Combos -->
       <section
         v-if="store.bankerBoosterCombos.length > 0"
-        class="bg-gradient-to-b from-emerald-950/35 to-navy-800/95 border border-emerald-500/45 rounded-2xl p-4 mb-6 shadow-xl"
+        class="card-surface border border-emerald-400/50 rounded-2xl p-4 sm:p-5 mb-6"
       >
-        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
             <Icon icon="lucide:rocket" class="w-4 h-4 text-emerald-400" />
-            <b class="text-sm text-emerald-400">High-Probability Banker Profitability Booster Combos</b>
-            <span class="text-slate-400">
+            <b class="text-sm text-emerald-300">High-Probability Banker Profitability Booster Combos</b>
+            <span class="text-slate-300">
               Combines multiple high-win-probability (&ge;72%), lower-odds bankers into higher-yielding 2-Leg &amp;
               3-Leg multipliers
             </span>
           </div>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-navy-900 text-slate-200 border border-border hover:border-sky-400"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-slate-900 text-sky-300 border border-sky-400/50"
             @click="activeTab = 'studio'"
           >
-            <Icon icon="lucide:calculator" class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
             <span>Customize Stake in Studio</span>
             <Icon icon="lucide:arrow-right" class="w-3 h-3" />
           </button>
@@ -763,27 +989,27 @@
           <div
             v-for="combo in store.bankerBoosterCombos"
             :key="combo.id"
-            class="card-surface rounded-xl p-4 flex flex-col justify-between"
+            class="card-surface rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-400"
           >
             <div>
               <div class="flex justify-between items-center gap-2 mb-1">
-                <b>{{ combo.title }}</b>
+                <b class="text-white">{{ combo.title }}</b>
                 <div class="flex items-center gap-1.5">
                   <span
-                    class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
+                    class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold font-mono tabular-nums bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
                   >
                     +{{ combo.netYieldPct }}% PROFIT BOOST
                   </span>
                   <button
                     type="button"
-                    class="btn-press inline-flex items-center p-1 rounded bg-navy-900 border border-border hover:border-sky-400 text-sky-400"
+                    class="btn-press inline-flex items-center p-1 rounded bg-slate-900 border border-slate-700 hover:border-sky-400 text-sky-300"
                     @click="openShareBoosterModal(combo)"
                   >
                     <Icon icon="lucide:megaphone" class="w-3 h-3" />
                   </button>
                 </div>
               </div>
-              <div class="text-slate-400 text-[11px] mb-2">{{ combo.description }}</div>
+              <div class="text-slate-300 text-[11px] mb-2">{{ combo.description }}</div>
               <div class="divide-y divide-slate-800">
                 <div
                   v-for="(leg, lIdx) in combo.legs"
@@ -792,25 +1018,29 @@
                 >
                   <span class="inline-flex items-center gap-1.5">
                     <span>{{ lIdx + 1 }}.</span>
-                    <Icon :icon="getSportIconify(leg.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <b>{{ leg.pick_name || leg.pick }}</b>
-                    <span class="text-slate-400">({{ leg.match }})</span>
+                    <Icon
+                      :icon="getSportIconify(leg.sport_cat)"
+                      class="w-3.5 h-3.5 shrink-0"
+                      :class="getSportIconColor(leg.sport_cat)"
+                    />
+                    <b class="text-white">{{ leg.pick_name || leg.pick }}</b>
+                    <span class="text-slate-300">({{ leg.match }})</span>
                   </span>
                   <span class="font-mono tabular-nums whitespace-nowrap">
-                    <b class="text-emerald-400">@{{ leg.odds.toFixed(2) }}</b>
-                    <span class="text-slate-400 ml-1">({{ (leg.win_prob * 100).toFixed(1) }}%)</span>
+                    <b class="text-amber-300">@{{ leg.odds.toFixed(2) }}</b>
+                    <span class="text-emerald-300 ml-1">({{ (leg.win_prob * 100).toFixed(1) }}%)</span>
                   </span>
                 </div>
               </div>
             </div>
-            <div class="mt-2.5 pt-2 border-t border-border flex justify-between items-center text-xs font-mono tabular-nums">
+            <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex justify-between items-center text-xs font-mono tabular-nums">
               <span>
-                Combined Odds: <b class="text-emerald-400">{{ combo.combinedOdds.toFixed(2) }}x</b>
+                Combined Odds: <b class="text-amber-300">{{ combo.combinedOdds.toFixed(2) }}x</b>
                 (Fair {{ combo.fairOdds.toFixed(2) }})
               </span>
               <span>
-                Hit Prob: <b class="text-emerald-400">{{ (combo.combinedProb * 100).toFixed(1) }}%</b> · €100 &rarr;
-                <b class="text-emerald-400">€{{ (100 * combo.combinedOdds).toFixed(2) }}</b>
+                Hit Prob: <b class="text-emerald-300">{{ (combo.combinedProb * 100).toFixed(1) }}%</b> · €100 &rarr;
+                <b class="text-emerald-300">€{{ (100 * combo.combinedOdds).toFixed(2) }}</b>
               </span>
             </div>
           </div>
@@ -821,12 +1051,12 @@
     <!-- TAB 2: BET SLIP, DUTCHING & COMBOS -->
     <div v-else-if="activeTab === 'studio'">
       <!-- Smart Bet Slip & Stake Allocation Optimizer -->
-      <section class="card-surface rounded-2xl p-4 mb-5">
-        <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+      <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
             <Icon icon="lucide:calculator" class="w-4 h-4 text-sky-400" />
-            <b class="text-sm text-sky-400">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
-            <span class="text-slate-400">
+            <b class="text-sm text-sky-300">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
+            <span class="text-slate-300">
               Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid
               65/35 Split
             </span>
@@ -839,18 +1069,18 @@
               min="5"
               max="100000"
               step="5"
-              class="w-24 bg-navy-900 text-emerald-400 border border-sky-400 rounded-lg px-2.5 py-1 text-xs font-extrabold font-mono tabular-nums"
+              class="w-24 bg-slate-950 text-emerald-300 border border-sky-400 rounded-lg px-2.5 py-1 text-xs font-extrabold font-mono tabular-nums"
             />
             <div class="flex gap-1">
               <button
                 v-for="amt in [25, 50, 100, 250, 500]"
                 :key="amt"
                 type="button"
-                class="btn-press px-2.5 py-1 rounded-full text-[11px] font-semibold border tabular-nums"
+                class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
                 :class="
                   betBudget === amt
-                    ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-                    : 'bg-navy-900 border-border text-slate-400'
+                    ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                    : 'bg-slate-900 border-slate-700 text-slate-300'
                 "
                 @click="betBudget = amt"
               >
@@ -862,15 +1092,15 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           <!-- Option A: Safe 2-Leg Combo -->
-          <div class="bg-navy-900/90 border border-emerald-500/45 rounded-xl p-4 flex flex-col justify-between">
+          <div class="card-surface border-t-2 border-t-emerald-400 rounded-xl p-4 flex flex-col justify-between">
             <div>
               <div class="flex justify-between items-center mb-1">
                 <b>Option A · Safe {{ slipComboLegs.length }}-Leg Multiplier Combo</b>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/15 text-emerald-400">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
                   {{ (slipComboOdds || 1).toFixed(2) }}x
                 </span>
               </div>
-              <div class="text-slate-400 text-[11px] mb-2">
+              <div class="text-slate-300 text-[11px] mb-2">
                 Uncorrelated cross-league parlay maximizing total return on a single ticket
               </div>
               <div class="divide-y divide-slate-800">
@@ -881,19 +1111,23 @@
                 >
                   <span class="inline-flex items-center gap-1.5">
                     <span>{{ idx + 1 }}.</span>
-                    <Icon :icon="getSportIconify(l.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <Icon
+                      :icon="getSportIconify(l.sport_cat)"
+                      class="w-3.5 h-3.5 shrink-0"
+                      :class="getSportIconColor(l.sport_cat)"
+                    />
                     <b>{{ l.pick_name || l.pick }}</b>
-                    <span class="text-slate-400">({{ l.match }})</span>
+                    <span class="text-slate-300">({{ l.match }})</span>
                   </span>
-                  <b class="font-mono tabular-nums text-emerald-400">@{{ l.odds.toFixed(2) }}</b>
+                  <b class="font-mono tabular-nums text-amber-300">@{{ l.odds.toFixed(2) }}</b>
                 </div>
               </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-border flex justify-between text-xs font-mono tabular-nums">
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between text-xs font-mono tabular-nums">
               <span>
                 Stake: <b>€{{ betBudget.toFixed(2) }}</b> ({{ (slipComboProb * 100).toFixed(1) }}% Hit)
               </span>
-              <span class="text-emerald-400 font-bold">
+              <span class="text-emerald-300 font-bold">
                 Return: €{{ (betBudget * slipComboOdds).toFixed(2) }} (+€{{
                   (betBudget * (slipComboOdds - 1)).toFixed(2)
                 }})
@@ -902,15 +1136,15 @@
           </div>
 
           <!-- Option B: Kelly Singles Portfolio -->
-          <div class="bg-navy-900/90 border border-sky-400/45 rounded-xl p-4 flex flex-col justify-between">
+          <div class="card-surface border-t-2 border-t-sky-400 rounded-xl p-4 flex flex-col justify-between">
             <div>
               <div class="flex justify-between items-center mb-1">
                 <b>Option B · {{ slipSinglesAlloc.length }} Separate Individual Bets (Kelly Portfolio)</b>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-400">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
                   LOWEST VARIANCE
                 </span>
               </div>
-              <div class="text-slate-400 text-[11px] mb-2">
+              <div class="text-slate-300 text-[11px] mb-2">
                 Splits €{{ betBudget.toFixed(2) }} across {{ slipSinglesAlloc.length }} independent singles — one upset
                 never wipes out your stake
               </div>
@@ -921,20 +1155,24 @@
                   class="py-1 flex justify-between items-center text-[11.5px]"
                 >
                   <span class="inline-flex items-center gap-1.5">
-                    <Icon :icon="getSportIconify(s.item.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <Icon
+                      :icon="getSportIconify(s.item.sport_cat)"
+                      class="w-3.5 h-3.5 shrink-0"
+                      :class="getSportIconColor(s.item.sport_cat)"
+                    />
                     <b>{{ s.item.pick_name || s.item.pick }}</b>
-                    <span class="text-slate-400">(@{{ s.item.odds.toFixed(2) }})</span>
+                    <span class="text-slate-300">(@{{ s.item.odds.toFixed(2) }})</span>
                   </span>
                   <span class="font-mono tabular-nums">
-                    Stake <b class="text-sky-400">€{{ s.stake.toFixed(2) }}</b> &rarr;
-                    <b class="text-emerald-400">€{{ s.ret.toFixed(2) }}</b>
+                    Stake <b class="text-sky-300">€{{ s.stake.toFixed(2) }}</b> &rarr;
+                    <b class="text-emerald-300">€{{ s.ret.toFixed(2) }}</b>
                   </span>
                 </div>
               </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-border flex justify-between text-xs font-mono tabular-nums">
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between text-xs font-mono tabular-nums">
               <span>Total Budget: <b>€{{ betBudget.toFixed(2) }}</b></span>
-              <span class="text-emerald-400 font-bold">
+              <span class="text-emerald-300 font-bold">
                 All-Hit Return: €{{ slipSinglesTotalReturn.toFixed(2) }} (+€{{
                   (slipSinglesTotalReturn - betBudget).toFixed(2)
                 }})
@@ -943,15 +1181,15 @@
           </div>
 
           <!-- Option C: 65/35 Hybrid Split -->
-          <div class="bg-navy-900/90 border border-amber-500/45 rounded-xl p-4 flex flex-col justify-between">
+          <div class="card-surface border-t-2 border-t-amber-400 rounded-xl p-4 flex flex-col justify-between">
             <div>
               <div class="flex justify-between items-center mb-1">
                 <b>Option C · 65/35 Core Singles + Combo Booster</b>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
                   OPTIMAL SHARPE
                 </span>
               </div>
-              <div class="text-slate-400 text-[11px] mb-2">
+              <div class="text-slate-300 text-[11px] mb-2">
                 65% (€{{ (betBudget * 0.65).toFixed(2) }}) on Top 2 Singles protects your floor + 35% (€{{
                   (betBudget * 0.35).toFixed(2)
                 }}) on 2-Leg Combo for upside
@@ -961,7 +1199,7 @@
                   <span>Core Single #1: <b>{{ slipComboLegs[0]?.pick_name || '—' }}</b></span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.325).toFixed(2) }} &rarr;
-                    <b class="text-emerald-400">
+                    <b class="text-emerald-300">
                       €{{ (betBudget * 0.325 * (slipComboLegs[0]?.odds || 1)).toFixed(2) }}
                     </b>
                   </span>
@@ -970,7 +1208,7 @@
                   <span>Core Single #2: <b>{{ slipComboLegs[1]?.pick_name || '—' }}</b></span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.325).toFixed(2) }} &rarr;
-                    <b class="text-emerald-400">
+                    <b class="text-emerald-300">
                       €{{ (betBudget * 0.325 * (slipComboLegs[1]?.odds || 1)).toFixed(2) }}
                     </b>
                   </span>
@@ -979,14 +1217,14 @@
                   <span>2-Leg Combo Booster (@{{ slipComboOdds.toFixed(2) }}x)</span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.35).toFixed(2) }} &rarr;
-                    <b class="text-emerald-400">€{{ (betBudget * 0.35 * slipComboOdds).toFixed(2) }}</b>
+                    <b class="text-emerald-300">€{{ (betBudget * 0.35 * slipComboOdds).toFixed(2) }}</b>
                   </span>
                 </div>
               </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-border flex justify-between text-xs font-mono tabular-nums">
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between text-xs font-mono tabular-nums">
               <span>Floor Protection: <b>65% Core</b></span>
-              <span class="text-emerald-400 font-bold">
+              <span class="text-emerald-300 font-bold">
                 Full Sweep: €{{ slipHybridMaxReturn.toFixed(2) }} (+€{{ (slipHybridMaxReturn - betBudget).toFixed(2) }})
               </span>
             </div>
@@ -995,12 +1233,12 @@
       </section>
 
       <!-- Exact-Score & Set-Score Dutching Splitter -->
-      <section class="card-surface rounded-2xl p-4 mb-5">
-        <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+      <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
-            <Icon icon="lucide:dices" class="w-4 h-4 text-amber-400" />
-            <b class="text-sm text-amber-400">Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
-            <span class="text-slate-400">
+            <Icon icon="lucide:dices" class="w-4 h-4 text-fuchsia-400" />
+            <b class="text-sm text-fuchsia-300">Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
+            <span class="text-slate-300">
               Pick any high-conviction match and enter your investment (€) — generates 2-Score &amp; 3-Score
               equal-payout splits
             </span>
@@ -1009,7 +1247,7 @@
             <b>Match:</b>
             <select
               v-model="selectedDutchMatch"
-              class="max-w-[300px] bg-navy-900 text-slate-100 border border-border rounded-lg px-2.5 py-1 text-xs font-semibold"
+              class="max-w-[300px] bg-slate-950 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-semibold"
             >
               <option v-for="m in dutchEligibleMatches" :key="m.match" :value="m.match">
                 {{ m.match }} ({{ m.pick_name || m.pick }})
@@ -1022,16 +1260,16 @@
               min="5"
               max="100000"
               step="5"
-              class="w-20 bg-navy-900 text-emerald-400 border border-amber-400 rounded-lg px-2.5 py-1 text-xs font-extrabold font-mono tabular-nums"
+              class="w-20 bg-slate-950 text-emerald-300 border border-fuchsia-400 rounded-lg px-2.5 py-1 text-xs font-extrabold font-mono tabular-nums"
             />
           </div>
         </div>
 
         <div v-if="dutchSplit2 && dutchSplit3" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-navy-900/90 border border-sky-400/45 rounded-xl p-4">
+          <div class="card-surface border-t-2 border-t-sky-400 rounded-xl p-4">
             <div class="flex justify-between items-center mb-2">
               <b>Option 1 · 2-Score Equal-Payout Dutching Split</b>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-400 font-mono tabular-nums">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 font-mono tabular-nums">
                 {{ dutchSplit2.effectiveOdds.toFixed(2) }}x Effective Odds
               </span>
             </div>
@@ -1045,23 +1283,23 @@
                   Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> (@{{ leg.odds.toFixed(2) }})
                 </span>
                 <span>
-                  Place <b class="text-emerald-400">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
+                  Place <b class="text-emerald-300">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
                   <b>€{{ leg.payout.toFixed(2) }}</b>
                 </span>
               </div>
             </div>
-            <div class="mt-2.5 pt-2 border-t border-border flex justify-between text-xs font-mono tabular-nums">
+            <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex justify-between text-xs font-mono tabular-nums">
               <span>Total Stake: <b>€{{ dutchSplit2.totalStake.toFixed(2) }}</b></span>
-              <span class="text-emerald-400 font-bold">
+              <span class="text-emerald-300 font-bold">
                 Equal Payout: €{{ dutchSplit2.totalPayout.toFixed(2) }} (+€{{ dutchSplit2.netProfit.toFixed(2) }})
               </span>
             </div>
           </div>
 
-          <div class="bg-navy-900/90 border border-emerald-500/45 rounded-xl p-4">
+          <div class="card-surface border-t-2 border-t-fuchsia-400 rounded-xl p-4">
             <div class="flex justify-between items-center mb-2">
               <b>Option 2 · 3-Score Cluster Dutching Shield</b>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 font-mono tabular-nums">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/50 font-mono tabular-nums">
                 {{ dutchSplit3.effectiveOdds.toFixed(2) }}x Effective Odds
               </span>
             </div>
@@ -1075,14 +1313,14 @@
                   Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> (@{{ leg.odds.toFixed(2) }})
                 </span>
                 <span>
-                  Place <b class="text-emerald-400">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
+                  Place <b class="text-emerald-300">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
                   <b>€{{ leg.payout.toFixed(2) }}</b>
                 </span>
               </div>
             </div>
-            <div class="mt-2.5 pt-2 border-t border-border flex justify-between text-xs font-mono tabular-nums">
+            <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex justify-between text-xs font-mono tabular-nums">
               <span>Total Stake: <b>€{{ dutchSplit3.totalStake.toFixed(2) }}</b></span>
-              <span class="text-emerald-400 font-bold">
+              <span class="text-emerald-300 font-bold">
                 Equal Payout: €{{ dutchSplit3.totalPayout.toFixed(2) }} (+€{{ dutchSplit3.netProfit.toFixed(2) }})
               </span>
             </div>
@@ -1092,40 +1330,52 @@
 
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
-        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-400 mb-2.5">
+        <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-300 mb-2.5">
           <Icon icon="lucide:link-2" class="w-4 h-4" />
           <span>Recommended 2-Leg High-Probability Combos &amp; Parlays ({{ store.recommendedDoubles.length }} Variations)</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-6">
-          <div v-for="(d, idx) in store.recommendedDoubles" :key="idx" class="card-surface rounded-xl p-4">
+          <div
+            v-for="(d, idx) in store.recommendedDoubles"
+            :key="idx"
+            class="card-surface rounded-xl p-4 border-t-2 border-t-cyan-400"
+          >
             <div class="flex justify-between items-center mb-2">
               <div class="flex items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
                   COMBO #{{ idx + 1 }}
                 </span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">
                   {{ d.combo_label }}
                 </span>
               </div>
               <div class="font-mono tabular-nums text-xs">
-                Odds: <b class="text-emerald-400">{{ Number(d.combined_odds).toFixed(2) }}</b> · WinProb:
-                <b class="text-emerald-400">{{ (Number(d.combined_prob) * 100).toFixed(1) }}%</b>
+                Odds: <b class="text-amber-300">{{ Number(d.combined_odds).toFixed(2) }}</b> · WinProb:
+                <b class="text-emerald-300">{{ (Number(d.combined_prob) * 100).toFixed(1) }}%</b>
               </div>
             </div>
             <div class="space-y-1 text-xs">
               <div class="inline-flex items-center gap-1.5 w-full">
                 <span>1.</span>
-                <Icon :icon="getSportIconify(d.leg_1?.sport_cat || d.leg_1?.league)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <Icon
+                  :icon="getSportIconify(d.leg_1?.sport_cat || d.leg_1?.league)"
+                  class="w-3.5 h-3.5 shrink-0"
+                  :class="getSportIconColor(d.leg_1?.sport_cat || d.leg_1?.league)"
+                />
                 <b>{{ d.leg_1?.match }}</b> &rarr;
-                <b class="text-emerald-400">{{ d.leg_1?.pick }}</b> @
-                <b class="font-mono tabular-nums">{{ Number(d.leg_1?.odds || 1).toFixed(2) }}</b>
+                <b class="text-emerald-300">{{ d.leg_1?.pick }}</b> @
+                <b class="font-mono tabular-nums text-amber-300">{{ Number(d.leg_1?.odds || 1).toFixed(2) }}</b>
               </div>
               <div class="inline-flex items-center gap-1.5 w-full">
                 <span>2.</span>
-                <Icon :icon="getSportIconify(d.leg_2?.sport_cat || d.leg_2?.league)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <Icon
+                  :icon="getSportIconify(d.leg_2?.sport_cat || d.leg_2?.league)"
+                  class="w-3.5 h-3.5 shrink-0"
+                  :class="getSportIconColor(d.leg_2?.sport_cat || d.leg_2?.league)"
+                />
                 <b>{{ d.leg_2?.match }}</b> &rarr;
-                <b class="text-emerald-400">{{ d.leg_2?.pick }}</b> @
-                <b class="font-mono tabular-nums">{{ Number(d.leg_2?.odds || 1).toFixed(2) }}</b>
+                <b class="text-emerald-300">{{ d.leg_2?.pick }}</b> @
+                <b class="font-mono tabular-nums text-amber-300">{{ Number(d.leg_2?.odds || 1).toFixed(2) }}</b>
               </div>
             </div>
           </div>
@@ -1135,17 +1385,17 @@
 
     <!-- TAB 3: PAPER-BET LEDGER & ROI -->
     <div v-else-if="activeTab === 'ledger'">
-      <h2 class="text-sm font-bold text-sky-400 mb-2">
+      <h2 class="text-sm font-bold text-sky-300 mb-2">
         Settled Paper-Bets (Completed Results: {{ settledCount }} · Wins:
-        <b class="text-emerald-400">{{ settledWins }}</b> · Losses:
-        <b :class="settledLosses > 0 ? 'text-danger' : ''">{{ settledLosses }}</b> · Realized Profit:
-        <b class="text-emerald-400">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u</b>)
+        <b class="text-emerald-300">{{ settledWins }}</b> · Losses:
+        <b :class="settledLosses > 0 ? 'text-rose-400' : ''">{{ settledLosses }}</b> · Realized Profit:
+        <b class="text-emerald-300">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u</b>)
       </h2>
 
-      <div class="card-surface rounded-2xl overflow-x-auto mb-6">
+      <div class="table-surface rounded-2xl overflow-x-auto mb-6">
         <table class="w-full border-collapse text-xs">
           <thead>
-            <tr class="bg-navy-900/90 text-slate-400 text-[11px] uppercase tracking-wider border-b border-border text-left">
+            <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left">
               <th class="py-2.5 px-2.5 w-11 text-center">Sport</th>
               <th class="py-2.5 px-2.5">Competition</th>
               <th class="py-2.5 px-2.5">Kickoff</th>
@@ -1160,35 +1410,47 @@
             <tr
               v-for="tr in store.settledBets"
               :key="`${tr.league}:${tr.event_id}`"
-              class="border-b border-border/60 last:border-none hover:bg-slate-800/40"
+              class="border-b border-slate-800/80 last:border-none hover:bg-slate-800/45"
             >
               <td class="py-2.5 px-2.5 text-center">
-                <Icon :icon="getSportIconify(tr.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
-              </td>
-              <td class="py-2.5 px-2.5">
-                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35">
-                  {{ tr.league_label || tr.league }}
-                </span>
-              </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums">{{ tr.kickoff_local || tr.kickoff }}</td>
-              <td class="py-2.5 px-2.5 font-bold">{{ tr.home }} vs {{ tr.away }}</td>
-              <td class="py-2.5 px-2.5">
-                <b class="text-emerald-400">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
-                <span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">
-                  {{ tr.tier }}
-                </span>
-              </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold">{{ tr.score_str || tr.settled_score || '—' }}</td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums">
-                <b>{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
+                <Icon
+                  :icon="getSportIconify(tr.sport_cat)"
+                  class="w-4 h-4 mx-auto"
+                  :class="getSportIconColor(tr.sport_cat)"
+                />
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold border font-mono tabular-nums"
+                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  :class="getSportBadgeTheme(tr.sport_cat)"
+                >
+                  {{ tr.league_label || tr.league }}
+                </span>
+              </td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-200">{{ tr.kickoff_local || tr.kickoff }}</td>
+              <td class="py-2.5 px-2.5 font-bold text-white">{{ tr.home }} vs {{ tr.away }}</td>
+              <td class="py-2.5 px-2.5">
+                <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
+                <span
+                  class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                  :class="getTierBadgeClass(tr.tier)"
+                >
+                  {{ tr.tier }}
+                </span>
+              </td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-white">
+                {{ tr.score_str || tr.settled_score || '—' }}
+              </td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums">
+                <b class="text-amber-300">{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
+              </td>
+              <td class="py-2.5 px-2.5">
+                <span
+                  class="px-2 py-0.5 rounded text-[10.5px] font-bold border font-mono tabular-nums whitespace-nowrap"
                   :class="
                     Number(tr.pnl_best || 0) > 0
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-                      : 'bg-red-500/15 text-danger border-red-500/40'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                      : 'bg-rose-500/20 text-rose-300 border-rose-400/50'
                   "
                 >
                   {{
@@ -1207,14 +1469,14 @@
     <!-- TAB 4: MODEL AUDIT & BACKTEST -->
     <div v-else-if="activeTab === 'audit'">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="card-surface rounded-2xl p-4">
-          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
+        <div class="card-surface rounded-2xl p-4 border-t-2 border-t-emerald-400">
+          <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300 mb-2">
             <Icon icon="lucide:trending-up" class="w-4 h-4" />
             <span>By-Sport Settled Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
             <thead>
-              <tr class="text-left text-[11px] uppercase text-slate-400 border-b border-border">
+              <tr class="text-left text-[11px] uppercase text-slate-300 border-b border-slate-700">
                 <th class="py-2">Sport Group</th>
                 <th class="py-2">Settled (W–L)</th>
                 <th class="py-2">Win Rate</th>
@@ -1226,18 +1488,18 @@
               <tr
                 v-for="s in store.paperLedger?.by_sport || []"
                 :key="s.sport"
-                class="border-b border-border/50 last:border-none"
+                class="border-b border-slate-800 last:border-none"
               >
-                <td class="py-2 font-bold">{{ s.sport }}</td>
+                <td class="py-2 font-bold text-white">{{ s.sport }}</td>
                 <td class="py-2 font-mono tabular-nums">
-                  {{ s.settled }} (<b class="text-emerald-400">{{ s.wins }}W</b> –
-                  <b :class="s.losses > 0 ? 'text-danger' : ''">{{ s.losses }}L</b>)
+                  {{ s.settled }} (<b class="text-emerald-300">{{ s.wins }}W</b> –
+                  <b :class="s.losses > 0 ? 'text-rose-400' : ''">{{ s.losses }}L</b>)
                 </td>
                 <td class="py-2 font-mono tabular-nums font-bold">{{ Number(s.win_rate_pct || 0).toFixed(1) }}%</td>
-                <td class="py-2 font-mono tabular-nums text-emerald-400 font-bold">
+                <td class="py-2 font-mono tabular-nums text-emerald-300 font-bold">
                   {{ Number(s.profit_u || 0) >= 0 ? '+' : '' }}{{ Number(s.profit_u || 0).toFixed(2) }}u
                 </td>
-                <td class="py-2 font-mono tabular-nums text-emerald-400 font-bold">
+                <td class="py-2 font-mono tabular-nums text-cyan-300 font-bold">
                   {{ Number(s.roi_pct || 0) >= 0 ? '+' : '' }}{{ Number(s.roi_pct || 0).toFixed(1) }}%
                 </td>
               </tr>
@@ -1245,14 +1507,14 @@
           </table>
         </div>
 
-        <div class="card-surface rounded-2xl p-4">
-          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
+        <div class="card-surface rounded-2xl p-4 border-t-2 border-t-violet-400">
+          <b class="inline-flex items-center gap-1.5 text-sm text-violet-300 mb-2">
             <Icon icon="lucide:microscope" class="w-4 h-4" />
             <span>Calibration &amp; Tier Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
             <thead>
-              <tr class="text-left text-[11px] uppercase text-slate-400 border-b border-border">
+              <tr class="text-left text-[11px] uppercase text-slate-300 border-b border-slate-700">
                 <th class="py-2">Tier</th>
                 <th class="py-2">Settled</th>
                 <th class="py-2">Exp Win%</th>
@@ -1264,19 +1526,19 @@
               <tr
                 v-for="t in store.paperLedger?.by_tier || []"
                 :key="t.tier"
-                class="border-b border-border/50 last:border-none"
+                class="border-b border-slate-800 last:border-none"
               >
                 <td class="py-2">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold border" :class="getTierBadgeClass(t.tier)">
                     {{ t.tier }}
                   </span>
                 </td>
                 <td class="py-2 font-mono tabular-nums">{{ t.settled }} ({{ t.wins }}W–{{ t.losses }}L)</td>
                 <td class="py-2 font-mono tabular-nums">{{ Number(t.expected_win_pct || 0).toFixed(1) }}%</td>
-                <td class="py-2 font-mono tabular-nums font-bold text-emerald-400">
+                <td class="py-2 font-mono tabular-nums font-bold text-emerald-300">
                   {{ Number(t.realized_win_pct || 0).toFixed(1) }}%
                 </td>
-                <td class="py-2 font-mono tabular-nums font-bold text-emerald-400">
+                <td class="py-2 font-mono tabular-nums font-bold text-cyan-300">
                   {{ Number(t.roi_pct || 0) >= 0 ? '+' : '' }}{{ Number(t.roi_pct || 0).toFixed(1) }}%
                 </td>
               </tr>
@@ -1289,23 +1551,23 @@
     <!-- FLOATING CUSTOM SLIP DOCK (Appears when >=1 matches checked) -->
     <div
       v-if="store.customSelectedMatches.size > 0"
-      class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-4 bg-navy-950/95 border border-emerald-400/60 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-md"
+      class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-4 bg-slate-950/95 border border-emerald-400/70 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-xl"
     >
       <div class="flex items-center gap-2">
         <span
-          class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 tabular-nums"
+          class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 tabular-nums"
         >
           <Icon icon="lucide:check-square" class="w-3.5 h-3.5" />
           <span>{{ store.customSelectedMatches.size }} Selected</span>
         </span>
-        <span class="text-xs text-slate-300 font-mono tabular-nums">
-          Combined Odds: <b class="text-emerald-400">{{ customSlipCombinedOdds.toFixed(2) }}x</b>
+        <span class="text-xs text-slate-200 font-mono tabular-nums">
+          Combined Odds: <b class="text-amber-300">{{ customSlipCombinedOdds.toFixed(2) }}x</b>
         </span>
       </div>
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950"
+          class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950"
           @click="activeTab = 'studio'"
         >
           <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
@@ -1314,7 +1576,7 @@
         </button>
         <button
           type="button"
-          class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 border border-border"
+          class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-200 border border-slate-700"
           @click="store.clearCustomSelection()"
         >
           <Icon icon="lucide:x" class="w-3.5 h-3.5" />
@@ -1330,34 +1592,34 @@
       @click.self="inspectorModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
             <Icon icon="lucide:search" class="w-4 h-4" />
             <span>{{ inspectorTitle }}</span>
           </b>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="inspectorModalOpen = false"
           >
             <span>Close</span>
             <Icon icon="lucide:x" class="w-3.5 h-3.5" />
           </button>
         </div>
-        <div v-if="inspectorLoading" class="py-6 text-slate-400">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
-        <div v-else-if="inspectorLockedPro" class="p-4 bg-navy-900 border border-sky-400/40 rounded-xl text-center">
+        <div v-if="inspectorLoading" class="py-6 text-slate-300">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
+        <div v-else-if="inspectorLockedPro" class="p-4 bg-slate-900 border border-sky-400/40 rounded-xl text-center">
           <div class="inline-flex items-center gap-1.5 text-base font-extrabold text-white mb-1.5">
             <Icon icon="lucide:lock" class="w-4 h-4 text-amber-400" />
             <span>BetScout Pro Subscriber Pick</span>
           </div>
-          <div class="text-slate-400 mb-4">
+          <div class="text-slate-300 mb-4">
             Full matchup names, H2H history, Dixon-Coles exact-score matrices &amp; 2-leg combos are reserved for
             active <b>BetScout Pro</b> members.
           </div>
           <div class="flex justify-center gap-3">
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
+              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
               @click="
                 inspectorModalOpen = false;
                 store.triggerSignInOut();
@@ -1368,7 +1630,7 @@
             </button>
             <router-link
               to="/#pricing"
-              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 font-bold no-underline"
+              class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 font-bold no-underline"
               @click="inspectorModalOpen = false"
             >
               <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
@@ -1381,50 +1643,50 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
-              <div v-if="!inspectorData.form_home?.length" class="text-slate-400">No recent matches in DB</div>
+              <div v-if="!inspectorData.form_home?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_home"
                 :key="i"
-                class="flex justify-between py-1 border-b border-border/50"
+                class="flex justify-between py-1 border-b border-slate-800"
               >
                 <span>
-                  <b :class="m.result === 'W' ? 'text-emerald-400' : m.result === 'L' ? 'text-danger' : 'text-amber-400'">
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
                     {{ m.result }}
                   </b>
                   {{ m.venue }} vs <b>{{ m.opp }}</b>
                 </span>
-                <span class="font-mono tabular-nums text-slate-400">{{ m.score }} ({{ m.date }})</span>
+                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
               </div>
             </div>
             <div>
               <b class="block mb-1.5 text-white">{{ inspectorData.away }} — Last 6</b>
-              <div v-if="!inspectorData.form_away?.length" class="text-slate-400">No recent matches in DB</div>
+              <div v-if="!inspectorData.form_away?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_away"
                 :key="i"
-                class="flex justify-between py-1 border-b border-border/50"
+                class="flex justify-between py-1 border-b border-slate-800"
               >
                 <span>
-                  <b :class="m.result === 'W' ? 'text-emerald-400' : m.result === 'L' ? 'text-danger' : 'text-amber-400'">
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
                     {{ m.result }}
                   </b>
                   {{ m.venue }} vs <b>{{ m.opp }}</b>
                 </span>
-                <span class="font-mono tabular-nums text-slate-400">{{ m.score }} ({{ m.date }})</span>
+                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
               </div>
             </div>
           </div>
 
           <div>
             <b class="block mb-1.5 text-white">Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
-            <div v-if="!inspectorData.h2h?.length" class="text-slate-400">First tracked meeting in current DB window.</div>
+            <div v-if="!inspectorData.h2h?.length" class="text-slate-300">First tracked meeting in current DB window.</div>
             <div
               v-for="(h, idx) in inspectorData.h2h"
               :key="idx"
-              class="flex justify-between py-1 border-b border-border/50"
+              class="flex justify-between py-1 border-b border-slate-800"
             >
               <span><b>{{ h.home }}</b> vs <b>{{ h.away }}</b></span>
-              <span class="font-mono tabular-nums"><b class="text-emerald-400">{{ h.score }}</b> ({{ h.date }})</span>
+              <span class="font-mono tabular-nums"><b class="text-emerald-300">{{ h.score }}</b> ({{ h.date }})</span>
             </div>
           </div>
         </div>
@@ -1438,19 +1700,19 @@
       @click.self="analyzerModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[740px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <div>
-            <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
+            <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
               <Icon icon="lucide:search" class="w-4 h-4" />
               <span>On-Demand Any-Matchup Live Analyzer</span>
             </b>
-            <div class="text-slate-400 text-[11px]">
+            <div class="text-slate-300 text-[11px]">
               Analyze any Tennis or Football matchup — checks live bookmaker odds, Last-5 form, H2H &amp; turnaround
             </div>
           </div>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="analyzerModalOpen = false"
           >
             <Icon icon="lucide:x" class="w-3.5 h-3.5" />
@@ -1463,12 +1725,12 @@
             v-model="analyzerQuery"
             type="search"
             placeholder="e.g. Shelton vs Kovacevic, Roma vs Cagliari..."
-            class="flex-1 bg-navy-900 text-slate-100 border border-border rounded-lg px-3 py-1.5 text-xs"
+            class="flex-1 bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-xs"
             @keydown.enter="runLiveAnalyzer"
           />
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
+            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
             @click="runLiveAnalyzer"
           >
             <Icon icon="lucide:zap" class="w-3.5 h-3.5" />
@@ -1476,14 +1738,14 @@
           </button>
         </div>
 
-        <div v-if="analyzerLoading" class="py-4 text-slate-400">Running live multi-market analysis...</div>
-        <div v-else-if="analyzerResult" class="p-3.5 bg-navy-900 border border-border rounded-xl space-y-2">
+        <div v-if="analyzerLoading" class="py-4 text-slate-300">Running live multi-market analysis...</div>
+        <div v-else-if="analyzerResult" class="p-3.5 bg-slate-950 border border-slate-700 rounded-xl space-y-2">
           <div class="text-sm font-bold text-white">
             {{ analyzerResult.home }} vs {{ analyzerResult.away }}
-            <span class="text-sky-400 ml-2">({{ analyzerResult.verdict || analyzerResult.sport || 'Analyzed' }})</span>
+            <span class="text-sky-300 ml-2">({{ analyzerResult.verdict || analyzerResult.sport || 'Analyzed' }})</span>
           </div>
-          <div v-if="analyzerResult.summary" class="text-slate-300">{{ analyzerResult.summary }}</div>
-          <pre v-else class="text-[11px] font-mono text-slate-300 whitespace-pre-wrap">{{
+          <div v-if="analyzerResult.summary" class="text-slate-200">{{ analyzerResult.summary }}</div>
+          <pre v-else class="text-[11px] font-mono text-slate-200 whitespace-pre-wrap">{{
             JSON.stringify(analyzerResult, null, 2)
           }}</pre>
         </div>
@@ -1497,14 +1759,14 @@
       @click.self="shareModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+          <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
             <Icon icon="lucide:share-2" class="w-4 h-4" />
             <span>Share Pick &amp; High-Res PNG Card Publisher</span>
           </b>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="shareModalOpen = false"
           >
             <Icon icon="lucide:x" class="w-3.5 h-3.5" />
@@ -1512,12 +1774,12 @@
           </button>
         </div>
 
-        <div class="bg-obsidian border border-border rounded-xl p-2.5 mb-3">
+        <div class="bg-slate-950 border border-slate-700 rounded-xl p-2.5 mb-3">
           <div class="flex justify-between items-center mb-1.5">
-            <span class="text-[11px] font-bold text-sky-400">Generated Pick Card Image (1080×560 PNG)</span>
+            <span class="text-[11px] font-bold text-sky-300">Generated Pick Card Image (1080×560 PNG)</span>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-navy-900 border border-border text-[11px]"
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px]"
               @click="downloadCanvasPng"
             >
               <Icon icon="lucide:download" class="w-3 h-3 text-sky-400" />
@@ -1528,20 +1790,20 @@
             ref="pickCardCanvasRef"
             width="1080"
             height="560"
-            class="w-full h-auto rounded-lg border border-border block"
+            class="w-full h-auto rounded-lg border border-slate-700 block"
           ></canvas>
         </div>
 
         <textarea
           v-model="shareMessageText"
           rows="6"
-          class="w-full bg-obsidian text-slate-100 border border-border rounded-xl p-2.5 font-mono text-xs mb-3"
+          class="w-full bg-slate-950 text-slate-100 border border-slate-700 rounded-xl p-2.5 font-mono text-xs mb-3"
         ></textarea>
 
         <div class="flex justify-end gap-2">
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-900 border border-border text-xs font-semibold"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold"
             @click="copyShareMessage"
           >
             <Icon icon="lucide:copy" class="w-3.5 h-3.5 text-sky-400" />
@@ -1549,7 +1811,7 @@
           </button>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-xs font-bold"
+            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-bold"
             @click="postShareToDiscord"
           >
             <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
@@ -1566,14 +1828,14 @@
       @click.self="settingsModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
-          <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
             <Icon icon="lucide:settings" class="w-4 h-4" />
-            <span>BetScout Settings &amp; Active Sport Toggles</span>
+            <span>BetScout Settings, PWA Cache &amp; Sport Toggles</span>
           </b>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="settingsModalOpen = false"
           >
             <span>Close</span>
@@ -1582,8 +1844,8 @@
         </div>
 
         <div class="space-y-4">
-          <div class="p-3.5 bg-navy-900 border border-border rounded-xl">
-            <b class="block text-emerald-400 mb-2">Active Sports On/Off Filter</b>
+          <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl">
+            <b class="block text-emerald-300 mb-2">Active Sports On/Off Filter</b>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <label
                 v-for="(lbl, spKey) in sportToggleItems"
@@ -1596,13 +1858,17 @@
                   class="accent-emerald-400"
                   @change="store.toggleSportEnabled(spKey)"
                 />
-                <Icon :icon="SPORT_ICONIFY_NAMES[spKey] || 'lucide:award'" class="w-3.5 h-3.5 text-sky-400" />
+                <Icon
+                  :icon="SPORT_ICONIFY_NAMES[spKey] || 'lucide:award'"
+                  class="w-3.5 h-3.5"
+                  :class="getSportIconColor(spKey)"
+                />
                 <span>{{ lbl }}</span>
               </label>
             </div>
           </div>
 
-          <div class="p-3.5 bg-navy-900 border border-border rounded-xl flex justify-between items-center">
+          <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl flex justify-between items-center">
             <span>Display Timezone:</span>
             <div class="flex gap-1.5">
               <button
@@ -1610,8 +1876,8 @@
                 class="btn-press px-2.5 py-1 rounded-lg text-xs font-semibold border"
                 :class="
                   store.tzMode === 'local'
-                    ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-                    : 'bg-navy-800 border-border text-slate-400'
+                    ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                    : 'bg-slate-900 border-slate-700 text-slate-300'
                 "
                 @click="store.tzMode = 'local'"
               >
@@ -1622,14 +1888,31 @@
                 class="btn-press px-2.5 py-1 rounded-lg text-xs font-semibold border"
                 :class="
                   store.tzMode === 'utc'
-                    ? 'bg-sky-500/15 border-sky-400 text-sky-400'
-                    : 'bg-navy-800 border-border text-slate-400'
+                    ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                    : 'bg-slate-900 border-slate-700 text-slate-300'
                 "
                 @click="store.tzMode = 'utc'"
               >
                 UTC
               </button>
             </div>
+          </div>
+
+          <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl flex flex-wrap justify-between items-center gap-2">
+            <div>
+              <b class="text-cyan-300 block">PWA LocalStorage &amp; Offline Sync</b>
+              <span class="text-[11px] text-slate-300">
+                Last cached snapshot: {{ store.lastLocalCacheTime || 'Active' }} · Preferences auto-saved locally.
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
+              @click="store.fetchSnapshot()"
+            >
+              <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" />
+              <span>Force Refresh Snapshot</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1649,8 +1932,12 @@ import {
   SPORT_ICONIFY_NAMES,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
+  getSportBadgeTheme,
   getSportEmoji,
+  getSportIconColor,
   getSportIconify,
+  getTierBadgeClass,
+  getWinProbBarColor,
 } from '../utils/formatters';
 import { setupIconifyCollections } from '../utils/iconifySetup';
 import { type PickCardMeta, renderCanvasPickCard } from '../utils/canvasCard';
@@ -1744,20 +2031,38 @@ const roiPct = computed(() => Number(store.paperLedger?.settled_roi_best ?? 0.35
 const meanClv = computed(() => Number(store.paperLedger?.mean_clv_pct ?? 0.0067) * 100);
 
 const workspaceTabs = computed(() => [
-  { id: 'picks' as const, icon: 'lucide:zap', label: 'Picks & Live In-Play', badge: `${store.visibleBestBets.length}` },
+  {
+    id: 'picks' as const,
+    icon: 'lucide:zap',
+    iconColor: 'text-emerald-400',
+    label: 'Picks & Live In-Play',
+    badge: `${store.visibleBestBets.length}`,
+    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
+  },
   {
     id: 'studio' as const,
     icon: 'lucide:calculator',
+    iconColor: 'text-sky-400',
     label: 'Bet Slip, Dutching & Combos',
     badge: `${store.recommendedDoubles.length} Combos · ${store.mispricedBets.length} Edge`,
+    badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-400/50',
   },
   {
     id: 'ledger' as const,
     icon: 'lucide:trending-up',
+    iconColor: 'text-amber-400',
     label: 'Paper-Bet Ledger & ROI',
     badge: `${settledWins.value}W–${settledLosses.value}L (${profitU.value >= 0 ? '+' : ''}${profitU.value.toFixed(1)}u)`,
+    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-400/50',
   },
-  { id: 'audit' as const, icon: 'lucide:microscope', label: 'Model Audit & Backtest', badge: '+18.9% ROI' },
+  {
+    id: 'audit' as const,
+    icon: 'lucide:microscope',
+    iconColor: 'text-violet-400',
+    label: 'Model Audit & Backtest',
+    badge: '+18.9% ROI',
+    badgeClass: 'bg-violet-500/20 text-violet-300 border-violet-400/50',
+  },
 ]);
 
 // Smart Bet Slip calculations

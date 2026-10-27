@@ -9,15 +9,13 @@ export default {
       colors: {
         obsidian: '#05080f',
         navy: {
-          950: '#090d15',
-          900: '#0b0f17',
-          800: '#111827',
-          700: '#131b29',
+          950: '#080c14',
+          900: '#0b101b',
+          800: '#101827',
+          700: '#162033',
         },
         border: '#223049',
         accent: '#38bdf8',
-        emerald: '#22c55e',
-        amber: '#f59e0b',
         danger: '#ef4444',
       },
       fontFamily: {

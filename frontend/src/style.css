@@ -6,7 +6,7 @@
   * {
     box-sizing: border-box;
     scrollbar-width: thin;
-    scrollbar-color: #263859 #05080f;
+    scrollbar-color: #2c4268 #05080f;
   }
   *::-webkit-scrollbar {
     width: 8px;
@@ -17,7 +17,7 @@
     border-radius: 8px;
   }
   *::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #24344f 0%, #1e2d45 100%);
+    background: linear-gradient(180deg, #2b3f63 0%, #1e2d45 100%);
     border-radius: 8px;
     border: 1.5px solid #05080f;
   }
@@ -35,14 +35,16 @@
   }
 
   body {
-    background-color: #05080f;
+    background-color: #04070e;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -15%, rgba(56, 189, 248, 0.13), transparent),
-      radial-gradient(ellipse 60% 40% at 85% 20%, rgba(34, 197, 94, 0.08), transparent),
-      linear-gradient(rgba(148, 163, 184, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.025) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-    color: #f1f5f9;
+      radial-gradient(ellipse 75% 48% at 22% -8%, rgba(56, 189, 248, 0.20), transparent 70%),
+      radial-gradient(ellipse 65% 45% at 82% 14%, rgba(16, 185, 129, 0.16), transparent 70%),
+      radial-gradient(ellipse 55% 40% at 50% 62%, rgba(139, 92, 246, 0.10), transparent 75%),
+      linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+    background-attachment: fixed;
+    color: #f8fafc;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
@@ -59,19 +61,120 @@
   font-variant-numeric: tabular-nums;
 }
 
-.card-surface {
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 16, 28, 0.97) 100%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    0 12px 32px -4px rgba(0, 0, 0, 0.48),
-    0 0 0 1px rgba(148, 163, 184, 0.13);
+/* High-luminosity hero accent gradient — bright across 100% of its width */
+.hero-shimmer-text {
+  background: linear-gradient(94deg, #e0f2fe 0%, #7dd3fc 32%, #6ee7b7 68%, #fde047 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 18px rgba(56, 189, 248, 0.22));
 }
 
+/* Translucent Frosted Glass Card with Running Specular Gloss on Hover */
+.card-surface {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    rgba(30, 43, 68, 0.62) 0%,
+    rgba(17, 25, 43, 0.74) 55%,
+    rgba(12, 19, 34, 0.84) 100%
+  );
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 28px 0 rgba(56, 189, 248, 0.04),
+    0 16px 38px -8px rgba(2, 6, 16, 0.65);
+  transition:
+    transform 240ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 240ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 240ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.card-surface::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -140%;
+  width: 75%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent 15%,
+    rgba(255, 255, 255, 0.08) 44%,
+    rgba(125, 211, 252, 0.16) 50%,
+    rgba(255, 255, 255, 0.06) 56%,
+    transparent 85%
+  );
+  transform: skewX(-22deg);
+  transition: left 680ms cubic-bezier(0.19, 1, 0.22, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-surface:hover {
+  border-color: rgba(125, 211, 252, 0.42);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+    inset 0 0 32px 0 rgba(56, 189, 248, 0.07),
+    0 20px 44px -8px rgba(2, 6, 16, 0.78),
+    0 0 24px -4px rgba(56, 189, 248, 0.16);
+}
+
+.card-surface:hover::after {
+  left: 155%;
+}
+
+/* Scrollable Frosted Glass Table Wrapper */
+.table-surface {
+  background: linear-gradient(
+    155deg,
+    rgba(26, 38, 60, 0.60) 0%,
+    rgba(14, 21, 36, 0.78) 100%
+  );
+  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    0 16px 38px -8px rgba(2, 6, 16, 0.65);
+}
+
+/* Tactile Button with Running Gloss Sheen on Hover */
 .btn-press {
+  position: relative;
+  overflow: hidden;
   transition-property: transform, background-color, border-color, color, box-shadow;
-  transition-duration: 160ms;
+  transition-duration: 180ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
+
+.btn-press::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 65%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 10%,
+    rgba(255, 255, 255, 0.22) 48%,
+    rgba(255, 255, 255, 0.34) 52%,
+    transparent 90%
+  );
+  transform: skewX(-20deg);
+  transition: left 540ms cubic-bezier(0.19, 1, 0.22, 1);
+  pointer-events: none;
+}
+
+.btn-press:hover:not(:disabled)::after {
+  left: 145%;
+}
+
 .btn-press:active:not(:disabled) {
   transform: scale(0.96);
 }
@@ -97,14 +200,13 @@
   pointer-events: none;
   display: none;
   max-width: 340px;
-  background: rgba(9, 13, 21, 0.97);
-  color: #f1f5f9;
-  border: 1px solid #38bdf8;
-  border-radius: 8px;
+  background: rgba(9, 14, 24, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  border-radius: 10px;
   padding: 8px 11px;
+  color: #f8fafc;
   font-size: 11.5px;
-  line-height: 1.42;
-  font-weight: 500;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(56, 189, 248, 0.22);
-  backdrop-filter: blur(8px);
+  line-height: 1.45;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75);
 }

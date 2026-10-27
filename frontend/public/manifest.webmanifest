@@ -1,0 +1,32 @@
+{
+  "name": "BetScout — Quantitative Sports Edge & Score Intelligence",
+  "short_name": "BetScout",
+  "description": "Out-of-Sample Multi-Sport Quantitative Edge, Exact-Score Dutching & Paper-Betting Intelligence",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05080f",
+  "theme_color": "#080c14",
+  "categories": ["sports", "finance", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/betscout-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   type BestBetItem,
   SPORT_EMOJIS,
@@ -7,13 +7,41 @@ import {
   computeBankerBoosterCombos,
 } from '../utils/formatters';
 
+export const BETSCOUT_SNAPSHOT_CACHE_KEY = 'betscout_snapshot_cache_v2';
+export const BETSCOUT_USER_PREFS_KEY = 'betscout_user_prefs_v2';
+export const BETSCOUT_OFFLINE_QUEUE_KEY = 'betscout_offline_queue_v2';
+
+function safeStorageGet(key: string): string | null {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function') {
+      return window.localStorage.getItem(key);
+    }
+  } catch (_) {}
+  return null;
+}
+
+function safeStorageSet(key: string, val: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.setItem === 'function') {
+      window.localStorage.setItem(key, val);
+    }
+  } catch (_) {}
+}
+
 export const useBetscoutStore = defineStore('betscout', () => {
   const loading = ref<boolean>(true);
   const actionBusy = ref<boolean>(false);
   const actionProgressText = ref<string>('Syncing paper-betting ledger & live match scores...');
   const toastMessage = ref<string>('');
-  const streamStatus = ref<'connecting' | 'online' | 'reconnecting'>('connecting');
+  const streamStatus = ref<'connecting' | 'online' | 'reconnecting' | 'offline'>('connecting');
   const serverTimeLocal = ref<string>('Ready');
+
+  // PWA & Offline / Sync State
+  const isOffline = ref<boolean>(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  const lastLocalCacheTime = ref<string>('');
+  const pendingOfflineQueueCount = ref<number>(0);
+  const canInstallPwa = ref<boolean>(false);
+  let deferredInstallPrompt: any = null;
 
   // Snapshot payload
   const totalMatches = ref<number>(59062);
@@ -58,7 +86,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const otherSportPicks = ref<any[]>([]);
   const backtestRisk = ref<Record<string, any>>({});
 
-  // Interactive UI Filters
+  // Interactive UI Filters (persisted to localStorage)
   const sportFilter = ref<string>('all');
   const dayFilter = ref<string>('all');
   const minOdds = ref<number>(1.10);
@@ -69,11 +97,10 @@ export const useBetscoutStore = defineStore('betscout', () => {
 
   // Auth Token state
   const firebaseIdToken = ref<string>('');
-  const customApiKey = ref<string>(
-    typeof localStorage !== 'undefined' ? localStorage.getItem('bs_api_key') || '' : '',
-  );
+  const customApiKey = ref<string>(safeStorageGet('bs_api_key') || '');
   let firebaseAuthObj: any = null;
   let activeEventSource: EventSource | null = null;
+  let listenersBound = false;
 
   function showToast(msg: string) {
     toastMessage.value = msg;
@@ -94,7 +121,71 @@ export const useBetscoutStore = defineStore('betscout', () => {
     return h;
   }
 
-  function applySnapshot(snap: Record<string, any>) {
+  function savePrefsToLocalStorage() {
+    const payload = {
+      sportFilter: sportFilter.value,
+      dayFilter: dayFilter.value,
+      minOdds: minOdds.value,
+      tzMode: tzMode.value,
+      customSelectedMatches: Array.from(customSelectedMatches.value),
+      disabledSports: Array.from(disabledSports.value),
+      updatedAt: new Date().toISOString(),
+    };
+    safeStorageSet(BETSCOUT_USER_PREFS_KEY, JSON.stringify(payload));
+  }
+
+  function hydrateFromLocalStorage(): boolean {
+    let hydrated = false;
+    const rawPrefs = safeStorageGet(BETSCOUT_USER_PREFS_KEY);
+    if (rawPrefs) {
+      try {
+        const p = JSON.parse(rawPrefs);
+        if (p.sportFilter) sportFilter.value = String(p.sportFilter);
+        if (p.dayFilter) dayFilter.value = String(p.dayFilter);
+        if (typeof p.minOdds === 'number' && p.minOdds >= 1.05 && p.minOdds <= 2.0) {
+          minOdds.value = p.minOdds;
+        }
+        if (p.tzMode === 'utc' || p.tzMode === 'local') tzMode.value = p.tzMode;
+        if (Array.isArray(p.customSelectedMatches)) {
+          customSelectedMatches.value = new Set(p.customSelectedMatches);
+        }
+        if (Array.isArray(p.disabledSports)) {
+          disabledSports.value = new Set(p.disabledSports);
+        }
+      } catch (_) {}
+    }
+
+    const rawQueue = safeStorageGet(BETSCOUT_OFFLINE_QUEUE_KEY);
+    if (rawQueue) {
+      try {
+        const q = JSON.parse(rawQueue);
+        if (Array.isArray(q)) pendingOfflineQueueCount.value = q.length;
+      } catch (_) {}
+    }
+
+    const rawSnap = safeStorageGet(BETSCOUT_SNAPSHOT_CACHE_KEY);
+    if (rawSnap) {
+      try {
+        const cached = JSON.parse(rawSnap);
+        if (cached && cached.snapshot) {
+          applySnapshot(cached.snapshot, false);
+          lastLocalCacheTime.value = cached.cachedAtLocal || 'Cached';
+          loading.value = false;
+          hydrated = true;
+        }
+      } catch (_) {}
+    }
+    return hydrated;
+  }
+
+  watch(
+    [sportFilter, dayFilter, minOdds, tzMode],
+    () => {
+      savePrefsToLocalStorage();
+    },
+  );
+
+  function applySnapshot(snap: Record<string, any>, persistCache = true) {
     if (!snap) return;
     if (snap.server_time_local) serverTimeLocal.value = `Live Sync: ${snap.server_time_local}`;
     if (snap.total_matches) totalMatches.value = Number(snap.total_matches);
@@ -129,9 +220,38 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (Array.isArray(snap.tennis_picks)) tennisPicks.value = snap.tennis_picks;
     if (Array.isArray(snap.other_sport_picks)) otherSportPicks.value = snap.other_sport_picks;
     if (snap.backtest_risk) backtestRisk.value = snap.backtest_risk;
+
+    if (persistCache) {
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      lastLocalCacheTime.value = nowStr;
+      safeStorageSet(
+        BETSCOUT_SNAPSHOT_CACHE_KEY,
+        JSON.stringify({
+          cachedAtIso: new Date().toISOString(),
+          cachedAtLocal: nowStr,
+          snapshot: {
+            server_time_local: snap.server_time_local,
+            total_matches: totalMatches.value,
+            vetoed_bets: vetoedBets.value,
+            generated_at: generatedAt.value,
+            generated_at_local: generatedAtLocal.value,
+            timezone: timezone.value,
+            role: role.value,
+            best_bets: bestBets.value,
+            paper_ledger: paperLedger.value,
+            recommended_doubles: recommendedDoubles.value,
+            backtest_risk: backtestRisk.value,
+          },
+        }),
+      );
+    }
   }
 
   async function fetchSnapshot() {
+    if (typeof window !== 'undefined' && bestBets.value.length === 0) {
+      hydrateFromLocalStorage();
+    }
+    bindBrowserSyncListeners();
     try {
       const resp = await fetch('/api/snapshot?min_odds=1.05', {
         headers: getAuthHeaders(false),
@@ -139,15 +259,103 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       if (resp.ok) {
         const data = await resp.json();
-        applySnapshot(data);
+        isOffline.value = false;
+        applySnapshot(data, true);
         if (data.auth?.enabled && data.auth?.api_key) {
           await initFirebaseClient(data.auth);
         }
       }
     } catch (_) {
-      // ignore offline error
+      isOffline.value = true;
+      streamStatus.value = 'offline';
     } finally {
       loading.value = false;
+    }
+  }
+
+  function enqueueOfflineAction(action: { type: string; payload: any }) {
+    const raw = safeStorageGet(BETSCOUT_OFFLINE_QUEUE_KEY);
+    let list: any[] = [];
+    try {
+      if (raw) list = JSON.parse(raw);
+    } catch (_) {}
+    list.push({ ...action, queuedAt: new Date().toISOString() });
+    safeStorageSet(BETSCOUT_OFFLINE_QUEUE_KEY, JSON.stringify(list));
+    pendingOfflineQueueCount.value = list.length;
+  }
+
+  async function flushOfflineQueue() {
+    const raw = safeStorageGet(BETSCOUT_OFFLINE_QUEUE_KEY);
+    if (!raw) return;
+    let list: any[] = [];
+    try {
+      list = JSON.parse(raw);
+    } catch (_) {}
+    if (!Array.isArray(list) || !list.length) return;
+
+    safeStorageSet(BETSCOUT_OFFLINE_QUEUE_KEY, '[]');
+    pendingOfflineQueueCount.value = 0;
+
+    for (const item of list) {
+      try {
+        if (item.type === 'track-live' && item.payload?.query) {
+          await trackLiveMatchup(item.payload.query);
+        } else if (item.type === 'settings' && item.payload) {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(item.payload),
+          });
+        }
+      } catch (_) {}
+    }
+    await fetchSnapshot();
+    showToast('Synced queued offline changes with BetScout server.');
+  }
+
+  function bindBrowserSyncListeners() {
+    if (listenersBound || typeof window === 'undefined') return;
+    listenersBound = true;
+
+    window.addEventListener('online', () => {
+      isOffline.value = false;
+      streamStatus.value = 'connecting';
+      flushOfflineQueue();
+      fetchSnapshot();
+      connectLiveStream();
+    });
+
+    window.addEventListener('offline', () => {
+      isOffline.value = true;
+      streamStatus.value = 'offline';
+    });
+
+    window.addEventListener('storage', (ev: StorageEvent) => {
+      if (ev.key === BETSCOUT_USER_PREFS_KEY || ev.key === BETSCOUT_SNAPSHOT_CACHE_KEY) {
+        hydrateFromLocalStorage();
+      }
+    });
+
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      canInstallPwa.value = true;
+    });
+
+    window.addEventListener('appinstalled', () => {
+      canInstallPwa.value = false;
+      deferredInstallPrompt = null;
+      showToast('BetScout PWA installed on your device!');
+    });
+  }
+
+  async function promptPwaInstall() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      canInstallPwa.value = false;
+      deferredInstallPrompt = null;
     }
   }
 
@@ -165,16 +373,17 @@ export const useBetscoutStore = defineStore('betscout', () => {
     activeEventSource = es;
     es.addEventListener('update', (ev: MessageEvent) => {
       streamStatus.value = 'online';
+      isOffline.value = false;
       try {
         const snap = JSON.parse(ev.data);
         if (snap.pipeline_status?.running && snap.pipeline_status?.step) {
           actionProgressText.value = snap.pipeline_status.step;
         }
-        applySnapshot(snap);
+        applySnapshot(snap, true);
       } catch (_) {}
     });
     es.onerror = () => {
-      streamStatus.value = 'reconnecting';
+      streamStatus.value = isOffline.value ? 'offline' : 'reconnecting';
     };
   }
 
@@ -214,23 +423,23 @@ export const useBetscoutStore = defineStore('betscout', () => {
         await initFirebaseClient(firebaseAuthCfg.value);
       }
       if (!firebaseAuthObj) {
-        showToast('ℹ️ Local Admin mode is active — no Google Sign-In required.');
+        showToast('Local Admin mode is active — no Google Sign-In required.');
         return;
       }
     }
     const { GoogleAuthProvider, signInWithPopup, signOut } = await import('firebase/auth');
     if (userEmail.value) {
       await signOut(firebaseAuthObj.auth);
-      showToast('👋 Signed out.');
+      showToast('Signed out.');
     } else {
       try {
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(firebaseAuthObj.auth, provider);
         if (cred?.user) {
-          showToast(`🔓 Signed in as ${cred.user.email}`);
+          showToast(`Signed in as ${cred.user.email}`);
         }
       } catch (err: any) {
-        showToast(`❌ Sign-in cancelled or failed: ${err?.message || err}`);
+        showToast(`Sign-in cancelled or failed: ${err?.message || err}`);
       }
     }
   }
@@ -375,10 +584,12 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (next.has(matchName)) next.delete(matchName);
     else next.add(matchName);
     customSelectedMatches.value = next;
+    savePrefsToLocalStorage();
   }
 
   function clearCustomSelection() {
     customSelectedMatches.value = new Set();
+    savePrefsToLocalStorage();
   }
 
   async function syncAndSettle(rescanLive = false) {
@@ -395,17 +606,19 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       const data = await resp.json();
       if (data.ok) {
-        applySnapshot(data);
+        isOffline.value = false;
+        applySnapshot(data, true);
         showToast(
           rescanLive
-            ? `✅ Live matches rescanned & ledger synced (${data.paper_ledger?.settled_count || 0} settled)!`
-            : `✅ Ledger synced (${data.newly_settled || 0} newly settled; ${data.paper_ledger?.settled_count || 0} total settled)!`,
+            ? `Live matches rescanned & ledger synced (${data.paper_ledger?.settled_count || 0} settled)!`
+            : `Ledger synced (${data.newly_settled || 0} newly settled; ${data.paper_ledger?.settled_count || 0} total settled)!`,
         );
       } else {
-        showToast(`❌ Sync error: ${data.error || 'Unauthorized'}`);
+        showToast(`Sync error: ${data.error || 'Unauthorized'}`);
       }
     } catch (err) {
-      showToast(`❌ Network error: ${err}`);
+      isOffline.value = true;
+      showToast('Offline mode: cached snapshot active. Will sync automatically when online.');
     } finally {
       actionBusy.value = false;
     }
@@ -423,13 +636,13 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       const data = await resp.json();
       if (data.ok) {
-        applySnapshot(data);
-        showToast(`✅ Full pipeline complete (${data.new_ingested_count || 0} new matches ingested)!`);
+        applySnapshot(data, true);
+        showToast(`Full pipeline complete (${data.new_ingested_count || 0} new matches ingested)!`);
       } else {
-        showToast(`❌ Pipeline error: ${data.error || 'Unauthorized'}`);
+        showToast(`Pipeline error: ${data.error || 'Unauthorized'}`);
       }
     } catch (err) {
-      showToast(`❌ Network error: ${err}`);
+      showToast(`Network error: ${err}`);
     } finally {
       actionBusy.value = false;
     }
@@ -438,6 +651,11 @@ export const useBetscoutStore = defineStore('betscout', () => {
   async function trackLiveMatchup(query: string) {
     const q = query.trim();
     if (!q) return null;
+    if (isOffline.value) {
+      enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
+      showToast(`Queued "${q}" in local storage — will pin automatically when online.`);
+      return null;
+    }
     actionBusy.value = true;
     actionProgressText.value = `Analyzing & pinning "${q}" to Live In-Play tracker...`;
     try {
@@ -448,14 +666,15 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       const data = await resp.json();
       if (data.ok) {
-        applySnapshot(data);
-        showToast(`📌 Pinned "${q}" to Live In-Play Tracker!`);
+        applySnapshot(data, true);
+        showToast(`Pinned "${q}" to Live In-Play Tracker!`);
         return data;
       }
-      showToast(`❌ Could not track "${q}": ${data.error || 'Not found'}`);
+      showToast(`Could not track "${q}": ${data.error || 'Not found'}`);
       return null;
     } catch (err) {
-      showToast(`❌ Failed to track match: ${err}`);
+      enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
+      showToast(`Offline: queued "${q}" for sync when connection returns.`);
       return null;
     } finally {
       actionBusy.value = false;
@@ -471,8 +690,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       const data = await resp.json();
       if (data.ok) {
-        applySnapshot(data);
-        showToast('🗑️ Removed tracked match.');
+        applySnapshot(data, true);
+        showToast('Removed tracked match.');
       }
     } catch (_) {}
   }
@@ -482,13 +701,16 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (next.has(sportKey)) next.delete(sportKey);
     else next.add(sportKey);
     disabledSports.value = next;
+    savePrefsToLocalStorage();
     try {
       await fetch('/api/settings', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ disabled_sports: Array.from(next) }),
       });
-    } catch (_) {}
+    } catch (_) {
+      enqueueOfflineAction({ type: 'settings', payload: { disabled_sports: Array.from(next) } });
+    }
   }
 
   return {
@@ -498,6 +720,10 @@ export const useBetscoutStore = defineStore('betscout', () => {
     toastMessage,
     streamStatus,
     serverTimeLocal,
+    isOffline,
+    lastLocalCacheTime,
+    pendingOfflineQueueCount,
+    canInstallPwa,
     totalMatches,
     vetoedBets,
     generatedAt,
@@ -539,6 +765,10 @@ export const useBetscoutStore = defineStore('betscout', () => {
     pendingBets,
     showToast,
     getAuthHeaders,
+    hydrateFromLocalStorage,
+    savePrefsToLocalStorage,
+    flushOfflineQueue,
+    promptPwaInstall,
     applySnapshot,
     fetchSnapshot,
     connectLiveStream,
