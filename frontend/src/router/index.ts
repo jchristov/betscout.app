@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LandingView from '../views/LandingView.vue';
 import DashboardView from '../views/DashboardView.vue';
+import LogoShowcaseView from '../views/LogoShowcaseView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,8 +25,9 @@ const router = createRouter({
       component: DashboardView,
     },
     {
-      path: '/:pathMatch(.*)*',
-      redirect: '/',
+      path: '/logos',
+      name: 'logos',
+      component: LogoShowcaseView,
     },
   ],
   scrollBehavior(to) {

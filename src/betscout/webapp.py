@@ -1067,7 +1067,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     return
 
             if spa_index.is_file() and (
-                parsed.path in ("/", "/index.html", "/app", "/landing", "/landing.html", "/pricing", "/pricing.html")
+                parsed.path in ("/", "/index.html", "/app", "/logos", "/landing", "/landing.html", "/pricing", "/pricing.html")
                 or parsed.path.startswith("/app/")
             ):
                 spa_bytes = spa_index.read_bytes()

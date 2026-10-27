@@ -110,7 +110,7 @@
             class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wide bg-sky-500/15 text-sky-300 border border-sky-400/45 shadow-[0_0_20px_rgba(56,189,248,0.15)] tabular-nums"
           >
             <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            <span>OUT-OF-SAMPLE WALK-FORWARD VALIDATED · 10 SPORTS · {{ store.totalMatches.toLocaleString() }}+ MATCHES</span>
+            <span>ULTRA-FAST FINE-TUNED AI DECISION MODEL · 10 SPORTS · {{ store.totalMatches.toLocaleString() }}+ MATCHES</span>
           </span>
 
           <h1
@@ -122,11 +122,13 @@
             </span>
           </h1>
 
-          <p class="text-sm sm:text-base md:text-[17.5px] text-slate-300 max-w-[740px] mx-auto mb-8 leading-relaxed">
-            BetScout combines
-            <strong class="text-white font-bold">{{ store.totalMatches.toLocaleString() }}+ historical matches</strong>,
-            direct real-time bookmaker &amp; Sportradar feeds, Dixon-Coles 28-outcome exact-score matrices, and strict
-            per-sport safety vetoes. Every signal is timestamped before kickoff.
+          <p class="text-sm sm:text-base md:text-[17.5px] text-slate-300 max-w-[760px] mx-auto mb-8 leading-relaxed">
+            BetScout fuses an
+            <strong class="text-emerald-300 font-bold">ultra-fast, fine-tuned AI decision model</strong>
+            trained on
+            <strong class="text-white font-bold">{{ store.totalMatches.toLocaleString() }}+ historical matches</strong>
+            with direct real-time bookmaker &amp; Sportradar feeds, Dixon-Coles 28-outcome exact-score matrices, and
+            strict per-sport safety vetoes. Every signal is timestamped before kickoff.
           </p>
 
           <div class="flex flex-wrap justify-center items-center gap-3.5 mb-12">
@@ -578,10 +580,11 @@
             <div class="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/45 flex items-center justify-center mb-3.5">
               <Icon icon="fa6-solid:shield-halved" class="w-5 h-5 text-sky-300" />
             </div>
-            <h3 class="text-base font-extrabold text-white mb-2">Isolated Per-Sport Safety Gates</h3>
+            <h3 class="text-base font-extrabold text-white mb-2">Fine-Tuned AI Decision Model &amp; Safety Gates</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
-              Separate calibrated engines for Football (7-factor composite + T-60m Starting XI gate), Tennis (Surface
-              Elo + 6m Game-Win% + Line-Drift &amp; Turnaround vetoes), NBA, NFL, NHL &amp; Table Tennis.
+              Powered by an ultra-fast, fine-tuned AI decision model paired with isolated safety gates for Football
+              (7-factor composite + T-60m Starting XI gate), Tennis (Surface Elo + 6m Game-Win%), NBA, NFL, NHL &amp;
+              Table Tennis.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-amber-400">
