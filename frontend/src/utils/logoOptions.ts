@@ -57,7 +57,210 @@ const CHISELED_NEEDLES = `
   <polygon points="8,32 27,27 32,32" fill="#0369a1"/>
 `;
 
-// 10 Brand-New Variations (6.1 - 6.10): Variations of Option 5.6 (Tilted Prolate Football & Dynamic Diagonal Sports + Chiseled Compass)
+// Oversized 6..58 Chiseled Needles (from 6.6 — pierces boldly past the stadium/ball rim, no center dot)
+const OVERSIZED_CHISELED_NEEDLES = `
+  <polygon points="32,6 32,32 26.5,26.5" fill="#fde047"/>
+  <polygon points="32,6 37.5,26.5 32,32" fill="#10b981"/>
+  <polygon points="32,58 32,32 37.5,37.5" fill="#34d399"/>
+  <polygon points="32,58 26.5,37.5 32,32" fill="#047857"/>
+  <polygon points="58,32 32,32 37.5,26.5" fill="#7dd3fc"/>
+  <polygon points="58,32 37.5,37.5 32,32" fill="#0284c7"/>
+  <polygon points="6,32 32,32 26.5,37.5" fill="#38bdf8"/>
+  <polygon points="6,32 26.5,26.5 32,32" fill="#0369a1"/>
+`;
+
+// 10 Brand-New Variations (8.1 - 8.10): Stadium / Field Behind the Oversized 6.6 Chiseled Compass
+export const STADIUM_FIELD_66_VARIATIONS: LogoOption[] = [
+  {
+    id: '8.1',
+    name: 'Option 8.1 · Tilted Stadium Pitch Oval',
+    subtitle: '6.6 Geometry + Turf Field & Penalty Boxes',
+    description:
+      'Uses 6.6’s exact -40° tilted oval and oversized needles, replacing the ball laces with a glowing stadium pitch, halfway line, and penalty boxes.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="19.5" ry="12.2" fill="#07221b" stroke="#f59e0b" stroke-width="1.9"/>
+        <!-- Pitch Markings inside the Stadium Oval -->
+        <line x1="32" y1="20" x2="32" y2="44" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.3"/>
+        <circle cx="32" cy="32" r="5" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2"/>
+        <rect x="13.5" y="27" width="5.5" height="10" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+        <rect x="45" y="27" width="5.5" height="10" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.2',
+    name: 'Option 8.2 · Tilted Rectangular Pitch',
+    subtitle: '-40° Soccer Field + Oversized 6.6 Compass',
+    description:
+      'A -40° tilted rectangular football pitch with crisp touchlines, penalty boxes, and center circle pierced by 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <rect x="13.5" y="21" width="37" height="22" rx="4" fill="#07221b" stroke="#34d399" stroke-width="1.8"/>
+        <line x1="32" y1="21" x2="32" y2="43" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.3"/>
+        <circle cx="32" cy="32" r="5" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2"/>
+        <rect x="13.5" y="26.5" width="6" height="11" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+        <rect x="44.5" y="26.5" width="6" height="11" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.3',
+    name: 'Option 8.3 · Colosseum Bowl + Pitch',
+    subtitle: 'Double-Tier Grandstand Oval + Turf',
+    description:
+      'A -40° tilted two-tier stadium colosseum bowl (amber-gold outer grandstand + emerald inner pitch) behind 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <!-- Outer Grandstand Bowl -->
+        <ellipse cx="32" cy="32" rx="20.5" ry="13" fill="#1c1410" stroke="#f59e0b" stroke-width="1.8"/>
+        <!-- Inner Emerald Turf Pitch -->
+        <rect x="17.5" y="24" width="29" height="16" rx="3" fill="#06281e" stroke="#34d399" stroke-width="1.4"/>
+        <line x1="32" y1="24" x2="32" y2="40" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.2"/>
+        <rect x="17.5" y="28" width="4.5" height="8" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.2"/>
+        <rect x="42" y="28" width="4.5" height="8" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.2"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.4',
+    name: 'Option 8.4 · 3D Isometric Pitch Deck',
+    subtitle: '3D Perspective Field + Oversized Compass',
+    description:
+      'An elevated 3D perspective stadium field with glowing emerald turf and gold penalty boxes floating behind 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <!-- 3D Perspective Pitch Parallelogram -->
+      <polygon points="20,17 51,22 44,47 13,42" fill="#07221b" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/>
+      <line x1="35.5" y1="19.5" x2="28.5" y2="44.5" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.3"/>
+      <ellipse cx="32" cy="32" rx="6" ry="4" transform="rotate(10 32 32)" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.2"/>
+      <polygon points="18,24 24,25 21.5,35 15.5,34" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3" fill="none"/>
+      <polygon points="42.5,29 48.5,30 46,40 40,39" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3" fill="none"/>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.5',
+    name: 'Option 8.5 · Horizontal Pitch + 6.6 Star',
+    subtitle: 'Full Pitch with Mowed Turf Stripes',
+    description:
+      'A horizontal rectangular stadium pitch with mowed turf bands and gold penalty boxes pierced on all 4 sides by 6.6’s compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <rect x="13" y="20" width="38" height="24" rx="4" fill="#07221b" stroke="#34d399" stroke-width="1.8"/>
+      <rect x="19" y="20.8" width="6.5" height="22.4" fill="#10b981" fill-opacity="0.12"/>
+      <rect x="32" y="20.8" width="6.5" height="22.4" fill="#10b981" fill-opacity="0.12"/>
+      <line x1="32" y1="20" x2="32" y2="44" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.2"/>
+      <circle cx="32" cy="32" r="5.2" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.2"/>
+      <rect x="13" y="26" width="6" height="12" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+      <rect x="45" y="26" width="6" height="12" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.6',
+    name: 'Option 8.6 · Tilted Yard-Line Gridiron',
+    subtitle: '6.6 Geometry + Gold End-Zones & Yard Lines',
+    description:
+      'Combines 6.6’s -40° amber-gold stadium oval with crisp yard-line gridiron markings and gold end-zones.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="19.5" ry="12.2" fill="#091e1a" stroke="#f59e0b" stroke-width="1.9"/>
+        <path d="M 17 24.5 L 17 39.5" stroke="#fde047" stroke-width="2.0" stroke-linecap="round"/>
+        <path d="M 47 24.5 L 47 39.5" stroke="#fde047" stroke-width="2.0" stroke-linecap="round"/>
+        <line x1="23" y1="21.5" x2="23" y2="42.5" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.2"/>
+        <line x1="29" y1="20.2" x2="29" y2="43.8" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.2"/>
+        <line x1="35" y1="20.2" x2="35" y2="43.8" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.2"/>
+        <line x1="41" y1="21.5" x2="41" y2="42.5" stroke="#34d399" stroke-opacity="0.55" stroke-width="1.2"/>
+        <line x1="20" y1="29" x2="44" y2="29" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.2" stroke-dasharray="2 3"/>
+        <line x1="20" y1="35" x2="44" y2="35" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.2" stroke-dasharray="2 3"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.7',
+    name: 'Option 8.7 · Tilted Championship Court',
+    subtitle: '-40° Tennis/Hoops Court + 6.6 Compass',
+    description:
+      'A -40° tilted court arena with cyan surface, white service boxes, and gold key arcs behind 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <rect x="13.5" y="21" width="37" height="22" rx="4" fill="#091b2e" stroke="#38bdf8" stroke-width="1.8"/>
+        <line x1="13.5" y1="24.5" x2="50.5" y2="24.5" stroke="#7dd3fc" stroke-opacity="0.5" stroke-width="1.1"/>
+        <line x1="13.5" y1="39.5" x2="50.5" y2="39.5" stroke="#7dd3fc" stroke-opacity="0.5" stroke-width="1.1"/>
+        <line x1="22.5" y1="24.5" x2="22.5" y2="39.5" stroke="#fde047" stroke-opacity="0.8" stroke-width="1.3"/>
+        <line x1="41.5" y1="24.5" x2="41.5" y2="39.5" stroke="#fde047" stroke-opacity="0.8" stroke-width="1.3"/>
+        <line x1="22.5" y1="32" x2="41.5" y2="32" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.8',
+    name: 'Option 8.8 · 6.6 Ball + Stadium Pitch Hybrid',
+    subtitle: 'Prolate Football Rim + Inner Soccer Pitch',
+    description:
+      'Blends 6.6’s amber-gold prolate ball rim and end-stripes with an inner emerald soccer pitch and penalty arcs.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="19" ry="11.8" fill="#0a201b" stroke="#f59e0b" stroke-width="1.9"/>
+        <path d="M 16.5 26.5 Q 20 32 16.5 37.5" stroke="#fde047" stroke-width="2.0" stroke-linecap="round"/>
+        <path d="M 47.5 26.5 Q 44 32 47.5 37.5" stroke="#fde047" stroke-width="2.0" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5.5" stroke="#34d399" stroke-opacity="0.75" stroke-width="1.3"/>
+        <line x1="32" y1="20.5" x2="32" y2="43.5" stroke="#34d399" stroke-opacity="0.75" stroke-width="1.3"/>
+        <line x1="22" y1="32" x2="42" y2="32" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.3"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.9',
+    name: 'Option 8.9 · Floodlit Arena Bowl + 6.6',
+    subtitle: 'Tilted Stadium Roof Canopy + Turf',
+    description:
+      'A -40° tilted stadium arena bowl with a glowing double roof canopy and emerald pitch behind 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(-40 32 32)">
+        <ellipse cx="32" cy="32" rx="20.5" ry="13.2" fill="#0d1829" stroke="url(#emeraldGold)" stroke-width="1.9"/>
+        <ellipse cx="32" cy="32" rx="15" ry="8.5" fill="#06261d" stroke="#34d399" stroke-width="1.4"/>
+        <line x1="32" y1="23.5" x2="32" y2="40.5" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2"/>
+        <circle cx="32" cy="32" r="4" stroke="#fde047" stroke-opacity="0.8" stroke-width="1.2"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+  {
+    id: '8.10',
+    name: 'Option 8.10 · +40° Ascending Stadium Pitch',
+    subtitle: 'SW-to-NE Tilted Pitch + 6.6 Compass',
+    description:
+      'Tilts the stadium turf oval and gold penalty boxes along the ascending +40° SW-to-NE axis behind 6.6’s oversized compass.',
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${SQUIRCLE_FRAME}
+      <g transform="rotate(40 32 32)">
+        <ellipse cx="32" cy="32" rx="19.5" ry="12.2" fill="#07221b" stroke="#f59e0b" stroke-width="1.9"/>
+        <line x1="32" y1="20" x2="32" y2="44" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.3"/>
+        <circle cx="32" cy="32" r="5" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2"/>
+        <rect x="13.5" y="27" width="5.5" height="10" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+        <rect x="45" y="27" width="5.5" height="10" stroke="#fde047" stroke-opacity="0.85" stroke-width="1.3"/>
+      </g>
+      ${OVERSIZED_CHISELED_NEEDLES}
+    </svg>`,
+  },
+];
+
+// 10 Variations (6.1 - 6.10): Variations of Option 5.6 (Tilted Prolate Football & Dynamic Diagonal Sports + Chiseled Compass)
 export const PROLATE_56_VARIATIONS: LogoOption[] = [
   {
     id: '6.1',
