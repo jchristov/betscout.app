@@ -1081,21 +1081,26 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path == "/api/version":
-                rec_mtime = int(rec_path.stat().st_mtime) if rec_path.exists() else 0
-                db_mtime = int(db_path.stat().st_mtime) if db_path.exists() else 0
+                code_files = [
+                    root_dir / "src" / "betscout" / "dashboard.py",
+                    root_dir / "src" / "betscout" / "webapp.py",
+                    root_dir / "src" / "betscout" / "paper_bet.py",
+                    root_dir / "src" / "betscout" / "sport_models.py",
+                ]
+                code_mtime = max((int(p.stat().st_mtime) for p in code_files if p.exists()), default=0)
                 rec_gen = ""
                 if rec_path.exists():
                     try:
                         rec_gen = str(json.loads(rec_path.read_text(encoding="utf-8")).get("generated_at") or "")
                     except Exception:
                         rec_gen = ""
-                build_hash = f"0.2.0-{max(rec_mtime, db_mtime)}"
+                build_hash = f"0.4.1-{code_mtime}-{rec_gen}"
                 self._send_json({
                     "ok": True,
-                    "version": "0.2.0",
+                    "version": "0.4.1",
                     "build_id": build_hash,
                     "generated_at": rec_gen,
-                    "updated_epoch": max(rec_mtime, db_mtime),
+                    "updated_epoch": code_mtime,
                 })
                 return
 

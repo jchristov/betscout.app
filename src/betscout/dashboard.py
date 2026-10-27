@@ -5250,14 +5250,13 @@ def generate_dashboard_html(
         if (d && d.build_id) initialBuildId = d.build_id;
       }}).catch(() => {{}});
       setInterval(() => {{
-        if (activeSwRegistration) activeSwRegistration.update().catch(() => {{}});
         fetch('/api/version').then(r => r.json()).then(d => {{
           if (d && d.build_id && initialBuildId && d.build_id !== initialBuildId) {{
             initialBuildId = d.build_id;
-            showPwaUpdateBanner(d.generated_at ? ('Updated ' + d.generated_at.slice(11, 16) + ' UTC') : d.build_id);
+            showPwaUpdateBanner(d.generated_at ? ('Updated ' + d.generated_at.slice(11, 16) + ' UTC') : d.version);
           }}
         }}).catch(() => {{}});
-      }}, 60000);
+      }}, 300000);
     }}
 
     initLiveEventStream();
