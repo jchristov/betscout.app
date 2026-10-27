@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import {
   type BestBetItem,
   SPORT_EMOJIS,
+  SPORT_ICONIFY_NAMES,
   computeBankerBoosterCombos,
 } from '../utils/formatters';
 
@@ -285,6 +286,38 @@ export const useBetscoutStore = defineStore('betscout', () => {
 
   const bankerBoosterCombos = computed(() => computeBankerBoosterCombos(visibleBestBets.value));
 
+  const activeSportsCounts = computed(() => {
+    const spOrder = [
+      'soccer',
+      'tennis',
+      'basketball',
+      'volleyball',
+      'hockey',
+      'football',
+      'baseball',
+      'handball',
+      'darts',
+      'table_tennis',
+    ];
+    const counts: Record<string, number> = {};
+    for (const b of activeBestBets.value) {
+      const sc = b.sport_cat || 'soccer';
+      counts[sc] = (counts[sc] || 0) + 1;
+    }
+    const items: Array<{ cat: string; icon: string; count: number }> = [];
+    for (const sc of spOrder) {
+      if (counts[sc] > 0) {
+        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'lucide:award', count: counts[sc] });
+      }
+    }
+    for (const sc of Object.keys(counts)) {
+      if (!spOrder.includes(sc) && counts[sc] > 0) {
+        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'lucide:award', count: counts[sc] });
+      }
+    }
+    return items;
+  });
+
   const activeSportsBreakdown = computed(() => {
     const spOrder = [
       'soccer',
@@ -499,6 +532,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     visibleBestBets,
     mispricedBets,
     bankerBoosterCombos,
+    activeSportsCounts,
     activeSportsBreakdown,
     settledBets,
     liveBets,

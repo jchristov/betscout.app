@@ -11,6 +11,34 @@ export const SPORT_EMOJIS: Record<string, string> = {
   table_tennis: '🏓',
 };
 
+export const SPORT_ICONIFY_NAMES: Record<string, string> = {
+  all: 'lucide:globe',
+  soccer: 'mdi:soccer',
+  tennis: 'mdi:tennis',
+  basketball: 'mdi:basketball',
+  volleyball: 'mdi:volleyball',
+  hockey: 'mdi:hockey-sticks',
+  football: 'mdi:football',
+  baseball: 'mdi:baseball',
+  handball: 'mdi:handball',
+  darts: 'mdi:bullseye-arrow',
+  table_tennis: 'mdi:table-tennis',
+};
+
+export const SPORT_CLEAN_LABELS: Record<string, string> = {
+  all: 'All Sports',
+  soccer: 'Football',
+  tennis: 'Tennis',
+  basketball: 'Basketball',
+  volleyball: 'Volleyball',
+  hockey: 'Hockey',
+  football: 'NFL',
+  baseball: 'Baseball',
+  handball: 'Handball',
+  darts: 'Darts',
+  table_tennis: 'Table Tennis',
+};
+
 export const SPORT_LABELS: Record<string, string> = {
   all: '🌐 All Sports',
   soccer: '⚽ Football',
@@ -24,6 +52,21 @@ export const SPORT_LABELS: Record<string, string> = {
   darts: '🎯 Darts',
   table_tennis: '🏓 Table Tennis',
 };
+
+export function getSportIconify(catOrLeague?: string | null): string {
+  const low = String(catOrLeague || '').toLowerCase().trim();
+  if (SPORT_ICONIFY_NAMES[low]) return SPORT_ICONIFY_NAMES[low];
+  if (low.includes('table tennis') || low.includes('table_tennis')) return 'mdi:table-tennis';
+  if (low.includes('handball')) return 'mdi:handball';
+  if (low.includes('darts')) return 'mdi:bullseye-arrow';
+  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'mdi:tennis';
+  if (low.includes('volleyball')) return 'mdi:volleyball';
+  if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return 'mdi:basketball';
+  if (low.includes('hockey') || low.includes('nhl')) return 'mdi:hockey-sticks';
+  if (low.includes('nfl') || low.includes('american football')) return 'mdi:football';
+  if (low.includes('baseball') || low.includes('mlb')) return 'mdi:baseball';
+  return 'mdi:soccer';
+}
 
 export const BADGE_TOOLTIPS: Record<string, string> = {
   tier_0_96:

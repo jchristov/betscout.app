@@ -27,7 +27,7 @@
             <span
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40"
             >
-              <Zap class="w-3 h-3" />
+              <Icon icon="lucide:zap" class="w-3 h-3" />
               <span>LIVE AI</span>
             </span>
             <span class="text-xs text-slate-300 font-medium">
@@ -37,15 +37,15 @@
 
           <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 ml-auto tabular-nums">
             <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              <Clock class="w-3 h-3 text-sky-400" />
+              <Icon icon="lucide:clock" class="w-3 h-3 text-sky-400" />
               <span>Updated: <b class="text-slate-100">{{ store.generatedAtLocal }}</b></span>
             </span>
             <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              <Database class="w-3 h-3 text-emerald-400" />
+              <Icon icon="lucide:database" class="w-3 h-3 text-emerald-400" />
               <span><b class="text-slate-100">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
             </span>
             <span class="inline-flex items-center gap-1.5 bg-slate-900/85 border border-border rounded-lg px-2.5 py-0.5">
-              <Radio class="w-3 h-3 text-sky-400" />
+              <Icon icon="lucide:radio" class="w-3 h-3 text-sky-400" />
               <span>{{ store.serverTimeLocal }}</span>
             </span>
             <span
@@ -70,7 +70,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45 hover:bg-sky-500/25 disabled:opacity-50"
               @click="store.syncAndSettle(false)"
             >
-              <RefreshCw class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
+              <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
               <span>Sync &amp; Settle</span>
             </button>
             <button
@@ -79,7 +79,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
               @click="store.syncAndSettle(true)"
             >
-              <Zap class="w-3.5 h-3.5 text-amber-400" />
+              <Icon icon="lucide:zap" class="w-3.5 h-3.5 text-amber-400" />
               <span>Rescan Live</span>
             </button>
             <button
@@ -88,7 +88,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400 disabled:opacity-50"
               @click="store.runFullPipeline()"
             >
-              <Rocket class="w-3.5 h-3.5 text-emerald-400" />
+              <Icon icon="lucide:rocket" class="w-3.5 h-3.5 text-emerald-400" />
               <span>Full Pipeline</span>
             </button>
           </div>
@@ -106,8 +106,7 @@
                   : 'bg-amber-500/15 text-amber-400 border border-amber-500/40'
               "
             >
-              <Unlock v-if="store.isPro" class="w-3 h-3" />
-              <Lock v-else class="w-3 h-3" />
+              <Icon :icon="store.isPro ? 'lucide:unlock' : 'lucide:lock'" class="w-3 h-3" />
               <span>{{ store.isPro ? 'PRO READ-ONLY' : 'GUEST PREVIEW' }}</span>
             </span>
             <span v-if="store.isPro" class="text-slate-200">
@@ -128,7 +127,7 @@
             <span class="text-slate-500">·</span>
             <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-400 font-bold hover:underline">
               <span>Membership Plans</span>
-              <ArrowRight class="w-3 h-3" />
+              <Icon icon="lucide:arrow-right" class="w-3 h-3" />
             </router-link>
           </div>
 
@@ -138,7 +137,7 @@
               to="/"
               class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
             >
-              <Home class="w-3.5 h-3.5 text-sky-400" />
+              <Icon icon="lucide:home" class="w-3.5 h-3.5 text-sky-400" />
               <span>Home &amp; Plans</span>
             </router-link>
             <a
@@ -146,7 +145,7 @@
               target="_blank"
               class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-300 border border-border hover:border-sky-400 no-underline"
             >
-              <BookOpen class="w-3.5 h-3.5 text-sky-400" />
+              <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-sky-400" />
               <span>Interactive API Docs</span>
             </a>
             <button
@@ -160,8 +159,7 @@
               "
               @click="store.triggerSignInOut()"
             >
-              <Unlock v-if="store.userEmail" class="w-3.5 h-3.5" />
-              <Lock v-else class="w-3.5 h-3.5" />
+              <Icon :icon="store.userEmail ? 'lucide:unlock' : 'lucide:lock'" class="w-3.5 h-3.5" />
               <span>
                 {{
                   store.userEmail
@@ -176,7 +174,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
               @click="openShareSlateModal()"
             >
-              <Share2 class="w-3.5 h-3.5" />
+              <Icon icon="lucide:share-2" class="w-3.5 h-3.5" />
               <span>Share Picks</span>
             </button>
             <button
@@ -184,7 +182,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900 text-slate-200 border border-border hover:border-sky-400"
               @click="settingsModalOpen = true"
             >
-              <Settings class="w-3.5 h-3.5 text-slate-300" />
+              <Icon icon="lucide:settings" class="w-3.5 h-3.5 text-slate-300" />
               <span>Settings</span>
             </button>
           </div>
@@ -262,8 +260,21 @@
         <b class="block text-lg font-mono tabular-nums text-emerald-400 mt-0.5 whitespace-nowrap">
           {{ store.activeBestBets.length }} Picks
         </b>
-        <small class="block text-[10.5px] text-slate-400 mt-0.5 truncate" :title="store.activeSportsBreakdown">
-          {{ store.activeSportsBreakdown }}
+        <small
+          class="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-300 mt-0.5 truncate font-mono tabular-nums"
+          :title="store.activeSportsBreakdown"
+        >
+          <template v-if="store.activeSportsCounts.length">
+            <span
+              v-for="sp in store.activeSportsCounts"
+              :key="sp.cat"
+              class="inline-flex items-center gap-1"
+            >
+              <Icon :icon="sp.icon" class="w-3.5 h-3.5 text-sky-400" />
+              <span>{{ sp.count }}</span>
+            </span>
+          </template>
+          <span v-else>{{ store.activeSportsBreakdown }}</span>
         </small>
       </div>
 
@@ -282,18 +293,18 @@
           </span>
           <span class="text-slate-500">·</span>
           <span class="inline-flex items-center gap-1 text-slate-200">
-            <Clock class="w-3.5 h-3.5 text-amber-400" />
+            <Icon icon="lucide:clock" class="w-3.5 h-3.5 text-amber-400" />
             <span>{{ store.pendingBets.length }}</span>
           </span>
         </b>
         <small class="flex items-center gap-2 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
           <span class="inline-flex items-center gap-1">
-            <Link2 class="w-3 h-3 text-sky-400" />
+            <Icon icon="lucide:link-2" class="w-3 h-3 text-sky-400" />
             <span>{{ store.recommendedDoubles.length }} Combos</span>
           </span>
           <span>·</span>
           <span class="inline-flex items-center gap-1" :class="store.vetoedBets > 0 ? 'text-danger' : ''">
-            <ShieldCheck class="w-3 h-3" />
+            <Icon icon="lucide:shield-check" class="w-3 h-3" />
             <span>{{ store.vetoedBets }} Vetoes</span>
           </span>
         </small>
@@ -310,7 +321,7 @@
           {{ store.visibleBestBets.length }}
         </b>
         <small class="flex items-center gap-1.5 text-[10.5px] text-slate-400 mt-0.5 truncate tabular-nums">
-          <Sparkles class="w-3 h-3 text-sky-400 shrink-0" />
+          <Icon icon="lucide:sparkles" class="w-3 h-3 text-sky-400 shrink-0" />
           <span>{{ store.mispricedBets.length }} Mispriced · {{ store.totalMatches.toLocaleString() }} Matches</span>
         </small>
       </div>
@@ -321,10 +332,10 @@
       <b>Sport:</b>
       <div class="flex flex-wrap gap-1">
         <button
-          v-for="(label, key) in SPORT_LABELS"
+          v-for="(label, key) in SPORT_CLEAN_LABELS"
           :key="key"
           type="button"
-          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-semibold border"
+          class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap"
           :class="
             store.sportFilter === key
               ? 'bg-sky-500/15 border-sky-400 text-sky-400'
@@ -332,7 +343,8 @@
           "
           @click="store.sportFilter = key"
         >
-          {{ label }}
+          <Icon :icon="SPORT_ICONIFY_NAMES[key] || 'lucide:globe'" class="w-3.5 h-3.5 shrink-0" />
+          <span>{{ label }}</span>
         </button>
       </div>
 
@@ -391,7 +403,7 @@
           class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/45 hover:bg-emerald-500/25"
           @click="analyzerModalOpen = true"
         >
-          <Search class="w-3.5 h-3.5" />
+          <Icon icon="lucide:search" class="w-3.5 h-3.5" />
           <span>Analyze Match</span>
         </button>
       </div>
@@ -413,7 +425,7 @@
         "
         @click="activeTab = tab.id"
       >
-        <component :is="tab.icon" class="w-4 h-4 text-sky-400 shrink-0" />
+        <Icon :icon="tab.icon" class="w-4 h-4 text-sky-400 shrink-0" />
         <span class="whitespace-nowrap">{{ tab.label }}</span>
         <span
           class="whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-sky-500/15 text-sky-400 border border-sky-400/35"
@@ -444,7 +456,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
             @click="onTrackLiveQuick"
           >
-            <Pin class="w-3.5 h-3.5" />
+            <Icon icon="lucide:pin" class="w-3.5 h-3.5" />
             <span>Track &amp; Analyze Live</span>
           </button>
         </div>
@@ -475,7 +487,9 @@
               :key="`${tr.league}:${tr.event_id}`"
               class="border-b border-border/60 last:border-none hover:bg-slate-800/40"
             >
-              <td class="py-2.5 px-2.5 text-center text-base">{{ getSportEmoji(tr.sport_cat) }}</td>
+              <td class="py-2.5 px-2.5 text-center">
+                <Icon :icon="getSportIconify(tr.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
+              </td>
               <td class="py-2.5 px-2.5">
                 <span
                   class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
@@ -539,7 +553,7 @@
                   class="btn-press ml-1.5 inline-flex items-center p-1 rounded border border-red-500/40 text-danger"
                   @click="store.untrackLiveMatchup(tr.league, tr.event_id)"
                 >
-                  <X class="w-3 h-3" />
+                  <Icon icon="lucide:x" class="w-3 h-3" />
                 </button>
               </td>
             </tr>
@@ -559,7 +573,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/40"
             @click="store.clearCustomSelection()"
           >
-            <X class="w-3 h-3" />
+            <Icon icon="lucide:x" class="w-3 h-3" />
             <span>Clear Custom Selection ({{ store.customSelectedMatches.size }})</span>
           </button>
           <button
@@ -567,7 +581,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-400/45"
             @click="activeTab = 'studio'"
           >
-            <Calculator class="w-3.5 h-3.5" />
+            <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
             <span>Open in Bet Slip &amp; Dutching Studio</span>
           </button>
         </div>
@@ -623,7 +637,9 @@
                   @change="store.toggleCustomMatch(b.match)"
                 />
               </td>
-              <td class="py-2.5 px-2 text-center text-base">{{ b.sport_icon || getSportEmoji(b.sport_cat) }}</td>
+              <td class="py-2.5 px-2 text-center">
+                <Icon :icon="getSportIconify(b.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
+              </td>
               <td class="py-2.5 px-2.5">
                 <span
                   class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35"
@@ -658,7 +674,7 @@
                     class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
                     :title="`Bookmaker Odds Mispricing: +${Number(b.edge_pp || 0).toFixed(1)}pp probability edge (${b.mispricing_drivers || 'Model Edge'})`"
                   >
-                    <Sparkles class="w-2.5 h-2.5" />
+                    <Icon icon="lucide:sparkles" class="w-2.5 h-2.5" />
                     <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
                   </span>
                 </div>
@@ -678,7 +694,7 @@
                     class="btn-press inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-navy-900 text-amber-400 border border-amber-500/40 hover:bg-amber-500/15"
                     @click="selectMatchForDutching(b.match)"
                   >
-                    <Dices class="w-3 h-3" />
+                    <Icon icon="lucide:dices" class="w-3 h-3" />
                     <span>Split €</span>
                   </button>
                 </div>
@@ -700,7 +716,7 @@
                     class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-help"
                     :title="`Sharp Closing-Line Steam Move (+${Number(b.clv_pct || 0).toFixed(1)}% CLV)`"
                   >
-                    <Flame class="w-3 h-3" />
+                    <Icon icon="lucide:flame" class="w-3 h-3" />
                     <span>STEAM +{{ Number(b.clv_pct || 0).toFixed(1) }}%</span>
                   </span>
                   <button
@@ -709,7 +725,7 @@
                     title="Share this pick + PNG Card to Discord / Telegram"
                     @click="openShareSinglePickModal(b)"
                   >
-                    <Megaphone class="w-3 h-3" />
+                    <Icon icon="lucide:megaphone" class="w-3 h-3" />
                   </button>
                 </div>
               </td>
@@ -725,7 +741,7 @@
       >
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
           <div class="flex flex-wrap items-center gap-2">
-            <Rocket class="w-4 h-4 text-emerald-400" />
+            <Icon icon="lucide:rocket" class="w-4 h-4 text-emerald-400" />
             <b class="text-sm text-emerald-400">High-Probability Banker Profitability Booster Combos</b>
             <span class="text-slate-400">
               Combines multiple high-win-probability (&ge;72%), lower-odds bankers into higher-yielding 2-Leg &amp;
@@ -737,9 +753,9 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-navy-900 text-slate-200 border border-border hover:border-sky-400"
             @click="activeTab = 'studio'"
           >
-            <Calculator class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="lucide:calculator" class="w-3.5 h-3.5 text-sky-400" />
             <span>Customize Stake in Studio</span>
-            <ArrowRight class="w-3 h-3" />
+            <Icon icon="lucide:arrow-right" class="w-3 h-3" />
           </button>
         </div>
 
@@ -763,7 +779,7 @@
                     class="btn-press inline-flex items-center p-1 rounded bg-navy-900 border border-border hover:border-sky-400 text-sky-400"
                     @click="openShareBoosterModal(combo)"
                   >
-                    <Megaphone class="w-3 h-3" />
+                    <Icon icon="lucide:megaphone" class="w-3 h-3" />
                   </button>
                 </div>
               </div>
@@ -774,8 +790,9 @@
                   :key="lIdx"
                   class="py-1 flex justify-between items-center text-[11.5px]"
                 >
-                  <span>
-                    {{ lIdx + 1 }}. {{ getSportEmoji(leg.sport_cat) }}
+                  <span class="inline-flex items-center gap-1.5">
+                    <span>{{ lIdx + 1 }}.</span>
+                    <Icon :icon="getSportIconify(leg.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
                     <b>{{ leg.pick_name || leg.pick }}</b>
                     <span class="text-slate-400">({{ leg.match }})</span>
                   </span>
@@ -807,7 +824,7 @@
       <section class="card-surface rounded-2xl p-4 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
           <div class="flex flex-wrap items-center gap-2">
-            <Calculator class="w-4 h-4 text-sky-400" />
+            <Icon icon="lucide:calculator" class="w-4 h-4 text-sky-400" />
             <b class="text-sm text-sky-400">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
             <span class="text-slate-400">
               Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid
@@ -862,8 +879,10 @@
                   :key="idx"
                   class="py-1 flex justify-between items-center text-[11.5px]"
                 >
-                  <span>
-                    {{ idx + 1 }}. {{ getSportEmoji(l.sport_cat) }} <b>{{ l.pick_name || l.pick }}</b>
+                  <span class="inline-flex items-center gap-1.5">
+                    <span>{{ idx + 1 }}.</span>
+                    <Icon :icon="getSportIconify(l.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <b>{{ l.pick_name || l.pick }}</b>
                     <span class="text-slate-400">({{ l.match }})</span>
                   </span>
                   <b class="font-mono tabular-nums text-emerald-400">@{{ l.odds.toFixed(2) }}</b>
@@ -901,8 +920,9 @@
                   :key="idx"
                   class="py-1 flex justify-between items-center text-[11.5px]"
                 >
-                  <span>
-                    {{ getSportEmoji(s.item.sport_cat) }} <b>{{ s.item.pick_name || s.item.pick }}</b>
+                  <span class="inline-flex items-center gap-1.5">
+                    <Icon :icon="getSportIconify(s.item.sport_cat)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <b>{{ s.item.pick_name || s.item.pick }}</b>
                     <span class="text-slate-400">(@{{ s.item.odds.toFixed(2) }})</span>
                   </span>
                   <span class="font-mono tabular-nums">
@@ -978,7 +998,7 @@
       <section class="card-surface rounded-2xl p-4 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
           <div class="flex flex-wrap items-center gap-2">
-            <Dices class="w-4 h-4 text-amber-400" />
+            <Icon icon="lucide:dices" class="w-4 h-4 text-amber-400" />
             <b class="text-sm text-amber-400">Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
             <span class="text-slate-400">
               Pick any high-conviction match and enter your investment (€) — generates 2-Score &amp; 3-Score
@@ -992,7 +1012,7 @@
               class="max-w-[300px] bg-navy-900 text-slate-100 border border-border rounded-lg px-2.5 py-1 text-xs font-semibold"
             >
               <option v-for="m in dutchEligibleMatches" :key="m.match" :value="m.match">
-                {{ getSportEmoji(m.sport_cat) }} {{ m.match }} ({{ m.pick_name || m.pick }})
+                {{ m.match }} ({{ m.pick_name || m.pick }})
               </option>
             </select>
             <b>Investment (€):</b>
@@ -1073,7 +1093,7 @@
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-400 mb-2.5">
-          <Link2 class="w-4 h-4" />
+          <Icon icon="lucide:link-2" class="w-4 h-4" />
           <span>Recommended 2-Leg High-Probability Combos &amp; Parlays ({{ store.recommendedDoubles.length }} Variations)</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-6">
@@ -1093,14 +1113,16 @@
               </div>
             </div>
             <div class="space-y-1 text-xs">
-              <div>
-                1. {{ getSportEmoji(d.leg_1?.sport_cat || d.leg_1?.league) }}
+              <div class="inline-flex items-center gap-1.5 w-full">
+                <span>1.</span>
+                <Icon :icon="getSportIconify(d.leg_1?.sport_cat || d.leg_1?.league)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
                 <b>{{ d.leg_1?.match }}</b> &rarr;
                 <b class="text-emerald-400">{{ d.leg_1?.pick }}</b> @
                 <b class="font-mono tabular-nums">{{ Number(d.leg_1?.odds || 1).toFixed(2) }}</b>
               </div>
-              <div>
-                2. {{ getSportEmoji(d.leg_2?.sport_cat || d.leg_2?.league) }}
+              <div class="inline-flex items-center gap-1.5 w-full">
+                <span>2.</span>
+                <Icon :icon="getSportIconify(d.leg_2?.sport_cat || d.leg_2?.league)" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
                 <b>{{ d.leg_2?.match }}</b> &rarr;
                 <b class="text-emerald-400">{{ d.leg_2?.pick }}</b> @
                 <b class="font-mono tabular-nums">{{ Number(d.leg_2?.odds || 1).toFixed(2) }}</b>
@@ -1140,7 +1162,9 @@
               :key="`${tr.league}:${tr.event_id}`"
               class="border-b border-border/60 last:border-none hover:bg-slate-800/40"
             >
-              <td class="py-2.5 px-2.5 text-center text-base">{{ getSportEmoji(tr.sport_cat) }}</td>
+              <td class="py-2.5 px-2.5 text-center">
+                <Icon :icon="getSportIconify(tr.sport_cat)" class="w-4 h-4 text-sky-400 mx-auto" />
+              </td>
               <td class="py-2.5 px-2.5">
                 <span class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-400/35">
                   {{ tr.league_label || tr.league }}
@@ -1185,7 +1209,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="card-surface rounded-2xl p-4">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
-            <TrendingUp class="w-4 h-4" />
+            <Icon icon="lucide:trending-up" class="w-4 h-4" />
             <span>By-Sport Settled Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
@@ -1223,7 +1247,7 @@
 
         <div class="card-surface rounded-2xl p-4">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-400 mb-2">
-            <Microscope class="w-4 h-4" />
+            <Icon icon="lucide:microscope" class="w-4 h-4" />
             <span>Calibration &amp; Tier Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
@@ -1271,7 +1295,7 @@
         <span
           class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 tabular-nums"
         >
-          <CheckSquare class="w-3.5 h-3.5" />
+          <Icon icon="lucide:check-square" class="w-3.5 h-3.5" />
           <span>{{ store.customSelectedMatches.size }} Selected</span>
         </span>
         <span class="text-xs text-slate-300 font-mono tabular-nums">
@@ -1284,16 +1308,16 @@
           class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950"
           @click="activeTab = 'studio'"
         >
-          <Calculator class="w-3.5 h-3.5" />
+          <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
           <span>Optimize in Bet Slip Studio</span>
-          <ArrowRight class="w-3.5 h-3.5" />
+          <Icon icon="lucide:arrow-right" class="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 border border-border"
           @click="store.clearCustomSelection()"
         >
-          <X class="w-3.5 h-3.5" />
+          <Icon icon="lucide:x" class="w-3.5 h-3.5" />
           <span>Clear</span>
         </button>
       </div>
@@ -1308,7 +1332,7 @@
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
-            <Search class="w-4 h-4" />
+            <Icon icon="lucide:search" class="w-4 h-4" />
             <span>{{ inspectorTitle }}</span>
           </b>
           <button
@@ -1317,13 +1341,13 @@
             @click="inspectorModalOpen = false"
           >
             <span>Close</span>
-            <X class="w-3.5 h-3.5" />
+            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
           </button>
         </div>
         <div v-if="inspectorLoading" class="py-6 text-slate-400">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
         <div v-else-if="inspectorLockedPro" class="p-4 bg-navy-900 border border-sky-400/40 rounded-xl text-center">
           <div class="inline-flex items-center gap-1.5 text-base font-extrabold text-white mb-1.5">
-            <Lock class="w-4 h-4 text-amber-400" />
+            <Icon icon="lucide:lock" class="w-4 h-4 text-amber-400" />
             <span>BetScout Pro Subscriber Pick</span>
           </div>
           <div class="text-slate-400 mb-4">
@@ -1339,7 +1363,7 @@
                 store.triggerSignInOut();
               "
             >
-              <Lock class="w-3.5 h-3.5" />
+              <Icon icon="lucide:lock" class="w-3.5 h-3.5" />
               <span>Sign In with Google</span>
             </button>
             <router-link
@@ -1347,9 +1371,9 @@
               class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 font-bold no-underline"
               @click="inspectorModalOpen = false"
             >
-              <Rocket class="w-3.5 h-3.5" />
+              <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
               <span>View Membership Plans</span>
-              <ArrowRight class="w-3.5 h-3.5" />
+              <Icon icon="lucide:arrow-right" class="w-3.5 h-3.5" />
             </router-link>
           </div>
         </div>
@@ -1417,7 +1441,7 @@
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
           <div>
             <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
-              <Search class="w-4 h-4" />
+              <Icon icon="lucide:search" class="w-4 h-4" />
               <span>On-Demand Any-Matchup Live Analyzer</span>
             </b>
             <div class="text-slate-400 text-[11px]">
@@ -1429,7 +1453,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="analyzerModalOpen = false"
           >
-            <X class="w-3.5 h-3.5" />
+            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
             <span>Close</span>
           </button>
         </div>
@@ -1447,7 +1471,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/50 font-bold"
             @click="runLiveAnalyzer"
           >
-            <Zap class="w-3.5 h-3.5" />
+            <Icon icon="lucide:zap" class="w-3.5 h-3.5" />
             <span>Analyze Matchup</span>
           </button>
         </div>
@@ -1475,7 +1499,7 @@
       <div class="card-surface rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
-            <Share2 class="w-4 h-4" />
+            <Icon icon="lucide:share-2" class="w-4 h-4" />
             <span>Share Pick &amp; High-Res PNG Card Publisher</span>
           </b>
           <button
@@ -1483,7 +1507,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-900 border border-border text-xs"
             @click="shareModalOpen = false"
           >
-            <X class="w-3.5 h-3.5" />
+            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
             <span>Close</span>
           </button>
         </div>
@@ -1496,7 +1520,7 @@
               class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-navy-900 border border-border text-[11px]"
               @click="downloadCanvasPng"
             >
-              <Download class="w-3 h-3 text-sky-400" />
+              <Icon icon="lucide:download" class="w-3 h-3 text-sky-400" />
               <span>Download PNG Card</span>
             </button>
           </div>
@@ -1520,7 +1544,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-900 border border-border text-xs font-semibold"
             @click="copyShareMessage"
           >
-            <Copy class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="lucide:copy" class="w-3.5 h-3.5 text-sky-400" />
             <span>Copy Text</span>
           </button>
           <button
@@ -1528,7 +1552,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-xs font-bold"
             @click="postShareToDiscord"
           >
-            <Rocket class="w-3.5 h-3.5" />
+            <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
             <span>Send to Discord</span>
           </button>
         </div>
@@ -1544,7 +1568,7 @@
       <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-border">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-400">
-            <Settings class="w-4 h-4" />
+            <Icon icon="lucide:settings" class="w-4 h-4" />
             <span>BetScout Settings &amp; Active Sport Toggles</span>
           </b>
           <button
@@ -1553,7 +1577,7 @@
             @click="settingsModalOpen = false"
           >
             <span>Close</span>
-            <X class="w-3.5 h-3.5" />
+            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -1572,6 +1596,7 @@
                   class="accent-emerald-400"
                   @change="store.toggleSportEnabled(spKey)"
                 />
+                <Icon :icon="SPORT_ICONIFY_NAMES[spKey] || 'lucide:award'" class="w-3.5 h-3.5 text-sky-400" />
                 <span>{{ lbl }}</span>
               </label>
             </div>
@@ -1614,47 +1639,23 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import {
-  ArrowRight,
-  BookOpen,
-  Calculator,
-  CheckSquare,
-  Clock,
-  Copy,
-  Database,
-  Dices,
-  Download,
-  Flame,
-  Home,
-  Link2,
-  Lock,
-  Megaphone,
-  Microscope,
-  Pin,
-  Radio,
-  RefreshCw,
-  Rocket,
-  Search,
-  Settings,
-  Share2,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Unlock,
-  X,
-  Zap,
-} from 'lucide-vue-next';
+import { Icon } from '@iconify/vue';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
   type BankerBoosterCombo,
   type BestBetItem,
   CLV_TOOLTIP,
-  SPORT_LABELS,
+  SPORT_CLEAN_LABELS,
+  SPORT_ICONIFY_NAMES,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
   getSportEmoji,
+  getSportIconify,
 } from '../utils/formatters';
+import { setupIconifyCollections } from '../utils/iconifySetup';
 import { type PickCardMeta, renderCanvasPickCard } from '../utils/canvasCard';
+
+setupIconifyCollections();
 
 const store = useBetscoutStore();
 const activeTab = ref<'picks' | 'studio' | 'ledger' | 'audit'>('picks');
@@ -1722,16 +1723,16 @@ const pickCardCanvasRef = ref<HTMLCanvasElement | null>(null);
 const settingsModalOpen = ref<boolean>(false);
 
 const sportToggleItems: Record<string, string> = {
-  soccer: '⚽ Football',
-  tennis: '🎾 Tennis',
-  basketball: '🏀 Basketball',
-  hockey: '🏒 Hockey',
-  football: '🏈 NFL',
-  baseball: '⚾ Baseball',
-  volleyball: '🏐 Volleyball',
-  handball: '🤾 Handball',
-  darts: '🎯 Darts',
-  table_tennis: '🏓 Table Tennis',
+  soccer: 'Football',
+  tennis: 'Tennis',
+  basketball: 'Basketball',
+  hockey: 'Hockey',
+  football: 'NFL',
+  baseball: 'Baseball',
+  volleyball: 'Volleyball',
+  handball: 'Handball',
+  darts: 'Darts',
+  table_tennis: 'Table Tennis',
 };
 
 const settledCount = computed(() => Number(store.paperLedger?.settled_count || 57));
@@ -1743,20 +1744,20 @@ const roiPct = computed(() => Number(store.paperLedger?.settled_roi_best ?? 0.35
 const meanClv = computed(() => Number(store.paperLedger?.mean_clv_pct ?? 0.0067) * 100);
 
 const workspaceTabs = computed(() => [
-  { id: 'picks' as const, icon: Zap, label: 'Picks & Live In-Play', badge: `${store.visibleBestBets.length}` },
+  { id: 'picks' as const, icon: 'lucide:zap', label: 'Picks & Live In-Play', badge: `${store.visibleBestBets.length}` },
   {
     id: 'studio' as const,
-    icon: Calculator,
+    icon: 'lucide:calculator',
     label: 'Bet Slip, Dutching & Combos',
     badge: `${store.recommendedDoubles.length} Combos · ${store.mispricedBets.length} Edge`,
   },
   {
     id: 'ledger' as const,
-    icon: TrendingUp,
+    icon: 'lucide:trending-up',
     label: 'Paper-Bet Ledger & ROI',
     badge: `${settledWins.value}W–${settledLosses.value}L (${profitU.value >= 0 ? '+' : ''}${profitU.value.toFixed(1)}u)`,
   },
-  { id: 'audit' as const, icon: Microscope, label: 'Model Audit & Backtest', badge: '+18.9% ROI' },
+  { id: 'audit' as const, icon: 'lucide:microscope', label: 'Model Audit & Backtest', badge: '+18.9% ROI' },
 ]);
 
 // Smart Bet Slip calculations
