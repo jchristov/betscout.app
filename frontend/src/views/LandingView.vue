@@ -17,7 +17,7 @@
         <!-- Brand Logo -->
         <router-link to="/" class="inline-flex items-center gap-2.5 text-slate-100 no-underline min-w-0">
           <img
-            src="/betscout-logo.svg?v=2"
+            src="/betscout-logo.svg?v=8.2"
             width="34"
             height="34"
             alt="BetScout Logo"
@@ -840,7 +840,7 @@
     <footer class="border-t border-slate-400/15 py-8 mt-12 text-xs text-slate-400">
       <div class="max-w-[1240px] mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
         <div class="flex items-center gap-2.5">
-          <img src="/betscout-logo.svg?v=2" width="22" height="22" alt="BetScout" class="rounded" />
+          <img src="/betscout-logo.svg?v=8.2" width="22" height="22" alt="BetScout" class="rounded" />
           <span>
             &copy; {{ currentYear }} <strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp;
             Score Intelligence. All rights reserved.

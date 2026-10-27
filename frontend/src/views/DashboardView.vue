@@ -50,7 +50,7 @@
         class="w-[40px] h-[40px] sm:w-[42px] sm:h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.22)] hover:scale-105 transition-transform"
         title="Back to BetScout Home & Membership Plans"
       >
-        <img src="/betscout-logo.svg?v=2" width="42" height="42" alt="BetScout" />
+        <img src="/betscout-logo.svg?v=8.2" width="42" height="42" alt="BetScout" />
       </router-link>
 
       <div class="flex-1 min-w-0 flex flex-col gap-2.5">
@@ -1545,7 +1545,7 @@
     <!-- App Footer -->
     <footer class="border-t border-slate-700/45 pt-4 mt-4 text-[11.5px] text-slate-400 flex flex-wrap justify-between items-center gap-3">
       <div class="flex items-center gap-2">
-        <img src="/betscout-logo.svg?v=2" width="18" height="18" alt="BetScout" class="rounded" />
+        <img src="/betscout-logo.svg?v=8.2" width="18" height="18" alt="BetScout" class="rounded" />
         <span>
           &copy; {{ currentYear }} <strong class="text-slate-200">BetScout</strong> · Quantitative Sports Edge &amp;
           Score Intelligence. All rights reserved.

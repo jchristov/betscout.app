@@ -1,8 +1,10 @@
 .git
 .venv
+backend/.venv
 __pycache__
 *.pyc
 .pytest_cache
+backend/.pytest_cache
 .env
 data/cache
 frontend/node_modules

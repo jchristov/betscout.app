@@ -1,0 +1,14 @@
+"""Backfill finished ESPN results and pre-match prices into data/betscout.db."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from betscout.ingest import backfill  # noqa: E402
+
+ROOT = (Path(__file__).resolve().parents[2] if (Path(__file__).resolve().parents[2] / "data").exists() else Path(__file__).resolve().parents[1]) / "data"
+YEARS = [2022, 2023, 2024, 2025]
+
+if __name__ == "__main__":
+    print(backfill(ROOT / "betscout.db", ROOT / "cache", YEARS, workers=8), flush=True)
