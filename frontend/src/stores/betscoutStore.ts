@@ -516,12 +516,12 @@ export const useBetscoutStore = defineStore('betscout', () => {
     const items: Array<{ cat: string; icon: string; count: number }> = [];
     for (const sc of spOrder) {
       if (counts[sc] > 0) {
-        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'lucide:award', count: counts[sc] });
+        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'fa6-solid:award', count: counts[sc] });
       }
     }
     for (const sc of Object.keys(counts)) {
       if (!spOrder.includes(sc) && counts[sc] > 0) {
-        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'lucide:award', count: counts[sc] });
+        items.push({ cat: sc, icon: SPORT_ICONIFY_NAMES[sc] || 'fa6-solid:award', count: counts[sc] });
       }
     }
     return items;

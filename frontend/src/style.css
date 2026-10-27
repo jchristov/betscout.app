@@ -190,6 +190,50 @@
   }
 }
 
+@keyframes liveDotBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 10px 2px rgba(244, 63, 94, 0.85);
+  }
+  50% {
+    opacity: 0.22;
+    transform: scale(0.82);
+    box-shadow: 0 0 2px 0 rgba(244, 63, 94, 0.2);
+  }
+}
+
+@keyframes liveDotRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.live-blink-dot {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #f43f5e;
+  animation: liveDotBlink 1.15s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.live-blink-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background-color: #fb7185;
+  animation: liveDotRipple 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 .stagger-1 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.04s both; }
 .stagger-2 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.10s both; }
 .stagger-3 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.16s both; }

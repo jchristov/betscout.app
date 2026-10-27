@@ -22,7 +22,7 @@
       class="card-surface flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 mb-3 border border-amber-400/50"
     >
       <div class="flex items-center gap-2 text-amber-200">
-        <Icon :icon="store.isOffline ? 'lucide:wifi-off' : 'lucide:wifi'" class="w-4 h-4 text-amber-400 shrink-0" />
+        <Icon :icon="store.isOffline ? 'fa6-solid:wifi-off' : 'fa6-solid:wifi'" class="w-4 h-4 text-amber-400 shrink-0" />
         <span>
           <b v-if="store.isOffline">Offline PWA Mode Active:</b>
           <b v-else>Local Storage Queue Ready:</b>
@@ -38,7 +38,7 @@
         class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
         @click="store.flushOfflineQueue()"
       >
-        <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" />
+        <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" />
         <span>Sync Queued Changes Now</span>
       </button>
     </div>
@@ -63,7 +63,7 @@
             <span
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 whitespace-nowrap"
             >
-              <Icon icon="lucide:zap" class="w-3 h-3 text-emerald-400" />
+              <Icon icon="fa6-solid:bolt" class="w-3 h-3 text-emerald-400" />
               <span>LIVE AI</span>
             </span>
             <span class="hidden sm:inline text-xs text-slate-300 font-medium">
@@ -73,11 +73,11 @@
 
           <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300 ml-auto tabular-nums">
             <span class="inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
-              <Icon icon="lucide:clock" class="w-3 h-3 text-sky-400" />
+              <Icon icon="fa6-solid:clock" class="w-3 h-3 text-sky-400" />
               <span>Updated: <b class="text-white">{{ store.generatedAtLocal }}</b></span>
             </span>
             <span class="hidden md:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
-              <Icon icon="lucide:database" class="w-3 h-3 text-emerald-400" />
+              <Icon icon="fa6-solid:database" class="w-3 h-3 text-emerald-400" />
               <span><b class="text-white">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
             </span>
             <span
@@ -85,7 +85,7 @@
               class="hidden lg:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5"
               title="Snapshot & filter preferences are automatically persisted in browser LocalStorage for instant offline PWA access."
             >
-              <Icon icon="lucide:check-circle-2" class="w-3 h-3 text-cyan-400" />
+              <Icon icon="fa6-solid:check-circle-2" class="w-3 h-3 text-cyan-400" />
               <span>Local Cache: <b class="text-cyan-300">{{ store.lastLocalCacheTime }}</b></span>
             </span>
             <span
@@ -124,7 +124,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50"
               @click="store.syncAndSettle(false)"
             >
-              <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
+              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
               <span>Sync &amp; Settle</span>
             </button>
             <button
@@ -133,7 +133,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50"
               @click="store.syncAndSettle(true)"
             >
-              <Icon icon="lucide:zap" class="w-3.5 h-3.5 text-amber-400" />
+              <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-400" />
               <span>Rescan Live</span>
             </button>
             <button
@@ -142,7 +142,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50"
               @click="store.runFullPipeline()"
             >
-              <Icon icon="lucide:rocket" class="w-3.5 h-3.5 text-emerald-400" />
+              <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5 text-emerald-400" />
               <span>Full Pipeline</span>
             </button>
           </div>
@@ -160,7 +160,7 @@
                   : 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
               "
             >
-              <Icon :icon="store.isPro ? 'lucide:unlock' : 'lucide:lock'" class="w-3 h-3" />
+              <Icon :icon="store.isPro ? 'fa6-solid:lock-open' : 'fa6-solid:lock'" class="w-3 h-3" />
               <span>{{ store.isPro ? 'PRO READ-ONLY' : 'GUEST PREVIEW' }}</span>
             </span>
             <span v-if="store.isPro" class="text-slate-200">
@@ -181,7 +181,7 @@
             <span class="text-slate-500">·</span>
             <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-300 font-bold hover:underline">
               <span>Membership Plans</span>
-              <Icon icon="lucide:arrow-right" class="w-3 h-3" />
+              <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
             </router-link>
           </div>
 
@@ -193,14 +193,14 @@
               class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50"
               @click="store.promptPwaInstall()"
             >
-              <Icon icon="lucide:smartphone" class="w-3.5 h-3.5 text-violet-300" />
+              <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300" />
               <span>Install App</span>
             </button>
             <router-link
               to="/"
               class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
             >
-              <Icon icon="lucide:home" class="w-3.5 h-3.5 text-sky-400" />
+              <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400" />
               <span>Home &amp; Plans</span>
             </router-link>
             <a
@@ -208,7 +208,7 @@
               target="_blank"
               class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
             >
-              <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-cyan-400" />
+              <Icon icon="fa6-solid:book-open" class="w-3.5 h-3.5 text-cyan-400" />
               <span>Interactive API Docs</span>
             </a>
             <button
@@ -222,7 +222,7 @@
               "
               @click="store.triggerSignInOut()"
             >
-              <Icon :icon="store.userEmail ? 'lucide:unlock' : 'lucide:lock'" class="w-3.5 h-3.5" />
+              <Icon :icon="store.userEmail ? 'fa6-solid:lock-open' : 'fa6-solid:lock'" class="w-3.5 h-3.5" />
               <span>
                 {{
                   store.userEmail
@@ -237,7 +237,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
               @click="openShareSlateModal()"
             >
-              <Icon icon="lucide:share-2" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:share-nodes" class="w-3.5 h-3.5" />
               <span>Share Picks</span>
             </button>
             <button
@@ -245,7 +245,7 @@
               class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400"
               @click="settingsModalOpen = true"
             >
-              <Icon icon="lucide:settings" class="w-3.5 h-3.5 text-slate-300" />
+              <Icon icon="fa6-solid:gear" class="w-3.5 h-3.5 text-slate-300" />
               <span>Settings</span>
             </button>
           </div>
@@ -269,7 +269,7 @@
         title="Settled Win Rate & Exact-Score Accuracy across all graded paper-bets in the prospective ledger."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-300">
-          <Icon icon="lucide:trophy" class="w-3.5 h-3.5 text-emerald-400" />
+          <Icon icon="fa6-solid:trophy" class="w-3.5 h-3.5 text-emerald-400" />
           <span>Settled Win Rate</span>
         </span>
         <b class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
@@ -294,7 +294,7 @@
         title="Realized Flat-Unit Profit (1.00u per pick) and Return on Investment (ROI%) across all settled bets."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-cyan-300">
-          <Icon icon="lucide:trending-up" class="w-3.5 h-3.5 text-cyan-400" />
+          <Icon icon="fa6-solid:chart-line" class="w-3.5 h-3.5 text-cyan-400" />
           <span>Realized Profit / ROI</span>
         </span>
         <b
@@ -326,7 +326,7 @@
         title="Total Upcoming & Live Qualifying Picks passing all sport-specific safety gates."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-sky-300">
-          <Icon icon="lucide:layers" class="w-3.5 h-3.5 text-sky-400" />
+          <Icon icon="fa6-solid:layer-group" class="w-3.5 h-3.5 text-sky-400" />
           <span>Total Active Picks</span>
         </span>
         <b class="block text-lg font-mono tabular-nums text-white mt-0.5 whitespace-nowrap">
@@ -356,31 +356,31 @@
         title="Currently in-play matches (streaming every 6s via Sportradar) and pending pre-match bets in the ledger."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-rose-300">
-          <Icon icon="lucide:radio" class="w-3.5 h-3.5 text-rose-400" />
+          <Icon icon="fa6-solid:tower-broadcast" class="w-3.5 h-3.5 text-rose-400" />
           <span>Live &amp; Pending Ledger</span>
         </span>
-        <b class="flex items-center gap-1.5 text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
+        <b class="flex items-center gap-2 text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
           <span
-            class="inline-flex items-center gap-1.5"
+            class="inline-flex items-center gap-2"
             :class="store.liveBets.length > 0 ? 'text-emerald-300' : 'text-slate-200'"
           >
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
+            <span class="live-blink-dot"></span>
             <span>{{ store.liveBets.length }} Live</span>
           </span>
           <span class="text-slate-500">·</span>
           <span class="inline-flex items-center gap-1 text-amber-300">
-            <Icon icon="lucide:clock" class="w-3.5 h-3.5 text-amber-400" />
+            <Icon icon="fa6-solid:clock" class="w-3.5 h-3.5 text-amber-400" />
             <span>{{ store.pendingBets.length }}</span>
           </span>
         </b>
         <small class="flex items-center gap-2 text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
           <span class="inline-flex items-center gap-1 text-sky-300">
-            <Icon icon="lucide:link-2" class="w-3 h-3 text-sky-400" />
+            <Icon icon="fa6-solid:link" class="w-3 h-3 text-sky-400" />
             <span>{{ store.recommendedDoubles.length }} Combos</span>
           </span>
           <span>·</span>
           <span class="inline-flex items-center gap-1" :class="store.vetoedBets > 0 ? 'text-rose-400 font-bold' : ''">
-            <Icon icon="lucide:shield-check" class="w-3 h-3" />
+            <Icon icon="fa6-solid:shield-halved" class="w-3 h-3" />
             <span>{{ store.vetoedBets }} Vetoes</span>
           </span>
         </small>
@@ -391,7 +391,7 @@
         title="Number of picks currently visible after applying your Sport, Day, Min Odds, and Search filters."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-violet-300">
-          <Icon icon="lucide:sparkles" class="w-3.5 h-3.5 text-violet-400" />
+          <Icon icon="fa6-solid:wand-magic-sparkles" class="w-3.5 h-3.5 text-violet-400" />
           <span>Filtered Best Bets (&gt;{{ store.minOdds.toFixed(2) }})</span>
         </span>
         <b class="block text-lg font-mono tabular-nums text-violet-200 mt-0.5 whitespace-nowrap">
@@ -422,7 +422,7 @@
           @click="store.sportFilter = key"
         >
           <Icon
-            :icon="SPORT_ICONIFY_NAMES[key] || 'lucide:globe'"
+            :icon="SPORT_ICONIFY_NAMES[key] || 'fa6-solid:globe'"
             class="w-3.5 h-3.5 shrink-0"
             :class="store.sportFilter === key ? '' : getSportIconColor(key)"
           />
@@ -485,7 +485,7 @@
           class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
           @click="analyzerModalOpen = true"
         >
-          <Icon icon="lucide:search" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:magnifying-glass" class="w-3.5 h-3.5" />
           <span>Analyze Match</span>
         </button>
       </div>
@@ -521,7 +521,7 @@
       <!-- Live In-Play Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-rose-300 m-0">
-          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
+          <span class="live-blink-dot"></span>
           <span>Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: {{ store.liveBets.length }})</span>
         </h2>
         <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
@@ -537,7 +537,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
             @click="onTrackLiveQuick"
           >
-            <Icon icon="lucide:pin" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:thumbtack" class="w-3.5 h-3.5" />
             <span>Track &amp; Analyze Live</span>
           </button>
         </div>
@@ -688,7 +688,7 @@
                   class="btn-press ml-1.5 inline-flex items-center p-1 rounded border border-rose-500/50 text-rose-400"
                   @click="store.untrackLiveMatchup(tr.league, tr.event_id)"
                 >
-                  <Icon icon="lucide:x" class="w-3 h-3" />
+                  <Icon icon="fa6-solid:xmark" class="w-3 h-3" />
                 </button>
               </td>
             </tr>
@@ -708,7 +708,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50"
             @click="store.clearCustomSelection()"
           >
-            <Icon icon="lucide:x" class="w-3 h-3" />
+            <Icon icon="fa6-solid:xmark" class="w-3 h-3" />
             <span>Clear Custom Selection ({{ store.customSelectedMatches.size }})</span>
           </button>
           <button
@@ -716,7 +716,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
             @click="activeTab = 'studio'"
           >
-            <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:calculator" class="w-3.5 h-3.5" />
             <span>Open in Bet Slip &amp; Dutching Studio</span>
           </button>
         </div>
@@ -775,7 +775,7 @@
               v-if="b.is_mispriced"
               class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
             >
-              <Icon icon="lucide:sparkles" class="w-2.5 h-2.5" />
+              <Icon icon="fa6-solid:wand-magic-sparkles" class="w-2.5 h-2.5" />
               <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
             </span>
           </div>
@@ -891,7 +891,7 @@
                     class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/55 cursor-help shadow-[0_0_10px_rgba(16,185,129,0.2)]"
                     :title="`Bookmaker Odds Mispricing: +${Number(b.edge_pp || 0).toFixed(1)}pp probability edge (${b.mispricing_drivers || 'Model Edge'})`"
                   >
-                    <Icon icon="lucide:sparkles" class="w-2.5 h-2.5" />
+                    <Icon icon="fa6-solid:wand-magic-sparkles" class="w-2.5 h-2.5" />
                     <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
                   </span>
                 </div>
@@ -918,7 +918,7 @@
                     class="btn-press inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/50 hover:bg-fuchsia-500/30"
                     @click="selectMatchForDutching(b.match)"
                   >
-                    <Icon icon="lucide:dices" class="w-3 h-3" />
+                    <Icon icon="fa6-solid:dice" class="w-3 h-3" />
                     <span>Split €</span>
                   </button>
                 </div>
@@ -940,7 +940,7 @@
                     class="pill-tip inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-400/55 cursor-help"
                     :title="`Sharp Closing-Line Steam Move (+${Number(b.clv_pct || 0).toFixed(1)}% CLV)`"
                   >
-                    <Icon icon="lucide:flame" class="w-3 h-3" />
+                    <Icon icon="fa6-solid:fire" class="w-3 h-3" />
                     <span>STEAM +{{ Number(b.clv_pct || 0).toFixed(1) }}%</span>
                   </span>
                   <button
@@ -949,7 +949,7 @@
                     title="Share this pick + PNG Card to Discord / Telegram"
                     @click="openShareSinglePickModal(b)"
                   >
-                    <Icon icon="lucide:megaphone" class="w-3 h-3" />
+                    <Icon icon="fa6-solid:bullhorn" class="w-3 h-3" />
                   </button>
                 </div>
               </td>
@@ -965,7 +965,7 @@
       >
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
-            <Icon icon="lucide:rocket" class="w-4 h-4 text-emerald-400" />
+            <Icon icon="fa6-solid:rocket" class="w-4 h-4 text-emerald-400" />
             <b class="text-sm text-emerald-300">High-Probability Banker Profitability Booster Combos</b>
             <span class="text-slate-300">
               Combines multiple high-win-probability (&ge;72%), lower-odds bankers into higher-yielding 2-Leg &amp;
@@ -977,9 +977,9 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-slate-900 text-sky-300 border border-sky-400/50"
             @click="activeTab = 'studio'"
           >
-            <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:calculator" class="w-3.5 h-3.5" />
             <span>Customize Stake in Studio</span>
-            <Icon icon="lucide:arrow-right" class="w-3 h-3" />
+            <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
           </button>
         </div>
 
@@ -1003,7 +1003,7 @@
                     class="btn-press inline-flex items-center p-1 rounded bg-slate-900 border border-slate-700 hover:border-sky-400 text-sky-300"
                     @click="openShareBoosterModal(combo)"
                   >
-                    <Icon icon="lucide:megaphone" class="w-3 h-3" />
+                    <Icon icon="fa6-solid:bullhorn" class="w-3 h-3" />
                   </button>
                 </div>
               </div>
@@ -1052,7 +1052,7 @@
       <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
-            <Icon icon="lucide:calculator" class="w-4 h-4 text-sky-400" />
+            <Icon icon="fa6-solid:calculator" class="w-4 h-4 text-sky-400" />
             <b class="text-sm text-sky-300">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
             <span class="text-slate-300">
               Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid
@@ -1234,7 +1234,7 @@
       <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-3.5">
           <div class="flex flex-wrap items-center gap-2">
-            <Icon icon="lucide:dices" class="w-4 h-4 text-fuchsia-400" />
+            <Icon icon="fa6-solid:dice" class="w-4 h-4 text-fuchsia-400" />
             <b class="text-sm text-fuchsia-300">Exact-Score &amp; Set-Score Dutching Investment Splitter</b>
             <span class="text-slate-300">
               Pick any high-conviction match and enter your investment (€) — generates 2-Score &amp; 3-Score
@@ -1329,7 +1329,7 @@
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-300 mb-2.5">
-          <Icon icon="lucide:link-2" class="w-4 h-4" />
+          <Icon icon="fa6-solid:link" class="w-4 h-4" />
           <span>Recommended 2-Leg High-Probability Combos &amp; Parlays ({{ store.recommendedDoubles.length }} Variations)</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-6">
@@ -1469,7 +1469,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="card-surface rounded-2xl p-4 border-t-2 border-t-emerald-400">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300 mb-2">
-            <Icon icon="lucide:trending-up" class="w-4 h-4" />
+            <Icon icon="fa6-solid:chart-line" class="w-4 h-4" />
             <span>By-Sport Settled Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
@@ -1507,7 +1507,7 @@
 
         <div class="card-surface rounded-2xl p-4 border-t-2 border-t-violet-400">
           <b class="inline-flex items-center gap-1.5 text-sm text-violet-300 mb-2">
-            <Icon icon="lucide:microscope" class="w-4 h-4" />
+            <Icon icon="fa6-solid:microscope" class="w-4 h-4" />
             <span>Calibration &amp; Tier Attribution</span>
           </b>
           <table class="w-full border-collapse text-xs">
@@ -1557,7 +1557,7 @@
         <span
           class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 tabular-nums"
         >
-          <Icon icon="lucide:check-square" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:check-square" class="w-3.5 h-3.5" />
           <span>{{ store.customSelectedMatches.size }} Selected</span>
         </span>
         <span class="text-xs text-slate-200 font-mono tabular-nums">
@@ -1570,16 +1570,16 @@
           class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950"
           @click="activeTab = 'studio'"
         >
-          <Icon icon="lucide:calculator" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:calculator" class="w-3.5 h-3.5" />
           <span>Optimize in Bet Slip Studio</span>
-          <Icon icon="lucide:arrow-right" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:arrow-right" class="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           class="btn-press inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-200 border border-slate-700"
           @click="store.clearCustomSelection()"
         >
-          <Icon icon="lucide:x" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
           <span>Clear</span>
         </button>
       </div>
@@ -1594,7 +1594,7 @@
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
-            <Icon icon="lucide:search" class="w-4 h-4" />
+            <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
             <span>{{ inspectorTitle }}</span>
           </b>
           <button
@@ -1603,13 +1603,13 @@
             @click="inspectorModalOpen = false"
           >
             <span>Close</span>
-            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
           </button>
         </div>
         <div v-if="inspectorLoading" class="py-6 text-slate-300">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
         <div v-else-if="inspectorLockedPro" class="p-4 bg-slate-900 border border-sky-400/40 rounded-xl text-center">
           <div class="inline-flex items-center gap-1.5 text-base font-extrabold text-white mb-1.5">
-            <Icon icon="lucide:lock" class="w-4 h-4 text-amber-400" />
+            <Icon icon="fa6-solid:lock" class="w-4 h-4 text-amber-400" />
             <span>BetScout Pro Subscriber Pick</span>
           </div>
           <div class="text-slate-300 mb-4">
@@ -1625,7 +1625,7 @@
                 store.triggerSignInOut();
               "
             >
-              <Icon icon="lucide:lock" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:lock" class="w-3.5 h-3.5" />
               <span>Sign In with Google</span>
             </button>
             <router-link
@@ -1633,9 +1633,9 @@
               class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 font-bold no-underline"
               @click="inspectorModalOpen = false"
             >
-              <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5" />
               <span>View Membership Plans</span>
-              <Icon icon="lucide:arrow-right" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:arrow-right" class="w-3.5 h-3.5" />
             </router-link>
           </div>
         </div>
@@ -1703,7 +1703,7 @@
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <div>
             <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
-              <Icon icon="lucide:search" class="w-4 h-4" />
+              <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
               <span>On-Demand Any-Matchup Live Analyzer</span>
             </b>
             <div class="text-slate-300 text-[11px]">
@@ -1715,7 +1715,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="analyzerModalOpen = false"
           >
-            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
             <span>Close</span>
           </button>
         </div>
@@ -1733,7 +1733,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
             @click="runLiveAnalyzer"
           >
-            <Icon icon="lucide:zap" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5" />
             <span>Analyze Matchup</span>
           </button>
         </div>
@@ -1761,7 +1761,7 @@
       <div class="card-surface rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
-            <Icon icon="lucide:share-2" class="w-4 h-4" />
+            <Icon icon="fa6-solid:share-nodes" class="w-4 h-4" />
             <span>Share Pick &amp; High-Res PNG Card Publisher</span>
           </b>
           <button
@@ -1769,7 +1769,7 @@
             class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
             @click="shareModalOpen = false"
           >
-            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
             <span>Close</span>
           </button>
         </div>
@@ -1782,7 +1782,7 @@
               class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px]"
               @click="downloadCanvasPng"
             >
-              <Icon icon="lucide:download" class="w-3 h-3 text-sky-400" />
+              <Icon icon="fa6-solid:download" class="w-3 h-3 text-sky-400" />
               <span>Download PNG Card</span>
             </button>
           </div>
@@ -1806,7 +1806,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold"
             @click="copyShareMessage"
           >
-            <Icon icon="lucide:copy" class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="fa6-solid:copy" class="w-3.5 h-3.5 text-sky-400" />
             <span>Copy Text</span>
           </button>
           <button
@@ -1814,7 +1814,7 @@
             class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-bold"
             @click="postShareToDiscord"
           >
-            <Icon icon="lucide:rocket" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5" />
             <span>Send to Discord</span>
           </button>
         </div>
@@ -1830,7 +1830,7 @@
       <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
-            <Icon icon="lucide:settings" class="w-4 h-4" />
+            <Icon icon="fa6-solid:gear" class="w-4 h-4" />
             <span>BetScout Settings, PWA Cache &amp; Sport Toggles</span>
           </b>
           <button
@@ -1839,7 +1839,7 @@
             @click="settingsModalOpen = false"
           >
             <span>Close</span>
-            <Icon icon="lucide:x" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -1859,7 +1859,7 @@
                   @change="store.toggleSportEnabled(spKey)"
                 />
                 <Icon
-                  :icon="SPORT_ICONIFY_NAMES[spKey] || 'lucide:award'"
+                  :icon="SPORT_ICONIFY_NAMES[spKey] || 'fa6-solid:award'"
                   class="w-3.5 h-3.5"
                   :class="getSportIconColor(spKey)"
                 />
@@ -1910,7 +1910,7 @@
               class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
               @click="store.fetchSnapshot()"
             >
-              <Icon icon="lucide:refresh-cw" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" />
               <span>Force Refresh Snapshot</span>
             </button>
           </div>
@@ -2033,7 +2033,7 @@ const meanClv = computed(() => Number(store.paperLedger?.mean_clv_pct ?? 0.0067)
 const workspaceTabs = computed(() => [
   {
     id: 'picks' as const,
-    icon: 'lucide:zap',
+    icon: 'fa6-solid:bolt',
     iconColor: 'text-emerald-400',
     label: 'Picks & Live In-Play',
     badge: `${store.visibleBestBets.length}`,
@@ -2041,7 +2041,7 @@ const workspaceTabs = computed(() => [
   },
   {
     id: 'studio' as const,
-    icon: 'lucide:calculator',
+    icon: 'fa6-solid:calculator',
     iconColor: 'text-sky-400',
     label: 'Bet Slip, Dutching & Combos',
     badge: `${store.recommendedDoubles.length} Combos · ${store.mispricedBets.length} Edge`,
@@ -2049,7 +2049,7 @@ const workspaceTabs = computed(() => [
   },
   {
     id: 'ledger' as const,
-    icon: 'lucide:trending-up',
+    icon: 'fa6-solid:chart-line',
     iconColor: 'text-amber-400',
     label: 'Paper-Bet Ledger & ROI',
     badge: `${settledWins.value}W–${settledLosses.value}L (${profitU.value >= 0 ? '+' : ''}${profitU.value.toFixed(1)}u)`,
@@ -2057,7 +2057,7 @@ const workspaceTabs = computed(() => [
   },
   {
     id: 'audit' as const,
-    icon: 'lucide:microscope',
+    icon: 'fa6-solid:microscope',
     iconColor: 'text-violet-400',
     label: 'Model Audit & Backtest',
     badge: '+18.9% ROI',

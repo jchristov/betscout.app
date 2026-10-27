@@ -45,7 +45,7 @@
             target="_blank"
             class="inline-flex items-center gap-1.5 text-sky-300 hover:text-white transition-colors"
           >
-            <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <Icon icon="fa6-solid:book-open" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>Interactive API Docs</span>
           </a>
         </nav>
@@ -58,7 +58,7 @@
             class="btn-press hidden sm:inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold bg-violet-500/20 text-violet-200 border border-violet-400/45 whitespace-nowrap"
             @click="store.promptPwaInstall()"
           >
-            <Icon icon="lucide:smartphone" class="w-3.5 h-3.5 text-violet-300" />
+            <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300" />
             <span>Install App</span>
           </button>
 
@@ -66,7 +66,7 @@
             to="/app"
             class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs sm:text-[13px] font-bold bg-slate-800/80 text-white border border-sky-400/45 hover:bg-sky-500/20 hover:border-sky-300 whitespace-nowrap"
           >
-            <Icon icon="lucide:bar-chart-3" class="w-4 h-4 text-sky-400 shrink-0" />
+            <Icon icon="fa6-solid:chart-column" class="w-4 h-4 text-sky-400 shrink-0" />
             <span>Open Live Desk</span>
           </router-link>
 
@@ -74,7 +74,7 @@
             href="#pricing"
             class="btn-press hidden sm:inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-xl text-[13px] font-bold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_6px_20px_rgba(16,185,129,0.32)] hover:-translate-y-0.5 whitespace-nowrap"
           >
-            <Icon icon="lucide:sparkles" class="w-4 h-4 shrink-0" />
+            <Icon icon="fa6-solid:wand-magic-sparkles" class="w-4 h-4 shrink-0" />
             <span>Get Pro Access</span>
           </a>
 
@@ -85,7 +85,7 @@
             aria-label="Toggle Navigation"
             @click="mobileMenuOpen = !mobileMenuOpen"
           >
-            <Icon :icon="mobileMenuOpen ? 'lucide:x' : 'lucide:menu'" class="w-4 h-4" />
+            <Icon :icon="mobileMenuOpen ? 'fa6-solid:xmark' : 'fa6-solid:bars'" class="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -113,7 +113,7 @@
           class="flex items-center gap-2 py-1.5 text-sky-300"
           @click="mobileMenuOpen = false"
         >
-          <Icon icon="lucide:book-open" class="w-4 h-4" />
+          <Icon icon="fa6-solid:book-open" class="w-4 h-4" />
           <span>Interactive API Docs</span>
         </a>
       </div>
@@ -126,7 +126,7 @@
           <span
             class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wide bg-sky-500/15 text-sky-300 border border-sky-400/45 shadow-[0_0_20px_rgba(56,189,248,0.15)] tabular-nums"
           >
-            <Icon icon="lucide:zap" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
             <span>OUT-OF-SAMPLE WALK-FORWARD VALIDATED · 10 SPORTS · {{ store.totalMatches.toLocaleString() }}+ MATCHES</span>
           </span>
 
@@ -151,16 +151,16 @@
               href="#pricing"
               class="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-7 py-3.5 rounded-xl text-sm sm:text-[15px] font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_10px_28px_rgba(16,185,129,0.32)] hover:-translate-y-0.5"
             >
-              <Icon icon="lucide:rocket" class="w-4 h-4" />
+              <Icon icon="fa6-solid:rocket" class="w-4 h-4" />
               <span>View Membership Plans</span>
             </a>
             <router-link
               to="/app"
               class="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-7 py-3.5 rounded-xl text-sm sm:text-[15px] font-bold bg-slate-800/80 text-white border border-sky-400/50 hover:bg-sky-500/20 hover:border-sky-300 shadow-[0_10px_28px_rgba(14,165,233,0.16)] hover:-translate-y-0.5"
             >
-              <Icon icon="lucide:bar-chart-3" class="w-4 h-4 text-sky-400" />
+              <Icon icon="fa6-solid:chart-column" class="w-4 h-4 text-sky-400" />
               <span>Launch Live BetScout Desk</span>
-              <Icon icon="lucide:arrow-right" class="w-4 h-4 text-sky-300" />
+              <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-sky-300" />
             </router-link>
           </div>
         </div>
@@ -169,7 +169,7 @@
         <div class="stagger-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 text-left">
           <div class="card-surface border-t-2 border-t-emerald-400 rounded-2xl p-5 flex flex-col justify-between">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-              <Icon icon="lucide:trophy" class="w-3.5 h-3.5 text-emerald-400" />
+              <Icon icon="fa6-solid:trophy" class="w-3.5 h-3.5 text-emerald-400" />
               <span>Verified Settled Record</span>
             </span>
             <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-white my-2 whitespace-nowrap">
@@ -182,7 +182,7 @@
 
           <div class="card-surface border-t-2 border-t-cyan-400 rounded-2xl p-5 flex flex-col justify-between">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
-              <Icon icon="lucide:trending-up" class="w-3.5 h-3.5 text-cyan-400" />
+              <Icon icon="fa6-solid:chart-line" class="w-3.5 h-3.5 text-cyan-400" />
               <span>Realized Flat-Unit Profit</span>
             </span>
             <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-cyan-300 my-2 whitespace-nowrap">
@@ -196,7 +196,7 @@
 
           <div class="card-surface border-t-2 border-t-amber-400 rounded-2xl p-5 flex flex-col justify-between">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300">
-              <Icon icon="lucide:zap" class="w-3.5 h-3.5 text-amber-400" />
+              <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-400" />
               <span>Active Daily Slate</span>
             </span>
             <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-amber-300 my-2 whitespace-nowrap">
@@ -220,7 +220,7 @@
 
           <div class="card-surface border-t-2 border-t-violet-400 rounded-2xl p-5 flex flex-col justify-between">
             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-violet-300">
-              <Icon icon="lucide:radio" class="w-3.5 h-3.5 text-violet-400" />
+              <Icon icon="fa6-solid:tower-broadcast" class="w-3.5 h-3.5 text-violet-400" />
               <span>Calibration &amp; Live Stream</span>
             </span>
             <div class="font-mono tabular-nums text-[23px] font-extrabold tracking-tight text-white my-2 whitespace-nowrap">
@@ -259,7 +259,7 @@
               </span>
             </div>
             <span class="inline-flex items-center gap-1.5 text-xs text-slate-300 font-mono tabular-nums">
-              <Icon icon="lucide:clock" class="w-3.5 h-3.5 text-sky-400" />
+              <Icon icon="fa6-solid:clock" class="w-3.5 h-3.5 text-sky-400" />
               <span>Kickoff: {{ freeTeaser.date_local || freeTeaser.date }}</span>
             </span>
           </div>
@@ -282,7 +282,7 @@
                   {{ freeTeaser.pick_name || freeTeaser.pick }}
                 </div>
                 <div class="inline-flex items-center gap-1.5 text-xs text-sky-300 mt-1">
-                  <Icon icon="lucide:dices" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <Icon icon="fa6-solid:dice" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
                   <span>
                     Score / Set Matrix Projection:
                     <b class="text-white">{{ freeTeaser.exact_score_pick || 'High-Conviction Moneyline' }}</b>
@@ -313,7 +313,7 @@
             class="mt-4 pt-3.5 border-t border-slate-700/50 flex flex-wrap justify-between items-center gap-3 text-[13px] text-slate-300"
           >
             <span class="inline-flex items-center gap-1.5">
-              <Icon icon="lucide:lock" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <Icon icon="fa6-solid:lock" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span>
                 <strong class="text-white">
                   +{{ Math.max(1, activeCount - 1) }} additional high-conviction picks, 2-leg banker boosters &amp;
@@ -324,7 +324,7 @@
             </span>
             <router-link to="/app" class="inline-flex items-center gap-1.5 text-sky-300 font-bold hover:text-white">
               <span>Open Live Desk ({{ activeCount }} Active Picks)</span>
-              <Icon icon="lucide:arrow-right" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:arrow-right" class="w-3.5 h-3.5" />
             </router-link>
           </div>
         </div>
@@ -407,23 +407,23 @@
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span><b>100% Unlocked Daily Picks</b> across all 10 sports on the Live Quant Desk</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span><b>High-Probability Banker Booster Combos</b> (2-Leg &amp; 3-Leg profit multipliers)</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span><b>Smart Bet Slip &amp; ¼-Kelly Optimizer</b> tailored to your exact euro stake</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span><b>Exact-Score &amp; Set-Score Dutching Splitter</b> (2-Score &amp; 3-Score equal-payout splits)</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span><b>On-Demand Matchup Analyzer</b> &amp; 6-second real-time In-Play SSE stream</span>
                 </li>
               </ul>
@@ -434,7 +434,7 @@
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-sky-400/50 hover:bg-sky-500/20 hover:border-sky-300"
             >
               <span>Activate Pro WebApp</span>
-              <Icon icon="lucide:arrow-right" class="w-4 h-4 text-sky-300" />
+              <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-sky-300" />
             </a>
           </article>
 
@@ -451,7 +451,7 @@
               <span
                 class="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950 text-[10.5px] font-extrabold px-3 py-1 rounded-full tracking-wider shadow"
               >
-                <Icon icon="lucide:award" class="w-3.5 h-3.5" />
+                <Icon icon="fa6-solid:award" class="w-3.5 h-3.5" />
                 <span>MOST POPULAR</span>
               </span>
             </div>
@@ -476,23 +476,23 @@
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span><b>Everything in Tier 1 (Pro WebApp Desk)</b> unlocked across all devices</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span><b>Private VIP Discord &amp; Telegram Channels</b> with dedicated per-sport feeds</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span><b>Instant High-Res PNG Pick Cards</b> with win probability, fair odds &amp; score targets</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span><b>Live In-Play Dominance Rebound</b> &amp; 76–90m Goal Alerts pushed in real time</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span><b>Closing-Line Steam Alerts</b> &amp; automated settled recap cards</span>
                 </li>
               </ul>
@@ -502,9 +502,9 @@
               href="mailto:julian.christ@gmail.com?subject=BetScout%20VIP%20Signals%20%2B%20Pro%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20BetScout%20VIP%20Signals%20%2B%20Pro%20WebApp.%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_8px_24px_rgba(16,185,129,0.3)]"
             >
-              <Icon icon="lucide:rocket" class="w-4 h-4" />
+              <Icon icon="fa6-solid:rocket" class="w-4 h-4" />
               <span>Get VIP Signals + Pro App</span>
-              <Icon icon="lucide:arrow-right" class="w-4 h-4" />
+              <Icon icon="fa6-solid:arrow-right" class="w-4 h-4" />
             </a>
           </article>
 
@@ -537,28 +537,28 @@
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span><b>Everything in Tier 2 (VIP Signals + Pro WebApp)</b> included</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span><b>Dedicated REST API Key</b> with 5,000 calls/day &amp; rate-limit headers</span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
                     <b>Full JSON Feeds:</b> Daily Picks, Exact-Score Dutching, Banker Combos, Mispriced Lines &amp;
                     Live Matchup Analysis
                   </span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
                     <b>Custom Webhook Fan-Out:</b> Automated PNG Pick Cards posted directly to your Discord or Telegram
                   </span>
                 </li>
                 <li class="flex items-start gap-2.5">
-                  <Icon icon="lucide:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span><b>Priority Model Calibration</b> &amp; custom tournament coverage</span>
                 </li>
               </ul>
@@ -569,7 +569,7 @@
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-amber-400/50 hover:bg-amber-500/20 hover:border-amber-300"
             >
               <span>Request API &amp; Syndicate Key</span>
-              <Icon icon="lucide:arrow-right" class="w-4 h-4 text-amber-300" />
+              <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-amber-300" />
             </a>
           </article>
         </div>
@@ -593,7 +593,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-sky-400">
             <div class="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="lucide:shield-check" class="w-5 h-5 text-sky-300" />
+              <Icon icon="fa6-solid:shield-halved" class="w-5 h-5 text-sky-300" />
             </div>
             <h3 class="text-base font-extrabold text-white mb-2">Isolated Per-Sport Safety Gates</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
@@ -603,7 +603,7 @@
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-amber-400">
             <div class="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="lucide:dices" class="w-5 h-5 text-amber-300" />
+              <Icon icon="fa6-solid:dice" class="w-5 h-5 text-amber-300" />
             </div>
             <h3 class="text-base font-extrabold text-white mb-2">Dixon-Coles 28-Score Dutching</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
@@ -613,7 +613,7 @@
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-emerald-400">
             <div class="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="lucide:rocket" class="w-5 h-5 text-emerald-300" />
+              <Icon icon="fa6-solid:rocket" class="w-5 h-5 text-emerald-300" />
             </div>
             <h3 class="text-base font-extrabold text-white mb-2">Banker Profitability Booster Combos</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
@@ -623,7 +623,7 @@
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-rose-400">
             <div class="w-11 h-11 rounded-xl bg-rose-500/20 border border-rose-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="lucide:radio" class="w-5 h-5 text-rose-300" />
+              <Icon icon="fa6-solid:tower-broadcast" class="w-5 h-5 text-rose-300" />
             </div>
             <h3 class="text-base font-extrabold text-white mb-2">6-Second In-Play Dominance Stream</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
@@ -713,7 +713,7 @@
             class="btn-press inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-bold bg-slate-800/80 text-white border border-sky-400/50 hover:border-sky-300"
           >
             <span>Inspect All {{ settledCount }} Graded Bets &amp; Equity Curves on Live Desk</span>
-            <Icon icon="lucide:arrow-right" class="w-4 h-4 text-sky-300" />
+            <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-sky-300" />
           </router-link>
         </div>
       </section>
@@ -768,7 +768,7 @@
             <span
               class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/45 mb-3"
             >
-              <Icon icon="lucide:terminal" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:terminal" class="w-3.5 h-3.5" />
               <span>FOR SYNDICATES, BOTS &amp; COMMUNITIES</span>
             </span>
             <h3 class="text-2xl font-extrabold text-white mb-2.5">Programmatic JSON API &amp; Webhook Syndication</h3>
@@ -782,7 +782,7 @@
                 target="_blank"
                 class="btn-press px-4 py-2 rounded-xl text-xs font-bold bg-sky-500/20 text-sky-200 border border-sky-400/50 hover:bg-sky-500/30 inline-flex items-center gap-1.5"
               >
-                <Icon icon="lucide:book-open" class="w-3.5 h-3.5 text-sky-300" />
+                <Icon icon="fa6-solid:book-open" class="w-3.5 h-3.5 text-sky-300" />
                 <span>Explore Interactive Swagger API Docs</span>
               </a>
               <a
@@ -790,7 +790,7 @@
                 target="_blank"
                 class="btn-press px-4 py-2 rounded-xl text-xs font-bold bg-slate-900/90 text-slate-200 border border-slate-600 hover:border-sky-400 inline-flex items-center gap-1.5"
               >
-                <Icon icon="lucide:download" class="w-3.5 h-3.5 text-sky-300" />
+                <Icon icon="fa6-solid:download" class="w-3.5 h-3.5 text-sky-300" />
                 <span>Download OpenAPI Specification</span>
               </a>
             </div>
@@ -828,7 +828,7 @@
             >
               <span>{{ item.q }}</span>
               <Icon
-                icon="lucide:chevron-down"
+                icon="fa6-solid:chevron-down"
                 class="w-4 h-4 text-sky-400 transition-transform duration-200 shrink-0"
                 :class="openFaq === idx ? 'rotate-180' : ''"
               />

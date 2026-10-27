@@ -54,9 +54,9 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(getSportEmoji('basketball')).toBe('🏀');
     expect(getSportEmoji('hockey')).toBe('🏒');
     expect(getSportEmoji('table_tennis')).toBe('🏓');
-    expect(getSportIconify('soccer')).toBe('mdi:soccer');
-    expect(getSportIconify('tennis')).toBe('mdi:tennis');
-    expect(getSportIconify('table_tennis')).toBe('mdi:table-tennis');
+    expect(getSportIconify('soccer')).toBe('fa6-solid:futbol');
+    expect(getSportIconify('tennis')).toBe('fa6-solid:tennis-ball');
+    expect(getSportIconify('table_tennis')).toBe('fa6-solid:table-tennis-paddle-ball');
     expect(getSportBadgeTheme('soccer')).toContain('emerald');
     expect(getSportBadgeTheme('tennis')).toContain('lime');
     expect(getSportBadgeTheme('table_tennis')).toContain('fuchsia');

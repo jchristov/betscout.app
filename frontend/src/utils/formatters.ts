@@ -12,17 +12,17 @@ export const SPORT_EMOJIS: Record<string, string> = {
 };
 
 export const SPORT_ICONIFY_NAMES: Record<string, string> = {
-  all: 'lucide:globe',
-  soccer: 'mdi:soccer',
-  tennis: 'mdi:tennis',
-  basketball: 'mdi:basketball',
-  volleyball: 'mdi:volleyball',
-  hockey: 'mdi:hockey-sticks',
-  football: 'mdi:football',
-  baseball: 'mdi:baseball',
-  handball: 'mdi:handball',
-  darts: 'mdi:bullseye-arrow',
-  table_tennis: 'mdi:table-tennis',
+  all: 'fa6-solid:globe',
+  soccer: 'fa6-solid:futbol',
+  tennis: 'fa6-solid:tennis-ball',
+  basketball: 'fa6-solid:basketball',
+  volleyball: 'fa6-solid:volleyball',
+  hockey: 'fa6-solid:hockey-puck',
+  football: 'fa6-solid:football',
+  baseball: 'fa6-solid:baseball-bat-ball',
+  handball: 'fa6-solid:handball',
+  darts: 'fa6-solid:bullseye',
+  table_tennis: 'fa6-solid:table-tennis-paddle-ball',
 };
 
 export const SPORT_CLEAN_LABELS: Record<string, string> = {
@@ -56,16 +56,16 @@ export const SPORT_LABELS: Record<string, string> = {
 export function getSportIconify(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (SPORT_ICONIFY_NAMES[low]) return SPORT_ICONIFY_NAMES[low];
-  if (low.includes('table tennis') || low.includes('table_tennis')) return 'mdi:table-tennis';
-  if (low.includes('handball')) return 'mdi:handball';
-  if (low.includes('darts')) return 'mdi:bullseye-arrow';
-  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'mdi:tennis';
-  if (low.includes('volleyball')) return 'mdi:volleyball';
-  if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return 'mdi:basketball';
-  if (low.includes('hockey') || low.includes('nhl')) return 'mdi:hockey-sticks';
-  if (low.includes('nfl') || low.includes('american football')) return 'mdi:football';
-  if (low.includes('baseball') || low.includes('mlb')) return 'mdi:baseball';
-  return 'mdi:soccer';
+  if (low.includes('table tennis') || low.includes('table_tennis')) return 'fa6-solid:table-tennis-paddle-ball';
+  if (low.includes('handball')) return 'fa6-solid:handball';
+  if (low.includes('darts')) return 'fa6-solid:bullseye';
+  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'fa6-solid:tennis-ball';
+  if (low.includes('volleyball')) return 'fa6-solid:volleyball';
+  if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return 'fa6-solid:basketball';
+  if (low.includes('hockey') || low.includes('nhl')) return 'fa6-solid:hockey-puck';
+  if (low.includes('nfl') || low.includes('american football')) return 'fa6-solid:football';
+  if (low.includes('baseball') || low.includes('mlb')) return 'fa6-solid:baseball-bat-ball';
+  return 'fa6-solid:futbol';
 }
 
 export function getSportIconColor(catOrLeague?: string | null): string {
