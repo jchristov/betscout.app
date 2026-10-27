@@ -22,7 +22,7 @@
       class="card-surface flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 mb-3 border border-amber-400/50"
     >
       <div class="flex items-center gap-2 text-amber-200">
-        <Icon :icon="store.isOffline ? 'fa6-solid:wifi-off' : 'fa6-solid:wifi'" class="w-4 h-4 text-amber-400 shrink-0" />
+        <Icon icon="fa6-solid:wifi" class="w-4 h-4 text-amber-400 shrink-0" />
         <span>
           <b v-if="store.isOffline">Offline PWA Mode Active:</b>
           <b v-else>Local Storage Queue Ready:</b>
@@ -55,23 +55,25 @@
 
       <div class="flex-1 min-w-0 flex flex-col gap-2.5">
         <!-- Top Row -->
-        <div class="flex flex-wrap justify-between items-center gap-2.5">
-          <div class="flex flex-wrap items-center gap-2">
-            <h1 class="m-0 text-lg sm:text-xl font-extrabold tracking-tight whitespace-nowrap">
-              <span class="text-white">Bet</span><span class="text-emerald-400">Scout</span>
-            </h1>
-            <span
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 whitespace-nowrap"
-            >
-              <Icon icon="fa6-solid:bolt" class="w-3 h-3 text-emerald-400" />
-              <span>LIVE AI</span>
-            </span>
-            <span class="hidden sm:inline text-xs text-slate-300 font-medium">
+        <div class="flex flex-wrap justify-between items-start gap-2.5">
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <h1 class="m-0 text-lg sm:text-xl font-extrabold tracking-tight leading-none whitespace-nowrap">
+                <span class="text-white">Bet</span><span class="text-emerald-400">Scout</span>
+              </h1>
+              <span
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 whitespace-nowrap"
+              >
+                <Icon icon="fa6-solid:bolt" class="w-3 h-3 text-emerald-400" />
+                <span>LIVE AI</span>
+              </span>
+            </div>
+            <span class="text-xs text-slate-300 font-medium">
               Sports Edge, Exact-Score &amp; Paper-Betting Intelligence
             </span>
           </div>
 
-          <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300 ml-auto tabular-nums">
+          <div class="flex flex-wrap items-center justify-end gap-1.5 text-[11px] text-slate-300 ml-auto self-start tabular-nums">
             <span class="inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
               <Icon icon="fa6-solid:clock" class="w-3 h-3 text-sky-400" />
               <span>Updated: <b class="text-white">{{ store.generatedAtLocal }}</b></span>
@@ -85,7 +87,7 @@
               class="hidden lg:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5"
               title="Snapshot & filter preferences are automatically persisted in browser LocalStorage for instant offline PWA access."
             >
-              <Icon icon="fa6-solid:check-circle-2" class="w-3 h-3 text-cyan-400" />
+              <Icon icon="fa6-solid:circle-check" class="w-3 h-3 text-cyan-400" />
               <span>Local Cache: <b class="text-cyan-300">{{ store.lastLocalCacheTime }}</b></span>
             </span>
             <span
@@ -1557,7 +1559,7 @@
         <span
           class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 tabular-nums"
         >
-          <Icon icon="fa6-solid:check-square" class="w-3.5 h-3.5" />
+          <Icon icon="fa6-solid:square-check" class="w-3.5 h-3.5" />
           <span>{{ store.customSelectedMatches.size }} Selected</span>
         </span>
         <span class="text-xs text-slate-200 font-mono tabular-nums">
