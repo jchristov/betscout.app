@@ -7,11 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
     PORT=8080
 
-# Install curl (used by Sportradar Gismo, ESPN & Discord API clients) and DejaVu fonts (for Pillow 1080x580 PNG Pick Cards)
+# Install curl (used by Sportradar Gismo, ESPN & Discord API clients) and DejaVu + Noto Color Emoji fonts (for Pillow PNG Pick Cards)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     fonts-dejavu-core \
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

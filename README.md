@@ -8,7 +8,7 @@ Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-l
 - **🏒🏈⚾ Hockey, American Football & Baseball (`1,313` matches):** `nhl` (`678`), `nfl` (`479`), `mlb` (`156`)
 - **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Live **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** 1X2, 28-score Correct Score matrices, Asian Handicaps, Player Injuries (`stats_season_injuries`), 15-Minute Goal Intervals (`stats_season_teamscoringconceding`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
 
-See **[USER_MANUAL.md](./USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[SPORTRADAR_STATSHUB.md](./SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
+See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[docs/SPORTRADAR_STATSHUB.md](./docs/SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
 
 ## Quick Commands
 

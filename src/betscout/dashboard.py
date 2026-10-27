@@ -4142,7 +4142,7 @@ def generate_dashboard_html(
       fillFittedCanvasText(ctx, compStr, 58, 140, compW - 26, 12, 9.5, '700', 'left');
 
       const timeBits = [];
-      if (meta && meta.announced_at_local) timeBits.push('📣 Ann: ' + compactCanvasTime(meta.announced_at_local));
+      if (meta && meta.announced_at_local) timeBits.push('📣 Pick: ' + compactCanvasTime(meta.announced_at_local));
       timeBits.push('🕒 Start: ' + compactCanvasTime((meta && meta.date_local) || 'Today'));
       if (meta && meta.ended_at_local) timeBits.push('🏁 Ended: ' + compactCanvasTime(meta.ended_at_local));
       const koStr = timeBits.join('   |   ');

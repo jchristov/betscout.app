@@ -21,6 +21,19 @@ SPORT_LABELS: dict[str, str] = {
     "table_tennis": "TABLE TENNIS",
 }
 
+SPORT_EMOJIS: dict[str, str] = {
+    "soccer": "⚽",
+    "tennis": "🎾",
+    "basketball": "🏀",
+    "volleyball": "🏐",
+    "hockey": "🏒",
+    "football": "🏈",
+    "baseball": "⚾",
+    "handball": "🤾",
+    "darts": "🎯",
+    "table_tennis": "🏓",
+}
+
 
 def _infer_sport_cat(raw_val: str | None) -> str:
     low = str(raw_val or "").lower().strip()
@@ -121,8 +134,40 @@ def _render_sport_icon_rgba(sport_cat: str, size: int = 30) -> Image.Image:
     return img.resize((size, size), resample=Image.Resampling.LANCZOS)
 
 
+def _render_sport_emoji_rgba(sport_cat: str, size: int = 34) -> Image.Image:
+    """Render the exact native Color Emoji (`⚽`, `🎾`, `🏀`, `🏐`, `🏒`, `🏈`, `⚾`, `🤾`, `🎯`, `🏓`)
+    at a high-resolution strike (e.g. `64px` or `109px`) and LANCZOS-scale it to `size x size`."""
+    sp = _infer_sport_cat(sport_cat)
+    emoji_ch = SPORT_EMOJIS.get(sp, "⚽")
+    emoji_font_paths = [
+        "/System/Library/Fonts/Apple Color Emoji.ttc",
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/NotoColorEmoji.ttf",
+    ]
+    for fp in emoji_font_paths:
+        if not Path(fp).exists():
+            continue
+        for strike_sz in (64, 96, 109, 48, 40, 32):
+            try:
+                f_em = ImageFont.truetype(fp, strike_sz)
+                canvas = Image.new("RGBA", (strike_sz * 2, strike_sz * 2), (0, 0, 0, 0))
+                d_em = ImageDraw.Draw(canvas, "RGBA")
+                d_em.text((strike_sz // 4, strike_sz // 4), emoji_ch, font=f_em, embedded_color=True)
+                bbox = canvas.getbbox()
+                if bbox:
+                    crop = canvas.crop(bbox)
+                    cw, ch = crop.size
+                    side = max(cw, ch, 1)
+                    sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+                    sq.paste(crop, ((side - cw) // 2, (side - ch) // 2), crop)
+                    return sq.resize((size, size), resample=Image.Resampling.LANCZOS)
+            except Exception:
+                continue
+    return _render_sport_icon_rgba(sp, size=size)
+
+
 def _paste_sport_icon(img: Image.Image, sport_cat: str, cx: int, cy: int, size: int = 26) -> None:
-    icon_rgba = _render_sport_icon_rgba(sport_cat, size=size)
+    icon_rgba = _render_sport_emoji_rgba(sport_cat, size=size)
     img.paste(icon_rgba, (int(cx - size // 2), int(cy - size // 2)), icon_rgba)
 
 
@@ -446,19 +491,33 @@ def _fit_font_and_text(
 def _split_primary_and_sub_kpi(raw_val: str) -> tuple[str, str]:
     """Split a composite KPI string like '1.33 (Fair 1.34, EV +2.1%)' or '2:0 (9.8%) · Cluster 2:0/2:1/3:0 (28.5%)'
     into `(primary_headline, secondary_subline)` so neither line is ever cut off inside a KPI box."""
+    import re
+
     s = _strip_non_ascii_symbols(raw_val)
     if not s:
         return "—", ""
+    # Strip trailing ' (H)' or ' (A)' side tags so 'H' or 'A' is never split onto a second row
+    s = re.sub(r"\s+\([HA]\)$", "", s).strip()
     if " · " in s:
         p1, p2 = s.split(" · ", 1)
-        return p1.strip(), p2.strip()
+        p1 = re.sub(r"\s+\([HA]\)$", "", p1.strip())
+        p2 = re.sub(r"^\([HA]\)\s*", "", p2.strip())
+        if p2 in ("H", "A", "(H)", "(A)"):
+            p2 = ""
+        return p1, p2
     if " | " in s:
         p1, p2 = s.split(" | ", 1)
-        return p1.strip(), p2.strip()
+        p1 = re.sub(r"\s+\([HA]\)$", "", p1.strip())
+        p2 = re.sub(r"^\([HA]\)\s*", "", p2.strip())
+        if p2 in ("H", "A", "(H)", "(A)"):
+            p2 = ""
+        return p1, p2
     if "(" in s and s.endswith(")") and not s.startswith("("):
         idx = s.find("(")
         head = s[:idx].strip()
         sub = s[idx + 1 : -1].strip()
+        if sub in ("H", "A"):
+            return head, ""
         if head and len(s) > 14:
             return head, sub
     return s, ""
@@ -542,10 +601,10 @@ def render_pick_card_png(
     draw.rounded_rectangle([(44, 118), (44 + comp_box_w, 152)], radius=9, fill=(13, 20, 33), outline=(56, 189, 248), width=1)
     draw.text((58, 128), comp_fit, font=f_comp, fill=(56, 189, 248))
 
-    # Build right-aligned timestamp pill(s) so Announced, Start, and Ended never overflow
+    # Build right-aligned timestamp pill(s) so Pick, Start, and Ended never overflow
     time_parts: list[str] = []
     if announced_str:
-        time_parts.append(f"Announced: {announced_str}")
+        time_parts.append(f"Pick: {announced_str}")
     time_parts.append(f"Start: {kickoff_str}")
     if ended_str:
         time_parts.append(f"Ended: {ended_str}")
@@ -556,9 +615,9 @@ def render_pick_card_png(
     draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(13, 20, 33), outline=(45, 62, 92), width=1)
     draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(203, 213, 225))
 
-    # Matchup Title with Sport Icon badge on the left (auto-scaled so long names never clip)
+    # Matchup Title with Sport Emoji on the left (auto-scaled so long names never clip)
     match_raw = _strip_non_ascii_symbols(str(pick_data.get("match") or f"{pick_data.get('home', '')} vs {pick_data.get('away', '')}"))
-    _paste_sport_icon(img, sport_cat, 62, 190, size=32)
+    _paste_sport_icon(img, sport_cat, 62, 190, size=34)
     f_match, match_fit = _fit_font_and_text(draw, match_raw, max_width=w - 140, start_size=32, min_size=18, bold=True)
     draw.text((88, 173), match_fit, font=f_match, fill=(255, 255, 255))
 
@@ -687,9 +746,10 @@ def render_digest_slate_png(
     # Table Header
     y_head = 116
     draw.rounded_rectangle([(38, y_head), (w - 38, y_head + 38)], radius=8, fill=(13, 20, 33))
-    draw.text((50, y_head + 12), "TIMELINE (ANN / START / END)", font=f_th, fill=(148, 163, 184))
-    draw.text((275, y_head + 12), "SPORT & MATCHUP", font=f_th, fill=(148, 163, 184))
-    draw.text((640, y_head + 12), "RECOMMENDED PICK", font=f_th, fill=(148, 163, 184))
+    draw.text((50, y_head + 12), "TIMELINE (PICK / START / END)", font=f_th, fill=(148, 163, 184))
+    draw.text((262, y_head + 12), "SPORT", font=f_th, fill=(148, 163, 184))
+    draw.text((322, y_head + 12), "MATCHUP & SCORE", font=f_th, fill=(148, 163, 184))
+    draw.text((645, y_head + 12), "RECOMMENDED PICK", font=f_th, fill=(148, 163, 184))
     draw.text((935, y_head + 12), "WIN PROB", font=f_th, fill=(148, 163, 184))
     draw.text((1035, y_head + 12), "ODDS", font=f_th, fill=(148, 163, 184))
 
@@ -711,50 +771,81 @@ def render_digest_slate_png(
         tm_start = _compact_timestamp(str(p.get("date_local") or p.get("date") or ""))
         tm_end = _compact_timestamp(str(p.get("ended_at_local") or p.get("ended_at") or ""))
         tm_ann = _compact_timestamp(str(p.get("announced_at_local") or p.get("announced_at") or ""))
-        mt = _strip_non_ascii_symbols(str(p.get("match") or f"{p.get('home','')} vs {p.get('away','')}"))
+
+        mt_raw = _strip_non_ascii_symbols(str(p.get("match") or f"{p.get('home','')} vs {p.get('away','')}"))
+        mt_score_sub = _strip_non_ascii_symbols(str(p.get("settled_score") or p.get("score_str") or ""))
+        if "[" in mt_raw and mt_raw.endswith("]"):
+            b_idx = mt_raw.rfind("[")
+            extracted_sc = mt_raw[b_idx + 1 : -1].strip()
+            mt_raw = mt_raw[:b_idx].strip()
+            if not mt_score_sub and extracted_sc:
+                mt_score_sub = extracted_sc
+
         pk_raw = _strip_non_ascii_symbols(str(p.get("pick_name") or p.get("pick") or ""))
         pk_clean = pk_raw.split("[")[0].split("(Win")[0].strip() or pk_raw
+        # Extract settled result suffix like '(W +0.32u)' or '(L -1.00u)' before splitting
+        settled_res_sub = ""
+        if " (W " in pk_clean or " (L " in pk_clean:
+            tag_idx = pk_clean.rfind(" (W ") if " (W " in pk_clean else pk_clean.rfind(" (L ")
+            settled_res_sub = pk_clean[tag_idx + 2 : -1].strip()
+            pk_clean = pk_clean[:tag_idx].strip()
         pk_main, pk_sub = _split_primary_and_sub_kpi(pk_clean)
+        if settled_res_sub and not pk_sub:
+            pk_sub = settled_res_sub
+        elif not pk_sub:
+            esc_row = _strip_non_ascii_symbols(str(p.get("exact_score_pick") or ""))
+            if esc_row and esc_row != "—":
+                pk_sub = esc_row.split("|")[0].split("·")[0].strip()
+
         wp = p.get("win_prob")
         wp_s = f"{float(wp)*100:.1f}%" if wp else "—"
         od_raw = _strip_non_ascii_symbols(str(p.get("odds_display") or f"{float(p.get('odds') or 0):.2f}"))
         od_main, _ = _split_primary_and_sub_kpi(od_raw)
 
-        f_mt, mt_fit = _fit_font_and_text(draw, mt, max_width=320, start_size=15, min_size=11, bold=True)
-        f_pk, pk_fit = _fit_font_and_text(draw, pk_main, max_width=280, start_size=15, min_size=11, bold=True)
+        f_mt, mt_fit = _fit_font_and_text(draw, mt_raw, max_width=310, start_size=15, min_size=11, bold=True)
+        f_pk, pk_fit = _fit_font_and_text(draw, pk_main, max_width=275, start_size=15, min_size=11, bold=True)
         f_wp, wp_fit = _fit_font_and_text(draw, wp_s, max_width=88, start_size=15, min_size=11, bold=True)
         f_od, od_fit = _fit_font_and_text(draw, od_main, max_width=95, start_size=15, min_size=11, bold=True)
 
         if tm_end:
-            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=210, start_size=11, min_size=9, bold=True)
-            f_t2, t2_fit = _fit_font_and_text(draw, f"Ended: {tm_end}", max_width=210, start_size=11, min_size=9, bold=False)
+            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=202, start_size=11, min_size=9, bold=True)
+            f_t2, t2_fit = _fit_font_and_text(draw, f"Ended: {tm_end}", max_width=202, start_size=11, min_size=9, bold=False)
             draw.text((50, y_cur + 12), t1_fit, font=f_t1, fill=(203, 213, 225))
-            draw.text((50, y_cur + 32), t2_fit, font=f_t2, fill=(56, 189, 248))
+            draw.text((50, y_cur + 33), t2_fit, font=f_t2, fill=(56, 189, 248))
         elif tm_ann:
-            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=210, start_size=11, min_size=9, bold=True)
-            f_t2, t2_fit = _fit_font_and_text(draw, f"Ann: {tm_ann}", max_width=210, start_size=11, min_size=9, bold=False)
+            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=202, start_size=11, min_size=9, bold=True)
+            f_t2, t2_fit = _fit_font_and_text(draw, f"Pick: {tm_ann}", max_width=202, start_size=11, min_size=9, bold=False)
             draw.text((50, y_cur + 12), t1_fit, font=f_t1, fill=(203, 213, 225))
-            draw.text((50, y_cur + 32), t2_fit, font=f_t2, fill=(148, 163, 184))
+            draw.text((50, y_cur + 33), t2_fit, font=f_t2, fill=(148, 163, 184))
         else:
-            f_tm, tm_fit = _fit_font_and_text(draw, tm_start, max_width=210, start_size=12, min_size=10, bold=True)
+            f_tm, tm_fit = _fit_font_and_text(draw, tm_start, max_width=202, start_size=12, min_size=10, bold=True)
             draw.text((50, y_cur + 22), tm_fit, font=f_tm, fill=(203, 213, 225))
 
-        _paste_sport_icon(img, row_sp, 286, y_cur + 31, size=24)
-        draw.text((306, y_cur + 21), mt_fit, font=f_mt, fill=(241, 245, 249))
+        # Dedicated Sport Emoji column spanning the height of both the Matchup row and the Score row (38x38px)
+        _paste_sport_icon(img, row_sp, 286, y_cur + 31, size=38)
+
+        if mt_score_sub:
+            draw.text((322, y_cur + 11), mt_fit, font=f_mt, fill=(241, 245, 249))
+            score_line = f"Score: {mt_score_sub}" if not mt_score_sub.lower().startswith("score") else mt_score_sub
+            f_ms, ms_fit = _fit_font_and_text(draw, score_line, max_width=310, start_size=12, min_size=9, bold=False)
+            draw.text((322, y_cur + 34), ms_fit, font=f_ms, fill=(148, 163, 184))
+        else:
+            draw.text((322, y_cur + 21), mt_fit, font=f_mt, fill=(241, 245, 249))
+
         pk_col = (34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_clean else (239, 68, 68)
         if pk_sub:
-            draw.text((640, y_cur + 12), pk_fit, font=f_pk, fill=pk_col)
-            f_pks, pks_fit = _fit_font_and_text(draw, pk_sub, max_width=280, start_size=12, min_size=9, bold=False)
-            draw.text((640, y_cur + 34), pks_fit, font=f_pks, fill=(148, 163, 184))
+            draw.text((645, y_cur + 11), pk_fit, font=f_pk, fill=pk_col)
+            f_pks, pks_fit = _fit_font_and_text(draw, pk_sub, max_width=275, start_size=12, min_size=9, bold=False)
+            draw.text((645, y_cur + 34), pks_fit, font=f_pks, fill=(148, 163, 184))
         else:
-            draw.text((640, y_cur + 21), pk_fit, font=f_pk, fill=pk_col)
+            draw.text((645, y_cur + 21), pk_fit, font=f_pk, fill=pk_col)
         draw.text((935, y_cur + 21), wp_fit, font=f_wp, fill=(56, 189, 248))
         draw.text((1035, y_cur + 21), od_fit, font=f_od, fill=(245, 158, 11))
         y_cur += row_h
 
     draw.text(
         (42, h - 46),
-        "BetScout  ·  Out-of-Sample Validated Sports Edge & Score Intelligence",
+        "Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing",
         font=f_sub,
         fill=(148, 163, 184),
     )
