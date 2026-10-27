@@ -35,7 +35,7 @@ The SQLite database (`data/betscout.db`) and config descriptor ([`ingestion_conf
 | :--- | ---: | :--- |
 | `matches` | `55,212` | Core match results (`home_score`, `away_score`, `outcome`), primary pre-match 1X2 / 2-way moneyline (`odds_home`, `odds_draw`, `odds_away`, `odds_provider`), Double Chance (`odds_dc_1x`, `odds_dc_x2`, `odds_dc_12`), and Totals (`line_total`, `odds_over`, `odds_under`). |
 | `match_details` | `55,197` | 49-column enriched table built by [`src/betscout/enrich.py`](./src/betscout/enrich.py) and [`src/betscout/universal_ingest.py`](./src/betscout/universal_ingest.py) containing opening vs. closing lines (`open_*`, `close_*`), multi-book best prices and consensus probabilities (`best_*`, `cons_*`, `num_books`), soccer boxscore statistics (`shotsOnTarget`, `totalShots`, `wonCorners`, `possessionPct`, `foulsCommitted`, `yellowCards`, `redCards`, `penaltyKickGoals`, `ht_home`, `ht_away`), and tennis metadata (`surface`, `is_major`, `round_name`, `home_games`, `away_games`). |
-| `paper_trades` | `14` (active) | Prospective paper-betting & CLV ledger managed by [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
+| `paper_bets` | `14` (active) | Prospective paper-betting & CLV ledger managed by [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
 | `matches_canonical` | `55,212` | Unified cross-sport view with explicit capability flags (`has_draw`, `has_score`, `has_1x2`). |
 
 ### Current Data Status by Sport & League (`uv run python scripts/quality.py` — `0 errors`)
@@ -199,8 +199,8 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
 
 1. **Dedicated Enrichment CLI ([`scripts/enrich.py`](./scripts/enrich.py) & [`src/betscout/enrich.py`](./src/betscout/enrich.py))**:
    - Provides one-command fast refresh (`uv run betscout enrich`) or full rebuild (`--full`) of the 49-column `match_details` table and `matches_canonical` view from cached ESPN payloads.
-2. **Automated Pre-Kickoff Paper-Betting & Prospective CLV Ledger ([`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py) & [`scripts/paper_trade.py`](./scripts/paper_trade.py))**:
-   - Freezes the Discovery (`< 2025-07-01`) standardization parameters (`StandardScaler`) and conviction thresholds (`top_8pct: +0.3661`, `top_10pct: +0.3246`, `top_15pct: +0.2565`, `top_25pct: +0.1579`), rolls team boxscore and H2H states forward to the latest completed match, scans upcoming ESPN fixtures, and logs qualifying picks to the `paper_trades` SQLite table.
+2. **Automated Pre-Kickoff Paper-Betting & Prospective CLV Ledger ([`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py) & [`scripts/paper_bet.py`](./scripts/paper_bet.py))**:
+   - Freezes the Discovery (`< 2025-07-01`) standardization parameters (`StandardScaler`) and conviction thresholds (`top_8pct: +0.3661`, `top_10pct: +0.3246`, `top_15pct: +0.2565`, `top_25pct: +0.1579`), rolls team boxscore and H2H states forward to the latest completed match, scans upcoming ESPN fixtures, and logs qualifying picks to the `paper_bets` SQLite table.
    - Preserves initial `logged_best_odds` and `logged_primary_odds`, updates `latest_close_odds` and `clv_pct = (logged_best_odds / latest_close_odds) - 1` on subsequent pre-kickoff runs, and automatically settles completed paper bets into realized `pnl_best` and `pnl_primary`.
 3. **Unstructured Match-Preview & Injury News Veto Gate via `ms-decision-1` and Distilled Sports-Tuned Local `Laya` ([`src/betscout/decision_signal.py`](./src/betscout/decision_signal.py) & [`scripts/distill_laya_sports.py`](./scripts/distill_laya_sports.py))**:
    - Extracts team-specific news headlines and previews from each upcoming ESPN match summary (using alias-aware matching, pre-kickoff timestamp validation, and zero unrelated-headline fallback) and evaluates calibrated predicates (`home_positive`, `home_negative`, `away_positive`, `away_negative`) using Azure AI Foundry's **`ms-decision-1`** (`POST /v1/decisions` via `rbi-sl-token token --env uat`) with automatic offline fallback to our distilled sports-tuned **`Laya`** checkpoint ([`data/laya_sports_ckpt`](./data/laya_sports_ckpt)).
@@ -209,7 +209,7 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
      - **Expected Calibration Error (ECE)**: dropped from **`0.1791`** to **`0.0873`** (`-0.0918`, **>51% calibration error reduction**)
      - **Brier Score (Top-1)**: dropped from **`0.1408`** to **`0.0826`** (`-0.0582`)
    - Acts as an **automated System-1 injury/crisis veto gate (`net_edge_for_pick <= -0.50` -> `VETOED_BY_INJURY_NEWS`)**: when the 7-factor statistical model scored **PSG vs Lyon -> Home (`+0.5638`)**, `ms-decision-1` read the ESPN headline *"PSG star Khvicha Kvaratskhelia ruptures ACL; Dembélé, Marquinhos out 'weeks'"*, scored `home_negative = 0.998` (`net_edge = -0.816`), and **automatically vetoed and removed PSG from the active paper-betting ledger** while keeping **Juventus (`@ 1.44`)**, **Bayern Munich (`@ 1.38`, `News +0.260`)**, and **AC Milan (`@ 1.65`, `News +0.750`)**.
-4. **Position-Specific Pre-Kickoff Starting XI Confirmation Gate (T-60m) (`evaluate_starting_xi_gate` in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py))**:
+4. **Position-Specific Pre-Kickoff Starting XI Confirmation Gate (T-60m) (`evaluate_starting_xi_gate` in [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py))**:
    - Tracks each team's rolling 6-match **Attacking Contribution** (`totalGoals + 0.7 * goalAssists + 0.2 * shotsOnTarget`), **Primary Goalkeeper Continuity** (`position.abbreviation == 'G'`), and **Defensive Spine Continuity** (`position.abbreviation` in `{'CD', 'CD-L', 'CD-R', 'D', 'CB', 'LB', 'RB', 'LD', 'RD', 'SW'}`).
    - Once ESPN posts official starting lineups (`starter: True`, ~60m before kickoff), it verifies that:
      1. `attack_share >= 0.50` (`VETOED_DEPLETED_XI` if `< 50%` of recent attacking output starts), and
@@ -218,7 +218,7 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
      - **Baseline (no XI gate)**: **`+3.03%` ROI** (`n = 1,258`)
      - **Attack Share (`>= 50%`) only**: **`+3.23%` ROI** (`n = 1,057` kept vs `+1.95%` on `201` vetoed)
      - **Combined Attack + Goalkeeper & Defensive Spine Gate**: **`+3.66%` ROI** (`n = 1,030` kept) vs **`+0.16%` ROI** (`n = 228` vetoed)!
-5. **Discovery-Calibrated Win Probabilities (`p_model`), EV%, Capped Quarter-Kelly Sizing & Risk Metrics ([`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py))**:
+5. **Discovery-Calibrated Win Probabilities (`p_model`), EV%, Capped Quarter-Kelly Sizing & Risk Metrics ([`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py))**:
    - Fits a two-feature logistic calibrator strictly on Discovery (`< 2025-07-01`):
      $$\text{logit}(P(\text{win})) = 0.0472 + 0.9484 \cdot \text{logit}(p_{\text{mkt}}) + 0.3896 \cdot \text{score}$$
    - Computes calibrated expected value ($\text{EV} = p_{\text{model}} \cdot O_{\text{best}} - 1$) and **Capped Quarter-Kelly Paper Stake** ($\min(2.0\%, \max(0\%, 0.25 \cdot \frac{\text{EV}}{O_{\text{best}} - 1}))$).
@@ -227,7 +227,7 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
      - **Maximum Drawdown**: **`5.00 units`** (`Profit / MaxDD = 4.12x`)
      - **Period Sharpe / $t$-stat**: **`2.57`**
      - **Hit Rate**: **`73.0%`** vs **`60.1%` de-vigged market implied** (mean calibrated `p_model = 64.6%`).
-6. **Live Multi-Sport Scanner & 7-Factor US Major Sports Composite (`scan_upcoming_tennis` & `scan_upcoming_other_sports` in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py), `evaluate_us_major_sports_composite` in [`src/betscout/quant_edges.py`](./src/betscout/quant_edges.py))**:
+6. **Live Multi-Sport Scanner & 7-Factor US Major Sports Composite (`scan_upcoming_tennis` & `scan_upcoming_other_sports` in [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py), `evaluate_us_major_sports_composite` in [`src/betscout/quant_edges.py`](./src/betscout/quant_edges.py))**:
    - **Football (12 leagues)**: Big-5 (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), `ned.1`, `por.1`, `eng.2`, `aut.1`, and UEFA Club Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`) with **Cross-Competition Club History Inheritance** (clubs playing in UEFA competitions inherit their full domestic rolling boxscore and H2H history).
    - **Tennis (`atp`, `wta`)**: 7-Feature Surface-Specific + Game-Dominance Logistic Regression model across `43,124` completed matches, outputting Win Probability, Minimum Fair Odds (`1 / p`), and `+3% EV Target Odds` (`1.03 / p`).
    - **Major 2-Way US Sports (`nba`, `nhl`, `nfl`, `mlb`) — 7-Factor Boxscore + Rest/B2B + Rebound Composite**:
@@ -265,7 +265,7 @@ All roadmap items have been implemented, verified on live ESPN fixtures, and cov
 
 ## 7. Head-to-Head Benchmark: `ms-decision-1` vs Base `Laya` vs Sports-Fine-Tuned `Laya` ([`scripts/compare_decision_models.py`](./scripts/compare_decision_models.py))
 
-We switched the default decision model across `decision_signal.py`, `paper_trade.py`, and `daily_pipeline.py` to **`laya`** (`laya-sports`, [`data/laya_sports_ckpt`](./data/laya_sports_ckpt)) with a persistent warm worker process and subject-aware per-team headline routing (`split_match_text_by_team`).
+We switched the default decision model across `decision_signal.py`, `paper_bet.py`, and `daily_pipeline.py` to **`laya`** (`laya-sports`, [`data/laya_sports_ckpt`](./data/laya_sports_ckpt)) with a persistent warm worker process and subject-aware per-team headline routing (`split_match_text_by_team`).
 
 To empirically compare **`ms-decision-1`** (Azure AI Foundry teacher) against **Base `Laya` (`typed-decisions`)** and **Sports-Fine-Tuned `Laya` (`data/laya_sports_ckpt`)**, run:
 ```bash
@@ -306,7 +306,7 @@ We prepared a complete, ready-to-deploy **Firebase Cloud Functions (2nd Gen Pyth
 
 ## 9. Live SofaScore Tennis Odds, Two-Pass Scheduler & Main App (`app/`) Bridge
 
-1. **Live SofaScore Tennis Bookmaker Odds (`_fetch_sofascore_tennis_odds` in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py))**:
+1. **Live SofaScore Tennis Bookmaker Odds (`_fetch_sofascore_tennis_odds` in [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py))**:
    - Queries `https://api.sofascore.com/api/v1/search/all` and `/event/{id}/odds/1/all` for upcoming ATP/WTA picks, converting live fractional bookmaker prices (`initialFractionalValue` and `fractionalValue`) to decimal `open_odds` and `best_odds` alongside `min_fair_odds` and exact `ev_pct`.
 2. **Automated Two-Pass Matchday Scheduler ([`deploy/com.betscout.daily.plist`](./deploy/com.betscout.daily.plist))**:
    - macOS `launchd` agent running `uv run betscout pipeline --days 5 --min-odds 1.10 --decision-backend laya` at `08:00` (morning settlement & early scan) and `18:15` (pre-kickoff T-60m Starting XI confirmation pass & closing CLV update).
@@ -324,12 +324,12 @@ We prepared a complete, ready-to-deploy **Firebase Cloud Functions (2nd Gen Pyth
 
 ## 10. Post-Mortem of Early Paper-Bet Losses & Model Upgrades
 
-We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Football models in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py):
+We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Football models in [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py):
 
 | Early Failed Pick | Final Score | Root Cause Discovered | Model Upgrade Applied |
 | :--- | :---: | :--- | :--- |
 | **1. WTA: Katarzyna Kawa vs Belinda Bencic $\rightarrow$ Bencic (`A`) `@ 1.24`** | `2-0 (7-5, 6-2)` | **Career-Elo Slump vs Hot Qualifier**: Bencic had high historical Elo (`+110` Game-Elo diff) but was in a `2–5` (`28.6%`) recent slump, while Kawa had won `5` of her last `6` matches (`83.3%`, `form_6m_diff = -54.7%`). | **Added 8th Feature (`d_win6` 6-Match Rolling Form) + Form-Slump Gate (`form_6m_diff >= -0.15`)**: Lifted out-of-sample `>=70%` High-Confidence accuracy across `43,124` ATP/WTA matches from **`75.67%` to `77.02%` on ATP** (`+1.35 pp`) and **`76.22%` to `76.58%` on WTA**. |
-| **2. UEFA Europa: Dinamo Zagreb vs NEC Nijmegen $\rightarrow$ Dinamo (`H`) `@ 1.57`** | `2-4` | **Negative Composite Score & Negative SOT**: Composite score was `-0.0230` and `sot_d = -0.570`; logged mid-game (`74'`) via a loose `p_model >= 0.56` rule. | **Strict Pre-Match + SOT-Alignment & Dominance-Rebound Gate for `uefa_edge`**: Require `sot_z >= 0.0` AND `(score >= 0.02 or dom_rebound > 0.20)` (lifting historical UEFA ROI across `401` matches to **`+8.66%`**, and **`+19.46%`** at `score >= 0.14`), and restrict `paper_trades` logging strictly to pre-match (`state == 'pre'`). |
+| **2. UEFA Europa: Dinamo Zagreb vs NEC Nijmegen $\rightarrow$ Dinamo (`H`) `@ 1.57`** | `2-4` | **Negative Composite Score & Negative SOT**: Composite score was `-0.0230` and `sot_d = -0.570`; logged mid-game (`74'`) via a loose `p_model >= 0.56` rule. | **Strict Pre-Match + SOT-Alignment & Dominance-Rebound Gate for `uefa_edge`**: Require `sot_z >= 0.0` AND `(score >= 0.02 or dom_rebound > 0.20)` (lifting historical UEFA ROI across `401` matches to **`+8.66%`**, and **`+19.46%`** at `score >= 0.14`), and restrict `paper_bets` logging strictly to pre-match (`state == 'pre'`). |
 | **3. UEFA Europa: Juventus vs Stade Rennais $\rightarrow$ Juventus (`H`) `@ 1.48`** | `2-2` | **Negative Composite Score & Negative SOT**: Composite score was `-0.1278` and `sot_d = -0.206` (logged in-play at `73'`). | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 | **4. UEFA Conf: FC Nordsjælland vs CSKA Sofia $\rightarrow$ Nordsjælland (`H`) `@ 1.41`** | `2-2` | **Negative Composite Score & Severe Negative SOT**: Composite score was `-0.0227` and `sot_d = -0.735`. | Filtered out by the **UEFA SOT-Alignment Gate (`sot_z >= 0.0` and `score >= 0.02`)**. |
 
@@ -365,7 +365,7 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
    - Integrated **100% ESPN-native competition logos, team crests, and verified tennis player headshots** via `https://sports.core.api.espn.com/v2/sports/tennis/athletes/{id}` (`a.espncdn.com/i/headshots/tennis/players/full/{id}.png` with automatic `a.espncdn.com/i/teamlogos/countries/500/{iso}.png` fallback — zero SofaScore image requests and zero 404s).
    - Added an **Interactive Matchup Drill-Down Inspector Modal (`GET /api/matchup`)** displaying Last-6 form (`W`/`D`/`L` pills), H2H meetings, and Dixon-Coles / Tennis Set-Score breakdowns on click, plus a **Calibration & Tier / CLV Attribution Table (`by_tier`)** and **Quarter-Kelly Compounding vs. Flat `1.0u` Equity Curve**.
 
-2. **4-Archetype 2-Leg Combo / Parlay Engine & Auto-Grading Ledger (`paper_combos` in [`src/betscout/paper_trade.py`](./src/betscout/paper_trade.py))**:
+2. **4-Archetype 2-Leg Combo / Parlay Engine & Auto-Grading Ledger (`paper_combos` in [`src/betscout/paper_bet.py`](./src/betscout/paper_bet.py))**:
    - `build_recommended_2leg_doubles` constructs up to `8` uncorrelated 2-leg combinations across 4 high-probability market archetypes:
      1. **`CROSS_SPORT_BANKER`** (*Cross-Sport Banker ML*: `1X2` / Moneyline / Tennis Match Winner)
      2. **`DOUBLE_CHANCE_SHIELD`** (*Double-Chance / +1.5 Sets Shield*: Football `1X`/`X2` + Tennis `+1.5 Sets` Handicap, `~72–77%` combined hit rate)

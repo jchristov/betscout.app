@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from betscout.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
+from betscout.paper_bet import scan_upcoming_and_log_paper_bets  # noqa: E402
 
 
 def main() -> None:
@@ -33,7 +33,7 @@ def main() -> None:
     db_path = ROOT / "data" / "betscout.db"
     out_json = ROOT / "data" / "recommendations.json"
 
-    rep = scan_upcoming_and_log_paper_trades(
+    rep = scan_upcoming_and_log_paper_bets(
         db_path=db_path,
         days_ahead=args.days,
         decision_backend=args.decision_backend,

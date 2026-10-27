@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from betscout.espn import LEAGUE_LABELS  # noqa: E402
-from betscout.paper_trade import get_paper_ledger_summary, settle_pending_paper_trades  # noqa: E402
+from betscout.paper_bet import get_paper_ledger_summary, settle_pending_paper_bets  # noqa: E402
 
 
 def main() -> None:
@@ -32,12 +32,12 @@ def main() -> None:
     args = parser.parse_args()
 
     db_path = ROOT / "data" / "betscout.db"
-    newly_settled = settle_pending_paper_trades(db_path)
+    newly_settled = settle_pending_paper_bets(db_path)
     summary = get_paper_ledger_summary(db_path)
 
-    trades = summary.get("trades") or []
-    settled = [t for t in trades if t["status"] == "SETTLED"]
-    pending = [t for t in trades if t["status"] == "PENDING"]
+    bets = summary.get("bets") or []
+    settled = [t for t in bets if t["status"] == "SETTLED"]
+    pending = [t for t in bets if t["status"] == "PENDING"]
 
     roi_pct = (summary["settled_roi_best"] * 100.0) if summary.get("settled_roi_best") is not None else 0.0
     print(

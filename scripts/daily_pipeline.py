@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from betscout.dashboard import generate_dashboard_html  # noqa: E402
-from betscout.paper_trade import scan_upcoming_and_log_paper_trades  # noqa: E402
+from betscout.paper_bet import scan_upcoming_and_log_paper_bets  # noqa: E402
 from betscout.telegram_bot import notify_new_settlements_to_discord  # noqa: E402
 from betscout.universal_ingest import ingest_universal  # noqa: E402
 
@@ -58,7 +58,7 @@ def run_pipeline(
         raise RuntimeError("Database quality check failed with errors.")
 
     print(f"[3/4] Settling paper bets & scanning upcoming fixtures ({days_ahead} days ahead, news={decision_backend})...")
-    rep = scan_upcoming_and_log_paper_trades(
+    rep = scan_upcoming_and_log_paper_bets(
         db_path=db_path,
         days_ahead=days_ahead,
         decision_backend=decision_backend,

@@ -21,7 +21,7 @@
     </array>
     <key>StartCalendarInterval</key>
     <array>
-        <!-- Pass 1 (08:00 local): Settle overnight trades, sync watermarks, log early picks -->
+        <!-- Pass 1 (08:00 local): Settle overnight bets, sync watermarks, log early picks -->
         <dict>
             <key>Hour</key>
             <integer>8</integer>

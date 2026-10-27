@@ -249,7 +249,7 @@ def predict_soccer_exact_scores(
 def evaluate_exact_score_models(db_path: Path) -> dict[str, Any]:
     """Out-of-sample walk-forward evaluation of Football Exact Score / Clusters and Tennis Set-Score models."""
     # 1. Football Exact Score & Cluster Evaluation on Post-2025 Holdout (Big-5 Top-15% & Top-10% Picks)
-    from .paper_trade import build_frozen_model_and_team_state
+    from .paper_bet import build_frozen_model_and_team_state
 
     scaler, thresholds, _, _, calibrator, _ = build_frozen_model_and_team_state(db_path, leagues=BIG5_LEAGUES)
     ready = build_soccer_feature_rows(db_path, leagues=BIG5_LEAGUES)

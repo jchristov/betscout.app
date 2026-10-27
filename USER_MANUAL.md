@@ -99,7 +99,7 @@ At the top of the BetScout WebApp, the header displays system metadata and 5 glo
 | **`📡 Live SSE Stream`** | Shows connection status (`Connected` with green pulse dot when connected to `uv run betscout`, or `Static File Mode` when opened via `file://`). |
 | **`🔕 Live Alerts: OFF` / `🔔 ON`** | **Global toggle** for automated Discord push alerts on Live In-Play Dominance Rebound (`⚽`) and Set-1 Deficit Rebound (`🎾`) edges. **Default is `OFF`** so your Discord channel is never spammed. Persists in `data/webapp_settings.json` and `localStorage`. |
 | **`🔄 Sync & Settle`** | Immediately polls ESPN & SofaScore to grade completed bets, update live in-play scores, and refresh the ledger without rescanning all future fixtures (~2–4 seconds). |
-| **`⚡ Rescan Live`** | Re-runs the full multi-sport upcoming scanner (`scan_upcoming_and_log_paper_trades`), updates live bookmaker odds and CLV, and refreshes all recommendations (~25–40 seconds). |
+| **`⚡ Rescan Live`** | Re-runs the full multi-sport upcoming scanner (`scan_upcoming_and_log_paper_bets`), updates live bookmaker odds and CLV, and refreshes all recommendations (~25–40 seconds). |
 | **`🚀 Full Pipeline`** | Executes all 4 stages from the browser: `[1/4]` Incremental ingestion across all 20 leagues $\rightarrow$ `[2/4]` Quality check $\rightarrow$ `[3/4]` Multi-sport scan & settlement $\rightarrow$ `[4/4]` Dashboard rebuild. |
 | **`💬 Share Picks`** | Opens the **Discord & Telegram Social Publisher** panel with a pre-formatted Markdown digest of your currently filtered picks. |
 
@@ -309,7 +309,7 @@ Every pick in BetScout must pass a strict sequence of out-of-sample validated sa
 | :--- | :--- |
 | `uv run betscout --port 8090` | Launch interactive BetScout WebApp + SSE stream + 90s auto-poller |
 | `uv run betscout pipeline` | Run full 4-stage daily pipeline (Ingest $\rightarrow$ Quality $\rightarrow$ Scan $\rightarrow$ Dashboard) |
-| `uv run betscout scan --days 3` | Scan upcoming fixtures across all sports and update `paper_trades` & `paper_combos` |
+| `uv run betscout scan --days 3` | Scan upcoming fixtures across all sports and update `paper_bets` & `paper_combos` |
 | `uv run betscout dashboard` | Rebuild `data/dashboard.html`, `data/best_bets.csv`, and `data/best_bets.json` |
 | `uv run betscout calibrate` | Run Post-Match Calibration, Brier Skill Score vs Market & Factor Attribution monitor |
 | `uv run betscout edges` | Run multi-sport backtest & monthly expanding-window walk-forward evaluation |

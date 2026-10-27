@@ -10,7 +10,7 @@ This document catalogs the architectural options for running **BetScout (`betsco
 
 ## 1. Why a Pure 100% Firestore Rewrite of the Historical Database Is Avoided
 
-Every pre-match scan (`scan_upcoming_and_log_paper_trades`) and walk-forward calibration reads **26,200+ historical matches** (`matches` + `match_details`) to compute chronological Elo ratings, rolling 6-match boxscore z-scores (`StandardScaler`), and H2H matrices:
+Every pre-match scan (`scan_upcoming_and_log_paper_bets`) and walk-forward calibration reads **26,200+ historical matches** (`matches` + `match_details`) to compute chronological Elo ratings, rolling 6-match boxscore z-scores (`StandardScaler`), and H2H matrices:
 - In **SQLite**, scanning 26,200 rows takes **~40ms and costs $0**.
 - In **Cloud Firestore**, storing 26,200 historical matches as individual NoSQL documents and reading them on every scan would consume **500,000+ document reads/day** (exceeding the 50,000/day free Spark tier in 2 scans) and add network latency.
 
@@ -105,12 +105,12 @@ Instead of translating relational SQL into NoSQL documents (Firestore), **keep t
 ┌─────────────────────────────────────────────────────────────────────────┐
 │             Browsers & Mobile PWA (`Firebase Hosting / Pages`)          │
 │  • Queries read-only HTTP SQL/JSON API or Turso Read-Only Token         │
-│  • Reads `paper_trades` & `recommendations_kv` from nearest edge node   │
+│  • Reads `paper_bets` & `recommendations_kv` from nearest edge node   │
 └───────────────────────────────────▲─────────────────────────────────────┘
                                     │ HTTPS (30+ Global Edge Replicas <25ms)
 ┌───────────────────────────────────┴─────────────────────────────────────┐
 │                Turso Cloud (libSQL — Managed Cloud SQLite)              │
-│  • Exact same tables: `matches`, `match_details`, `paper_trades`,       │
+│  • Exact same tables: `matches`, `match_details`, `paper_bets`,       │
 │    `paper_combos`, plus `kv_store(key, json_value, updated_at)`         │
 │  • Free Tier: 9 GB storage, 500M rows read/month, 10M rows written/mo   │
 └───────────────────────────────────▲─────────────────────────────────────┘
@@ -196,7 +196,7 @@ When your MacBook is turned off, **two architectures** stand out depending on wh
 Combine **Option A** (`Firebase Hosting + Cloud Firestore + Firebase Auth`) with **Option C** (`Browser-Direct Sportradar 3s Streaming + GitHub Actions Quant Worker`):
 1. **MacBook 100% Off:**
    - **UI & State (`<30ms`):** Served from **Firebase Hosting** and synced in real time via **Cloud Firestore** (`onSnapshot`).
-   - **Live 3-Second In-Play Scores (`~50ms`):** Browser JS directly queries Sportradar's tokenless `match_timelinedelta/{sr_match_id}` endpoint for ongoing matches in `#liveTradesTable` — works 24/7 with **zero backend server and zero Firestore writes**!
+   - **Live 3-Second In-Play Scores (`~50ms`):** Browser JS directly queries Sportradar's tokenless `match_timelinedelta/{sr_match_id}` endpoint for ongoing matches in `#liveBetsTable` — works 24/7 with **zero backend server and zero Firestore writes**!
    - **On-Demand Analyzer & `📌 Track Live` (`<15ms`):** Browser JS uses a compact synced `state/elo_team_state` (~120 KB) + live Sportradar `match_markets` to analyze any matchup client-side and saves pinned live matches directly to Firestore `tracked_live/{id}`.
    - **Unattended Scans & Discord Notifications:** A scheduled **GitHub Actions workflow** runs `uv run betscout pipeline --sync-firestore` in GitHub's cloud (with `betscout.db` cached in GitHub Actions Cache and `DISCORD_WEBHOOK_URL_*` stored in encrypted GitHub Secrets).
 2. **Security:** Firebase Auth + `firestore.rules` lock all global writes to your Google email, while Discord webhooks never leave GitHub Encrypted Secrets.

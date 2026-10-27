@@ -18,16 +18,16 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from betscout.paper_trade import _open_db, settle_pending_paper_trades  # noqa: E402
+from betscout.paper_bet import _open_db, settle_pending_paper_bets  # noqa: E402
 
 
 def compute_calibration_report(db_path: Path) -> dict[str, Any]:
     """Compute Brier Score, Brier Skill Score (vs market implied), Expected Calibration Error (ECE),
-    and per-factor attribution across all settled `paper_trades`."""
+    and per-factor attribution across all settled `paper_bets`."""
     if not db_path.exists():
         return {"settled_count": 0}
     try:
-        settle_pending_paper_trades(db_path)
+        settle_pending_paper_bets(db_path)
     except Exception:
         pass
 
@@ -35,7 +35,7 @@ def compute_calibration_report(db_path: Path) -> dict[str, Any]:
     conn.row_factory = sqlite3.Row
     settled = [
         dict(r)
-        for r in conn.execute("SELECT * FROM paper_trades WHERE status = 'SETTLED' ORDER BY kickoff ASC").fetchall()
+        for r in conn.execute("SELECT * FROM paper_bets WHERE status = 'SETTLED' ORDER BY kickoff ASC").fetchall()
     ]
     conn.close()
     if not settled:

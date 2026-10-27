@@ -10,12 +10,12 @@ from betscout.decision_signal import (
     record_distillation_pair,
     score_match_news,
 )
-from betscout.paper_trade import (
+from betscout.paper_bet import (
     PAPER_SCHEMA,
-    _upsert_paper_trade,
+    _upsert_paper_bet,
     evaluate_starting_xi_gate,
     get_paper_ledger_summary,
-    settle_pending_paper_trades,
+    settle_pending_paper_bets,
 )
 
 
@@ -78,7 +78,7 @@ def test_record_distillation_pair_dedup(tmp_path: Path):
     assert "Cole Palmer returns fit" in a_txt and "Bukayo Saka" not in a_txt
 
 
-def test_paper_trade_upsert_clv_and_settlement(tmp_path: Path):
+def test_paper_bet_upsert_clv_and_settlement(tmp_path: Path):
     db = tmp_path / "pt.sqlite"
     conn = sqlite3.connect(db)
     conn.executescript(
@@ -111,11 +111,11 @@ def test_paper_trade_upsert_clv_and_settlement(tmp_path: Path):
         "factors_tanh_z": {"p_mkt": 0.7, "sot_d": 0.8},
         "news_signal": {"backend": "ms-decision-1", "net_edge_for_pick": 0.79},
     }
-    _upsert_paper_trade(db, pick, "2026-10-21T20:00:00Z")
+    _upsert_paper_bet(db, pick, "2026-10-21T20:00:00Z")
 
     # Simulate closing line steaming from 1.65 down to 1.50 before kickoff (positive CLV!)
     pick_steamed = {**pick, "close_odds": 1.50}
-    _upsert_paper_trade(db, pick_steamed, "2026-10-25T19:40:00Z")
+    _upsert_paper_bet(db, pick_steamed, "2026-10-25T19:40:00Z")
 
     summary = get_paper_ledger_summary(db)
     assert summary["total_logged"] == 1
@@ -129,7 +129,7 @@ def test_paper_trade_upsert_clv_and_settlement(tmp_path: Path):
     conn.commit()
     conn.close()
 
-    settled_n = settle_pending_paper_trades(db)
+    settled_n = settle_pending_paper_bets(db)
     assert settled_n == 1
     summary_after = get_paper_ledger_summary(db)
     assert summary_after["settled_count"] == 1
@@ -220,7 +220,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "Min Fair Odds" in html_text
     assert "Score Projection" in html_text
     assert "Odds / CLV" in html_text
-    assert 'id="liveTradesTable"' in html_text
+    assert 'id="liveBetsTable"' in html_text
     # Ensure embedded <script> block in dashboard.html has zero JavaScript syntax errors!
     script_body = html_text.split("<script>", 1)[1].split("</script>", 1)[0]
     node_chk = subprocess.run(["node", "--check"], input=script_body, text=True, capture_output=True)
@@ -302,7 +302,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert t_pred_bo5["straight_sets_score"] == "3:0" and t_pred_bo5["best_of"] == 5
 
     # 6. Exact-score hit grader, 2-leg doubles builder & automated settlement notification deduplication test
-    from betscout.paper_trade import _check_exact_score_hit, build_recommended_2leg_doubles
+    from betscout.paper_bet import _check_exact_score_hit, build_recommended_2leg_doubles
     from betscout.telegram_bot import notify_new_settlements_to_discord
 
     assert _check_exact_score_hit("2:0 (14.0%) | Cluster 2:0 / 1:0 / 2:1 (38.0%)", "2-0") == 1
@@ -333,7 +333,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     # 7. Bit-for-bit Equivalence Regression Test for Performance Optimizations
     import numpy as np
     from betscout.goals import fit_rates, markets, score_grid
-    from betscout.paper_trade import _build_team_player_attack_history
+    from betscout.paper_bet import _build_team_player_attack_history
 
     def _fit_rates_scalar_ref(total_goals_line: float, home_p: float, away_p: float, draw_p: float, rho: float = -0.1):
         best, best_err = (1.3, 1.1), float("inf")
@@ -364,7 +364,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     # 8. Provisional / Unconfirmed Kickoff Time (`*` indicator + auto-update from provisional to confirmed)
     from betscout.dashboard import _format_local_time, _match_day_key, _time_span
-    from betscout.paper_trade import _upsert_paper_trade, get_paper_ledger_summary
+    from betscout.paper_bet import _upsert_paper_bet, get_paper_ledger_summary
 
     assert _format_local_time("2026-10-23T12:00Z", time_valid=True) == "2026-10-23 14:00 CEST"
     assert _format_local_time("2026-10-24T09:30Z", time_valid=False) == "2026-10-24 11:30 CEST*"
@@ -375,7 +375,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert _match_day_key("2026-10-25T11:30Z") == "2026-10-25"
 
     # First log with provisional time (`time_valid=False`, `2026-10-23T04:00Z`)
-    _upsert_paper_trade(
+    _upsert_paper_bet(
         db,
         {
             "league": "atp",
@@ -399,11 +399,11 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         "2026-10-22T20:00:00Z",
     )
     sum1 = get_paper_ledger_summary(db)
-    tr1 = next(t for t in sum1["trades"] if t["event_id"] == "999001")
+    tr1 = next(t for t in sum1["bets"] if t["event_id"] == "999001")
     assert tr1["kickoff"] == "2026-10-23T04:00Z" and tr1["time_valid"] is False
 
-    # Now ESPN confirms the official court time (`2026-10-23T12:00Z`, `time_valid=True`): verify `_upsert_paper_trade` updates it!
-    _upsert_paper_trade(
+    # Now ESPN confirms the official court time (`2026-10-23T12:00Z`, `time_valid=True`): verify `_upsert_paper_bet` updates it!
+    _upsert_paper_bet(
         db,
         {
             "league": "atp",
@@ -427,11 +427,11 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         "2026-10-23T08:00:00Z",
     )
     sum2 = get_paper_ledger_summary(db)
-    tr2 = next(t for t in sum2["trades"] if t["event_id"] == "999001")
+    tr2 = next(t for t in sum2["bets"] if t["event_id"] == "999001")
     assert tr2["kickoff"] == "2026-10-23T12:00Z" and tr2["time_valid"] is True
 
     # 9. Prospective 2-Leg Combo Ledger (`paper_combos`), Auto-Grader, Calibration Attribution & Matchup Inspector
-    from betscout.paper_trade import _upsert_paper_combo, settle_pending_paper_combos
+    from betscout.paper_bet import _upsert_paper_combo, settle_pending_paper_combos
     from betscout.webapp import _lookup_matchup_detail
 
     for d_c in doubles[:2]:
@@ -450,11 +450,11 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         "INSERT OR REPLACE INTO matches (id, league, event_id, kickoff, home, away, outcome, home_score, away_score) VALUES ('m1', 'ita.1', 'e1', '2026-10-20T19:45Z', 'Udinese', 'AC Milan', 'A', 0, 2)"
     )
     conn_c.execute(
-        "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
+        "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
         "VALUES ('ita.1', 'e1', '2026-10-20T19:45Z', 'Udinese', 'AC Milan', 'A', 'top_10pct', 0.64, 0.58, 1.65, 1.65, 1.58, 0.044, '{}', '2026-10-20T08:00Z', '2026-10-20T22:00Z', 'SETTLED', 'A', '0-2', 0.65, 0.65)"
     )
     conn_c.execute(
-        "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
+        "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
         "VALUES ('atp', 'e2', '2026-10-20T13:30Z', 'Herbert', 'Fritz', 'A', 'banker_70pct', 0.82, 0.82, 1.26, 1.22, 1.24, 0.016, '{}', '2026-10-20T08:00Z', '2026-10-20T16:00Z', 'SETTLED', 'A', '0-2 (4-6, 3-6)', 0.26, 0.22)"
     )
     conn_c.commit()
@@ -474,7 +474,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     from unittest.mock import patch
 
     conn_n = sqlite3.connect(db)
-    conn_n.execute("UPDATE paper_trades SET notified_at = NULL WHERE status = 'SETTLED'")
+    conn_n.execute("UPDATE paper_bets SET notified_at = NULL WHERE status = 'SETTLED'")
     conn_n.commit()
     conn_n.close()
 
@@ -499,7 +499,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     # 11. Diacritic-insensitive SofaScore tennis matching & Indoor Hard surface split test
     from betscout.enrich import infer_surface
-    from betscout.paper_trade import _strip_accents
+    from betscout.paper_bet import _strip_accents
     assert _strip_accents("Jiri Lehečka") == "jiri lehecka"
     assert _strip_accents("Tomáš Macháč") == "tomas machac"
     assert infer_surface("Swiss Indoors Basel") == "hard_indoor"
@@ -510,7 +510,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert len(sum_c2["kelly_cum_pnl"]) == sum_c2["settled_count"]
 
     # 12. Live In-Play Momentum & Halftime / Second-Half Dominance Rebound Scanner test
-    from betscout.paper_trade import _evaluate_inplay_soccer_momentum
+    from betscout.paper_bet import _evaluate_inplay_soccer_momentum
 
     fake_live_summary = {
         "boxscore": {
@@ -550,7 +550,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
     conn_rb = sqlite3.connect(db)
     conn_rb.execute(
-        "INSERT OR REPLACE INTO paper_trades (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, is_live, live_score, live_pnl, live_momentum_json) "
+        "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, is_live, live_score, live_pnl, live_momentum_json) "
         "VALUES ('eng.2', 'live99', '2026-10-23T19:00Z', 'Bolton', 'Middlesbrough', 'A', 'top_8pct', 0.48, 0.62, 1.59, 1.59, 1.55, 0.025, '{}', '2026-10-23T10:00Z', '2026-10-23T19:45Z', 'PENDING', 1, '0-0 (HT)', 0.0, '{\"is_rebound_edge\": true, \"sot_for_pick\": 6, \"sot_opp\": 1, \"sot_diff\": 5, \"shots_diff\": 10, \"corners_diff\": 5, \"poss_pct\": 64.0}')"
     )
     conn_rb.commit()
@@ -567,7 +567,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "custom-bet-chk" in html_text and "recalcModalDutching" in html_text
 
     # 14. Tennis Live Set-1 Deficit Rebound Edge test
-    from betscout.paper_trade import _evaluate_inplay_tennis_momentum
+    from betscout.paper_bet import _evaluate_inplay_tennis_momentum
 
     t_mom = _evaluate_inplay_tennis_momentum(
         t_sc="1-0 (7-6, 1-1)",
@@ -581,7 +581,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert "liveAnalyzerModal" in html_text and "switchWorkspaceTab" in html_text and "walkForwardAuditPanel" in html_text
 
     from betscout.webapp import _analyze_live_matchup
-    with patch("betscout.paper_trade._fetch_sofascore_tennis_odds", return_value={
+    with patch("betscout.paper_bet._fetch_sofascore_tennis_odds", return_value={
         "odds_p1": 1.44, "odds_p2": 2.75, "games_line": 22.5,
         "p1_last5_win_rate": 0.80, "p2_last5_win_rate": 0.60,
         "p1_rest_hours": 28.0, "p2_rest_hours": 24.0,
@@ -802,13 +802,18 @@ def test_per_sport_isolated_gates():
 
     # 6. Table Tennis: <1.28 negative-EV chalk or losing-streak favorite (Klocek vs Rudomina) is vetoed; 1.36 favorite with +0.30 form diff & Elo edge passes
     tt_bad, _, _ = evaluate_european_sport_gate("table_tennis", 0.78, 0.50, 0.0, 1.20, False, 5, 5)
+    # 6. Table Tennis: <1.28 negative-EV chalk, losing-streak favorite (Klocek vs Rudomina), or >48h cold-session rust (Warzecha vs Pyrek 107.8h) is vetoed; 1.36 warmed-up favorite passes
+    tt_bad, _, _ = evaluate_european_sport_gate("table_tennis", 0.78, 0.50, 0.0, 1.20, False, 5, 5)
     tt_streak_bad, _, _ = evaluate_european_sport_gate(
         "table_tennis", 0.7119, 0.50, 0.10, 1.38, False, 10, 10, recent3_diff_fav=-1.0, fav_loss_streak=3, dog_win_streak=4
     )
-    tt_good, p_mod_tt, ev_tt = evaluate_european_sport_gate(
-        "table_tennis", 0.72, 0.62, 0.30, 1.36, True, 5, 5, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0
+    tt_cold_bad, _, _ = evaluate_european_sport_gate(
+        "table_tennis", 0.7432, 0.55, 0.30, 1.32, False, 10, 10, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0, fav_hours_since_last=107.8, dog_hours_since_last=83.5
     )
-    assert tt_bad is False and tt_streak_bad is False
+    tt_good, p_mod_tt, ev_tt = evaluate_european_sport_gate(
+        "table_tennis", 0.72, 0.62, 0.30, 1.36, True, 5, 5, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0, fav_hours_since_last=1.5, dog_hours_since_last=1.2
+    )
+    assert tt_bad is False and tt_streak_bad is False and tt_cold_bad is False
     assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
 
     # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher) & Adverse Line Drift Veto (Laura Samson vs Alice Tubello)
@@ -821,11 +826,12 @@ def test_per_sport_isolated_gates():
     )
     assert t_samson is False and t_samson_reason == "VETO_ADVERSE_LINE_DRIFT"
 
-    # 7. NBA gate & disabled_sports filtering in build_best_bets_summary
+    # 7. NBA gate (vetoes Denver vs GSW comp=0.112, 3pt=-2.67, tov=-3.67; passes OKC comp=0.242 & Celtics comp=0.378) & disabled_sports filtering
     from betscout.dashboard import build_best_bets_summary
     from betscout.sport_models import evaluate_nba_gate
 
-    assert evaluate_nba_gate(0.70, 0.71, 0.73, 0.12, 8.2, 0.0, 1.38) is True
+    assert evaluate_nba_gate(0.683, 0.692, 0.734, 0.112, 8.17, 0.0, 1.38, three_pt_diff=-2.67, tov_margin_diff=-3.67) is False
+    assert evaluate_nba_gate(0.763, 0.783, 0.785, 0.242, 3.17, 0.0, 1.22, three_pt_diff=0.0, tov_margin_diff=1.50) is True
     assert evaluate_nba_gate(0.65, 0.66, 0.66, 0.24, -2.1, 1.33, 1.49) is True
     sample_rec = {
         "qualifying_picks": [],
@@ -935,7 +941,7 @@ def test_monetization_api_keys_subscribers_and_redaction(tmp_path: Path):
         "other_sport_picks": [],
         "recommended_doubles": [{"leg_1": {"match": "Secret C vs D", "pick": "Secret C"}, "leg_2": {"match": "Secret E vs F", "pick": "Secret E"}}],
         "paper_ledger": {
-            "trades": [
+            "bets": [
                 {"status": "SETTLED", "home": "Bayern Munich", "away": "Freiburg", "logged_best_odds": 1.38},
                 {"status": "PENDING", "home": "Secret Team C", "away": "Secret Team D", "logged_best_odds": 1.65},
             ]
@@ -948,8 +954,8 @@ def test_monetization_api_keys_subscribers_and_redaction(tmp_path: Path):
     assert "🔒 Pro" in redacted["qualifying_picks"][1]["home"]
     assert "🔒 Pro" in redacted["tennis_picks"][0]["player_1"]
     # Settled ledger row remains 100% visible, while pending non-preview row is redacted
-    assert redacted["paper_ledger"]["trades"][0]["home"] == "Bayern Munich"
-    assert "🔒 Pro" in redacted["paper_ledger"]["trades"][1]["home"]
+    assert redacted["paper_ledger"]["bets"][0]["home"] == "Bayern Munich"
+    assert "🔒 Pro" in redacted["paper_ledger"]["bets"][1]["home"]
     assert build_openapi_v1_spec()["openapi"] == "3.1.0"
 
 

@@ -45,7 +45,7 @@ def _pad_team_hist(dq: deque | None, min_len: int = 3) -> list[dict[str, float]]
     return items
 
 PAPER_SCHEMA = """
-CREATE TABLE IF NOT EXISTS paper_trades (
+CREATE TABLE IF NOT EXISTS paper_bets (
     league TEXT NOT NULL,
     event_id TEXT NOT NULL,
     kickoff TEXT NOT NULL,
@@ -1153,13 +1153,13 @@ def _check_exact_score_hit(exact_pred: str | None, settled_score: str | None) ->
     return 1 if head in targets else 0
 
 
-def settle_pending_paper_trades(db_path: Path) -> int:
-    """Settle any PENDING paper_trades whose match outcome is now available in `matches` or live on ESPN,
+def settle_pending_paper_bets(db_path: Path) -> int:
+    """Settle any PENDING paper_bets whose match outcome is now available in `matches` or live on ESPN,
     and backfill `settled_score` and `exact_score_hit` for settled bets."""
     conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
     for col_name, col_type in (
         ("settled_score", "TEXT"),
         ("exact_score_pred", "TEXT"),
@@ -1175,11 +1175,11 @@ def settle_pending_paper_trades(db_path: Path) -> int:
         ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
-            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+            conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
     conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_trades WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (league IN ('atp', 'wta') AND (home_logo LIKE '%/headshots/%' OR away_logo LIKE '%/headshots/%')) OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
+        "SELECT * FROM paper_bets WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (league IN ('atp', 'wta') AND (home_logo LIKE '%/headshots/%' OR away_logo LIKE '%/headshots/%')) OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1227,7 +1227,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                         cur_out = "H" if hs_v > as_v else ("A" if as_v > hs_v else "D")
                         l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2) if cur_out == side else (0.0 if cur_out == "D" else -1.0)
                         conn.execute(
-                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (l_sc, l_pnl, now_iso, lg, eid),
                         )
                 except Exception:
@@ -1248,7 +1248,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                     c_lg_url = _extract_comp_logo((sd.get("header") or {}), sd)
                     if (h_lg_url or a_lg_url or c_lg_url) and needs_logos:
                         conn.execute(
-                            "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = COALESCE(?, home_logo), away_logo = COALESCE(?, away_logo) WHERE league = ? AND event_id = ?",
+                            "UPDATE paper_bets SET comp_logo = COALESCE(?, comp_logo), home_logo = COALESCE(?, home_logo), away_logo = COALESCE(?, away_logo) WHERE league = ? AND event_id = ?",
                             (c_lg_url, h_lg_url, a_lg_url, lg, eid),
                         )
                     new_ko = c0.get("date") or ""
@@ -1256,7 +1256,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                     c0_tv = 1 if (c0.get("timeValid") is not False and str(c0_st.get("shortDetail") or "").upper() != "TBD") else 0
                     if was_pending and new_ko and (new_ko != row["kickoff"] or c0_tv != int(row_t_valid)):
                         conn.execute(
-                            "UPDATE paper_trades SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            "UPDATE paper_bets SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (new_ko, c0_tv, now_iso, lg, eid),
                         )
                     if c0_st.get("completed"):
@@ -1296,12 +1296,12 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                 else None
                             )
                             conn.execute(
-                                "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                 (l_sc, l_pnl, mom_json, now_iso, lg, eid),
                             )
                     elif was_pending and row["is_live"]:
                         conn.execute(
-                            "UPDATE paper_trades SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            "UPDATE paper_bets SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (lg, eid),
                         )
             else:
@@ -1321,7 +1321,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                 t_c_logo = _extract_comp_logo(bd)
                                 if (p1_hs or p1_fl or p2_hs or p2_fl):
                                     conn.execute(
-                                        "UPDATE paper_trades SET comp_logo = COALESCE(?, comp_logo), home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
+                                        "UPDATE paper_bets SET comp_logo = COALESCE(?, comp_logo), home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
                                         (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, eid),
                                     )
                                 # Also verify that ESPN hasn't redrawn / replaced the opponent in this competition slot
@@ -1329,7 +1329,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                 if was_pending and p1_n and p2_n and "TBD" not in (p1_n, p2_n):
                                     if {p1_n, p2_n} != {row["home"], row["away"]}:
                                         conn.execute(
-                                            "DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                             (lg, eid),
                                         )
                                         continue
@@ -1340,7 +1340,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                     # Keep SofaScore's resolved start_utc if ESPN is still at T04:00Z placeholder
                                     ko_to_save = row["kickoff"] if (not c_tv and new_ko.endswith("T04:00Z") and not row["kickoff"].endswith("T04:00Z")) else new_ko
                                     conn.execute(
-                                        "UPDATE paper_trades SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                        "UPDATE paper_bets SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                         (ko_to_save, c_tv, now_iso, lg, eid),
                                     )
                                 if c_st.get("completed"):
@@ -1383,7 +1383,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                             )
                                         )
                                         conn.execute(
-                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                             (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
                                         )
                                 elif c_st.get("state") == "pre" and was_pending and row["kickoff"] <= now_iso:
@@ -1422,7 +1422,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
                                             )
                                         )
                                         conn.execute(
-                                            "UPDATE paper_trades SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                            "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                                             (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
                                         )
 
@@ -1434,7 +1434,7 @@ def settle_pending_paper_trades(db_path: Path) -> int:
             esc_hit = _check_exact_score_hit(row["exact_score_pred"], final_sc)
             conn.execute(
                 """
-                UPDATE paper_trades
+                UPDATE paper_bets
                 SET status = 'SETTLED', is_live = 0, live_score = NULL, live_pnl = NULL,
                     settled_outcome = ?, settled_score = COALESCE(?, settled_score),
                     exact_score_hit = COALESCE(?, exact_score_hit),
@@ -1665,6 +1665,8 @@ def scan_upcoming_other_sports(
                 comp_score = 0.0
                 sot_f = 0.0
                 vol_f = 0.0
+                co_f = 0.0
+                tov_f = 0.0
                 if oh_dq and oa_dq and len(oh_dq) >= 2 and len(oa_dq) >= 2 and lg in scalers_by_lg:
                     d_sot = float(np.mean([x["sot_d"] for x in oh_dq]) - np.mean([x["sot_d"] for x in oa_dq]))
                     d_sh = float(np.mean([x["sh_d"] for x in oh_dq]) - np.mean([x["sh_d"] for x in oa_dq]))
@@ -1675,8 +1677,10 @@ def scan_upcoming_other_sports(
                     p_m = p_mkt_h if sgn > 0 else (1.0 - p_mkt_h)
                     sot_f = sgn * d_sot
                     vol_f = sgn * d_sh
+                    co_f = sgn * d_co
+                    tov_f = -sgn * d_fo
                     sm_neg = max(0.0, -sgn * d_sm)
-                    f_vec = [p_m, sot_f, vol_f, sgn * d_co, -sgn * d_fo, sgn * rest_adv, max(0.0, sot_f) * sm_neg]
+                    f_vec = [p_m, sot_f, vol_f, co_f, tov_f, sgn * rest_adv, max(0.0, sot_f) * sm_neg]
                     comp_score = float(np.tanh(scalers_by_lg[lg].transform([f_vec])[0]).mean())
 
                 side = "H" if p_mkt_h >= 0.5 else "A"
@@ -1700,6 +1704,8 @@ def scan_upcoming_other_sports(
                     side=side,
                     odds_pick=odds_pick,
                     min_prob=min_prob,
+                    co_f=co_f,
+                    tov_f=tov_f,
                 ):
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(
@@ -2047,7 +2053,7 @@ def build_recommended_2leg_doubles(
     return doubles[:max_doubles]
 
 
-def scan_upcoming_and_log_paper_trades(
+def scan_upcoming_and_log_paper_bets(
     db_path: Path,
     days_ahead: int = 5,
     start_date: datetime | None = None,
@@ -2056,12 +2062,12 @@ def scan_upcoming_and_log_paper_trades(
     export_json_path: Path | None = None,
 ) -> dict[str, Any]:
     """Fetch upcoming soccer fixtures, score with the frozen 7-Factor Composite + Decision Model,
-    log qualifying picks to `paper_trades` with CLV tracking, and export `recommendations.json`."""
+    log qualifying picks to `paper_bets` with CLV tracking, and export `recommendations.json`."""
     conn = _open_db(db_path)
     conn.executescript(PAPER_SCHEMA)
     conn.close()
 
-    settled_n = settle_pending_paper_trades(db_path)
+    settled_n = settle_pending_paper_bets(db_path)
     scaler, thresholds, hist, h2h, calibrator, backtest_risk = build_frozen_model_and_team_state(
         db_path, leagues=BIG5_LEAGUES
     )
@@ -2287,15 +2293,15 @@ def scan_upcoming_and_log_paper_trades(
                         "headlines": news_sig.matched_headlines,
                     }
                     qualifying_picks.append(best_candidate)
-                    # Only log pre-match ('pre') fixtures into paper_trades so in-play matches cannot retroactively pollute the ledger
+                    # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
                     if not (vetoed_news or vetoed_xi):
                         if not best_candidate.get("is_live"):
-                            _upsert_paper_trade(db_path, best_candidate, now_iso)
+                            _upsert_paper_bet(db_path, best_candidate, now_iso)
                     else:
-                        # Remove from active PENDING paper_trades ONLY if vetoed by injury/lineup news before kickoff
+                        # Remove from active PENDING paper_bets ONLY if vetoed by injury/lineup news before kickoff
                         c_del = _open_db(db_path)
                         c_del.execute(
-                            "DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                             (lg.key, eid),
                         )
                         c_del.commit()
@@ -2316,7 +2322,7 @@ def scan_upcoming_and_log_paper_trades(
     for d_combo in recommended_doubles:
         _upsert_paper_combo(db_path, d_combo, now_iso)
 
-    # Also log qualifying Tennis Bankers (WinProb >= 0.70, odds > 1.10, form_6m_diff >= -0.15) and Major Sport Picks into paper_trades
+    # Also log qualifying Tennis Bankers (WinProb >= 0.70, odds > 1.10, form_6m_diff >= -0.15) and Major Sport Picks into paper_bets
     for tp in tennis_picks:
         t_odds = float(tp.get("best_odds") or tp.get("target_ev3_odds") or 0.0)
         t_open = float(tp.get("open_odds") or t_odds)
@@ -2329,7 +2335,7 @@ def scan_upcoming_and_log_paper_trades(
         )
         if tp.get("win_prob", 0.0) >= 0.70 and float(tp.get("min_fair_odds") or 0.0) > 1.10 and t_odds > 1.10 and t_form >= -0.15:
             t_side = "H" if tp["pick"] == tp["player_1"] else "A"
-            _upsert_paper_trade(
+            _upsert_paper_bet(
                 db_path,
                 {
                     "league": tp["tour"].lower(),
@@ -2359,7 +2365,7 @@ def scan_upcoming_and_log_paper_trades(
 
     for op in other_sport_picks:
         if float(op.get("best_odds") or 0.0) > 1.10:
-            _upsert_paper_trade(
+            _upsert_paper_bet(
                 db_path,
                 {
                     "league": op["league"].lower(),
@@ -2414,7 +2420,7 @@ def scan_upcoming_and_log_paper_trades(
     c_rev = _open_db(db_path)
     c_rev.row_factory = sqlite3.Row
     for r_pend in c_rev.execute(
-        "SELECT league, event_id, kickoff, is_live, live_score, clv_pct FROM paper_trades WHERE status = 'PENDING'",
+        "SELECT league, event_id, kickoff, is_live, live_score, clv_pct FROM paper_bets WHERE status = 'PENDING'",
     ).fetchall():
         lg_p = r_pend["league"].lower()
         eid_p = str(r_pend["event_id"])
@@ -2424,16 +2430,16 @@ def scan_upcoming_and_log_paper_trades(
         is_really_live = bool(r_pend["is_live"]) and "About to start" not in l_sc_p and "Not started" not in l_sc_p
         # Purge any PENDING row whose market price collapsed (CLV <= -0.35, e.g. unrated debut player vs 1.01 favorite)
         if clv_p <= -0.35:
-            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+            c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
             continue
         if is_really_live or ko_p <= now_iso:
             continue
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
-            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+            c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in ("nba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
-            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+            c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
-            c_rev.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
+            c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
     # Also purge any PENDING 2-leg combo in paper_combos where an unplayed future leg was withdrawn/redrawn or vetoed
     for r_cb in c_rev.execute("SELECT combo_id, leg1_json, leg2_json, leg1_hit, leg2_hit FROM paper_combos WHERE status = 'PENDING'").fetchall():
         l1_d = json.loads(r_cb["leg1_json"])
@@ -2449,8 +2455,8 @@ def scan_upcoming_and_log_paper_trades(
     c_rev.commit()
     c_rev.close()
 
-    # Run settlement once more in case any logged trades already finished in `matches`
-    settled_n += settle_pending_paper_trades(db_path)
+    # Run settlement once more in case any logged bets already finished in `matches`
+    settled_n += settle_pending_paper_bets(db_path)
     settle_pending_paper_combos(db_path)
     ledger_summary = get_paper_ledger_summary(db_path)
     report = {
@@ -2475,11 +2481,11 @@ def scan_upcoming_and_log_paper_trades(
     return report
 
 
-def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> None:
+def _upsert_paper_bet(db_path: Path, pick: dict[str, Any], now_iso: str) -> None:
     """Insert a new paper bet or update `latest_close_odds` and `clv_pct` if already logged."""
     conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
     for col_name, col_type in (
         ("settled_score", "TEXT"),
         ("exact_score_pred", "TEXT"),
@@ -2491,7 +2497,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
-            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+            conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
 
     t_valid_int = 0 if (pick.get("time_valid") is False or str(pick.get("kickoff") or "").endswith("T04:00Z")) else 1
     esc_pred_str = pick.get("exact_score_pred")
@@ -2501,7 +2507,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
             esc_pred_str = f"{ep['top_exact_score']} ({ep['top_exact_prob']*100:.1f}%) | Cluster {ep['cluster_3_scores']} ({ep['cluster_3_prob']*100:.1f}%)"
 
     existing = conn.execute(
-        "SELECT logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_trades WHERE league = ? AND event_id = ?",
+        "SELECT logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_bets WHERE league = ? AND event_id = ?",
         (pick["league"], pick["event_id"]),
     ).fetchone()
 
@@ -2515,7 +2521,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         clv_pct = (logged_best / cur_close) - 1.0 if cur_close > 1.0 else 0.0
         conn.execute(
             """
-            UPDATE paper_trades
+            UPDATE paper_bets
             SET kickoff = ?, time_valid = ?, latest_close_odds = ?, clv_pct = ?, composite_score = ?, tier = ?,
                 exact_score_pred = COALESCE(?, exact_score_pred),
                 comp_logo = COALESCE(?, comp_logo),
@@ -2545,7 +2551,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         # Also overwrite any stale SofaScore or unverified tennis image URLs with verified ESPN Core v2 / CDN URLs
         if h_logo or a_logo:
             conn.execute(
-                "UPDATE paper_trades SET home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
+                "UPDATE paper_bets SET home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
                 (h_logo, a_logo, pick["league"], pick["event_id"]),
             )
     else:
@@ -2554,7 +2560,7 @@ def _upsert_paper_trade(db_path: Path, pick: dict[str, Any], now_iso: str) -> No
         clv_pct = (pick["best_odds"] / cur_close) - 1.0 if cur_close > 1.0 else 0.0
         conn.execute(
             """
-            INSERT INTO paper_trades (
+            INSERT INTO paper_bets (
                 league, event_id, kickoff, time_valid, home, away, comp_logo, home_logo, away_logo,
                 side, tier, composite_score, p_mkt, open_odds, logged_best_odds, logged_primary_odds,
                 latest_close_odds, clv_pct, synthetic_dc_odds, exact_score_pred, factor_breakdown_json,
@@ -2596,9 +2602,9 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     """Inspect pending soccer paper bets kicking off within the next 90 minutes.
     If official 11-player starting XIs are announced:
       - If `evaluate_starting_xi_gate` flags `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`,
-        remove the bet from active PENDING `paper_trades` and return it in `vetoed_alerts`.
+        remove the bet from active PENDING `paper_bets` and return it in `vetoed_alerts`.
       - Otherwise, persist the confirmed `starting_xi_gate` (`CONFIRMED_XI` / `CONFIRMED_XI_DEF_ROTATED`),
-        latest closing odds, and `clv_pct` in `paper_trades` and `recommendations.json`."""
+        latest closing odds, and `clv_pct` in `paper_bets` and `recommendations.json`."""
     if not db_path.exists():
         return []
     conn = _open_db(db_path)
@@ -2609,7 +2615,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     soon_iso = (now_dt + timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = conn.execute(
         """
-        SELECT * FROM paper_trades
+        SELECT * FROM paper_bets
         WHERE status = 'PENDING'
           AND lower(league) NOT IN ('atp', 'wta', 'nba', 'nhl', 'nfl', 'mlb')
           AND kickoff >= ? AND kickoff <= ?
@@ -2639,7 +2645,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
         if gate.get("vetoed"):
             c_del = _open_db(db_path)
-            c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+            c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()
             c_del.close()
             vetoed_alerts.append({
@@ -2654,7 +2660,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         else:
             c_upd = _open_db(db_path)
             c_upd.execute(
-                "UPDATE paper_trades SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                "UPDATE paper_bets SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
                 (round(float(cur_close), 3), clv_pct, now_iso, lg, eid),
             )
             c_upd.commit()
@@ -2879,7 +2885,7 @@ def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> N
 
 
 def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tuple[int | None, str | None]:
-    """Grade one leg of a 2-leg combo against settled `paper_trades` or `matches`.
+    """Grade one leg of a 2-leg combo against settled `paper_bets` or `matches`.
     Returns `(1=win, 0=loss, None=pending)` and `score_str`.
     Strictly verifies that any matched `matches` row occurred on or after `leg['kickoff'][:10]` so historical H2H rows never prematurely settle an upcoming leg!"""
     lg = str(leg.get("league") or "").lower().strip()
@@ -2910,13 +2916,13 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
     pt_row = None
     if lg and eid:
         pt_row = conn.execute(
-            "SELECT settled_outcome, settled_score FROM paper_trades WHERE lower(league) = ? AND event_id = ? AND status = 'SETTLED'",
+            "SELECT settled_outcome, settled_score FROM paper_bets WHERE lower(league) = ? AND event_id = ? AND status = 'SETTLED'",
             (lg, eid),
         ).fetchone()
     if not pt_row and " vs " in match_name and leg_date:
         h_n, a_n = [x.strip() for x in match_name.split(" vs ", 1)]
         pt_row = conn.execute(
-            "SELECT settled_outcome, settled_score FROM paper_trades WHERE home = ? AND away = ? AND kickoff >= ? AND status = 'SETTLED' ORDER BY kickoff DESC LIMIT 1",
+            "SELECT settled_outcome, settled_score FROM paper_bets WHERE home = ? AND away = ? AND kickoff >= ? AND status = 'SETTLED' ORDER BY kickoff DESC LIMIT 1",
             (h_n, a_n, leg_date),
         ).fetchone()
     if pt_row:
@@ -3007,7 +3013,7 @@ def settle_pending_paper_combos(db_path: Path) -> int:
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Reset any combo whose kickoff is still in the future AND neither leg has actually finished in paper_trades
+    # Reset any combo whose kickoff is still in the future AND neither leg has actually finished in paper_bets
     conn.execute(
         "UPDATE paper_combos SET status = 'PENDING', leg1_hit = NULL, leg2_hit = NULL, leg1_score = NULL, leg2_score = NULL, pnl = NULL WHERE kickoff > ? AND status = 'SETTLED' AND pnl > 0",
         (now_iso,),
@@ -3049,7 +3055,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(PAPER_SCHEMA)
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
     for col_name, col_type in (
         ("settled_score", "TEXT"),
         ("exact_score_pred", "TEXT"),
@@ -3065,14 +3071,14 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         ("away_logo", "TEXT"),
     ):
         if col_name not in cols:
-            conn.execute(f"ALTER TABLE paper_trades ADD COLUMN {col_name} {col_type}")
+            conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
     conn.commit()
     rows = [
         dict(r)
         for r in conn.execute(
             """
             SELECT p.*, m.home_score, m.away_score
-            FROM paper_trades p
+            FROM paper_bets p
             LEFT JOIN matches m ON p.league = m.league AND p.event_id = m.event_id
             ORDER BY p.status DESC, p.kickoff ASC
             """
@@ -3222,7 +3228,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         "exact_score_hits": esc_hits,
         "exact_score_hit_rate_pct": round(esc_hits / len(esc_graded) * 100.0, 1) if esc_graded else None,
         "mean_clv_pct": float(np.mean([r["clv_pct"] for r in rows])) if rows else 0.0,
-        "trades": [
+        "bets": [
             {
                 "league": r["league"],
                 "event_id": r["event_id"],

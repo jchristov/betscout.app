@@ -895,8 +895,11 @@ def scan_sportradar_european_sports(
                         "sp_label": sp_label,
                         "comp_label": comp_label,
                         "kickoff": ko_iso,
+                        "ko_uts": int(dt_uts),
                         "home": h_name,
                         "away": a_name,
+                        "h_uid": (teams.get("home") or {}).get("uid"),
+                        "a_uid": (teams.get("away") or {}).get("uid"),
                         "side": side,
                         "pick": h_name if side == "H" else a_name,
                         "p_mkt": round(p_mkt_fav, 4),
@@ -921,14 +924,38 @@ def scan_sportradar_european_sports(
             h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
             a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
             form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
-            # Also compute Last-3 immediate session form (`form[:3]`) and current win/loss streaks (`streak`)
-            h_r3 = (sum(1.0 for x in h_f_list[:3] if x.get("type") == "W") / len(h_f_list[:3])) if len(h_f_list) >= 3 else 0.5
-            a_r3 = (sum(1.0 for x in a_f_list[:3] if x.get("type") == "W") / len(a_f_list[:3])) if len(a_f_list) >= 3 else 0.5
+            # In Sportradar `stats_match_form`, `form` is chronological (`form[-3:]` are the 3 most recent matches)
+            h_r3 = (sum(1.0 for x in h_f_list[-3:] if x.get("type") == "W") / len(h_f_list[-3:])) if len(h_f_list) >= 3 else 0.5
+            a_r3 = (sum(1.0 for x in a_f_list[-3:] if x.get("type") == "W") / len(a_f_list[-3:])) if len(a_f_list) >= 3 else 0.5
             recent3_diff_fav = ((h_r3 - a_r3) if cand["side"] == "H" else (a_r3 - h_r3)) if (len(h_f_list) >= 3 and len(a_f_list) >= 3) else None
             fav_st_obj = (h_f_obj.get("streak") if cand["side"] == "H" else a_f_obj.get("streak")) or {}
             dog_st_obj = (a_f_obj.get("streak") if cand["side"] == "H" else h_f_obj.get("streak")) or {}
             fav_loss_streak = int(fav_st_obj.get("value") or 0) if fav_st_obj.get("type") == "L" else 0
             dog_win_streak = int(dog_st_obj.get("value") or 0) if dog_st_obj.get("type") == "W" else 0
+
+            # For Table Tennis, check `stats_team_lastx/{uid}/5` to measure hours since each player's last match (Cold-Session Rust Veto)
+            fav_hours_since_last: float | None = None
+            dog_hours_since_last: float | None = None
+            if sp_slug == "table_tennis" and cand.get("ko_uts"):
+                fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
+                dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
+                for is_fav_u, p_uid in ((True, fav_uid), (False, dog_uid)):
+                    if not p_uid:
+                        continue
+                    lx_d = fetch_statshub_gismo(f"stats_team_lastx/{p_uid}/6", ttl_sec=1800.0) or {}
+                    prev_uts = [
+                        int(((m_x.get("time") or {}).get("uts")) or 0)
+                        for m_x in (lx_d.get("matches") or [])
+                        if int(((m_x.get("time") or {}).get("uts")) or 0) < int(cand["ko_uts"])
+                        and str(m_x.get("_id")) != str(cand["mid"])
+                    ]
+                    if prev_uts:
+                        hrs_gap = round((int(cand["ko_uts"]) - max(prev_uts)) / 3600.0, 2)
+                        if is_fav_u:
+                            fav_hours_since_last = hrs_gap
+                        else:
+                            dog_hours_since_last = hrs_gap
+
             p_elo_fav = 0.50
             if lg_elo is not None:
                 p_elo_h = float(lg_elo.p_home_win_or_draw_free(cand["home"], cand["away"]))
@@ -946,6 +973,8 @@ def scan_sportradar_european_sports(
                 recent3_diff_fav=recent3_diff_fav,
                 fav_loss_streak=fav_loss_streak,
                 dog_win_streak=dog_win_streak,
+                fav_hours_since_last=fav_hours_since_last,
+                dog_hours_since_last=dog_hours_since_last,
             )
             if not passed:
                 continue

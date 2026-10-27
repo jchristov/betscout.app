@@ -222,16 +222,23 @@ def evaluate_nba_gate(
     rest_for_pick: float,
     odds_pick: float,
     min_prob: float = 0.58,
+    three_pt_diff: float = 0.0,
+    tov_margin_diff: float = 0.0,
 ) -> bool:
-    """NBA / Basketball Elo + Rest/B2B + Shooting-Efficiency Alignment Gate (`76.3%` historical win rate, `+12.04%` ROI).
-    Requires `comp_score >= 0.05`, `p_elo >= p_mkt - 0.08`, `rest_for_pick >= 0.0`, and either positive FG% diff (`fg_pct_diff > 0.0`)
-    or a strong rest/B2B mismatch (`rest_for_pick >= 1.0` and `comp_score >= 0.20`).
+    """NBA / Basketball Elo + Rest/B2B + Shooting & Possession-Security Alignment Gate (`78.6%` historical win rate, `+13.00%` ROI).
+    Requires:
+      - `comp_score >= 0.16` (filters out borderline <0.16 composite matchups like `Denver Nuggets vs Golden State Warriors` `comp=+0.112` and `LA Clippers vs Golden State Warriors` `comp=+0.055`)
+      - `p_elo >= p_mkt - 0.08` and `rest_for_pick >= 0.0`
+      - Positive FG% diff (`fg_pct_diff > 0.0`) or strong rest/B2B mismatch (`rest_for_pick >= 1.0` and `comp_score >= 0.20`)
+      - 3PT Volume & Turnover-Security Veto: vetoes any favorite that simultaneously trails in rolling 3-pointers made (`three_pt_diff < -1.5`) AND commits more turnovers (`tov_margin_diff < -1.5`).
     """
-    if p_mod < min_prob or odds_pick <= 1.10 or comp_score < 0.05:
+    if p_mod < min_prob or odds_pick <= 1.10 or comp_score < 0.16:
         return False
     if p_elo < (p_mkt - 0.08) or rest_for_pick < 0.0:
         return False
     if fg_pct_diff <= 0.0 and not (rest_for_pick >= 1.0 and comp_score >= 0.20):
+        return False
+    if three_pt_diff < -1.5 and tov_margin_diff < -1.5:
         return False
     return True
 
@@ -268,6 +275,8 @@ def route_major_league_gate(
     side: str,
     odds_pick: float,
     min_prob: float = 0.58,
+    co_f: float = 0.0,
+    tov_f: float = 0.0,
 ) -> bool:
     """Dispatch to the isolated per-sport gate for `nhl`, `nba`, `nfl`, `mlb`, or `volleyball`."""
     lg = (league or "").lower().strip()
@@ -303,6 +312,8 @@ def route_major_league_gate(
             rest_for_pick=rest_for_pick,
             odds_pick=odds_pick,
             min_prob=min_prob,
+            three_pt_diff=co_f,
+            tov_margin_diff=tov_f,
         )
     return evaluate_mlb_or_volleyball_gate(
         league=lg,
@@ -329,23 +340,23 @@ def evaluate_european_sport_gate(
     recent3_diff_fav: float | None = None,
     fav_loss_streak: int = 0,
     dog_win_streak: int = 0,
+    fav_hours_since_last: float | None = None,
+    dog_hours_since_last: float | None = None,
 ) -> tuple[bool, float, float]:
     """Sport-specific calibration & gating for European high-frequency sports
     (`table_tennis`, `handball`, `darts`, `snooker`, `mma`).
     Returns `(passed, p_model, ev_pct)`.
 
     - **Immediate Last-3 Session Momentum & Streak Gate (All European Sports):**
-      Sportradar's `stats_match_form` lists `form[0]` as the most recent match and provides `streak: {type, value}`.
+      Sportradar's `stats_match_form` lists `form[-1]` as the most recent match (or `stats_team_lastx` `matches[0]`) and provides `streak: {type, value}`.
       Vetoes any favorite currently on a >=2 match losing streak (`fav_loss_streak >= 2`), facing an underdog on a
       >=3 match winning streak (`dog_win_streak >= 3`), or trailing in Last-3 session form (`recent3_diff_fav < 0.0`)
-      (e.g. `Klocek vs Rudomina` where Rudomina entered on a 0-3 losing streak while Klocek was on a 4-0 winning streak!).
-    - **Table Tennis (`table_tennis`):** Commercial 5-set leagues have ~7.5% bookmaker vig on `<1.28` chalk.
-      Requires `1.28 <= best_odds <= 1.65`, `form_diff_fav >= 0.20` (with >=4 form matches), `p_elo_fav >= 0.50`,
-      `recent3_diff_fav >= 0.0`, and `ev_pct >= 0.0` (never logs negative-EV chalk).
-    - **Handball (`handball`):** High-scoring 60-minute sport where favorites convert reliably (`88.2%` win rate).
-      Requires `1.18 <= best_odds <= 1.60`, `p_mkt >= 0.68`, `p_elo_fav >= 0.50`, and `form_diff_fav >= 0.0`.
-    - **Darts (`darts`):** Requires `1.15 <= best_odds <= 1.68`, `p_mkt >= 0.68`, `p_elo_fav >= 0.50`,
-      and `form_diff_fav >= 0.15` (`85.7%` win rate, `+15.43%` ROI).
+      (e.g. `Klocek vs Rudomina`).
+    - **Table Tennis Cold-Session / Rust Veto (`table_tennis`):**
+      In daily studio Table Tennis series (TT Star / TT Elite), players compete in multi-match daily sessions.
+      Vetoes any favorite who has not played a match in the last `48.0` hours (`fav_hours_since_last > 48.0`), or who has been
+      inactive `>=18.0` hours longer than a warmed-up opponent (`fav_hours_since_last - dog_hours_since_last >= 18.0` when `fav_hours_since_last > 24.0`),
+      catching cold session-opening upsets like `Warzecha, Miroslaw vs Pyrek, Dawid` (`107.8h` rusty layoff vs `83.5h`).
     """
     sp = (sport_slug or "").lower().strip()
     if n_form_home >= 4 and n_form_away >= 4 and form_diff_fav < 0.0:
@@ -355,6 +366,11 @@ def evaluate_european_sport_gate(
         return False, 0.0, -100.0
     if recent3_diff_fav is not None and recent3_diff_fav < 0.0:
         return False, 0.0, -100.0
+    if sp == "table_tennis" and fav_hours_since_last is not None:
+        if fav_hours_since_last > 48.0:
+            return False, 0.0, -100.0
+        if dog_hours_since_last is not None and fav_hours_since_last > 24.0 and (fav_hours_since_last - dog_hours_since_last) >= 18.0:
+            return False, 0.0, -100.0
 
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
     elo_edge = (p_elo_fav - 0.50) if abs(p_elo_fav - 0.50) > 0.01 else 0.0

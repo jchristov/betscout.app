@@ -476,7 +476,7 @@ def redact_recommendations_for_free_tier(
 
     ledger = out.get("paper_ledger")
     if isinstance(ledger, dict):
-        for tr in ledger.get("trades") or []:
+        for tr in ledger.get("bets") or []:
             if tr.get("status") != "SETTLED":
                 m_str = f"{tr.get('home')} vs {tr.get('away')}"
                 if m_str not in unlocked_matches:

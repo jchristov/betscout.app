@@ -33,11 +33,11 @@ from .dashboard import (
     generate_dashboard_html,
 )
 from .espn import LEAGUE_LABELS
-from .paper_trade import (
+from .paper_bet import (
     get_paper_ledger_summary,
     refresh_t60_starting_xi_gates,
-    scan_upcoming_and_log_paper_trades,
-    settle_pending_paper_trades,
+    scan_upcoming_and_log_paper_bets,
+    settle_pending_paper_bets,
 )
 from .telegram_bot import (
     format_discord_digest,
@@ -324,16 +324,16 @@ def _save_webapp_settings(
                 cur[k] = updates[k]
         if isinstance(updates.get("disabled_sports"), list):
             cur["disabled_sports"] = [str(x).lower().strip() for x in updates["disabled_sports"] if x]
-            # Remove any uncompleted pre-match PENDING paper_trades for disabled sports while keeping SETTLED rows in the ledger
+            # Remove any uncompleted pre-match PENDING paper_bets for disabled sports while keeping SETTLED rows in the ledger
             db_f = data_dir / "betscout.db"
             if db_f.exists() and cur["disabled_sports"]:
                 try:
                     dis_set = set(cur["disabled_sports"])
                     c_dis = sqlite3.connect(db_f, timeout=15.0)
                     c_dis.row_factory = sqlite3.Row
-                    for r_p in c_dis.execute("SELECT league, event_id FROM paper_trades WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL)").fetchall():
+                    for r_p in c_dis.execute("SELECT league, event_id FROM paper_bets WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL)").fetchall():
                         if _league_to_sport_cat(r_p["league"]) in dis_set or str(r_p["league"]).lower() in dis_set:
-                            c_dis.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_p["league"], r_p["event_id"]))
+                            c_dis.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_p["league"], r_p["event_id"]))
                     c_dis.commit()
                     c_dis.close()
                 except Exception:
@@ -371,7 +371,7 @@ def _build_live_snapshot(
     newly_settled = 0
     if run_settle and db_path.exists():
         try:
-            newly_settled = settle_pending_paper_trades(db_path)
+            newly_settled = settle_pending_paper_bets(db_path)
             if newly_settled > 0:
                 notify_new_settlements_to_discord(db_path)
         except Exception:
@@ -381,8 +381,8 @@ def _build_live_snapshot(
     dis_sports = set(cfg_now.get("disabled_sports") or [])
     rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
     ledger = get_paper_ledger_summary(db_path) if db_path.exists() else {}
-    filtered_trades = []
-    for tr in ledger.get("trades") or []:
+    filtered_bets = []
+    for tr in ledger.get("bets") or []:
         tr["kickoff_local"] = _format_local_time(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["announced_local"] = _format_local_time(tr.get("logged_at") or rec.get("generated_at") or "", DEFAULT_LOCAL_TZ)
         tr["ended_local"] = (
@@ -393,14 +393,14 @@ def _build_live_snapshot(
         tr["day_key"] = _match_day_key(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
         tr["league_label"] = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
         tr["sport_cat"] = _league_to_sport_cat(tr["league"])
-        # Keep completed (SETTLED) trades in the ledger even if their sport is toggled off; exclude non-settled trades for disabled sports
+        # Keep completed (SETTLED) bets in the ledger even if their sport is toggled off; exclude non-settled bets for disabled sports
         if tr.get("status") != "SETTLED" and tr["sport_cat"] in dis_sports:
             continue
-        filtered_trades.append(tr)
+        filtered_bets.append(tr)
     if ledger:
-        ledger["trades"] = filtered_trades
-        ledger["pending_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and not t.get("is_live"))
-        ledger["live_count"] = sum(1 for t in filtered_trades if t.get("status") == "PENDING" and t.get("is_live"))
+        ledger["bets"] = filtered_bets
+        ledger["pending_count"] = sum(1 for t in filtered_bets if t.get("status") == "PENDING" and not t.get("is_live"))
+        ledger["live_count"] = sum(1 for t in filtered_bets if t.get("status") == "PENDING" and t.get("is_live"))
     rec["paper_ledger"] = ledger
     if role == "free":
         from .monetization import get_monetization_config, redact_recommendations_for_free_tier
@@ -496,7 +496,7 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
             conn_pt = sqlite3.connect(db_path)
             conn_pt.row_factory = sqlite3.Row
             pt_r = conn_pt.execute(
-                "SELECT * FROM paper_trades WHERE home = ? AND away = ? ORDER BY kickoff DESC LIMIT 1",
+                "SELECT * FROM paper_bets WHERE home = ? AND away = ? ORDER BY kickoff DESC LIMIT 1",
                 (h, a),
             ).fetchone()
             conn_pt.close()
@@ -551,7 +551,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     from collections import defaultdict, deque
     from .elo import Elo
     from .exact_score import predict_soccer_exact_scores, predict_tennis_set_scores
-    from .paper_trade import _fetch_sofascore_tennis_odds
+    from .paper_bet import _fetch_sofascore_tennis_odds
 
     raw_q = (query or "").strip()
     if " vs " in raw_q.lower():
@@ -839,7 +839,7 @@ def _refresh_inplay_timelinedelta(db_path: Path) -> int:
     conn.row_factory = sqlite3.Row
     live_rows = [
         dict(r)
-        for r in conn.execute("SELECT league, event_id, home, away, side, live_score, live_momentum_json FROM paper_trades WHERE status = 'PENDING' AND is_live = 1").fetchall()
+        for r in conn.execute("SELECT league, event_id, home, away, side, live_score, live_momentum_json FROM paper_bets WHERE status = 'PENDING' AND is_live = 1").fetchall()
     ]
     conn.close()
     if not live_rows:
@@ -875,7 +875,7 @@ def _refresh_inplay_timelinedelta(db_path: Path) -> int:
         if (new_sc and new_sc != r.get("live_score")) or (new_mom_json != r.get("live_momentum_json")):
             c_up = sqlite3.connect(db_path, timeout=10.0)
             c_up.execute(
-                "UPDATE paper_trades SET live_score = ?, live_momentum_json = ? WHERE league = ? AND event_id = ?",
+                "UPDATE paper_bets SET live_score = ?, live_momentum_json = ? WHERE league = ? AND event_id = ?",
                 (new_sc or r.get("live_score"), new_mom_json, r["league"], r["event_id"]),
             )
             c_up.commit()
@@ -905,7 +905,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
             if _PIPELINE_STATUS.get("running") or not db_path.exists():
                 continue
             try:
-                settled_n = settle_pending_paper_trades(db_path)
+                settled_n = settle_pending_paper_bets(db_path)
                 vetoes = refresh_t60_starting_xi_gates(db_path)
                 cfg_now = _load_webapp_settings(data_dir)
                 if cfg_now.get("inplay_alerts_enabled") or any(cfg_now.get("inplay_alert_items", {}).values()):
@@ -934,7 +934,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     today_str = now_loc.strftime("%Y-%m-%d")
                     if now_loc.hour == int(digest_hr_str) and last_digest_ymd[0] != today_str:
                         last_digest_ymd[0] = today_str
-                        scan_upcoming_and_log_paper_trades(db_path=db_path, days_ahead=3, decision_backend="laya", export_json_path=rec_path)
+                        scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=3, decision_backend="laya", export_json_path=rec_path)
                         generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
                         rec_d = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                         msg_d = format_discord_digest(rec=rec_d, db_path=db_path, min_odds=1.15, day_filter="today")
@@ -1154,7 +1154,7 @@ self.addEventListener('fetch', (event) => {{
 
             if parsed.path.startswith("/api/v1/"):
                 from .monetization import build_openapi_v1_spec, validate_and_meter_api_key
-                from .paper_trade import build_recommended_2leg_doubles
+                from .paper_bet import build_recommended_2leg_doubles
 
                 if parsed.path == "/api/v1/openapi.json":
                     self._send_json(build_openapi_v1_spec())
@@ -1518,9 +1518,9 @@ self.addEventListener('fetch', (event) => {{
                     lg_id = str(body.get("league") or "")
                     c_del = sqlite3.connect(db_path, timeout=10.0)
                     if ev_id and lg_id:
-                        c_del.execute("DELETE FROM paper_trades WHERE league = ? AND event_id = ? AND tier = 'tracked_live'", (lg_id, ev_id))
+                        c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND tier = 'tracked_live'", (lg_id, ev_id))
                     elif ev_id:
-                        c_del.execute("DELETE FROM paper_trades WHERE event_id = ? AND tier = 'tracked_live'", (ev_id,))
+                        c_del.execute("DELETE FROM paper_bets WHERE event_id = ? AND tier = 'tracked_live'", (ev_id,))
                     c_del.commit()
                     c_del.close()
                     snap = _build_live_snapshot(rec_path, db_path, min_odds=1.10, sport="all", run_settle=False)
@@ -1542,7 +1542,7 @@ self.addEventListener('fetch', (event) => {{
                     self._send_json({"ok": False, "error": "Please enter 'Home vs Away' (e.g. 'Mpetshi Perricard vs Kovacevic' or 'Arsenal vs Chelsea')."}, status=400)
                     return
 
-                from .paper_trade import _ensure_paper_table
+                from .paper_bet import _ensure_paper_table
                 from .sportradar_statshub import evaluate_inplay_goal_timing_edge, fetch_live_match_timelinedelta
 
                 res_a = _analyze_live_matchup(db_path, h_in, a_in, sport=sp_in)
@@ -1587,7 +1587,7 @@ self.addEventListener('fetch', (event) => {{
                 _ensure_paper_table(c_ins)
                 c_ins.execute(
                     """
-                    INSERT OR REPLACE INTO paper_trades
+                    INSERT OR REPLACE INTO paper_bets
                     (created_at, league, event_id, match_date, home, away, market_group, side,
                      prob, fair_odds, book_odds, tier, status, is_live, live_score, live_momentum_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'tracked_live', 'PENDING', ?, ?, ?)
@@ -1633,7 +1633,7 @@ self.addEventListener('fetch', (event) => {{
                         new_ingested_count = sum(ing_res.get("new_ingested", {}).values())
                     if rescan:
                         _PIPELINE_STATUS["step"] = "[2/4] Settling paper bets & scanning upcoming fixtures across all sports..."
-                        scan_upcoming_and_log_paper_trades(
+                        scan_upcoming_and_log_paper_bets(
                             db_path=db_path,
                             days_ahead=int(body.get("days") or 3),
                             decision_backend="laya",
@@ -1642,7 +1642,7 @@ self.addEventListener('fetch', (event) => {{
                         newly_settled = 0
                     else:
                         _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against live scores..."
-                        newly_settled = settle_pending_paper_trades(db_path)
+                        newly_settled = settle_pending_paper_bets(db_path)
 
                     _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement alerts & regenerating dashboard..."
                     notify_new_settlements_to_discord(db_path)

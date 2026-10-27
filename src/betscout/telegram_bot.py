@@ -23,10 +23,10 @@ from typing import Any
 from . import load_dotenv
 from .dashboard import DEFAULT_LOCAL_TZ, _format_local_time, _league_to_sport_cat, build_best_bets_summary
 from .espn import LEAGUE_LABELS
-from .paper_trade import (
+from .paper_bet import (
     build_recommended_2leg_doubles,
     get_paper_ledger_summary,
-    settle_pending_paper_trades,
+    settle_pending_paper_bets,
 )
 
 SPORT_EMOJIS: dict[str, str] = {
@@ -74,7 +74,7 @@ def format_telegram_digest(
 
     if db_path and db_path.exists():
         try:
-            settle_pending_paper_trades(db_path)
+            settle_pending_paper_bets(db_path)
             rec = {**rec, "paper_ledger": get_paper_ledger_summary(db_path)}
         except Exception:
             pass
@@ -128,15 +128,15 @@ def format_telegram_digest(
             f"{prof_icon} <b>Settled Paper-Bets: {s_cnt} ({s_wins}W - {s_loss}L) | "
             f"PnL: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)</b>"
         )
-        settled_trades = [t for t in (ledger.get("trades") or []) if t.get("status") == "SETTLED"]
+        settled_bets = [t for t in (ledger.get("bets") or []) if t.get("status") == "SETTLED"]
         if norm_day != "all":
             recent_settled = [
-                t for t in settled_trades
+                t for t in settled_bets
                 if _format_local_time(t.get("kickoff") or "", tz_name)[:10] in (today_ymd, yesterday_ymd)
             ]
-            settled_to_show = recent_settled[-6:] if recent_settled else settled_trades[-4:]
+            settled_to_show = recent_settled[-6:] if recent_settled else settled_bets[-4:]
         else:
-            settled_to_show = settled_trades[-6:]
+            settled_to_show = settled_bets[-6:]
         for tr in settled_to_show:
             pnl_v = float(tr.get("pnl_best") or 0.0)
             badge = "✅ WIN" if pnl_v > 0 else "❌ LOSS"
@@ -545,9 +545,9 @@ def notify_new_settlements_to_discord(
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
             if "notified_at" not in cols:
-                conn.execute("ALTER TABLE paper_trades ADD COLUMN notified_at TEXT")
+                conn.execute("ALTER TABLE paper_bets ADD COLUMN notified_at TEXT")
             combo_cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_combos)").fetchall()}
             if combo_cols and "notified_at" not in combo_cols:
                 conn.execute("ALTER TABLE paper_combos ADD COLUMN notified_at TEXT")
@@ -555,7 +555,7 @@ def notify_new_settlements_to_discord(
             unnotified = [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT * FROM paper_trades WHERE status = 'SETTLED' AND notified_at IS NULL ORDER BY kickoff ASC"
+                    "SELECT * FROM paper_bets WHERE status = 'SETTLED' AND notified_at IS NULL ORDER BY kickoff ASC"
                 ).fetchall()
             ]
             unnotified_combos = (
@@ -577,7 +577,7 @@ def notify_new_settlements_to_discord(
             if not dry_run:
                 for r in unnotified:
                     conn.execute(
-                        "UPDATE paper_trades SET notified_at = ? WHERE league = ? AND event_id = ? AND notified_at IS NULL",
+                        "UPDATE paper_bets SET notified_at = ? WHERE league = ? AND event_id = ? AND notified_at IS NULL",
                         (claim_iso, r["league"], r["event_id"]),
                     )
                 for c in unnotified_combos:
@@ -743,7 +743,7 @@ def notify_new_settlements_to_discord(
             c_rel = sqlite3.connect(db_path, timeout=15.0)
             for r in unnotified:
                 c_rel.execute(
-                    "UPDATE paper_trades SET notified_at = NULL WHERE league = ? AND event_id = ? AND notified_at = ?",
+                    "UPDATE paper_bets SET notified_at = NULL WHERE league = ? AND event_id = ? AND notified_at = ?",
                     (r["league"], r["event_id"], claim_iso),
                 )
             for c in unnotified_combos:
@@ -766,7 +766,7 @@ def notify_inplay_rebound_edges_to_discord(
     global_enabled: bool = False,
     item_overrides: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
-    """Check `paper_trades` for any active in-play (`status = 'PENDING' AND is_live = 1`) match
+    """Check `paper_bets` for any active in-play (`status = 'PENDING' AND is_live = 1`) match
     whose `live_momentum_json` has `is_rebound_edge == True` and has not yet been notified
     (checked against both persistent `inplay_notified_at` column and `notified_live_edge` JSON flag),
     post a one-time Halftime / In-Play Dominance Rebound alert to Discord, and stamp both."""
@@ -779,13 +779,13 @@ def notify_inplay_rebound_edges_to_discord(
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_trades)").fetchall()}
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
             if "inplay_notified_at" not in cols:
-                conn.execute("ALTER TABLE paper_trades ADD COLUMN inplay_notified_at TEXT")
+                conn.execute("ALTER TABLE paper_bets ADD COLUMN inplay_notified_at TEXT")
             rows = [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT * FROM paper_trades WHERE status = 'PENDING' AND is_live = 1 AND live_momentum_json IS NOT NULL AND inplay_notified_at IS NULL"
+                    "SELECT * FROM paper_bets WHERE status = 'PENDING' AND is_live = 1 AND live_momentum_json IS NOT NULL AND inplay_notified_at IS NULL"
                 ).fetchall()
             ]
             to_notify: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -806,7 +806,7 @@ def notify_inplay_rebound_edges_to_discord(
                     if not dry_run:
                         _INPLAY_NOTIFIED_MEMORY.add(item_k)
                         conn.execute(
-                            "UPDATE paper_trades SET live_momentum_json = ?, inplay_notified_at = ? WHERE league = ? AND event_id = ?",
+                            "UPDATE paper_bets SET live_momentum_json = ?, inplay_notified_at = ? WHERE league = ? AND event_id = ?",
                             (json.dumps(mom), now_claim, r["league"], r["event_id"]),
                         )
                     to_notify.append((r, mom))

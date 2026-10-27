@@ -71,8 +71,8 @@ SUBCOMMAND_MODULES: dict[str, str] = {
     "quality": "quality",
     "enrich": "enrich",
     "edges": "quant_edges",
-    "bet": "paper_trade",
-    "scan": "paper_trade",
+    "bet": "paper_bet",
+    "scan": "paper_bet",
     "dashboard": "dashboard",
     "ledger": "ledger",
     "discord": "discord_post",
@@ -104,7 +104,7 @@ def cli() -> None:
             print("  quality      Run 18-point match database hygiene & anomaly audit")
             print("  enrich       Rebuild or refresh 49-column match_details table")
             print("  edges        Evaluate multi-sport 7-factor composite & walk-forward backtest")
-            print("  scan         Scan upcoming fixtures across all sports & log paper trades")
+            print("  scan         Scan upcoming fixtures across all sports & log paper bets")
             print("  dashboard    Generate standalone HTML dashboard, CSV & JSON exports")
             print("  ledger       Inspect settled & pending paper-betting ledger in terminal")
             print("  discord      Format & publish daily digest + PNG cards to Discord")
@@ -139,7 +139,7 @@ def quant_edges_cli() -> None:
 
 
 def paper_bet_cli() -> None:
-    _run_script("paper_trade")
+    _run_script("paper_bet")
 
 
 def dashboard_cli() -> None:

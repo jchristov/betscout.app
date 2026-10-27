@@ -1,5 +1,5 @@
 """Generate a self-contained HTML Quantitative Desk Dashboard (`data/dashboard.html`)
-from `data/recommendations.json` and the `paper_trades` SQLite ledger."""
+from `data/recommendations.json` and the `paper_bets` SQLite ledger."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from . import load_dotenv
 from .espn import LEAGUE_LABELS
-from .paper_trade import get_paper_ledger_summary, settle_pending_paper_trades
+from .paper_bet import get_paper_ledger_summary, settle_pending_paper_bets
 
 BEST_BETS_CSV_COLUMNS = ("date", "date_local", "sport_league", "match", "pick", "odds", "odds_display")
 
@@ -217,7 +217,7 @@ def build_best_bets_summary(
     dis_set = {str(x).lower().strip() for x in (disabled_sports or []) if x}
     settled_ids = {
         (t["league"], str(t["event_id"]))
-        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        for t in ((rec.get("paper_ledger") or {}).get("bets") or [])
         if t.get("status") == "SETTLED"
     }
     def_ann_iso = str(rec.get("generated_at") or "")
@@ -231,7 +231,7 @@ def build_best_bets_summary(
             t.get("away_logo"),
             t.get("logged_at") or def_ann_iso,
         )
-        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        for t in ((rec.get("paper_ledger") or {}).get("bets") or [])
         if t.get("status") != "SETTLED"
     }
     raw_soccer_picks = [
@@ -547,9 +547,9 @@ def generate_dashboard_html(
 
     try:
         if run_settle:
-            settle_pending_paper_trades(db_path)
+            settle_pending_paper_bets(db_path)
         live_ledger = get_paper_ledger_summary(db_path)
-        if live_ledger.get("trades"):
+        if live_ledger.get("bets"):
             rec["paper_ledger"] = live_ledger
     except Exception:
         pass
@@ -562,7 +562,7 @@ def generate_dashboard_html(
     norm_sport = (sport_filter or "all").lower().strip()
     settled_ids = {
         (t["league"], str(t["event_id"]))
-        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        for t in ((rec.get("paper_ledger") or {}).get("bets") or [])
         if t.get("status") == "SETTLED"
     }
     ledger_time_map = {
@@ -573,7 +573,7 @@ def generate_dashboard_html(
             t.get("home_logo"),
             t.get("away_logo"),
         )
-        for t in ((rec.get("paper_ledger") or {}).get("trades") or [])
+        for t in ((rec.get("paper_ledger") or {}).get("bets") or [])
         if t.get("status") != "SETTLED"
     }
     raw_soccer_picks = [
@@ -639,7 +639,7 @@ def generate_dashboard_html(
     for op in other_picks[:25]:
         if op.get("home") and op.get("away"):
             all_page_pairs.add((str(op["home"]), str(op["away"])))
-    for tr in ((rec.get("paper_ledger") or {}).get("trades") or []):
+    for tr in ((rec.get("paper_ledger") or {}).get("bets") or []):
         if tr.get("home") and tr.get("away"):
             all_page_pairs.add((str(tr["home"]), str(tr["away"])))
     for d_c in ((rec.get("recommended_doubles") or []) + ((rec.get("paper_ledger") or {}).get("combos") or [])):
@@ -687,7 +687,7 @@ def generate_dashboard_html(
                     "ev_pct": op.get("ev_pct"),
                     "factors": {"p_model": op.get("p_model"), "p_mkt": op.get("p_mkt"), "ev_pct": op.get("ev_pct"), "composite": op.get("composite_score")},
                 }
-            for tr in ((rec.get("paper_ledger") or {}).get("trades") or []):
+            for tr in ((rec.get("paper_ledger") or {}).get("bets") or []):
                 if tr.get("home") and tr.get("away") and (tr["home"], tr["away"]) not in pick_detail_map:
                     pick_detail_map[(tr["home"], tr["away"])] = {
                         "factors": tr.get("factors") or {},
@@ -929,7 +929,7 @@ def generate_dashboard_html(
             """
         )
 
-    from .paper_trade import build_recommended_2leg_doubles
+    from .paper_bet import build_recommended_2leg_doubles
     # Always build multi-variation doubles (ML Bankers, Double-Chance/+1.5 Sets Shield, O/U Totals, Straight-Sets/Score-Cluster)
     doubles_list = build_recommended_2leg_doubles(soccer_picks, tennis_picks, other_picks, max_doubles=8) or (rec.get("recommended_doubles") or [])
     doubles_cards_html = ""
@@ -1249,11 +1249,11 @@ def generate_dashboard_html(
         )
 
     # Build separate SETTLED, LIVE (IN-PLAY), and PENDING Paper-Betting Ledger tables (identical 8-column layout!)
-    ledger_trades = ledger.get("trades") or []
+    ledger_bets = ledger.get("bets") or []
     settled_html_rows = []
     live_html_rows = []
     pending_html_rows = []
-    for tr in ledger_trades:
+    for tr in ledger_bets:
         if float(tr.get("logged_best_odds") or 0.0) <= min_odds:
             continue
         lg_name = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
@@ -2374,7 +2374,7 @@ def generate_dashboard_html(
         <button type="button" class="btn-export btn-primary js-action-btn" onclick="trackArbitraryLiveMatchup()">📌 Track &amp; Analyze Live</button>
       </div>
     </div>
-    <table id="liveTradesTable" class="sortable-table ledger-grid-table">
+    <table id="liveBetsTable" class="sortable-table ledger-grid-table">
       <colgroup>
         <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
       </colgroup>
@@ -2390,7 +2390,7 @@ def generate_dashboard_html(
           <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
         </tr>
       </thead>
-      <tbody id="liveTradesTbody">
+      <tbody id="liveBetsTbody">
         {''.join(live_html_rows) if live_html_rows else '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>'}
       </tbody>
     </table>
@@ -2552,7 +2552,7 @@ def generate_dashboard_html(
       </div>
     </div>
     {live_ledger_analytics_html}
-    <table id="settledTradesTable" class="sortable-table ledger-grid-table">
+    <table id="settledBetsTable" class="sortable-table ledger-grid-table">
       <colgroup>
         <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
       </colgroup>
@@ -2568,13 +2568,13 @@ def generate_dashboard_html(
           <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
         </tr>
       </thead>
-      <tbody id="settledTradesTbody">
+      <tbody id="settledBetsTbody">
         {''.join(settled_html_rows) if settled_html_rows else '<tr><td colspan="8" class="muted">No settled paper bets yet. Pending bets automatically move here once their match finishes and you run <code>uv run betscout pipeline</code>.</td></tr>'}
       </tbody>
     </table>
 
     <h2>Pending Paper-Bets Awaiting Kickoff (Count: <span id="pendingCountSpan">{len(pending_html_rows)}</span>)</h2>
-    <table id="pendingTradesTable" class="sortable-table ledger-grid-table">
+    <table id="pendingBetsTable" class="sortable-table ledger-grid-table">
       <colgroup>
         <col class="c-sport"><col class="c-comp"><col class="c-ko"><col class="c-match"><col class="c-pick"><col class="c-score"><col class="c-odds"><col class="c-res">
       </colgroup>
@@ -2590,7 +2590,7 @@ def generate_dashboard_html(
           <th data-sort-type="num" onclick="sortTable(this)">Result / PnL</th>
         </tr>
       </thead>
-      <tbody id="pendingTradesTbody">
+      <tbody id="pendingBetsTbody">
         {''.join(pending_html_rows) if pending_html_rows else '<tr><td colspan="8" class="muted">No pending paper bets.</td></tr>'}
       </tbody>
     </table>
@@ -2686,8 +2686,8 @@ def generate_dashboard_html(
       if (currentSportFilter !== 'all' && currentDisabledSports.has(currentSportFilter)) {{
         applySportFilter('all');
       }}
-      // 2. Hide/show active & pending picks for disabled sports, but NEVER hide #settledTradesTable rows!
-      document.querySelectorAll('#bestBetsTable tbody tr[data-sport-cat], #mispricingRadarTable tbody tr[data-sport-cat], #tennisTable tbody tr[data-sport-cat], #otherSportsTable tbody tr[data-sport-cat], #liveTradesTable tbody tr[data-sport-cat], #pendingTradesTable tbody tr[data-sport-cat], [data-sport-section="soccer"] .card[data-odds]').forEach(el => {{
+      // 2. Hide/show active & pending picks for disabled sports, but NEVER hide #settledBetsTable rows!
+      document.querySelectorAll('#bestBetsTable tbody tr[data-sport-cat], #mispricingRadarTable tbody tr[data-sport-cat], #tennisTable tbody tr[data-sport-cat], #otherSportsTable tbody tr[data-sport-cat], #liveBetsTable tbody tr[data-sport-cat], #pendingBetsTable tbody tr[data-sport-cat], [data-sport-section="soccer"] .card[data-odds]').forEach(el => {{
         const sp = (el.getAttribute('data-sport-cat') || (el.closest('[data-sport-section="soccer"]') ? 'soccer' : '')).toLowerCase();
         if (sp) {{
           el.classList.toggle('hidden-by-disabled-sport', currentDisabledSports.has(sp));
@@ -4392,13 +4392,13 @@ def generate_dashboard_html(
         kpiLP.innerHTML = '<span class="' + (lvN > 0 ? 'num-pos' : '') + '">🔴 ' + lvN + ' Live</span> · ⏳ ' + pdN;
       }}
 
-      const trades = ledger.trades || [];
+      const bets = ledger.bets || [];
       const minThr = parseFloat(document.getElementById('minOddsSlider')?.value || '1.10');
       const settledRows = [];
       const liveRows = [];
       const pendingRows = [];
       const changedLiveKeys = [];
-      trades.forEach(tr => {{
+      bets.forEach(tr => {{
         const o = Number(tr.logged_best_odds || 0);
         const koDisp = currentTzMode === 'utc' ? tr.kickoff : (tr.kickoff_local || tr.kickoff);
         const lgName = tr.league_label || (tr.league || '').toUpperCase();
@@ -4515,9 +4515,9 @@ def generate_dashboard_html(
           );
         }}
       }});
-      const sTbody = document.getElementById('settledTradesTbody');
-      const lTbody = document.getElementById('liveTradesTbody');
-      const pTbody = document.getElementById('pendingTradesTbody');
+      const sTbody = document.getElementById('settledBetsTbody');
+      const lTbody = document.getElementById('liveBetsTbody');
+      const pTbody = document.getElementById('pendingBetsTbody');
       if (sTbody && settledRows.length) sTbody.innerHTML = settledRows.join('');
       if (lTbody) lTbody.innerHTML = liveRows.length ? liveRows.join('') : '<tr><td colspan="8" class="muted">No logged paper bets are currently in-play. Active matches move here automatically during kickoff!</td></tr>';
       if (pTbody && pendingRows.length) pTbody.innerHTML = pendingRows.join('');
