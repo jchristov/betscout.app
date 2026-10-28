@@ -21,9 +21,11 @@ FB_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-${VITE_FIREBASE_AUTH_DOMAIN:-${PROJECT_I
 ADMIN_EMAILS="${BETSCOUT_ADMIN_EMAILS:-${FIREBASE_ADMIN_EMAILS:-julian.christ@gmail.com,julian.christov@gmail.com}}"
 CRON_SECRET="${BETSCOUT_CRON_SECRET:-bs_cron_live_9f8e7d6c5b4a3210}"
 
-echo "🚀 [1/4] Ensuring Google Cloud Storage bucket gs://${BUCKET_NAME} exists for persistent database..."
+echo "🚀 [1/4] Ensuring Google Cloud Storage bucket gs://${BUCKET_NAME} exists with strict public-access-prevention..."
 if ! gcloud storage buckets describe "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location="${REGION}" --uniform-bucket-level-access
+  gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location="${REGION}" --uniform-bucket-level-access --public-access-prevention
+else
+  gcloud storage buckets update "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --uniform-bucket-level-access --public-access-prevention >/dev/null 2>&1 || true
 fi
 
 echo "📦 [2/4] Uploading current data/betscout.db, recommendations.json & dashboard.html to gs://${BUCKET_NAME}..."
