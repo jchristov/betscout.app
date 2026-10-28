@@ -465,6 +465,51 @@ def _split_primary_and_sub_kpi(raw_val: str) -> tuple[str, str]:
     return s, ""
 
 
+def _get_sport_pill_colors(sport_cat: str) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+    """Return `(fill_rgb, border_rgb, text_rgb)` matching `getSportBadgeTheme` in the Vue 3 app."""
+    sp = _infer_sport_cat(sport_cat)
+    palettes: dict[str, tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]] = {
+        "soccer": ((10, 36, 28), (52, 211, 153), (110, 231, 183)),
+        "tennis": ((24, 38, 14), (163, 230, 53), (217, 249, 157)),
+        "basketball": ((44, 22, 12), (251, 146, 60), (253, 186, 116)),
+        "hockey": ((10, 34, 46), (34, 211, 238), (165, 243, 252)),
+        "football": ((44, 30, 12), (251, 191, 36), (253, 230, 138)),
+        "table_tennis": ((42, 16, 46), (232, 121, 249), (245, 208, 254)),
+        "volleyball": ((42, 36, 12), (250, 204, 21), (254, 240, 138)),
+        "baseball": ((44, 16, 26), (251, 113, 133), (254, 205, 211)),
+        "handball": ((20, 24, 52), (129, 140, 248), (199, 210, 254)),
+        "darts": ((44, 16, 18), (248, 113, 113), (254, 202, 202)),
+    }
+    return palettes.get(sp, palettes["soccer"])
+
+
+def _get_badge_pill_colors(
+    badge_status: str,
+    tier_raw: str,
+    is_win_card: bool = False,
+    is_loss_card: bool = False,
+) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+    """Return `(fill_rgb, border_rgb, text_rgb)` matching the color-coded tier/signal badges in the Vue 3 app."""
+    combined = f"{badge_status} {tier_raw}".upper()
+    if is_loss_card or "LOSS" in combined:
+        return ((46, 16, 28), (244, 63, 94), (253, 164, 175))
+    if is_win_card or "SETTLED WIN" in combined:
+        return ((10, 38, 28), (52, 211, 153), (110, 231, 183))
+    if "STEAM" in combined:
+        return ((46, 22, 12), (251, 146, 60), (254, 215, 170))
+    if "MISPRICED" in combined or "EDGE +" in combined or "PROFIT BOOST" in combined or "BOOSTER" in combined:
+        return ((10, 38, 28), (52, 211, 153), (110, 231, 183))
+    if "LIVE" in combined or "REBOUND" in combined:
+        return ((46, 16, 28), (244, 63, 94), (253, 164, 175))
+    if "TOP_8PCT" in combined or "TOP 8%" in combined or "TIER_0" in combined:
+        return ((32, 20, 56), (167, 139, 250), (221, 214, 254))
+    if "BANKER" in combined or "TIER_1" in combined or "TOP_10PCT" in combined or "TOP 10%" in combined or "70%" in combined or "72%" in combined:
+        return ((44, 30, 12), (251, 191, 36), (253, 230, 138))
+    if "HIGH_CONF" in combined or "HIGH-CONF" in combined or "TOP_15PCT" in combined or "UEFA" in combined or "QUANT EDGE" in combined:
+        return ((10, 34, 48), (34, 211, 238), (165, 243, 252))
+    return ((22, 26, 54), (129, 140, 248), (199, 210, 254))
+
+
 def render_pick_card_png(
     pick_data: dict[str, Any],
     output_path: Path | None = None,
@@ -510,16 +555,13 @@ def render_pick_card_png(
     # Top border color-coding: Cyan for Picks, Green for Resolved Wins, Red/Pink for Resolved Losses
     if is_loss_card:
         top_border_col = (244, 63, 94)
-        badge_col = (244, 63, 94)
     elif is_win_card:
         top_border_col = (34, 197, 94)
-        badge_col = (34, 197, 94)
     else:
         top_border_col = (56, 189, 248)
-        badge_col = (56, 189, 248)
 
-    # Outer card frame + color-coded top border
-    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=20, fill=(17, 24, 39), outline=(36, 52, 79), width=2)
+    # Outer card frame (app-consistent frosted dark slate palette) + color-coded top border
+    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=20, fill=(13, 20, 35), outline=(42, 59, 92), width=2)
     draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=top_border_col)
 
     f_brand = _load_font(27, bold=True)
@@ -553,30 +595,32 @@ def render_pick_card_png(
         str(pick_data.get("competition") or pick_data.get("sport_league") or SPORT_LABELS.get(sport_cat, "QUANT PICK"))
     )
 
-    # Right header pill (status / conviction tier only — no sport icon)
-    f_badge, badge_fit = _fit_font_and_text(draw, badge_status, max_width=230, start_size=13, min_size=11, bold=True)
+    # Right header pill (color-coded to match app tier/signal badges!)
+    b_fill, b_border, b_text = _get_badge_pill_colors(badge_status, tier_raw, is_win_card=is_win_card, is_loss_card=is_loss_card)
+    f_badge, badge_fit = _fit_font_and_text(draw, badge_status, max_width=245, start_size=13, min_size=10, bold=True)
     bw_px = int(_text_width(draw, badge_fit, f_badge)) + 36
     bx_right = w - 44
     bx_left = bx_right - bw_px
-    draw.rounded_rectangle([(bx_left, 46), (bx_right, 86)], radius=20, fill=(13, 20, 33), outline=badge_col, width=2)
-    draw.text((bx_left + 18, 58), badge_fit, font=f_badge, fill=badge_col)
+    draw.rounded_rectangle([(bx_left, 46), (bx_right, 86)], radius=20, fill=b_fill, outline=b_border, width=2)
+    draw.text((bx_left + 18, 58), badge_fit, font=f_badge, fill=b_text)
 
     # Divider
     draw.line([(44, 106), (w - 44, 106)], fill=(34, 48, 73), width=1)
 
-    # Row 2: Competition Pill on Left (text only) + Compact Timestamp Pill on Right
+    # Row 2: Sport-Color-Coded Competition Pill on Left + Muted Timestamp Pill on Right
     kickoff_str = _compact_timestamp(str(pick_data.get("date_local") or pick_data.get("date") or "Upcoming"))
     announced_str = _compact_timestamp(str(pick_data.get("announced_at_local") or pick_data.get("announced_at") or pick_data.get("logged_at") or ""))
     ended_str = _compact_timestamp(str(pick_data.get("ended_at_local") or pick_data.get("ended_at") or ""))
 
     sport_tag = SPORT_LABELS.get(sport_cat, sport_cat.upper())
     comp_label = f"{sport_tag}  ·  {comp_raw}" if comp_raw.upper() not in sport_tag else sport_tag
+    c_fill, c_border, c_text = _get_sport_pill_colors(sport_cat)
     f_comp, comp_fit = _fit_font_and_text(draw, comp_label, max_width=400, start_size=12, min_size=10, bold=True)
     comp_box_w = int(_text_width(draw, comp_fit, f_comp)) + 28
-    draw.rounded_rectangle([(44, 118), (44 + comp_box_w, 152)], radius=9, fill=(13, 20, 33), outline=(56, 189, 248), width=1)
-    draw.text((58, 128), comp_fit, font=f_comp, fill=(56, 189, 248))
+    draw.rounded_rectangle([(44, 118), (44 + comp_box_w, 152)], radius=9, fill=c_fill, outline=c_border, width=1)
+    draw.text((58, 128), comp_fit, font=f_comp, fill=c_text)
 
-    # Build right-aligned timestamp pill(s) so Pick, Start, and Ended never overflow
+    # Build right-aligned timestamp pill(s) in muted slate matching app table Kickoff styling
     time_parts: list[str] = []
     if announced_str:
         time_parts.append(f"Pick: {announced_str}")
@@ -585,10 +629,10 @@ def render_pick_card_png(
         time_parts.append(f"Ended: {ended_str}")
     ko_label = "   |   ".join(time_parts)
     max_ko_w = w - 88 - comp_box_w - 14
-    f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=max(260, max_ko_w), start_size=12, min_size=9, bold=True)
+    f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=max(260, max_ko_w), start_size=12, min_size=9, bold=False)
     ko_w = int(_text_width(draw, ko_fit, f_ko)) + 24
-    draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(13, 20, 33), outline=(45, 62, 92), width=1)
-    draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(203, 213, 225))
+    draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(11, 17, 30), outline=(42, 58, 86), width=1)
+    draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(148, 163, 184))
 
     # Matchup Title with Sport Emoji on the left (auto-scaled so long names never clip)
     match_raw = _strip_non_ascii_symbols(str(pick_data.get("match") or f"{pick_data.get('home', '')} vs {pick_data.get('away', '')}"))
@@ -630,19 +674,27 @@ def render_pick_card_png(
     f_pick_sub, sub_pick_fit = _fit_font_and_text(draw, sub_pick_line, max_width=w - 144, start_size=15, min_size=11, bold=False)
     draw.text((72, 314), sub_pick_fit, font=f_pick_sub, fill=(203, 213, 225))
 
-    # 4 KPI Cards Row (2-line primary + sub-value layout so zero text is ever cut off!)
+    # 4 KPI Cards Row (app-consistent color-coded top accent bars + Win-Prob progress bar)
     win_prob = pick_data.get("win_prob")
-    wp_str = f"{float(win_prob) * 100:.1f}%" if win_prob is not None and float(win_prob) > 0 else "High Conf"
+    wp_str_override = _strip_non_ascii_symbols(str(pick_data.get("win_prob_str") or ""))
+    if wp_str_override:
+        wp_str = wp_str_override
+    elif win_prob is not None and float(win_prob) > 0:
+        wp_str = f"{float(win_prob) * 100:.1f}%"
+    else:
+        wp_str = "High Conf"
+
     odds_val = pick_data.get("odds")
     odds_disp_raw = _strip_non_ascii_symbols(str(pick_data.get("odds_display") or (f"{float(odds_val):.2f}" if odds_val else "—")))
     odds_main, odds_sub = _split_primary_and_sub_kpi(odds_disp_raw)
     if not odds_sub and odds_val:
         odds_sub = "Live Market Price"
 
+    fair_str_override = _strip_non_ascii_symbols(str(pick_data.get("fair_str") or ""))
     fair_val = pick_data.get("min_fair_odds")
     if not fair_val and win_prob and float(win_prob) > 0.05:
         fair_val = 1.0 / float(win_prob)
-    fair_str = f"@ {float(fair_val):.2f}" if fair_val else "Calibrated"
+    fair_str = fair_str_override if fair_str_override else (f"@ {float(fair_val):.2f}" if fair_val else "Calibrated")
 
     esc_raw = _strip_non_ascii_symbols(str(pick_data.get("exact_score_pick") or pick_data.get("score_proj") or "Moneyline Edge"))
     esc_main, esc_sub = _split_primary_and_sub_kpi(esc_raw)
@@ -650,16 +702,16 @@ def render_pick_card_png(
         esc_sub = "Dixon-Coles / Set Matrix"
 
     kpis = [
-        ("BOOKMAKER ODDS", odds_main, odds_sub, (34, 197, 94)),
-        ("MODEL WIN PROB", wp_str, f"Tier: {tier_raw}", (56, 189, 248)),
-        ("MIN FAIR ODDS", fair_str, "Zero-Vig Model Floor", (241, 245, 249)),
-        ("SCORE PROJECTION", esc_main, esc_sub, (245, 158, 11)),
+        ("BOOKMAKER ODDS", odds_main, odds_sub, (251, 191, 36)),
+        ("MODEL WIN PROB", wp_str, f"Tier: {tier_raw}", (52, 211, 153)),
+        ("MIN FAIR ODDS", fair_str, "Zero-Vig Model Floor", (56, 189, 248)),
+        ("SCORE PROJECTION", esc_main, esc_sub, (232, 121, 249)),
     ]
     box_w = (w - 88 - 36) // 4
     for idx, (k_lbl, k_main, k_sub, k_col) in enumerate(kpis):
         bx0 = 44 + idx * (box_w + 12)
         bx1 = bx0 + box_w
-        draw.rounded_rectangle([(bx0, 370), (bx1, 488)], radius=12, fill=(13, 20, 33), outline=(34, 48, 73), width=1)
+        draw.rounded_rectangle([(bx0, 370), (bx1, 488)], radius=12, fill=(10, 16, 29), outline=(38, 54, 84), width=1)
         draw.rounded_rectangle([(bx0 + 2, 371), (bx1 - 2, 375)], radius=2, fill=k_col)
         draw.text((bx0 + 16, 386), k_lbl, font=f_kpi_lbl, fill=(148, 163, 184))
         f_km, km_fit = _fit_font_and_text(draw, k_main, max_width=box_w - 28, start_size=24, min_size=14, bold=True)
@@ -730,29 +782,46 @@ def render_digest_slate_png(
         or "SETTLED" in title.upper()
         or "RECAP" in title.upper()
     )
+    is_loss_slate = is_settled_slate and (loss_rows > win_rows or "LOSS" in title.upper())
     if is_settled_slate:
-        slate_top_col = (244, 63, 94) if (loss_rows > win_rows or "LOSS" in title.upper()) else (34, 197, 94)
+        slate_top_col = (244, 63, 94) if is_loss_slate else (34, 197, 94)
+        slate_badge_lbl = f"SETTLED · {win_rows}W–{loss_rows}L" if (win_rows or loss_rows) else "SETTLED RECAP"
+        sb_fill = (46, 16, 28) if is_loss_slate else (10, 38, 28)
+        sb_border = (244, 63, 94) if is_loss_slate else (52, 211, 153)
+        sb_text = (253, 164, 175) if is_loss_slate else (110, 231, 183)
     else:
         slate_top_col = (56, 189, 248)
+        slate_badge_lbl = f"ACTIVE SLATE · {len(rows)} PICKS"
+        sb_fill = (10, 34, 48)
+        sb_border = (34, 211, 238)
+        sb_text = (165, 243, 252)
 
-    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=18, fill=(17, 24, 39), outline=(36, 52, 79), width=2)
+    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=18, fill=(13, 20, 35), outline=(42, 59, 92), width=2)
     draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=slate_top_col)
 
     f_sub = _load_font(13, bold=False)
     f_sub_b = _load_font(13, bold=True)
     f_th = _load_font(12, bold=True)
 
+    # Top-right color-coded badge pill on Slate Board
+    f_sbadge, sbadge_fit = _fit_font_and_text(draw, slate_badge_lbl, max_width=220, start_size=12, min_size=10, bold=True)
+    sb_w = int(_text_width(draw, sbadge_fit, f_sbadge)) + 32
+    sb_right = w - 38
+    sb_left = sb_right - sb_w
+    draw.rounded_rectangle([(sb_left, 42), (sb_right, 78)], radius=18, fill=sb_fill, outline=sb_border, width=2)
+    draw.text((sb_left + 16, 53), sbadge_fit, font=f_sbadge, fill=sb_text)
+
     logo_bytes = render_logo_png(size=48)
     logo_img = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
     img.paste(logo_img, (42, 40), logo_img)
-    f_hdr, hdr_fit = _fit_font_and_text(draw, f"BetScout — {title}", max_width=w - 150, start_size=24, min_size=16, bold=True)
+    f_hdr, hdr_fit = _fit_font_and_text(draw, f"BetScout — {title}", max_width=w - 165 - sb_w, start_size=24, min_size=15, bold=True)
     bet_hw = int(_text_width(draw, "Bet", f_hdr))
     scout_hw = int(_text_width(draw, "Scout", f_hdr))
     draw.text((102, 42), "Bet", font=f_hdr, fill=(255, 255, 255))
     draw.text((102 + bet_hw, 42), "Scout", font=f_hdr, fill=(52, 211, 153))
     rest_title = hdr_fit[len("BetScout") :] if hdr_fit.startswith("BetScout") else f" — {title}"
     draw.text((102 + bet_hw + scout_hw, 42), rest_title, font=f_hdr, fill=(241, 245, 249))
-    f_sub_fit, sub_fit = _fit_font_and_text(draw, subtitle, max_width=w - 150, start_size=14, min_size=11, bold=False)
+    f_sub_fit, sub_fit = _fit_font_and_text(draw, subtitle, max_width=w - 165 - sb_w, start_size=14, min_size=11, bold=False)
     draw.text((102, 73), sub_fit, font=f_sub_fit, fill=(148, 163, 184))
 
     # Table Header

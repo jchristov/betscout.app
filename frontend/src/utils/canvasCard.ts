@@ -174,15 +174,74 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 102, 90);
 
   const spIcon = getSportEmoji(meta.sport_cat || meta.comp || meta.competition || meta.match || 'soccer');
-  ctx.fillStyle = '#0d1421';
-  ctx.strokeStyle = topBorderColor;
+  const combinedBadge = `${badgeTxt} ${String(meta.tier || '')}`.toUpperCase();
+  let bFill = '#161a36';
+  let bBorder = '#818cf8';
+  let bText = '#c7d2fe';
+  if (isLossCard || combinedBadge.includes('LOSS')) {
+    bFill = '#2e101c';
+    bBorder = '#f43f5e';
+    bText = '#fda4af';
+  } else if (isWinCard || combinedBadge.includes('SETTLED WIN')) {
+    bFill = '#0a261c';
+    bBorder = '#34d399';
+    bText = '#6ee7b7';
+  } else if (combinedBadge.includes('STEAM')) {
+    bFill = '#2e160c';
+    bBorder = '#fb923c';
+    bText = '#fed7aa';
+  } else if (
+    combinedBadge.includes('MISPRICED') ||
+    combinedBadge.includes('EDGE +') ||
+    combinedBadge.includes('PROFIT BOOST') ||
+    combinedBadge.includes('BOOSTER')
+  ) {
+    bFill = '#0a261c';
+    bBorder = '#34d399';
+    bText = '#6ee7b7';
+  } else if (combinedBadge.includes('LIVE') || combinedBadge.includes('REBOUND')) {
+    bFill = '#2e101c';
+    bBorder = '#f43f5e';
+    bText = '#fda4af';
+  } else if (
+    combinedBadge.includes('TOP_8PCT') ||
+    combinedBadge.includes('TOP 8%') ||
+    combinedBadge.includes('TIER_0')
+  ) {
+    bFill = '#201438';
+    bBorder = '#a78bfa';
+    bText = '#ddd6fe';
+  } else if (
+    combinedBadge.includes('BANKER') ||
+    combinedBadge.includes('TIER_1') ||
+    combinedBadge.includes('TOP_10PCT') ||
+    combinedBadge.includes('70%') ||
+    combinedBadge.includes('72%')
+  ) {
+    bFill = '#2c1e0c';
+    bBorder = '#fbbf24';
+    bText = '#fde68a';
+  } else if (
+    combinedBadge.includes('HIGH_CONF') ||
+    combinedBadge.includes('HIGH-CONF') ||
+    combinedBadge.includes('TOP_15PCT') ||
+    combinedBadge.includes('UEFA') ||
+    combinedBadge.includes('QUANT EDGE')
+  ) {
+    bFill = '#0a2230';
+    bBorder = '#22d3ee';
+    bText = '#a5f3fc';
+  }
+
+  ctx.fillStyle = bFill;
+  ctx.strokeStyle = bBorder;
   ctx.lineWidth = 2;
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(w - 264, 46, 220, 40, 20);
   else ctx.rect(w - 264, 46, 220, 40);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = topBorderColor;
+  ctx.fillStyle = bText;
   fillFittedCanvasText(ctx, badgeTxt, w - 154, 71, 196, 13.5, 10.5, '700', 'center');
 
   ctx.strokeStyle = '#223049';
@@ -193,17 +252,42 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.stroke();
 
   const compStr = String(meta.comp || meta.competition || meta.sport_cat || 'MULTI-SPORT QUANT SLATE').toUpperCase();
+  const spLow = String(meta.sport_cat || compStr).toLowerCase();
+  let cFill = '#0a241c';
+  let cBorder = '#34d399';
+  let cText = '#6ee7b7';
+  if (spLow.includes('table_tennis') || spLow.includes('table tennis') || spLow.includes('wtt')) {
+    cFill = '#2a102e';
+    cBorder = '#e879f9';
+    cText = '#f5d0fe';
+  } else if (spLow.includes('tennis') || spLow.includes('atp') || spLow.includes('wta')) {
+    cFill = '#18260e';
+    cBorder = '#a3e635';
+    cText = '#d9f99d';
+  } else if (spLow.includes('basketball') || spLow.includes('nba')) {
+    cFill = '#2c160c';
+    cBorder = '#fb923c';
+    cText = '#fdba74';
+  } else if (spLow.includes('hockey') || spLow.includes('nhl')) {
+    cFill = '#0a222e';
+    cBorder = '#22d3ee';
+    cText = '#a5f3fc';
+  } else if (spLow.includes('nfl') || (spLow.includes('football') && !spLow.includes('soccer'))) {
+    cFill = '#2c1e0c';
+    cBorder = '#fbbf24';
+    cText = '#fde68a';
+  }
   ctx.font = '700 12px "Plus Jakarta Sans", -apple-system, sans-serif';
   const compW = Math.min(410, Math.max(160, Math.ceil(ctx.measureText(compStr).width) + 28));
-  ctx.fillStyle = '#0d1421';
-  ctx.strokeStyle = '#38bdf8';
+  ctx.fillStyle = cFill;
+  ctx.strokeStyle = cBorder;
   ctx.lineWidth = 1;
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(44, 118, compW, 34, 9);
   else ctx.rect(44, 118, compW, 34);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#38bdf8';
+  ctx.fillStyle = cText;
   fillFittedCanvasText(ctx, compStr, 58, 140, compW - 26, 12, 9.5, '700', 'left');
 
   const timeBits: string[] = [];
@@ -269,15 +353,15 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   const odSplit = splitCanvasKpiVal(meta.odds_display || '—');
   const escSplit = splitCanvasKpiVal(meta.exact_score || 'Moneyline Edge');
   const kpis = [
-    { lbl: 'BOOKMAKER ODDS', main: odSplit.main, sub: odSplit.sub || 'Live Market Price', col: '#22c55e' },
+    { lbl: 'BOOKMAKER ODDS', main: odSplit.main, sub: odSplit.sub || 'Live Market Price', col: '#fbbf24' },
     {
       lbl: 'MODEL WIN PROB',
       main: String(meta.win_prob_str || 'High Conf'),
       sub: 'Tier: ' + String(meta.tier || meta.badge || 'TOP EDGE').toUpperCase(),
-      col: '#38bdf8',
+      col: '#34d399',
     },
-    { lbl: 'MIN FAIR ODDS', main: String(meta.fair_str || 'Calibrated'), sub: 'Zero-Vig Model Floor', col: '#f1f5f9' },
-    { lbl: 'SCORE PROJECTION', main: escSplit.main, sub: escSplit.sub || 'Dixon-Coles / Set Matrix', col: '#f59e0b' },
+    { lbl: 'MIN FAIR ODDS', main: String(meta.fair_str || 'Calibrated'), sub: 'Zero-Vig Model Floor', col: '#38bdf8' },
+    { lbl: 'SCORE PROJECTION', main: escSplit.main, sub: escSplit.sub || 'Dixon-Coles / Set Matrix', col: '#e879f9' },
   ];
   const bw = Math.floor((w - 88 - 36) / 4);
   kpis.forEach((k, idx) => {
