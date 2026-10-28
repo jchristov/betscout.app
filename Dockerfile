@@ -25,7 +25,7 @@ COPY backend/src ./src
 RUN uv sync --no-dev --default-index https://pypi.org/simple
 
 # Copy static assets, CLI scripts, Vue 3 SPA bundle & ingestion config
-COPY backend/ingestion_config.json betscout-logo.svg betscout-logo.png ./
+COPY backend/ingestion_config.json frontend/public/betscout-logo.svg frontend/public/betscout-logo.png ./
 COPY backend/scripts ./scripts
 COPY frontend/dist ./frontend/dist
 RUN mkdir -p /app/data && chmod +x /app/scripts/cloud_entrypoint.sh

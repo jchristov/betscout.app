@@ -33,9 +33,8 @@ backend-test: ## Run Pytest suite in backend/
 test: frontend-test backend-test ## Run all frontend (Vitest) and backend (Pytest) test suites
 
 logos: ## Regenerate SVG and PNG logo assets (Option 7.3) in all sizes
-	cp -f betscout-logo.svg frontend/public/betscout-logo.svg
-	cp -f betscout-logo.svg frontend/public/favicon.svg
-	cd backend && uv run python -c "from pathlib import Path; from betscout.pick_card import render_logo_png; r = Path('..'); render_logo_png(512, r/'betscout-logo.png'); render_logo_png(512, r/'frontend/public/betscout-logo.png'); render_logo_png(512, r/'frontend/public/icon-512.png'); render_logo_png(192, r/'frontend/public/icon-192.png'); render_logo_png(180, r/'frontend/public/apple-touch-icon.png')"
+	cp -f frontend/public/betscout-logo.svg frontend/public/favicon.svg
+	cd backend && uv run python -c "from pathlib import Path; from betscout.pick_card import render_logo_png; r = Path('..'); render_logo_png(512, r/'frontend/public/betscout-logo.png'); render_logo_png(512, r/'frontend/public/icon-512.png'); render_logo_png(192, r/'frontend/public/icon-192.png'); render_logo_png(180, r/'frontend/public/apple-touch-icon.png')"
 
 cards-gallery: ## Generate docs/png-notification-cards.html showcasing all PNG notification card designs
 	cd backend && uv run python scripts/generate_cards_gallery.py

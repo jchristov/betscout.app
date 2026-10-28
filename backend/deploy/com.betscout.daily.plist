@@ -5,7 +5,7 @@
     <key>Label</key>
     <string>com.betscout.daily</string>
     <key>WorkingDirectory</key>
-    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app</string>
+    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app/backend</string>
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/uv</string>

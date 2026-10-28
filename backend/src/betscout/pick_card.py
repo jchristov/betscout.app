@@ -465,6 +465,62 @@ def _split_primary_and_sub_kpi(raw_val: str) -> tuple[str, str]:
     return s, ""
 
 
+def _draw_rounded_card_with_top_accent(
+    img: Image.Image,
+    bbox: tuple[int, int, int, int],
+    radius: int,
+    fill_rgb: tuple[int, int, int],
+    outline_rgb: tuple[int, int, int],
+    outline_width: int,
+    accent_rgb: tuple[int, int, int],
+    accent_height: int = 3,
+) -> None:
+    """Draw a rounded card with a smooth CSS `border-top` style accent along the top arc."""
+    x0, y0, x1, y1 = bbox
+    w, h = img.size
+
+    # Render the entire card + border + top colored border at 4x supersampling for pixel-perfect anti-aliased corners
+    ss = 4
+    layer_hi = Image.new("RGBA", (w * ss, h * ss), (0, 0, 0, 0))
+    draw_hi = ImageDraw.Draw(layer_hi)
+    r_hi = radius * ss
+    ow_hi = max(1, outline_width * ss)
+    aw_hi = max(ow_hi, accent_height * ss)
+
+    # 1. Card interior fill + standard slate border
+    draw_hi.rounded_rectangle(
+        [x0 * ss, y0 * ss, x1 * ss, y1 * ss],
+        radius=r_hi,
+        fill=(*fill_rgb, 255),
+        outline=(*outline_rgb, 255),
+        width=ow_hi,
+    )
+
+    # 2. Colored top border stroke along the exact same rounded perimeter, masked to the top edge/arc
+    top_stroke_hi = Image.new("RGBA", (w * ss, h * ss), (0, 0, 0, 0))
+    ts_draw = ImageDraw.Draw(top_stroke_hi)
+    ts_draw.rounded_rectangle(
+        [x0 * ss, y0 * ss, x1 * ss, y1 * ss],
+        radius=r_hi,
+        outline=(*accent_rgb, 255),
+        width=aw_hi,
+    )
+
+    # Vertical alpha gradient mask so the colored top border follows the top curve and feathers smoothly into the side borders
+    mask_hi = Image.new("L", (w * ss, h * ss), 0)
+    m_draw = ImageDraw.Draw(mask_hi)
+    solid_end = y0 * ss + int(r_hi * 0.45)
+    fade_end = y0 * ss + int(r_hi * 0.95)
+    m_draw.rectangle([x0 * ss, y0 * ss, x1 * ss, solid_end], fill=255)
+    for py in range(solid_end, fade_end):
+        alpha = int(255 * (1.0 - (py - solid_end) / max(1, fade_end - solid_end)))
+        m_draw.line([(x0 * ss, py), (x1 * ss, py)], fill=alpha)
+
+    layer_hi.paste(top_stroke_hi, (0, 0), mask_hi)
+    layer_sm = layer_hi.resize((w, h), resample=Image.Resampling.LANCZOS)
+    img.paste(layer_sm, (0, 0), layer_sm)
+
+
 def _get_sport_pill_colors(sport_cat: str) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """Return `(fill_rgb, border_rgb, text_rgb)` matching `getSportBadgeTheme` in the Vue 3 app."""
     sp = _infer_sport_cat(sport_cat)
@@ -560,9 +616,17 @@ def render_pick_card_png(
     else:
         top_border_col = (56, 189, 248)
 
-    # Outer card frame (app-consistent frosted dark slate palette) + color-coded top border
-    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=20, fill=(13, 20, 35), outline=(42, 59, 92), width=2)
-    draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=top_border_col)
+    # Outer card frame (app-consistent frosted dark slate palette) + smoothly curved color-coded top border
+    _draw_rounded_card_with_top_accent(
+        img,
+        bbox=(18, 18, w - 18, h - 18),
+        radius=20,
+        fill_rgb=(13, 20, 35),
+        outline_rgb=(42, 59, 92),
+        outline_width=2,
+        accent_rgb=top_border_col,
+        accent_height=3,
+    )
 
     f_brand = _load_font(27, bold=True)
     f_sub = _load_font(13, bold=False)
@@ -640,11 +704,20 @@ def render_pick_card_png(
     f_match, match_fit = _fit_font_and_text(draw, match_raw, max_width=w - 140, start_size=32, min_size=18, bold=True)
     draw.text((88, 173), match_fit, font=f_match, fill=(255, 255, 255))
 
-    # Main Pick Highlight Card (emerald for picks/wins, red/pink for resolved losses)
+    # Main Pick Highlight Card (emerald for picks/wins, red/pink for resolved losses) with clipped left accent bar
     box_fill = (13, 33, 29) if not is_loss_card else (38, 16, 26)
     box_border = (34, 197, 94) if not is_loss_card else (244, 63, 94)
-    draw.rounded_rectangle([(44, 224), (w - 44, 352)], radius=14, fill=box_fill, outline=box_border, width=2)
-    draw.rounded_rectangle([(46, 226), (54, 350)], radius=4, fill=box_border)
+    draw.rounded_rectangle([(44, 224), (w - 44, 352)], radius=14, fill=box_fill)
+    ss_p = 4
+    pm_hi = Image.new("L", (w * ss_p, h * ss_p), 0)
+    ImageDraw.Draw(pm_hi).rounded_rectangle([45 * ss_p, 225 * ss_p, (w - 45) * ss_p, 351 * ss_p], radius=13 * ss_p, fill=255)
+    pa_hi = Image.new("RGBA", (w * ss_p, h * ss_p), (0, 0, 0, 0))
+    ImageDraw.Draw(pa_hi).rectangle([44 * ss_p, 224 * ss_p, 53 * ss_p, 352 * ss_p], fill=(*box_border, 255))
+    pc_hi = Image.new("RGBA", (w * ss_p, h * ss_p), (0, 0, 0, 0))
+    pc_hi.paste(pa_hi, (0, 0), pm_hi)
+    pc_sm = pc_hi.resize((w, h), resample=Image.Resampling.LANCZOS)
+    img.paste(pc_sm, (0, 0), pc_sm)
+    draw.rounded_rectangle([(44, 224), (w - 44, 352)], radius=14, outline=box_border, width=2)
     pick_box_hdr = (
         "RESOLVED PAPER-BET RESULT (LOSS)"
         if is_loss_card
@@ -711,8 +784,16 @@ def render_pick_card_png(
     for idx, (k_lbl, k_main, k_sub, k_col) in enumerate(kpis):
         bx0 = 44 + idx * (box_w + 12)
         bx1 = bx0 + box_w
-        draw.rounded_rectangle([(bx0, 370), (bx1, 488)], radius=12, fill=(10, 16, 29), outline=(38, 54, 84), width=1)
-        draw.rounded_rectangle([(bx0 + 2, 371), (bx1 - 2, 375)], radius=2, fill=k_col)
+        _draw_rounded_card_with_top_accent(
+            img,
+            bbox=(bx0, 370, bx1, 488),
+            radius=12,
+            fill_rgb=(10, 16, 29),
+            outline_rgb=(38, 54, 84),
+            outline_width=1,
+            accent_rgb=k_col,
+            accent_height=2,
+        )
         draw.text((bx0 + 16, 386), k_lbl, font=f_kpi_lbl, fill=(148, 163, 184))
         f_km, km_fit = _fit_font_and_text(draw, k_main, max_width=box_w - 28, start_size=24, min_size=14, bold=True)
         draw.text((bx0 + 16, 412), km_fit, font=f_km, fill=k_col)
@@ -796,8 +877,16 @@ def render_digest_slate_png(
         sb_border = (34, 211, 238)
         sb_text = (165, 243, 252)
 
-    draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=18, fill=(13, 20, 35), outline=(42, 59, 92), width=2)
-    draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=slate_top_col)
+    _draw_rounded_card_with_top_accent(
+        img,
+        bbox=(18, 18, w - 18, h - 18),
+        radius=18,
+        fill_rgb=(13, 20, 35),
+        outline_rgb=(42, 59, 92),
+        outline_width=2,
+        accent_rgb=slate_top_col,
+        accent_height=3,
+    )
 
     f_sub = _load_font(13, bold=False)
     f_sub_b = _load_font(13, bold=True)

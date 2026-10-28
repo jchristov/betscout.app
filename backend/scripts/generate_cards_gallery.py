@@ -415,7 +415,6 @@ def main() -> None:
     .card-box {
       background: linear-gradient(145deg, rgba(24, 35, 58, 0.72), rgba(12, 19, 34, 0.88));
       border: 1px solid rgba(148, 163, 184, 0.24);
-      border-top: 2px solid #38bdf8;
       border-radius: 16px; padding: 18px;
       box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55);
     }
@@ -423,7 +422,7 @@ def main() -> None:
     .card-box p { margin: 0 0 12px; font-size: 12.5px; color: #94a3b8; line-height: 1.45; }
     .card-box img {
       width: 100%; height: auto; display: block;
-      border-radius: 10px; border: 1px solid #1e293b;
+      border-radius: 12px;
     }
   </style>
 </head>
@@ -439,14 +438,14 @@ def main() -> None:
 
     <h2 class="section-hdr">Part I · Multi-Row Slate Boards (1180px Wide — Morning Digest &amp; Settled Recaps)</h2>
     <div class="slate-grid">
-      <div class="card-box" style="border-top-color: #10b981;">
+      <div class="card-box">
         <h3>11 · Daily High-Conviction Multi-Sport Slate Board (Morning Digest)</h3>
         <p>Published automatically at 09:00 CET and via the Share Picks modal for multi-pick slates across all 10 sports.</p>
         <img src=\""""
         + active_slate_b64
         + """\" alt="Daily Active Slate PNG" />
       </div>
-      <div class="card-box" style="border-top-color: #38bdf8;">
+      <div class="card-box">
         <h3>12 · Automated Settled Paper-Bet Recap Board (Resolved Results &amp; Ledger ROI)</h3>
         <p>Published automatically when matches finish and settle, showing 2-line Matchup + Final Score, unit PnL, and cumulative W-L record.</p>
         <img src=\""""

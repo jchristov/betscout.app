@@ -42,7 +42,6 @@ done
 
 echo "🧪 [3/6] Running Vitest unit tests & building Vue 3 + Tailwind SPA (frontend/dist)..."
 (cd frontend && npm run test && npm run build)
-cp -f betscout-logo.png betscout-logo.svg frontend/dist/ 2>/dev/null || true
 
 echo "🐳 [4/6] Building & deploying Cloud Run service ${SERVICE_NAME} (${REGION})..."
 gcloud run deploy "${SERVICE_NAME}" \
@@ -62,8 +61,6 @@ gcloud run deploy "${SERVICE_NAME}" \
   --set-env-vars="^|^GCS_MOUNT_DIR=/mnt/gcs|BETSCOUT_DATA_DIR=/app/data|MONETIZATION_ENABLED=1|FREE_PREVIEW_PICKS_COUNT=0|BETSCOUT_CRON_SECRET=${CRON_SECRET}|FIREBASE_PROJECT_ID=${PROJECT_ID}|FIREBASE_WEB_API_KEY=${FB_API_KEY}|FIREBASE_AUTH_DOMAIN=${FB_AUTH_DOMAIN}|BETSCOUT_ADMIN_EMAILS=${ADMIN_EMAILS}|FIREBASE_ADMIN_EMAILS=${ADMIN_EMAILS}|DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}|DISCORD_WEBHOOK_URL_FOOTBALL=${DISCORD_WEBHOOK_URL_FOOTBALL:-}|DISCORD_WEBHOOK_URL_TENNIS=${DISCORD_WEBHOOK_URL_TENNIS:-}|DISCORD_WEBHOOK_URL_HOCKEY=${DISCORD_WEBHOOK_URL_HOCKEY:-}|DISCORD_WEBHOOK_URL_BASKETBALL=${DISCORD_WEBHOOK_URL_BASKETBALL:-}|DISCORD_WEBHOOK_URL_VOLLEYBALL=${DISCORD_WEBHOOK_URL_VOLLEYBALL:-}|DISCORD_WEBHOOK_URL_BASEBALL=${DISCORD_WEBHOOK_URL_BASEBALL:-}|DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL=${DISCORD_WEBHOOK_URL_AMERICAN_FOOTBALL:-}|DISCORD_WEBHOOK_URL_TABLE_TENNIS=${DISCORD_WEBHOOK_URL_TABLE_TENNIS:-}|DISCORD_WEBHOOK_URL_FREE_TEASER=${DISCORD_WEBHOOK_URL_FREE_TEASER:-}|TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}|TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}"
 
 echo "🌐 [4/5] Deploying Firebase Hosting edge CDN & rewrites..."
-mkdir -p public
-cp -f betscout-logo.png betscout-logo.svg public/ 2>/dev/null || true
 npx --yes firebase-tools deploy --only hosting --project "${PROJECT_ID}"
 
 echo "🔐 [5/6] Ensuring custom domains (betscout.app, betscout.vip, betscout-ai.com) are whitelisted in Firebase Auth..."

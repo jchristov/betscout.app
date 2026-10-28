@@ -1205,11 +1205,13 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 from .pick_card import render_logo_png
 
                 sz = 192 if "192" in parsed.path else (180 if "apple" in parsed.path else 512)
-                logo_file = (
-                    (root_dir / "betscout-logo.png")
-                    if (root_dir / "betscout-logo.png").exists()
-                    else (root_dir.parent / "betscout-logo.png")
-                )
+                logo_candidates = [
+                    root_dir / "frontend" / "public" / "betscout-logo.png",
+                    root_dir.parent / "frontend" / "public" / "betscout-logo.png",
+                    root_dir / "betscout-logo.png",
+                    root_dir.parent / "betscout-logo.png",
+                ]
+                logo_file = next((p for p in logo_candidates if p.exists()), logo_candidates[0])
                 png_bytes = logo_file.read_bytes() if (sz == 512 and logo_file.exists()) else render_logo_png(size=sz)
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
@@ -1220,11 +1222,13 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 return
 
             if parsed.path == "/betscout-logo.svg":
-                svg_file = (
-                    (root_dir / "betscout-logo.svg")
-                    if (root_dir / "betscout-logo.svg").exists()
-                    else (root_dir.parent / "betscout-logo.svg")
-                )
+                svg_candidates = [
+                    root_dir / "frontend" / "public" / "betscout-logo.svg",
+                    root_dir.parent / "frontend" / "public" / "betscout-logo.svg",
+                    root_dir / "betscout-logo.svg",
+                    root_dir.parent / "betscout-logo.svg",
+                ]
+                svg_file = next((p for p in svg_candidates if p.exists()), svg_candidates[0])
                 svg_bytes = svg_file.read_bytes() if svg_file.exists() else b"<svg xmlns='http://www.w3.org/2000/svg'/>"
                 self.send_response(200)
                 self.send_header("Content-Type", "image/svg+xml; charset=utf-8")

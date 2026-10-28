@@ -104,15 +104,6 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = '#111827';
-  ctx.strokeStyle = '#24344f';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(18, 18, w - 36, h - 36, 20);
-  else ctx.rect(18, 18, w - 36, h - 36);
-  ctx.fill();
-  ctx.stroke();
-
   const badgeTxt = meta.badge ? String(meta.badge).toUpperCase() : 'LIVE AI PICK';
   const rawPickProbe = String(meta.pick_name || meta.pick || '').toUpperCase();
   const isLossCard = badgeTxt.includes('LOSS') || rawPickProbe.includes(' (L ');
@@ -121,9 +112,28 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
     (badgeTxt.includes('WIN') || badgeTxt.includes('SETTLED') || rawPickProbe.includes(' (W ') || Boolean(meta.ended_at_local));
 
   // Color-coded top border: Cyan (#38bdf8) for Picks, Green (#22c55e) for Resolved Wins, Red/Pink (#f43f5e) for Resolved Losses
+  // Drawn as a smooth top-arc border stroke matching CSS `border-top` on `.card-surface`
   const topBorderColor = isLossCard ? '#f43f5e' : isWinCard ? '#22c55e' : '#38bdf8';
-  ctx.fillStyle = topBorderColor;
-  ctx.fillRect(20, 20, w - 40, 6);
+  ctx.fillStyle = '#0d1423';
+  ctx.strokeStyle = '#2a3b5c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(18, 18, w - 36, h - 36, 20);
+  else ctx.rect(18, 18, w - 36, h - 36);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, w, 30);
+  ctx.clip();
+  ctx.strokeStyle = topBorderColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(18, 18, w - 36, h - 36, 20);
+  else ctx.rect(18, 18, w - 36, h - 36);
+  ctx.stroke();
+  ctx.restore();
 
   // Draw Option 7.3 3D Chiseled Bevel Compass Badge at (44, 42, 46, 46)
   ctx.save();
@@ -312,20 +322,36 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillStyle = '#ffffff';
   fillFittedCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '800', 'left');
 
-  ctx.fillStyle = '#0d211d';
-  ctx.strokeStyle = '#22c55e';
+  const pickBoxFill = isLossCard ? '#26101a' : '#0d211d';
+  const pickBoxBorder = isLossCard ? '#f43f5e' : '#22c55e';
+  ctx.save();
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(44, 224, w - 88, 128, 14);
+  else ctx.rect(44, 224, w - 88, 128);
+  ctx.fillStyle = pickBoxFill;
+  ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = pickBoxBorder;
+  ctx.fillRect(44, 224, 9, 128);
+  ctx.restore();
+  ctx.strokeStyle = pickBoxBorder;
   ctx.lineWidth = 2;
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(44, 224, w - 88, 128, 14);
   else ctx.rect(44, 224, w - 88, 128);
-  ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#22c55e';
-  ctx.fillRect(46, 226, 8, 124);
 
-  ctx.fillStyle = '#86efac';
+  ctx.fillStyle = isLossCard ? '#fda4af' : '#86efac';
   ctx.font = '700 13px "Plus Jakarta Sans", -apple-system, sans-serif';
-  ctx.fillText('🎯 RECOMMENDED MODEL PICK', 72, 250);
+  ctx.fillText(
+    isLossCard
+      ? 'RESOLVED PAPER-BET RESULT (LOSS)'
+      : isWinCard
+        ? 'RESOLVED PAPER-BET RESULT (WIN)'
+        : 'RECOMMENDED MODEL PICK',
+    72,
+    250,
+  );
 
   const rawPick = String(meta.pick || 'Top Calibrated Edge');
   let mainPick = rawPick;
@@ -339,7 +365,7 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
     mainPick = pts[0];
     subPick = pts.slice(1).join(' | ');
   }
-  ctx.fillStyle = '#22c55e';
+  ctx.fillStyle = pickBoxBorder;
   fillFittedCanvasText(ctx, mainPick, 72, 290, w - 144, 28, 16, '800', 'left');
 
   const subLine =
@@ -366,16 +392,26 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   const bw = Math.floor((w - 88 - 36) / 4);
   kpis.forEach((k, idx) => {
     const bx = 44 + idx * (bw + 12);
-    ctx.fillStyle = '#0d1421';
-    ctx.strokeStyle = '#223049';
+    ctx.fillStyle = '#0a101d';
+    ctx.strokeStyle = '#263654';
     ctx.lineWidth = 1;
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(bx, 370, bw, 118, 12);
     else ctx.rect(bx, 370, bw, 118);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = k.col;
-    ctx.fillRect(bx + 2, 371, bw - 4, 4);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bx, 368, bw, 10);
+    ctx.clip();
+    ctx.strokeStyle = k.col;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, 370, bw, 118, 12);
+    else ctx.rect(bx, 370, bw, 118);
+    ctx.stroke();
+    ctx.restore();
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '700 11px "Plus Jakarta Sans", -apple-system, sans-serif';

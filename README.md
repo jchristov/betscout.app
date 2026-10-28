@@ -1,4 +1,4 @@
-# <img src="./betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
+# <img src="./frontend/public/betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
 
 Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-leg combo/parlay, and live paper-betting intelligence platform (`https://github.com/jchristov/betscout.app`) across **7 Core Database Sports & 27 Championships (`59,062` verified matches in `data/betscout.db`)** plus **56 Live Sportradar StatsHub & Tipico Sports**:
 - **⚽ 14 Football Competitions (`11,582` matches):** `eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`, `aut.1`, `ned.1`, `por.1`, `eng.2`, `uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`, `fifa.world`
@@ -8,7 +8,7 @@ Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-l
 - **🏒🏈⚾ Hockey, American Football & Baseball (`1,313` matches):** `nhl` (`678`), `nfl` (`479`), `mlb` (`156`)
 - **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Live **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** 1X2, 28-score Correct Score matrices, Asian Handicaps, Player Injuries (`stats_season_injuries`), 15-Minute Goal Intervals (`stats_season_teamscoringconceding`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
 
-See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[docs/SPORTRADAR_STATSHUB.md](./docs/SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[FINDINGS.md](./FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
+See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[docs/SPORTRADAR_STATSHUB.md](./docs/SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[docs/FINDINGS.md](./docs/FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
 
 ## Quick Commands
 
@@ -69,10 +69,10 @@ uv run pytest -q
 
 ## Project Structure
 
-- `ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
-- `deploy/firebase_laya/` — Ready-to-deploy Firebase Cloud Functions (2nd Gen Python 3.12) & GCP Cloud Functions package (`functions/main.py`, `firebase.json`, `.firebaserc`, `package_checkpoint.sh`, and `README.md`) for hosting the `804 MB` `laya_sports_ckpt` model
-- `deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
-- `src/betscout/`
+- `backend/ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
+- `backend/deploy/firebase_laya/` — Ready-to-deploy Firebase Cloud Functions (2nd Gen Python 3.12) & GCP Cloud Functions package (`functions/main.py`, `firebase.json`, `.firebaserc`, `package_checkpoint.sh`, and `README.md`) for hosting the `804 MB` `laya_sports_ckpt` model
+- `backend/deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
+- `backend/src/betscout/`
   - `espn.py` — Cached ESPN scoreboard & summary client (`curl --compressed` with retry/backoff and 15m live refresh for recent days)
   - `ingest.py` — Pre-match 3-way & 2-way odds validators (`_valid_1x2`, `_valid_2way`, `_valid_dc`, `_valid_totals`), American-odds fallback, and same-day deduplication
   - `universal_ingest.py` — Config-driven universal ingestion engine (`ingest_universal`) with watermark skipping and on-the-fly normalization
