@@ -318,43 +318,9 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillStyle = '#cbd5e1';
   fillFittedCanvasText(ctx, koStr, w - 56, 140, koBoxW - 22, 12, 9, '700', 'right');
 
-  // Draw crisp multi-color vector sport emblem at (62, 190, r=14) matching `betscout-sport:*` & `pick_card.py`
-  ctx.save();
-  const scx = 62;
-  const scy = 190;
-  const sr = 14;
-  ctx.beginPath();
-  ctx.arc(scx, scy, sr, 0, Math.PI * 2);
-  if (spLow.includes('tennis') && !spLow.includes('table')) {
-    ctx.fillStyle = '#a3e635';
-    ctx.strokeStyle = '#4d7c0f';
-  } else if (spLow.includes('basketball') || spLow.includes('nba')) {
-    ctx.fillStyle = '#f97316';
-    ctx.strokeStyle = '#9a3412';
-  } else if (spLow.includes('hockey') || spLow.includes('nhl')) {
-    ctx.fillStyle = '#0f172a';
-    ctx.strokeStyle = '#38bdf8';
-  } else if (spLow.includes('nfl') || (spLow.includes('football') && !spLow.includes('soccer'))) {
-    ctx.fillStyle = '#b45309';
-    ctx.strokeStyle = '#f59e0b';
-  } else if (spLow.includes('table_tennis') || spLow.includes('table tennis') || spLow.includes('wtt')) {
-    ctx.fillStyle = '#ef4444';
-    ctx.strokeStyle = '#fecaca';
-  } else if (spLow.includes('darts')) {
-    ctx.fillStyle = '#ef4444';
-    ctx.strokeStyle = '#22c55e';
-  } else {
-    ctx.fillStyle = '#f8fafc';
-    ctx.strokeStyle = '#34d399';
-  }
-  ctx.lineWidth = 2;
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-
-  const matchTitle = String(meta.match || 'Daily High-Conviction Picks');
+  const matchTitle = `${spIcon}  ${String(meta.match || 'Daily High-Conviction Picks')}`;
   ctx.fillStyle = '#ffffff';
-  fillFittedCanvasText(ctx, matchTitle, 88, 198, w - 140, 32, 18, '800', 'left');
+  fillFittedCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '800', 'left');
 
   const pickBoxFill = isLossCard ? '#26101a' : '#0d211d';
   const pickBoxBorder = isLossCard ? '#f43f5e' : '#22c55e';

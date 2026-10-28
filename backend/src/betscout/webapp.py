@@ -1205,6 +1205,27 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self.wfile.write(body_m)
                 return
 
+            if parsed.path.startswith("/sport-icons/") and parsed.path.endswith(".png"):
+                sp_fname = Path(parsed.path).name
+                pkg_icon = Path(__file__).resolve().parent / "assets" / "sport_icons" / sp_fname
+                sp_candidates = [
+                    pkg_icon,
+                    root_dir / "frontend" / "dist" / "sport-icons" / sp_fname,
+                    root_dir / "frontend" / "public" / "sport-icons" / sp_fname,
+                    root_dir.parent / "frontend" / "dist" / "sport-icons" / sp_fname,
+                    root_dir.parent / "frontend" / "public" / "sport-icons" / sp_fname,
+                ]
+                sp_file = next((p for p in sp_candidates if p.is_file()), None)
+                if sp_file:
+                    png_b = sp_file.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self.send_header("Content-Length", str(len(png_b)))
+                    self.end_headers()
+                    self.wfile.write(png_b)
+                    return
+
             if parsed.path in ("/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/betscout-logo.png"):
                 from .pick_card import render_logo_png
 
