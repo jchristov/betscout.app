@@ -1087,18 +1087,6 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     self.wfile.write(cb)
                     return
 
-            if parsed.path in ("/docs/logo-studio.html", "/logos"):
-                logos_f = docs_dir / "logo-studio.html"
-                if logos_f.is_file():
-                    lb = logos_f.read_bytes()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.send_header("Cache-Control", "no-cache")
-                    self.send_header("Content-Length", str(len(lb)))
-                    self.end_headers()
-                    self.wfile.write(lb)
-                    return
-
             if spa_index.is_file() and (
                 parsed.path in ("/", "/index.html", "/app", "/landing", "/landing.html", "/pricing", "/pricing.html")
                 or parsed.path.startswith("/app/")
