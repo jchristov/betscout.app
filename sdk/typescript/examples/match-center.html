@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Match Center #76034538 — Taylor Fritz vs Rinky Hijikata (@betscout/sdk Replica)</title>
+  <link rel="icon" href="/betscout-logo.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --bg-base: #060a13;
+      --bg-surface: #0b1221;
+      --bg-container: #0f172a;
+      --bg-card: #141f38;
+      --bg-elevated: #1e293b;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.25);
+      --border-accent: rgba(56, 189, 248, 0.42);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --radius-shell: 22px;
+      --radius-outer: 16px;
+      --radius-inner: 10px;
+      --shadow-shell: 0 2px 6px rgba(0, 0, 0, 0.5), 0 18px 42px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      --shadow-layered: 0 1px 2px rgba(0, 0, 0, 0.38), 0 8px 24px -4px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.09), transparent 42%),
+                  radial-gradient(circle at 85% 8%, rgba(16, 185, 129, 0.08), transparent 42%),
+                  var(--bg-base);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 4rem;
+    }
+
+    h1, h2, h3, h4 { text-wrap: balance; letter-spacing: -0.02em; }
+    img { outline: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; }
+
+    .container { max-width: 1380px; margin: 0 auto; padding: 0 1.5rem; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(18px);
+      background: rgba(6, 10, 19, 0.88);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.85rem 0;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-logo { width: 42px; height: 42px; flex-shrink: 0; }
+    .brand-title { font-size: 1.12rem; font-weight: 800; display: flex; align-items: center; gap: 0.55rem; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+    .pill-emerald { background: rgba(16, 185, 129, 0.14); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.32); }
+    .pill-amber { background: rgba(245, 158, 11, 0.14); color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.32); }
+    .pill-rose { background: rgba(244, 63, 94, 0.14); color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.32); }
+
+    .btn-action {
+      height: 34px;
+      padding: 0 0.85rem;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent-cyan);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      transition-property: transform, background-color, border-color;
+      transition-duration: 140ms;
+    }
+    .btn-action:hover { background: rgba(56, 189, 248, 0.24); border-color: var(--accent-cyan); }
+    .btn-action:active { transform: scale(0.96); }
+
+    .input-ctrl {
+      height: 34px;
+      padding: 0 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      width: 115px;
+    }
+
+    /* Breadcrumb & Hero Scoreboard */
+    .match-hero {
+      margin: 1.35rem 0;
+      background: linear-gradient(180deg, rgba(20, 31, 56, 0.95), rgba(11, 18, 33, 0.98));
+      border-radius: var(--radius-shell);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-shell);
+      padding: 1.5rem;
+    }
+
+    .breadcrumb-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .scoreboard-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 820px) {
+      .scoreboard-grid { grid-template-columns: 1fr; text-align: center; }
+    }
+
+    .competitor-side {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .competitor-side.away {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .competitor-flag {
+      width: 56px;
+      height: 42px;
+      object-fit: cover;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    }
+
+    .competitor-name {
+      font-size: 1.35rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .competitor-side.away .competitor-name {
+      justify-content: flex-end;
+    }
+
+    .competitor-meta {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.2rem;
+    }
+
+    .score-center {
+      background: rgba(6, 10, 19, 0.85);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 0.9rem 1.5rem;
+      text-align: center;
+      min-width: 280px;
+    }
+
+    .main-sets-score {
+      font-size: 2.3rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .period-scores-table {
+      width: 100%;
+      margin-top: 0.65rem;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .period-scores-table th, .period-scores-table td {
+      padding: 0.28rem 0.5rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    /* Sub-tabs inside Match Center */
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .nav-tab {
+      min-height: 40px;
+      padding: 0.5rem 1.1rem;
+      border-radius: var(--radius-inner);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition-property: transform, background-color, color, border-color;
+      transition-duration: 150ms;
+    }
+    .nav-tab.active {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent-cyan);
+      border-color: var(--border-accent);
+    }
+
+    .tab-stage-container {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(11, 18, 33, 0.96));
+      border-radius: var(--radius-shell);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-shell);
+      padding: 1.5rem;
+    }
+
+    .section-panel { display: none; }
+    .section-panel.active { display: block; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-outer);
+      padding: 1.3rem;
+      box-shadow: var(--shadow-layered);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.95rem;
+      padding-bottom: 0.7rem;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+
+    .card-title { font-size: 0.98rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+
+    .code-tag {
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+      font-size: 0.72rem;
+      background: rgba(6, 10, 19, 0.85);
+      color: var(--accent-cyan);
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.24);
+    }
+
+    /* Win Probability Dual Bar */
+    .prob-bar-wrap { margin: 0.75rem 0; }
+    .prob-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+    .prob-track {
+      height: 14px;
+      border-radius: 999px;
+      background: var(--bg-surface);
+      overflow: hidden;
+      display: flex;
+      gap: 2px;
+    }
+    .prob-fill-home { background: linear-gradient(90deg, #0ea5e9, #38bdf8); height: 100%; }
+    .prob-fill-away { background: linear-gradient(90deg, #f59e0b, #f43f5e); height: 100%; }
+
+    /* Dual Comparison Stat Bars */
+    .stat-compare-row { margin-bottom: 0.85rem; }
+    .stat-compare-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.81rem;
+      margin-bottom: 0.3rem;
+    }
+    .stat-compare-bars {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      height: 8px;
+    }
+    .bar-left-bg {
+      background: rgba(148, 163, 184, 0.14);
+      border-radius: 4px;
+      display: flex;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+    .bar-right-bg {
+      background: rgba(148, 163, 184, 0.14);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .bar-left-fill { background: var(--accent-cyan); height: 100%; border-radius: 4px; }
+    .bar-right-fill { background: var(--accent-amber); height: 100%; border-radius: 4px; }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-inner);
+      border: 1px solid var(--border-subtle);
+      background: rgba(11, 18, 33, 0.55);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    th, td { padding: 0.6rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+    th {
+      background: rgba(6, 10, 19, 0.75);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.73rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .form-strip { display: inline-flex; gap: 0.25rem; }
+    .form-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 0.71rem;
+      font-weight: 700;
+    }
+    .form-W { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .form-D { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .form-L { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BetScout Logo">
+          <defs>
+            <linearGradient id="mcBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#132038"/>
+              <stop offset="55%" stop-color="#0b1324"/>
+              <stop offset="100%" stop-color="#050912"/>
+            </linearGradient>
+            <linearGradient id="mcRimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="50%" stop-color="#2dd4bf"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+          <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#mcBgGrad)" stroke="url(#mcRimGrad)" stroke-width="2.2"/>
+          <circle cx="32" cy="32" r="18.5" stroke="#38bdf8" stroke-opacity="0.28" stroke-width="1.4"/>
+          <polygon points="32,8 32,32 27,27" fill="#fde047"/>
+          <polygon points="32,8 37,27 32,32" fill="#10b981"/>
+          <polygon points="32,56 32,32 37,37" fill="#34d399"/>
+          <polygon points="32,56 27,37 32,32" fill="#047857"/>
+          <polygon points="56,32 32,32 37,27" fill="#7dd3fc"/>
+          <polygon points="56,32 37,37 32,32" fill="#0284c7"/>
+          <polygon points="8,32 32,32 27,37" fill="#38bdf8"/>
+          <polygon points="8,32 27,27 32,32" fill="#0369a1"/>
+        </svg>
+        <div>
+          <div class="brand-title">
+            <span>BetScout Match Center Replica</span>
+            <span class="pill" id="match-id-pill">Match #76034538</span>
+            <span class="pill pill-emerald" id="live-poll-pill">3s Live Delta Stream Active</span>
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-secondary);">
+            1:1 SDK Replica of <code>/match/76034538</code> powered by <code>client.getMatchCenterDossier(76034538)</code>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+        <a href="/" class="btn-action">← Back to Full 56-Sport Explorer</a>
+        <input id="custom-match-input" class="input-ctrl" type="text" value="76034538" placeholder="Match ID..." />
+        <button class="btn-action" onclick="loadMatchFromInput()">Load Match →</button>
+        <button class="btn-action" onclick="refreshMatchDossier()">Refresh Now ↻</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Hero Match Scoreboard -->
+    <section class="match-hero">
+      <div class="breadcrumb-row">
+        <div id="hero-breadcrumbs">
+          <span>Tennis</span> · <span>ATP</span> · <strong>ATP Basel, Switzerland Men Singles 2026</strong> · <span>Round of 32</span>
+        </div>
+        <div id="hero-venue-meta">
+          <span>Court: <strong>Hardcourt indoor</strong></span> · <span>Venue: <strong>Center Court (Basel, SUI)</strong></span>
+        </div>
+      </div>
+
+      <div class="scoreboard-grid">
+        <!-- Home Player / Team -->
+        <div class="competitor-side home">
+          <img id="home-flag-img" class="competitor-flag" src="" alt="Home" />
+          <div>
+            <div class="competitor-name">
+              <span id="home-name">Fritz, Taylor</span>
+              <span class="pill" id="home-seed-pill">Seed #6</span>
+              <span id="home-serve-ball" style="display:none;" title="Active Server">🎾</span>
+            </div>
+            <div class="competitor-meta" id="home-rank-meta">ATP Rank #13 (2,995 pts) · USA</div>
+            <div style="margin-top: 0.45rem;" id="home-form-strip"></div>
+          </div>
+        </div>
+
+        <!-- Score Center -->
+        <div class="score-center">
+          <div style="margin-bottom: 0.35rem;">
+            <span class="pill pill-amber" id="match-status-badge">2nd set</span>
+          </div>
+          <div class="main-sets-score" id="main-sets-score">1 - 0</div>
+          <table class="period-scores-table">
+            <thead>
+              <tr id="period-headers-tr">
+                <th>Player</th>
+                <th>S1</th>
+                <th>S2</th>
+                <th>S3</th>
+                <th>Pts</th>
+              </tr>
+            </thead>
+            <tbody id="period-scores-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Away Player / Team -->
+        <div class="competitor-side away">
+          <img id="away-flag-img" class="competitor-flag" src="" alt="Away" />
+          <div>
+            <div class="competitor-name">
+              <span id="away-serve-ball" style="display:none;" title="Active Server">🎾</span>
+              <span class="pill pill-amber" id="away-seed-pill">LL</span>
+              <span id="away-name">Hijikata, Rinky</span>
+            </div>
+            <div class="competitor-meta" id="away-rank-meta">ATP Rank #85 · Australia</div>
+            <div style="margin-top: 0.45rem;" id="away-form-strip"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sub-Navigation Tabs matching /match/76034538 (Overview | Statistics | Point-by-Point & Markets) -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="overview">1. Match Overview, Surface Win Rate, H2H &amp; Player Info</button>
+      <button class="nav-tab" data-tab="statistics">2. Match Statistics (All Match, Set 1, Set 2)</button>
+      <button class="nav-tab" data-tab="timeline">3. Point-by-Point Timeline &amp; All Bookmaker Markets</button>
+    </nav>
+
+    <div class="tab-stage-container">
+      <!-- TAB 1: OVERVIEW -->
+      <section class="section-panel active" id="tab-overview">
+        <div class="grid-2">
+          <!-- Win Probability & Pre-Match Markets -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Win Probability &amp; Pre-Match Markets</span></div>
+              <span class="code-tag">getMatchMarkets(76034538, 'prematch')</span>
+            </div>
+            <div class="prob-bar-wrap">
+              <div class="prob-labels">
+                <span id="prob-home-lbl" style="color:var(--accent-cyan);">Fritz, Taylor — 87.9% (1.10)</span>
+                <span id="prob-away-lbl" style="color:var(--accent-amber);">Hijikata, Rinky — 12.1% (5.99)</span>
+              </div>
+              <div class="prob-track">
+                <div id="prob-home-bar" class="prob-fill-home" style="width: 87.9%;"></div>
+                <div id="prob-away-bar" class="prob-fill-away" style="width: 12.1%;"></div>
+              </div>
+            </div>
+            <div class="table-wrap" style="margin-top: 1rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Market</th>
+                    <th>Specifier</th>
+                    <th>Outcomes &amp; Implied Probabilities</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-markets-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Surface Win Rate Comparison -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Surface Win Rate Comparison (All / Hard / Indoor / Clay / Grass)</span></div>
+              <span class="code-tag">getTeamProfile() · getTennisPlayerSurfaceStats()</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Court Surface</th>
+                    <th id="surf-home-th">Fritz, Taylor (W–L / %)</th>
+                    <th id="surf-away-th">Hijikata, Rinky (W–L / %)</th>
+                  </tr>
+                </thead>
+                <tbody id="surface-comparison-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Competitor Biographical & Ranking Comparison -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Player Info &amp; ATP Ranking Comparison</span></div>
+              <span class="code-tag">stats_team_info · stats_match_head2head</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Attribute</th>
+                    <th id="bio-home-th">Fritz, Taylor</th>
+                    <th id="bio-away-th">Hijikata, Rinky</th>
+                  </tr>
+                </thead>
+                <tbody id="player-info-compare-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Head-to-Head Last Meetings -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Head-to-Head Meetings (<code>getTeamVersus</code>)</span></div>
+              <span class="code-tag">stats_team_versus/136042/299130/10</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Round / Surface</th>
+                    <th>Home</th>
+                    <th>Sets (Games)</th>
+                    <th>Away</th>
+                  </tr>
+                </thead>
+                <tbody id="h2h-meetings-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Last 10 Matches for Each Competitor -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span id="last-home-title">Fritz, Taylor — Last Completed Matches</span></div>
+              <span class="code-tag">getTeamLastMatchesExtended()</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Home</th>
+                    <th>Sets</th>
+                    <th>Away</th>
+                  </tr>
+                </thead>
+                <tbody id="home-last-matches-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span id="last-away-title">Hijikata, Rinky — Last Completed Matches</span></div>
+              <span class="code-tag">getTeamLastMatchesExtended()</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Home</th>
+                    <th>Sets</th>
+                    <th>Away</th>
+                  </tr>
+                </thead>
+                <tbody id="away-last-matches-tbody"></tbody>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: MATCH STATISTICS (All Match | Set 1 | Set 2) -->
+      <section class="section-panel" id="tab-statistics">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>Live Match Boxscore &amp; Serve/Return Statistics</span>
+              <div style="display: inline-flex; gap: 0.4rem; margin-left: 0.75rem;">
+                <button class="btn-action" id="stat-period-all" onclick="setStatPeriod('all')">Match Total</button>
+                <button class="btn-action" id="stat-period-p1" onclick="setStatPeriod(0)">1st Set</button>
+                <button class="btn-action" id="stat-period-p2" onclick="setStatPeriod(1)">2nd Set</button>
+              </div>
+            </div>
+            <span class="code-tag">client.getMatchDetailsExtended(76034538)</span>
+          </div>
+          <div id="match-details-bars"></div>
+        </div>
+      </section>
+
+      <!-- TAB 3: POINT-BY-POINT TIMELINE & MARKETS -->
+      <section class="section-panel" id="tab-timeline">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Live Point-by-Point &amp; Score Change Timeline</span></div>
+              <span class="code-tag">getMatchFullTimeline() · getMatchTimelineDelta()</span>
+            </div>
+            <div class="table-wrap" style="max-height: 520px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Server</th>
+                    <th>Sets</th>
+                    <th>Games</th>
+                    <th>Point Score</th>
+                  </tr>
+                </thead>
+                <tbody id="point-timeline-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Complete Bookmaker Market Book</span></div>
+              <span class="code-tag">getMatchMarkets(76034538)</span>
+            </div>
+            <div class="table-wrap" style="max-height: 520px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Market ID</th>
+                    <th>Market Name</th>
+                    <th>Specifier</th>
+                    <th>Outcomes</th>
+                  </tr>
+                </thead>
+                <tbody id="all-raw-markets-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    let currentMatchId = new URLSearchParams(window.location.search).get('matchId') || '76034538';
+    document.getElementById('custom-match-input').value = currentMatchId;
+    let currentDossier = null;
+    let selectedStatPeriod = 'all';
+
+    document.querySelectorAll('.nav-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.section-panel').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-tab');
+        const panel = document.getElementById('tab-' + target);
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    function renderFormStrip(entries) {
+      if (!Array.isArray(entries) || !entries.length) return '';
+      return '<div class="form-strip">' + entries.slice(0, 6).map((e) => {
+        const t = e.type || e.value || 'W';
+        return `<span class="form-dot form-${t}">${t}</span>`;
+      }).join('') + '</div>';
+    }
+
+    function parseLeadingNumber(val) {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      const m = String(val).match(/^(\d+(?:\.\d+)?)/);
+      return m ? Number(m[1]) : 0;
+    }
+
+    function setStatPeriod(period) {
+      selectedStatPeriod = period;
+      if (currentDossier) renderMatchStatistics(currentDossier);
+    }
+
+    function renderMatchStatistics(d) {
+      const container = document.getElementById('match-details-bars');
+      const values = d.match_details?.values || {};
+      const allRows = [
+        { allKey: '130', setKey: '1518', label: 'Aces' },
+        { allKey: '132', setKey: '1525', label: 'Double Faults' },
+        { allKey: '1189', setKey: '1524', label: '1st Serve Successful' },
+        { allKey: '1745', setKey: '1746', label: '2nd Serve Successful' },
+        { allKey: '137', setKey: '1529', label: '1st Serve Points Won' },
+        { allKey: '138', setKey: '1530', label: '2nd Serve Points Won' },
+        { allKey: '139', setKey: '1526', label: 'Break Points Won' },
+        { allKey: '141', setKey: '1520', label: 'Service Points Won' },
+        { allKey: '1410', setKey: '1522', label: 'Receiver Points Won' },
+        { allKey: '136', setKey: '1523', label: 'Total Points Won' },
+        { allKey: 'gameswon', setKey: 'gameswonperiod', label: 'Games Won' },
+        { allKey: '145', setKey: '1527', label: 'Service Games Won' },
+        { allKey: '134', setKey: '1194', label: 'Max Points in a Row' },
+        { allKey: '143', setKey: '1531', label: 'Max Games in a Row' },
+      ];
+
+      const rendered = allRows.map((r) => {
+        let hVal, aVal;
+        if (selectedStatPeriod === 'all') {
+          const item = values[r.allKey];
+          if (!item) return '';
+          hVal = item.value?.home ?? 0;
+          aVal = item.value?.away ?? 0;
+        } else {
+          const idx = Number(selectedStatPeriod);
+          const item = values[r.setKey];
+          if (!item) return '';
+          const hRaw = item.value?.home;
+          const aRaw = item.value?.away;
+          hVal = Array.isArray(hRaw) ? (hRaw[idx] ?? '0') : String(hRaw || '').split('/')[idx] ?? '0';
+          aVal = Array.isArray(aRaw) ? (aRaw[idx] ?? '0') : String(aRaw || '').split('/')[idx] ?? '0';
+        }
+
+        const hNum = parseLeadingNumber(hVal);
+        const aNum = parseLeadingNumber(aVal);
+        const tot = Math.max(1, hNum + aNum);
+        const hPct = Math.round((hNum / tot) * 100);
+        const aPct = Math.round((aNum / tot) * 100);
+
+        return `<div class="stat-compare-row">
+          <div class="stat-compare-header">
+            <strong style="color:var(--accent-cyan);">${hVal}</strong>
+            <span style="color:var(--text-secondary);font-weight:600;">${r.label}</span>
+            <strong style="color:var(--accent-amber);">${aVal}</strong>
+          </div>
+          <div class="stat-compare-bars">
+            <div class="bar-left-bg"><div class="bar-left-fill" style="width:${hPct}%;"></div></div>
+            <div class="bar-right-bg"><div class="bar-right-fill" style="width:${aPct}%;"></div></div>
+          </div>
+        </div>`;
+      }).filter(Boolean).join('');
+
+      container.innerHTML = rendered || '<div style="color:var(--text-secondary);">No detailed statistics available for this period.</div>';
+    }
+
+    function renderDossier(d) {
+      currentDossier = d;
+      const mi = d.match_info || {};
+      const m = d.timeline_delta?.match || mi.match || {};
+      const hTeam = mi.match?.teams?.home || m.teams?.home || {};
+      const aTeam = mi.match?.teams?.away || m.teams?.away || {};
+
+      document.getElementById('match-id-pill').textContent = `Match #${d.match_id}`;
+      document.title = `Match Center #${d.match_id} — ${hTeam.name || 'Home'} vs ${aTeam.name || 'Away'} (@betscout/sdk)`;
+
+      // Breadcrumbs & Venue
+      const tourName = mi.season?.name || mi.tournament?.name || '';
+      const roundName = mi.match?.roundname?.name || '';
+      const groundName = mi.tournament?.ground?.name || '';
+      const stadiumName = mi.stadium ? `${mi.stadium.name} (${mi.stadium.city || ''})` : '';
+      document.getElementById('hero-breadcrumbs').innerHTML =
+        `<span>${d.sport_name}</span> · <span>${mi.realcategory?.name || ''}</span> · <strong>${tourName}</strong> ${roundName ? `· <span class="pill">${roundName}</span>` : ''}`;
+      document.getElementById('hero-venue-meta').innerHTML =
+        `${groundName ? `<span>Surface: <strong>${groundName}</strong></span>` : ''} ${stadiumName ? `· <span>Venue: <strong>${stadiumName}</strong></span>` : ''}`;
+
+      // Flags & Names
+      document.getElementById('home-flag-img').src = d.home_flag_url || '';
+      document.getElementById('away-flag-img').src = d.away_flag_url || '';
+      document.getElementById('home-name').textContent = hTeam.name || 'Home';
+      document.getElementById('away-name').textContent = aTeam.name || 'Away';
+
+      const hSeed = hTeam.seed?.seeding ? `Seed #${hTeam.seed.seeding}` : (hTeam.seed?.type_short || '');
+      const aSeed = aTeam.seed?.seeding ? `Seed #${aTeam.seed.seeding}` : (aTeam.seed?.type_short || '');
+      const hSeedEl = document.getElementById('home-seed-pill');
+      const aSeedEl = document.getElementById('away-seed-pill');
+      hSeedEl.textContent = hSeed;
+      hSeedEl.style.display = hSeed ? 'inline-flex' : 'none';
+      aSeedEl.textContent = aSeed;
+      aSeedEl.style.display = aSeed ? 'inline-flex' : 'none';
+
+      // Active server
+      const srv = String(m.gamescore?.service ?? '');
+      document.getElementById('home-serve-ball').style.display = srv === '1' ? 'inline' : 'none';
+      document.getElementById('away-serve-ball').style.display = srv === '2' ? 'inline' : 'none';
+
+      // Rank meta & Form
+      const hp = d.home_profile || {};
+      const ap = d.away_profile || {};
+      const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
+      const aRank = ap.singlesrank || d.head2head?.rankings?.[aTeam._id]?.ranking;
+      document.getElementById('home-rank-meta').textContent =
+        `${hRank ? `Rank #${hRank}` : ''} ${hp.ranking?.points ? `(${hp.ranking.points} pts)` : ''} · ${hp.nationality || hTeam.cc?.name || ''}`;
+      document.getElementById('away-rank-meta').textContent =
+        `${aRank ? `Rank #${aRank}` : ''} ${ap.ranking?.points ? `(${ap.ranking.points} pts)` : ''} · ${ap.nationality || aTeam.cc?.name || ''}`;
+
+      document.getElementById('home-form-strip').innerHTML = renderFormStrip(d.match_form?.teams?.home?.form);
+      document.getElementById('away-form-strip').innerHTML = renderFormStrip(d.match_form?.teams?.away?.form);
+
+      // Scoreboard center
+      document.getElementById('match-status-badge').textContent = m.status?.name || 'Live';
+      document.getElementById('main-sets-score').textContent =
+        `${m.result?.home ?? 0} - ${m.result?.away ?? 0}`;
+
+      const periods = m.periods || {};
+      const pKeys = ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => periods[k]);
+      document.getElementById('period-headers-tr').innerHTML =
+        `<th>Competitor</th>` + pKeys.map((k, idx) => `<th>S${idx + 1}</th>`).join('') + (m.gamescore ? `<th>Pts</th>` : '');
+      document.getElementById('period-scores-tbody').innerHTML = `
+        <tr>
+          <td style="text-align:left;font-weight:700;">${srv === '1' ? '🎾 ' : ''}${hTeam.abbr || hTeam.name}</td>
+          ${pKeys.map((k) => `<td><strong>${periods[k]?.home ?? '—'}</strong></td>`).join('')}
+          ${m.gamescore ? `<td style="color:var(--accent-cyan);font-weight:800;">${m.gamescore.home ?? 0}</td>` : ''}
+        </tr>
+        <tr>
+          <td style="text-align:left;font-weight:700;">${srv === '2' ? '🎾 ' : ''}${aTeam.abbr || aTeam.name}</td>
+          ${pKeys.map((k) => `<td><strong>${periods[k]?.away ?? '—'}</strong></td>`).join('')}
+          ${m.gamescore ? `<td style="color:var(--accent-amber);font-weight:800;">${m.gamescore.away ?? 0}</td>` : ''}
+        </tr>
+      `;
+
+      // Win Probability & Markets
+      const mm = d.merged_markets || {};
+      const rawM = d.raw_markets || [];
+      const winM = rawM.find((x) => x._marketId === 186 || x._marketId === 1);
+      let hProb = 50, aProb = 50;
+      if (winM && winM.outcomes && winM.outcomes.length >= 2) {
+        const o1 = winM.outcomes[0];
+        const o2 = winM.outcomes[winM.outcomes.length - 1];
+        if (o1.probability && o2.probability) {
+          hProb = Number((o1.probability * 100).toFixed(1));
+          aProb = Number((o2.probability * 100).toFixed(1));
+        } else if (o1.odds && o2.odds) {
+          const inv1 = 1 / o1.odds, inv2 = 1 / o2.odds;
+          hProb = Number(((inv1 / (inv1 + inv2)) * 100).toFixed(1));
+          aProb = Number(((inv2 / (inv1 + inv2)) * 100).toFixed(1));
+        }
+      }
+      document.getElementById('prob-home-lbl').textContent =
+        `${hTeam.name} — ${hProb}% (${mm.odds_home ?? '—'})`;
+      document.getElementById('prob-away-lbl').textContent =
+        `${aTeam.name} — ${aProb}% (${mm.odds_away ?? '—'})`;
+      document.getElementById('prob-home-bar').style.width = `${hProb}%`;
+      document.getElementById('prob-away-bar').style.width = `${aProb}%`;
+
+      document.getElementById('overview-markets-tbody').innerHTML = rawM.slice(0, 8).map((mk) => {
+        const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';
+        const outStr = (mk.outcomes || []).map((o) =>
+          `<span class="pill" style="margin-right:0.35rem;">${o.name}: <strong>${o.odds}</strong> ${o.probability ? `(${Math.round(o.probability * 100)}%)` : ''}</span>`
+        ).join('');
+        return `<tr>
+          <td><strong>${mk.name || `Market #${mk._marketId}`}</strong></td>
+          <td><code>${specStr}</code></td>
+          <td>${outStr}</td>
+        </tr>`;
+      }).join('');
+
+      // Surface Win Rate Comparison
+      document.getElementById('surf-home-th').textContent = `${hTeam.name} (W–L / %)`;
+      document.getElementById('surf-away-th').textContent = `${aTeam.name} (W–L / %)`;
+      const hGs = hp.groundstats || [];
+      const aGs = ap.groundstats || [];
+      const grounds = ['All surfaces', 'Hardcourt', 'Indoor', 'Clay', 'Grass'];
+      document.getElementById('surface-comparison-tbody').innerHTML = grounds.map((gName) => {
+        const hg = hGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
+        const ag = aGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
+        return `<tr>
+          <td><strong>${gName}</strong></td>
+          <td><strong>${hg.matcheswon}-${hg.matcheslost}</strong> <span class="pill">${hg.matcheswon_percent}%</span></td>
+          <td><strong>${ag.matcheswon}-${ag.matcheslost}</strong> <span class="pill pill-amber">${ag.matcheswon_percent}%</span></td>
+        </tr>`;
+      }).join('');
+
+      // Biographical Comparison
+      document.getElementById('bio-home-th').textContent = hTeam.name;
+      document.getElementById('bio-away-th').textContent = aTeam.name;
+      const bioRows = [
+        ['Current Single Rank', `#${hp.singlesrank || hRank || '—'}`, `#${ap.singlesrank || aRank || '—'}`],
+        ['Career High Rank', `#${hp.highestranking?.singles?.ranking || '—'} (${hp.highestranking?.singles?.date || '—'})`, `#${ap.highestranking?.singles?.ranking || '—'} (${ap.highestranking?.singles?.date || '—'})`],
+        ['Turned Pro', hp.turnedpro || '—', ap.turnedpro || '—'],
+        ['Date of Birth', hp.dateofbirth || '—', ap.dateofbirth || '—'],
+        ['Height / Weight', `${hp.height || '—'} cm / ${hp.weight || '—'} kg`, `${ap.height || '—'} cm / ${ap.weight || '—'} kg`],
+        ['Plays', hp.plays || '—', ap.plays || '—'],
+        ['Favourite Surface', hp.favouritesurface || '—', ap.favouritesurface || '—'],
+        ['Coach', hp.coachname || '—', ap.coachname || '—'],
+      ];
+      document.getElementById('player-info-compare-tbody').innerHTML = bioRows.map(([lbl, hv, av]) => `
+        <tr>
+          <td style="color:var(--text-secondary);">${lbl}</td>
+          <td><strong>${hv}</strong></td>
+          <td><strong>${av}</strong></td>
+        </tr>
+      `).join('');
+
+      // H2H Meetings
+      const vsMatches = d.versus?.matches || [];
+      document.getElementById('h2h-meetings-tbody').innerHTML = vsMatches.map((vm) => {
+        const pStr = vm.periods
+          ? ['p1', 'p2', 'p3'].filter((k) => vm.periods[k]).map((k) => `${vm.periods[k].home}-${vm.periods[k].away}`).join(', ')
+          : '';
+        return `<tr>
+          <td>${vm.time?.date || '—'}</td>
+          <td>${vm.roundname?.shortname || vm.roundname?.name || '—'} · ${vm.ground?.name || ''}</td>
+          <td><strong>${vm.teams?.home?.name || hTeam.name}</strong></td>
+          <td><span class="pill">${vm.result?.home ?? 0}-${vm.result?.away ?? 0}</span> <span style="font-size:0.75rem;color:var(--text-secondary);">(${pStr})</span></td>
+          <td><strong>${vm.teams?.away?.name || aTeam.name}</strong></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="5" style="color:var(--text-secondary);">First career meeting.</td></tr>';
+
+      // Last Matches for Home & Away
+      document.getElementById('last-home-title').textContent = `${hTeam.name} — Last Completed Matches`;
+      document.getElementById('last-away-title').textContent = `${aTeam.name} — Last Completed Matches`;
+      const renderMatchList = (list) => (list || []).slice(0, 8).map((lm) => `
+        <tr>
+          <td>${lm.time?.date || '—'}</td>
+          <td>${lm.teams?.home?.name || ''}</td>
+          <td><strong>${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong></td>
+          <td>${lm.teams?.away?.name || ''}</td>
+        </tr>
+      `).join('');
+      document.getElementById('home-last-matches-tbody').innerHTML = renderMatchList(d.home_last_matches);
+      document.getElementById('away-last-matches-tbody').innerHTML = renderMatchList(d.away_last_matches);
+
+      // Tab 2: Match Statistics
+      renderMatchStatistics(d);
+
+      // Tab 3: Point-by-Point Timeline & Raw Markets
+      const events = (d.full_timeline?.events || []).filter((e) =>
+        e.type === 'score_change_tennis' || e.type === 'periodscore' || e.type === 'goal' || e.type === 'card'
+      ).reverse().slice(0, 80);
+      document.getElementById('point-timeline-tbody').innerHTML = events.map((ev) => `
+        <tr>
+          <td><strong>${ev.name || ev.type}</strong></td>
+          <td>${ev.service === '1' ? `🎾 ${hTeam.abbr || 'Home'}` : ev.service === '2' ? `🎾 ${aTeam.abbr || 'Away'}` : (ev.team || '—')}</td>
+          <td>${ev.set_score ? `${ev.set_score.home}-${ev.set_score.away}` : '—'}</td>
+          <td>${ev.game_score ? `<strong>${ev.game_score.home}-${ev.game_score.away}</strong>` : '—'}</td>
+          <td><span class="pill">${ev.game_points ? `${ev.game_points.home}-${ev.game_points.away}` : (ev.result ? `${ev.result.home}-${ev.result.away}` : '—')}</span></td>
+        </tr>
+      `).join('');
+
+      document.getElementById('all-raw-markets-tbody').innerHTML = rawM.map((mk) => {
+        const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';
+        const outStr = (mk.outcomes || []).map((o) =>
+          `<span class="pill" style="margin:0.15rem;">${o.name}: <strong>${o.odds}</strong></span>`
+        ).join('');
+        return `<tr>
+          <td><code>#${mk._marketId}</code></td>
+          <td><strong>${mk.name || ''}</strong></td>
+          <td><code>${specStr}</code></td>
+          <td>${outStr}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function refreshMatchDossier() {
+      try {
+        const res = await fetch(`/api/match-center?matchId=${encodeURIComponent(currentMatchId)}`);
+        const data = await res.json();
+        if (data.ok) renderDossier(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function loadMatchFromInput() {
+      const val = (document.getElementById('custom-match-input').value || '').trim();
+      if (!val) return;
+      currentMatchId = val;
+      window.history.replaceState({}, '', `/match/${encodeURIComponent(val)}`);
+      refreshMatchDossier();
+    }
+
+    // Check URL path `/match/:id`
+    const pathMatch = window.location.pathname.match(/\/match\/(\d+)/);
+    if (pathMatch && pathMatch[1]) {
+      currentMatchId = pathMatch[1];
+      document.getElementById('custom-match-input').value = currentMatchId;
+    }
+
+    refreshMatchDossier();
+    setInterval(refreshMatchDossier, 5000);
+  </script>
+</body>
+</html>

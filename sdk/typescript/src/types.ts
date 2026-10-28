@@ -1661,4 +1661,59 @@ export interface BetScoutMatchTimelineResponse {
   [key: string]: unknown;
 }
 
+export interface BetScoutMatchDetailValue {
+  name: string;
+  value: {
+    home?: number | string | Array<number | string>;
+    away?: number | string | Array<number | string>;
+    periods?: number[];
+  };
+}
+
+export interface BetScoutMatchDetailsResponse {
+  _doc?: 'details';
+  _matchid: number;
+  teams?: {
+    home?: string;
+    away?: string;
+  };
+  index?: Array<number | string>;
+  values?: Record<string, BetScoutMatchDetailValue>;
+  types?: Record<string, string>;
+}
+
+export interface MatchCenterDossier {
+  ok: boolean;
+  match_id: number;
+  sport_id: number;
+  sport_name: string;
+  match_info: BetScoutMatchInfoResponse | null;
+  timeline_delta: BetScoutMatchTimelineDeltaResponse | null;
+  full_timeline: BetScoutMatchTimelineResponse | null;
+  match_details: BetScoutMatchDetailsResponse | null;
+  match_stats: BetScoutMatchStatsResponse | null;
+  match_form: BetScoutMatchFormResponse | null;
+  head2head: BetScoutMatchHead2HeadResponse | null;
+  versus: BetScoutTeamVersusResponse | null;
+  primary_markets: ParsedPrematchMarkets;
+  consensus_markets: ParsedPrematchMarkets;
+  merged_markets: ParsedPrematchMarkets;
+  raw_markets: BetScoutMarket[];
+  home_profile: BetScoutTeamProfileResponse | null;
+  away_profile: BetScoutTeamProfileResponse | null;
+  home_surface_stats: BetScoutTennisSurfaceStatsResponse | null;
+  away_surface_stats: BetScoutTennisSurfaceStatsResponse | null;
+  home_streaks: BetScoutTeamStreaksResponse | null;
+  away_streaks: BetScoutTeamStreaksResponse | null;
+  home_last_matches: BetScoutHistoricalMatchItem[];
+  away_last_matches: BetScoutHistoricalMatchItem[];
+  home_next_matches: BetScoutHistoricalMatchItem[];
+  away_next_matches: BetScoutHistoricalMatchItem[];
+  fun_facts: string[];
+  commentary_phrases: BetScoutMatchPhraseItem[];
+  squads: BetScoutMatchSquadsResponse | null;
+  table_slice: BetScoutLeagueTable | null;
+}
+
+
 

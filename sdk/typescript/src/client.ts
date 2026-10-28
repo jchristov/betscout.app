@@ -25,6 +25,7 @@ import type {
   BetScoutFormTableResponse,
   BetScoutJerseyColors,
   BetScoutLeagueTable,
+  BetScoutMatchDetailsResponse,
   BetScoutMatchFormResponse,
   BetScoutMatchFunFactsResponse,
   BetScoutMatchHead2HeadResponse,
@@ -91,6 +92,7 @@ import type {
   JerseySvgOptions,
   LiveMatchSituationsPressure,
   LiveTimelineDeltaSummary,
+  MatchCenterDossier,
   MatchIntelligenceBundle,
   ParsedPrematchMarkets,
   ProviderChannel,
@@ -119,6 +121,8 @@ interface CacheEntry<T = unknown> {
 
 const DEFAULT_HEADERS: Readonly<Record<string, string>> = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+  Origin: 'https://statshub.sportradar.com',
+  Referer: 'https://statshub.sportradar.com/tipico/en/',
   Accept: 'application/json',
 };
 
@@ -550,6 +554,36 @@ export class BetScoutClient {
       ttlSec: 120,
       ...options,
     });
+  }
+
+  /**
+   * Query detailed match statistics (`match_details/{matchId}`), including Tennis Aces, Double Faults,
+   * 1st/2nd Serve %, Break Points Won, Service/Receiver Points Won, Max Points in a Row, and set durations.
+   */
+  public async getMatchDetails(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchDetailsResponse | null> {
+    return this.fetchFeed<BetScoutMatchDetailsResponse>('match_details', String(matchId), {
+      channel: 'global',
+      ttlSec: 30,
+      ...options,
+    });
+  }
+
+  /**
+   * Query extended period-by-period match statistics (`match_detailsextended/{matchId}`),
+   * returning both full-match totals and set-by-set / period-by-period breakdowns (`1518`..`1746`, `gameswonperiod`).
+   */
+  public async getMatchDetailsExtended(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchDetailsResponse | null> {
+    return this.fetchFeed<BetScoutMatchDetailsResponse>(
+      'match_detailsextended',
+      String(matchId),
+      { channel: 'global', ttlSec: 30, ...options },
+    );
   }
 
   // ==========================================================================
@@ -2289,6 +2323,127 @@ export class BetScoutClient {
       streaks: streakLabels,
       last_matches: lastMatchesData?.matches ?? [],
       next_matches: nextMatchesData?.matches ?? [],
+    };
+  }
+
+  /**
+   * Build a complete **Match Center Dossier** (`getMatchCenterDossier(matchId)`) replicating every widget
+   * on a full match page (such as `76034538` Taylor Fritz vs Rinky Hijikata or `71945344` Udinese vs AC Milan):
+   * - Live scoreboard, set/period breakdown, game points & active server (`match_info_statshub` + `match_timelinedelta`)
+   * - Full & set-by-set match statistics (`match_detailsextended` + `stats_match_stats`)
+   * - Win probability & bookmaker odds (`match_markets` Primary Retail + Global Consensus)
+   * - Competitor profiles, rankings, coach/bio info, and surface win-rate matrices (`stats_team_info` + `tennis_team_surfacestats`)
+   * - Pre-match form, streaks, direct H2H meetings, last $N$ matches, and next $N$ matches for both competitors
+   * - Point-by-point / play-by-play timeline (`match_timeline`), insights (`match_funfacts`), commentary (`match_phrases`), squads, and table slice.
+   */
+  public async getMatchCenterDossier(
+    matchId: number | string,
+    options: { lastMatchesLimit?: number } = {},
+  ): Promise<MatchCenterDossier> {
+    const lastLimit = options.lastMatchesLimit ?? 10;
+
+    const [
+      matchInfo,
+      timelineDelta,
+      fullTimeline,
+      matchDetails,
+      matchStats,
+      matchForm,
+      head2head,
+      mmPrimary,
+      mmConsensus,
+      funFactsResp,
+      phrasesResp,
+      squads,
+      tableSlice,
+    ] = await Promise.all([
+      this.getMatchInfo(matchId),
+      this.getMatchTimelineDelta(matchId),
+      this.getMatchFullTimeline(matchId),
+      this.getMatchDetailsExtended(matchId),
+      this.getMatchStats(matchId),
+      this.getMatchForm(matchId),
+      this.getMatchHead2Head(matchId),
+      this.getMatchMarkets(matchId, 'prematch', 'eu-retail'),
+      this.getMatchMarkets(matchId, 'prematch', 'global'),
+      this.getMatchInsights(matchId),
+      this.getMatchCommentary(matchId),
+      this.getMatchSquads(matchId),
+      this.getMatchTableSlice(matchId),
+    ]);
+
+    const m = timelineDelta?.match ?? matchInfo?.match;
+    const sportId = Number(m?._sid ?? matchInfo?.match?._sid ?? 1);
+    const sportName = SPORTS_CATALOG[sportId] ?? `Sport #${sportId}`;
+
+    const hTeam = matchInfo?.match?.teams?.home ?? m?.teams?.home;
+    const aTeam = matchInfo?.match?.teams?.away ?? m?.teams?.away;
+    const hUid = hTeam?.uid ?? hTeam?._id ?? null;
+    const aUid = aTeam?.uid ?? aTeam?._id ?? null;
+
+    const [
+      versus,
+      homeProfile,
+      awayProfile,
+      homeSurface,
+      awaySurface,
+      homeStreaks,
+      awayStreaks,
+      homeLast,
+      awayLast,
+      homeNext,
+      awayNext,
+    ] = await Promise.all([
+      hUid && aUid ? this.getTeamVersus(hUid, aUid, 10) : Promise.resolve(null),
+      hUid ? this.getTeamProfile(hUid) : Promise.resolve(null),
+      aUid ? this.getTeamProfile(aUid) : Promise.resolve(null),
+      sportId === 5 && hUid ? this.getTennisPlayerSurfaceStats(hUid) : Promise.resolve(null),
+      sportId === 5 && aUid ? this.getTennisPlayerSurfaceStats(aUid) : Promise.resolve(null),
+      hUid ? this.getTeamStreaks(hUid) : Promise.resolve(null),
+      aUid ? this.getTeamStreaks(aUid) : Promise.resolve(null),
+      hUid ? this.getTeamLastMatchesExtended(hUid, lastLimit) : Promise.resolve(null),
+      aUid ? this.getTeamLastMatchesExtended(aUid, lastLimit) : Promise.resolve(null),
+      hUid ? this.getTeamNextMatches(hUid, 3) : Promise.resolve(null),
+      aUid ? this.getTeamNextMatches(aUid, 3) : Promise.resolve(null),
+    ]);
+
+    const primaryParsed = parsePrematchMarkets(mmPrimary?.markets, false);
+    const consensusParsed = parsePrematchMarkets(mmConsensus?.markets, false);
+    const mergedMarkets = mergePrimaryAndConsensusMarkets(primaryParsed, consensusParsed);
+    const rawMarkets =
+      (mmConsensus?.markets?.length ? mmConsensus.markets : mmPrimary?.markets) ?? [];
+
+    return {
+      ok: Boolean(matchInfo || timelineDelta),
+      match_id: Number(matchId),
+      sport_id: sportId,
+      sport_name: sportName,
+      match_info: matchInfo,
+      timeline_delta: timelineDelta,
+      full_timeline: fullTimeline,
+      match_details: matchDetails,
+      match_stats: matchStats,
+      match_form: matchForm,
+      head2head,
+      versus,
+      primary_markets: primaryParsed,
+      consensus_markets: consensusParsed,
+      merged_markets: mergedMarkets,
+      raw_markets: rawMarkets,
+      home_profile: homeProfile,
+      away_profile: awayProfile,
+      home_surface_stats: homeSurface,
+      away_surface_stats: awaySurface,
+      home_streaks: homeStreaks,
+      away_streaks: awayStreaks,
+      home_last_matches: homeLast?.matches ?? [],
+      away_last_matches: awayLast?.matches ?? [],
+      home_next_matches: homeNext?.matches ?? [],
+      away_next_matches: awayNext?.matches ?? [],
+      fun_facts: funFactsResp?.funfacts ?? [],
+      commentary_phrases: phrasesResp?.phrases ?? [],
+      squads,
+      table_slice: tableSlice,
     };
   }
 }

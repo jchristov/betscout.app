@@ -543,6 +543,30 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, await buildMatchIntelPayload(matchId));
     }
 
+    if (p === '/api/match-center') {
+      const matchId = urlObj.searchParams.get('matchId') ?? '76034538';
+      const dossier = await client.getMatchCenterDossier(matchId);
+      const hTeam = dossier.match_info?.match?.teams?.home ?? dossier.timeline_delta?.match?.teams?.home;
+      const aTeam = dossier.match_info?.match?.teams?.away ?? dossier.timeline_delta?.match?.teams?.away;
+      const hIso =
+        (typeof hTeam?.cc === 'object' && hTeam?.cc?.a2 ? hTeam.cc.a2 : dossier.home_profile?.countrycode?.a2) ?? 'us';
+      const aIso =
+        (typeof aTeam?.cc === 'object' && aTeam?.cc?.a2 ? aTeam.cc.a2 : dossier.away_profile?.countrycode?.a2) ?? 'au';
+      return sendJson(res, 200, {
+        ...dossier,
+        home_flag_url: getCountryFlagUrl(hIso, { format: 'svg', ratio: '4x3' }),
+        away_flag_url: getCountryFlagUrl(aIso, { format: 'svg', ratio: '4x3' }),
+      });
+    }
+
+    if (p === '/match-center.html' || p.startsWith('/match/')) {
+      const htmlPath = path.join(__dirname, 'match-center.html');
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
     if (p === '/api/daily-matches') {
       const sportId = urlObj.searchParams.get('sportId') ?? '1';
       const dateYmd = urlObj.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);

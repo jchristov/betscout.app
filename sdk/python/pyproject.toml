@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "betscout-sdk"
+version = "1.1.0"
+description = "Standalone Python Sports Data, Live Scores, Player/Team Historical Analytics & Multi-Bookmaker Odds SDK (56 sports, 1X2/Totals/Handicaps/28-outcome Correct Score, team & player profiles, surface splits, enriched standings & form tables, and 3s live delta streaming)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = [
+  "betscout",
+  "sports-data",
+  "sports-odds",
+  "correct-score",
+  "live-scores",
+  "player-stats",
+  "team-stats",
+  "python",
+  "sdk",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/betscout_sdk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

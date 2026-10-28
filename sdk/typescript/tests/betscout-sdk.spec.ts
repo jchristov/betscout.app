@@ -851,6 +851,9 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
     expect(row2.team_name).toBe('AC Milan');
     expect(row2.change_total).toBe(-1);
     expect(row2.form_total).toEqual(['D', 'L', 'W']);
+
+    const details = await client.getMatchDetailsExtended(76034538);
+    expect(details).toBeNull();
   });
 
   it('fetches Season Goal Timing (firstgoal/avg time), Over/Under Half Splits, NBA Pace/Efficiency, H2H Versus, and Cup Brackets', async () => {
