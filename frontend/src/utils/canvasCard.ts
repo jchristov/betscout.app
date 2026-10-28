@@ -113,30 +113,76 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fill();
   ctx.stroke();
 
-  const topGrad = ctx.createLinearGradient(20, 0, w - 20, 0);
-  topGrad.addColorStop(0, '#38bdf8');
-  topGrad.addColorStop(1, '#22c55e');
-  ctx.fillStyle = topGrad;
+  const badgeTxt = meta.badge ? String(meta.badge).toUpperCase() : 'LIVE AI PICK';
+  const rawPickProbe = String(meta.pick_name || meta.pick || '').toUpperCase();
+  const isLossCard = badgeTxt.includes('LOSS') || rawPickProbe.includes(' (L ');
+  const isWinCard =
+    !isLossCard &&
+    (badgeTxt.includes('WIN') || badgeTxt.includes('SETTLED') || rawPickProbe.includes(' (W ') || Boolean(meta.ended_at_local));
+
+  // Color-coded top border: Cyan (#38bdf8) for Picks, Green (#22c55e) for Resolved Wins, Red/Pink (#f43f5e) for Resolved Losses
+  const topBorderColor = isLossCard ? '#f43f5e' : isWinCard ? '#22c55e' : '#38bdf8';
+  ctx.fillStyle = topBorderColor;
   ctx.fillRect(20, 20, w - 40, 6);
 
-  ctx.fillStyle = '#f1f5f9';
+  // Draw Option 7.3 3D Chiseled Bevel Compass Badge at (44, 42, 46, 46)
+  ctx.save();
+  ctx.fillStyle = '#0b1324';
+  ctx.strokeStyle = '#2dd4bf';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(44, 42, 46, 46, 11);
+  else ctx.rect(44, 42, 46, 46);
+  ctx.fill();
+  ctx.stroke();
+  const lcx = 67;
+  const lcy = 65;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(lcx, lcy, 13.5, 0, Math.PI * 2);
+  ctx.stroke();
+  const drawTri = (pts: Array<[number, number]>, col: string) => {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[1][0], pts[1][1]);
+    ctx.lineTo(pts[2][0], pts[2][1]);
+    ctx.closePath();
+    ctx.fill();
+  };
+  drawTri([[lcx, lcy - 17], [lcx, lcy], [lcx - 3.8, lcy - 3.8]], '#fde047');
+  drawTri([[lcx, lcy - 17], [lcx + 3.8, lcy - 3.8], [lcx, lcy]], '#10b981');
+  drawTri([[lcx, lcy + 17], [lcx, lcy], [lcx + 3.8, lcy + 3.8]], '#34d399');
+  drawTri([[lcx, lcy + 17], [lcx - 3.8, lcy + 3.8], [lcx, lcy]], '#047857');
+  drawTri([[lcx + 17, lcy], [lcx, lcy], [lcx + 3.8, lcy - 3.8]], '#7dd3fc');
+  drawTri([[lcx + 17, lcy], [lcx + 3.8, lcy + 3.8], [lcx, lcy]], '#0284c7');
+  drawTri([[lcx - 17, lcy], [lcx, lcy], [lcx - 3.8, lcy + 3.8]], '#38bdf8');
+  drawTri([[lcx - 17, lcy], [lcx - 3.8, lcy - 3.8], [lcx, lcy]], '#0369a1');
+  ctx.restore();
+
+  // Two-tone "Bet" (white) + "Scout" (emerald) brand text matching App Header
   ctx.font = '800 27px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('⚡ BETSCOUT', 44, 70);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('Bet', 102, 68);
+  const betW = ctx.measureText('Bet').width;
+  ctx.fillStyle = '#34d399';
+  ctx.fillText('Scout', 102 + betW, 68);
+
   ctx.fillStyle = '#94a3b8';
   ctx.font = '600 13px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 46, 93);
+  ctx.fillText('SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE', 102, 90);
 
   const spIcon = getSportEmoji(meta.sport_cat || meta.comp || meta.competition || meta.match || 'soccer');
-  const badgeTxt = meta.badge ? String(meta.badge) : 'LIVE AI SIGNAL';
   ctx.fillStyle = '#0d1421';
-  ctx.strokeStyle = '#22c55e';
+  ctx.strokeStyle = topBorderColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(w - 264, 46, 220, 40, 20);
   else ctx.rect(w - 264, 46, 220, 40);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#22c55e';
+  ctx.fillStyle = topBorderColor;
   fillFittedCanvasText(ctx, badgeTxt, w - 154, 71, 196, 13.5, 10.5, '700', 'center');
 
   ctx.strokeStyle = '#223049';
@@ -267,6 +313,13 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillStyle = '#94a3b8';
   ctx.font = '500 13px "Plus Jakarta Sans", -apple-system, sans-serif';
   ctx.fillText('Out-of-Sample Walk-Forward Validated  ·  Dixon-Coles Score Matrix  ·  ¼-Kelly Risk Sizing', 44, 534);
-  ctx.fillStyle = '#38bdf8';
-  fillFittedCanvasText(ctx, 'BetScout', w - 44, 534, 180, 13.5, 11, '700', 'right');
+
+  ctx.font = '700 13.5px "Plus Jakarta Sans", -apple-system, sans-serif';
+  const fBetW = ctx.measureText('Bet').width;
+  const fScoutW = ctx.measureText('Scout').width;
+  const fxStart = w - 44 - (fBetW + fScoutW);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('Bet', fxStart, 534);
+  ctx.fillStyle = '#34d399';
+  ctx.fillText('Scout', fxStart + fBetW, 534);
 }

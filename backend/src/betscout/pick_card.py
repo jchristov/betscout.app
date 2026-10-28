@@ -483,10 +483,44 @@ def render_pick_card_png(
         b = int(21 + t * 18)
         draw.line([(0, y), (w, y)], fill=(r, g, b))
 
-    # Outer card frame + dual cyan-emerald top accent bar
+    tier_raw = _strip_non_ascii_symbols(str(pick_data.get("tier") or "HIGH-CONVICTION")).upper()
+    badge_status = _strip_non_ascii_symbols(
+        str(pick_data.get("status_badge") or pick_data.get("badge") or tier_raw or "LIVE AI PICK")
+    ).upper()
+    raw_pick_probe = _strip_non_ascii_symbols(str(pick_data.get("pick_name") or pick_data.get("pick") or "")).upper()
+    pnl_val = pick_data.get("pnl_best")
+    has_ended = bool(pick_data.get("ended_at_local") or pick_data.get("ended_at"))
+
+    is_loss_card = (
+        "LOSS" in badge_status
+        or " (L " in f" {raw_pick_probe} "
+        or (pnl_val is not None and float(pnl_val) < 0)
+    )
+    is_win_card = (
+        not is_loss_card
+        and (
+            "WIN" in badge_status
+            or "SETTLED" in badge_status
+            or " (W " in f" {raw_pick_probe} "
+            or (pnl_val is not None and float(pnl_val) > 0)
+            or has_ended
+        )
+    )
+
+    # Top border color-coding: Cyan for Picks, Green for Resolved Wins, Red/Pink for Resolved Losses
+    if is_loss_card:
+        top_border_col = (244, 63, 94)
+        badge_col = (244, 63, 94)
+    elif is_win_card:
+        top_border_col = (34, 197, 94)
+        badge_col = (34, 197, 94)
+    else:
+        top_border_col = (56, 189, 248)
+        badge_col = (56, 189, 248)
+
+    # Outer card frame + color-coded top border
     draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=20, fill=(17, 24, 39), outline=(36, 52, 79), width=2)
-    draw.rounded_rectangle([(20, 20), (w // 2, 26)], radius=3, fill=(56, 189, 248))
-    draw.rounded_rectangle([(w // 2 - 10, 20), (w - 20, 26)], radius=3, fill=(34, 197, 94))
+    draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=top_border_col)
 
     f_brand = _load_font(27, bold=True)
     f_sub = _load_font(13, bold=False)
@@ -495,11 +529,13 @@ def render_pick_card_png(
     f_footer = _load_font(13, bold=False)
     f_footer_b = _load_font(13, bold=True)
 
-    # Header: 4x supersampled BetScout radar shield + brand title
+    # Header: 4x supersampled BetScout logo + two-tone "Bet" (white) + "Scout" (emerald) brand title matching App Header
     logo_bytes = render_logo_png(size=52)
     logo_img = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
     img.paste(logo_img, (44, 40), logo_img)
-    draw.text((108, 43), "BETSCOUT", font=f_brand, fill=(241, 245, 249))
+    bet_w = int(_text_width(draw, "Bet", f_brand))
+    draw.text((108, 43), "Bet", font=f_brand, fill=(255, 255, 255))
+    draw.text((108 + bet_w, 43), "Scout", font=f_brand, fill=(52, 211, 153))
     draw.text((108, 75), "SPORTS EDGE, EXACT-SCORE & PAPER-BETTING INTELLIGENCE", font=f_sub, fill=(148, 163, 184))
 
     sport_cat = _infer_sport_cat(
@@ -516,11 +552,8 @@ def render_pick_card_png(
     comp_raw = _strip_non_ascii_symbols(
         str(pick_data.get("competition") or pick_data.get("sport_league") or SPORT_LABELS.get(sport_cat, "QUANT PICK"))
     )
-    tier_raw = _strip_non_ascii_symbols(str(pick_data.get("tier") or "HIGH-CONVICTION")).upper()
-    badge_status = _strip_non_ascii_symbols(str(pick_data.get("status_badge") or tier_raw or "LIVE AI SIGNAL")).upper()
 
     # Right header pill (status / conviction tier only — no sport icon)
-    badge_col = (34, 197, 94) if "LOSS" not in badge_status else (239, 68, 68)
     f_badge, badge_fit = _fit_font_and_text(draw, badge_status, max_width=230, start_size=13, min_size=11, bold=True)
     bw_px = int(_text_width(draw, badge_fit, f_badge)) + 36
     bx_right = w - 44
@@ -563,13 +596,17 @@ def render_pick_card_png(
     f_match, match_fit = _fit_font_and_text(draw, match_raw, max_width=w - 140, start_size=32, min_size=18, bold=True)
     draw.text((88, 173), match_fit, font=f_match, fill=(255, 255, 255))
 
-    # Main Pick Highlight Card (with emerald left accent bar & 2-line layout)
-    is_loss_card = "LOSS" in badge_status
-    box_fill = (13, 33, 29) if not is_loss_card else (38, 18, 24)
-    box_border = (34, 197, 94) if not is_loss_card else (239, 68, 68)
+    # Main Pick Highlight Card (emerald for picks/wins, red/pink for resolved losses)
+    box_fill = (13, 33, 29) if not is_loss_card else (38, 16, 26)
+    box_border = (34, 197, 94) if not is_loss_card else (244, 63, 94)
     draw.rounded_rectangle([(44, 224), (w - 44, 352)], radius=14, fill=box_fill, outline=box_border, width=2)
     draw.rounded_rectangle([(46, 226), (54, 350)], radius=4, fill=box_border)
-    draw.text((72, 238), "RECOMMENDED MODEL PICK", font=f_pick_lbl, fill=(134, 239, 172) if not is_loss_card else (252, 165, 165))
+    pick_box_hdr = (
+        "RESOLVED PAPER-BET RESULT (LOSS)"
+        if is_loss_card
+        else ("RESOLVED PAPER-BET RESULT (WIN)" if is_win_card else "RECOMMENDED MODEL PICK")
+    )
+    draw.text((72, 238), pick_box_hdr, font=f_pick_lbl, fill=(134, 239, 172) if not is_loss_card else (253, 164, 175))
 
     raw_pick_full = _strip_non_ascii_symbols(str(pick_data.get("pick_name") or pick_data.get("pick") or "Top Model Pick"))
     main_pick_line = raw_pick_full
@@ -631,7 +668,7 @@ def render_pick_card_png(
             f_ks, ks_fit = _fit_font_and_text(draw, k_sub, max_width=box_w - 28, start_size=12, min_size=9, bold=False)
             draw.text((bx0 + 16, 454), ks_fit, font=f_ks, fill=(148, 163, 184))
 
-    # Footer bar (uses "BetScout" product name only — no domain URL)
+    # Footer bar (two-tone "Bet" white + "Scout" emerald matching App Header)
     draw.line([(44, 508), (w - 44, 508)], fill=(34, 48, 73), width=1)
     draw.text(
         (44, 524),
@@ -639,9 +676,11 @@ def render_pick_card_png(
         font=f_footer,
         fill=(148, 163, 184),
     )
-    footer_r = "BetScout"
-    fr_w = int(_text_width(draw, footer_r, f_footer_b))
-    draw.text((w - 44 - fr_w, 524), footer_r, font=f_footer_b, fill=(56, 189, 248))
+    bet_fw = int(_text_width(draw, "Bet", f_footer_b))
+    scout_fw = int(_text_width(draw, "Scout", f_footer_b))
+    fx_start = w - 44 - (bet_fw + scout_fw)
+    draw.text((fx_start, 524), "Bet", font=f_footer_b, fill=(255, 255, 255))
+    draw.text((fx_start + bet_fw, 524), "Scout", font=f_footer_b, fill=(52, 211, 153))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -669,9 +708,35 @@ def render_digest_slate_png(
     img = Image.new("RGB", (w, h), (9, 13, 21))
     draw = ImageDraw.Draw(img)
 
+    # Determine slate state for top border color-coding:
+    # Cyan for active Picks slates, Green for Resolved Win recaps, Red/Pink for Resolved Loss recaps
+    win_rows = sum(
+        1
+        for r in rows
+        if " (W " in str(r.get("pick_name") or r.get("pick") or "")
+        or "WIN" in str(r.get("status_badge") or r.get("badge") or "").upper()
+        or (r.get("pnl_best") is not None and float(r.get("pnl_best")) > 0)
+    )
+    loss_rows = sum(
+        1
+        for r in rows
+        if " (L " in str(r.get("pick_name") or r.get("pick") or "")
+        or "LOSS" in str(r.get("status_badge") or r.get("badge") or "").upper()
+        or (r.get("pnl_best") is not None and float(r.get("pnl_best")) < 0)
+    )
+    is_settled_slate = (
+        win_rows > 0
+        or loss_rows > 0
+        or "SETTLED" in title.upper()
+        or "RECAP" in title.upper()
+    )
+    if is_settled_slate:
+        slate_top_col = (244, 63, 94) if (loss_rows > win_rows or "LOSS" in title.upper()) else (34, 197, 94)
+    else:
+        slate_top_col = (56, 189, 248)
+
     draw.rounded_rectangle([(18, 18), (w - 18, h - 18)], radius=18, fill=(17, 24, 39), outline=(36, 52, 79), width=2)
-    draw.rounded_rectangle([(20, 20), (w // 2, 26)], radius=3, fill=(56, 189, 248))
-    draw.rounded_rectangle([(w // 2 - 10, 20), (w - 20, 26)], radius=3, fill=(34, 197, 94))
+    draw.rounded_rectangle([(20, 20), (w - 20, 26)], radius=3, fill=slate_top_col)
 
     f_sub = _load_font(13, bold=False)
     f_sub_b = _load_font(13, bold=True)
@@ -680,8 +745,13 @@ def render_digest_slate_png(
     logo_bytes = render_logo_png(size=48)
     logo_img = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
     img.paste(logo_img, (42, 40), logo_img)
-    f_hdr, hdr_fit = _fit_font_and_text(draw, f"BETSCOUT — {title}", max_width=w - 150, start_size=24, min_size=16, bold=True)
-    draw.text((102, 42), hdr_fit, font=f_hdr, fill=(241, 245, 249))
+    f_hdr, hdr_fit = _fit_font_and_text(draw, f"BetScout — {title}", max_width=w - 150, start_size=24, min_size=16, bold=True)
+    bet_hw = int(_text_width(draw, "Bet", f_hdr))
+    scout_hw = int(_text_width(draw, "Scout", f_hdr))
+    draw.text((102, 42), "Bet", font=f_hdr, fill=(255, 255, 255))
+    draw.text((102 + bet_hw, 42), "Scout", font=f_hdr, fill=(52, 211, 153))
+    rest_title = hdr_fit[len("BetScout") :] if hdr_fit.startswith("BetScout") else f" — {title}"
+    draw.text((102 + bet_hw + scout_hw, 42), rest_title, font=f_hdr, fill=(241, 245, 249))
     f_sub_fit, sub_fit = _fit_font_and_text(draw, subtitle, max_width=w - 150, start_size=14, min_size=11, bold=False)
     draw.text((102, 73), sub_fit, font=f_sub_fit, fill=(148, 163, 184))
 
@@ -774,11 +844,16 @@ def render_digest_slate_png(
         else:
             draw.text((322, y_cur + 21), mt_fit, font=f_mt, fill=(241, 245, 249))
 
-        pk_col = (34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_clean else (239, 68, 68)
+        pk_col = (34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_raw else (244, 63, 94)
         if pk_sub:
             draw.text((645, y_cur + 11), pk_fit, font=f_pk, fill=pk_col)
+            sub_col = (
+                (244, 63, 94)
+                if pk_sub.startswith("L ")
+                else ((52, 211, 153) if pk_sub.startswith("W ") else (148, 163, 184))
+            )
             f_pks, pks_fit = _fit_font_and_text(draw, pk_sub, max_width=275, start_size=12, min_size=9, bold=False)
-            draw.text((645, y_cur + 34), pks_fit, font=f_pks, fill=(148, 163, 184))
+            draw.text((645, y_cur + 34), pks_fit, font=f_pks, fill=sub_col)
         else:
             draw.text((645, y_cur + 21), pk_fit, font=f_pk, fill=pk_col)
         draw.text((935, y_cur + 21), wp_fit, font=f_wp, fill=(56, 189, 248))
@@ -791,9 +866,11 @@ def render_digest_slate_png(
         font=f_sub,
         fill=(148, 163, 184),
     )
-    fr_lbl = "BetScout"
-    fr_w = int(_text_width(draw, fr_lbl, f_sub_b))
-    draw.text((w - 42 - fr_w, h - 46), fr_lbl, font=f_sub_b, fill=(56, 189, 248))
+    bet_sfw = int(_text_width(draw, "Bet", f_sub_b))
+    scout_sfw = int(_text_width(draw, "Scout", f_sub_b))
+    sfx = w - 42 - (bet_sfw + scout_sfw)
+    draw.text((sfx, h - 46), "Bet", font=f_sub_b, fill=(255, 255, 255))
+    draw.text((sfx + bet_sfw, h - 46), "Scout", font=f_sub_b, fill=(52, 211, 153))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
