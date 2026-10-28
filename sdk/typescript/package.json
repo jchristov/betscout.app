@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "example": "npx tsx examples/quickstart.ts"
+    "example": "npx tsx examples/quickstart.ts",
+    "showcase": "npx tsx examples/showcase-server.ts"
   },
   "keywords": [
     "betscout",
