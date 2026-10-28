@@ -460,7 +460,9 @@ def evaluate_european_sport_gate(
         if best_odds < 1.18 or best_odds > 1.60 or form_diff_fav < 0.0 or p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
     elif sp == "darts":
-        if best_odds < 1.15 or best_odds > 1.68 or form_diff_fav < 0.15 or p_elo_fav < 0.50:
+        if best_odds < 1.15 or best_odds > 1.42 or form_diff_fav < 0.20 or p_elo_fav < 0.50:
+            return False, round(p_model, 4), ev_pct
+        if fav_loss_streak >= 1 and dog_win_streak >= 1:
             return False, round(p_model, 4), ev_pct
     else:
         if best_odds < 1.20 or best_odds > 1.68 or form_diff_fav < 0.15:
