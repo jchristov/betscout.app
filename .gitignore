@@ -12,3 +12,6 @@ sdk/node_modules/
 sdk/dist/
 .firebase/
 
+
+sdk/**/node_modules/
+sdk/**/dist/

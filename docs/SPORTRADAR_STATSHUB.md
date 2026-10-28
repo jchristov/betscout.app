@@ -149,8 +149,31 @@ All endpoints below are callable directly via:
 | **`tennis_ranking`** | `{type}/{year}/{week}` | Official ATP / WTA rankings table |
 | **`stats_season_tables`** | `{seasonId}/{tableType}/{round}` | League standings table (overall, home, away, form table) |
 | **`stats_season_overunder`** | `{seasonId}` | League-wide Over/Under goals distribution by team |
-| **`stats_season_teamscoringconceding`** | `{seasonId}/{teamUid}` | 15-minute interval goal scoring & conceding distribution (`0-15'`, `16-30'`, ..., `76-90'`) |
+| **`stats_season_teamscoringconceding`** | `{seasonId}/{teamUid}/{limit}` | 15-minute interval goal scoring & conceding distribution (`0-15'`, `16-30'`, ..., `76-90'`) + home/away/total scoring splits |
 | **`referee_seasonstats`** | `{refereeId}/{seasonId}` | Referee yellow/red cards, fouls, and penalties per match |
+
+### E. Team, Club & Individual Player Historical Performance & Season Analytics (`/sport/:sportId/team/:teamId`)
+These endpoints power the team and competitor pages (such as `/sport/5/team/14882` for Novak Djokovic and `/sport/1/team/2692` for AC Milan):
+
+| Endpoint | Parameters | Description & Returned Data |
+| :--- | :--- | :--- |
+| **`stats_team_info`** | `{teamUid}` | **Unified Competitor Profile:**<br>• **Clubs (`2692` AC Milan):** `founded` (`"1899"`), `homejersey`, `awayjersey`, `gkjersey`, `stadium`, `manager`, `twitter`, `hashtag`, active `tournaments`.<br>• **Tennis Players (`14882` Novak Djokovic):** `turnedpro` (`"2003"`), `dateofbirth` (`"1987-05-22"`), `nationality`, `height` (`"188"`), `weight` (`"77"`), `plays` (`"Right"`), `coachname`, `favouritesurface` (`"Hard"`), `singlesrank`, `doublesrank`, `highestranking` (`{singles: {date: "07.2011", ranking: 1}}`), `groundstats` (win-loss & win% across All/Clay/Hardcourt/Indoor/Grass), `ranking` (`{ranking, points}`), and `performance` (`serve_receiver_performance_percentage`). |
+| **`stats_team_lastx`** | `{teamUid}/{limit}` | Last `limit` completed matches across all competitions with scores, half/set periods, and tournament lookup maps |
+| **`stats_team_lastxextended`** | `{teamUid}/{limit}` | Extended historical match log including court surface (`ground`), round (`roundname`), `bestof`, and `firstgoal`/`lastgoal` |
+| **`stats_team_nextx`** | `{teamUid}/{limit}` | Next `limit` upcoming scheduled fixtures for a club or player |
+| **`uniqueteam_seasons`** | `{teamUid}` | Complete list of historical and active domestic/continental seasons (`Serie A`, `Coppa Italia`, `Champions League`, etc.) |
+| **`stats_team_seasonstats`** | `{teamUid}/{seasonId}` | Per-game team season averages (`goal_attempts`, `shots_on_goal`, `shots_off_goal`, `ball_possession`, `corner_kicks`, `shots_blocked`, `cards_given`, `freekicks`, `offside`, `goals_by_foot`, `goals_by_head`, `attendance`, `goals_scored`, `goals_conceded`) |
+| **`stats_team_seasonmatches`** | `{teamUid}/{seasonId}` | All matches played by a team in a specific season |
+| **`stats_season_teampositionhistory`** | `{seasonId}/{teamUid}` | Round-by-round league table position trajectory across the season |
+| **`stats_team_squad`** | `{teamUid}` | Full active club squad (`players` with `height`, `weight`, `foot`, `birthdate`, `nationality`, `position`, `shirtnumber`, plus `managers` and `roles`) |
+| **`stats_team_seasonsquad2`** | `{teamUid}/{seasonId}` | Season-specific squad roster, managers, and roles |
+| **`stats_team_usuallineup`** | `{teamUid}/{seasonId}` | Preferred tactical formation (e.g. `"3-5-2"`) and usual starting XI players |
+| **`stats_team_transfers`** | `{teamUid}` | Historical player arrivals, departures, and loan transfers |
+| **`stats_team_tournaments`** | `{teamUid}` | Historical cup/trophy records and season tournament summaries |
+| **`stats_uniqueteam_seasonofficials`** | `{teamUid}/{seasonId}` | Referee assignment, card, and foul history for the team in that season |
+| **`stats_player_stats`** | `{playerId}` | Individual squad player's multi-season career statistics across all clubs & leagues (e.g. `191210` Mike Maignan) |
+| **`stats_player_facts`** | `{playerId}` | Individual player career milestones, roles, clubs, and aggregate stats |
+| **`player_seasonmatches`** | `{playerId}/{seasonId}` | Match-by-match appearance and event log for an individual player in a season |
 
 ---
 

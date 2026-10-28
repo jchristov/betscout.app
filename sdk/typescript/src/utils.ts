@@ -1,13 +1,13 @@
 /**
- * Name Normalization, Market Parsing & Delta-Stream Utilities for Sportradar Gismo SDK.
+ * Name Normalization, Market Parsing & Delta-Stream Utilities for the BetScout Data SDK.
  */
 
-import { SR_CORRECT_SCORE_OUTCOMES, SR_MARKET_IDS } from './constants.js';
+import { CORRECT_SCORE_OUTCOMES, MARKET_IDS } from './constants.js';
 import type {
-  GismoDocument,
-  GismoMarket,
-  GismoMatchSummary,
-  GismoMatchTimelineDeltaResponse,
+  BetScoutDocument,
+  BetScoutMarket,
+  BetScoutMatchSummary,
+  BetScoutMatchTimelineDeltaResponse,
   ParsedPrematchMarkets,
 } from './types.js';
 
@@ -65,11 +65,11 @@ export function namesMatch(a?: string | null, b?: string | null): boolean {
 }
 
 /**
- * Parse pre-match markets from Tipico (`_bookmakerId: 176`) or Sportradar UOF (`_bookmakerId: 0`).
+ * Parse pre-match markets from Primary Retail (`_bookmakerId: 176`) or Global Consensus (`_bookmakerId: 0`).
  * Automatically flips home/away outcomes and Correct Score (`"H:A"` -> `"A:H"`) when `flipped = true`.
  */
 export function parsePrematchMarkets(
-  markets: GismoMarket[] | undefined | null,
+  markets: BetScoutMarket[] | undefined | null,
   flipped = false,
 ): ParsedPrematchMarkets {
   const list = Array.isArray(markets) ? markets : [];
@@ -104,10 +104,10 @@ export function parsePrematchMarkets(
     const spec = mk.specifiers ?? {};
 
     if (
-      mid === SR_MARKET_IDS.MATCH_1X2 ||
-      mid === SR_MARKET_IDS.TENNIS_MATCH_WINNER ||
-      mid === SR_MARKET_IDS.US_SPORTS_WINNER_OT ||
-      mid === SR_MARKET_IDS.HOCKEY_WINNER_OT_SO
+      mid === MARKET_IDS.MATCH_1X2 ||
+      mid === MARKET_IDS.TENNIS_MATCH_WINNER ||
+      mid === MARKET_IDS.US_SPORTS_WINNER_OT ||
+      mid === MARKET_IDS.HOCKEY_WINNER_OT_SO
     ) {
       for (const o of outcomes) {
         const nm = String(o.name ?? '').toLowerCase();
@@ -123,7 +123,7 @@ export function parsePrematchMarkets(
           out.odds_draw = val;
         }
       }
-    } else if (mid === SR_MARKET_IDS.DOUBLE_CHANCE) {
+    } else if (mid === MARKET_IDS.DOUBLE_CHANCE) {
       for (const o of outcomes) {
         const nm = String(o.name ?? '').toLowerCase();
         const val = o.odds ? Number(o.odds) : null;
@@ -136,7 +136,7 @@ export function parsePrematchMarkets(
           else out.double_chance_x2 = val;
         }
       }
-    } else if (mid === SR_MARKET_IDS.DRAW_NO_BET) {
+    } else if (mid === MARKET_IDS.DRAW_NO_BET) {
       for (const o of outcomes) {
         const nm = String(o.name ?? '').toLowerCase();
         const val = o.odds ? Number(o.odds) : null;
@@ -150,8 +150,8 @@ export function parsePrematchMarkets(
         }
       }
     } else if (
-      mid === SR_MARKET_IDS.ASIAN_HANDICAP_2WAY ||
-      mid === SR_MARKET_IDS.US_SPORTS_SPREAD_OT
+      mid === MARKET_IDS.ASIAN_HANDICAP_2WAY ||
+      mid === MARKET_IDS.US_SPORTS_SPREAD_OT
     ) {
       out.asian_handicap_line = spec.hcp ?? null;
       for (const o of outcomes) {
@@ -167,9 +167,9 @@ export function parsePrematchMarkets(
         }
       }
     } else if (
-      mid === SR_MARKET_IDS.TOTAL_GOALS ||
-      mid === SR_MARKET_IDS.TENNIS_TOTAL_GAMES ||
-      mid === SR_MARKET_IDS.US_SPORTS_TOTAL_OT
+      mid === MARKET_IDS.TOTAL_GOALS ||
+      mid === MARKET_IDS.TENNIS_TOTAL_GAMES ||
+      mid === MARKET_IDS.US_SPORTS_TOTAL_OT
     ) {
       if (spec.total !== undefined) {
         const parsedLine = Number.parseFloat(spec.total);
@@ -183,12 +183,12 @@ export function parsePrematchMarkets(
         else if (nm.startsWith('under')) out.odds_under = val;
       }
     } else if (
-      mid === SR_MARKET_IDS.CORRECT_SCORE ||
-      mid === SR_MARKET_IDS.CORRECT_SCORE_NAMED
+      mid === MARKET_IDS.CORRECT_SCORE ||
+      mid === MARKET_IDS.CORRECT_SCORE_NAMED
     ) {
       if (
         Object.keys(out.correct_score_odds).length > 0 &&
-        mid === SR_MARKET_IDS.CORRECT_SCORE_NAMED
+        mid === MARKET_IDS.CORRECT_SCORE_NAMED
       ) {
         continue;
       }
@@ -201,7 +201,7 @@ export function parsePrematchMarkets(
         let rawSc =
           nmSc.includes(':') && nmSc.length <= 5
             ? nmSc
-            : (SR_CORRECT_SCORE_OUTCOMES[oid] ?? '');
+            : (CORRECT_SCORE_OUTCOMES[oid] ?? '');
         if (rawSc && rawSc.includes(':')) {
           if (flipped) {
             const [ph, pa] = rawSc.split(':', 2);
@@ -220,19 +220,19 @@ export function parsePrematchMarkets(
 }
 
 /**
- * Merge Tipico (`_bookmakerId: 176`) and Sportradar UOF (`_bookmakerId: 0`) parsed markets:
- * prioritizes Tipico retail prices whenever present and fills missing markets from UOF.
+ * Merge Primary Retail (`_bookmakerId: 176`) and Global Consensus (`_bookmakerId: 0`) parsed markets:
+ * prioritizes Primary Retail prices whenever present and fills missing markets from Global Consensus.
  */
-export function mergeTipicoAndUofMarkets(
-  tipico: ParsedPrematchMarkets,
-  uof: ParsedPrematchMarkets,
+export function mergePrimaryAndConsensusMarkets(
+  primary: ParsedPrematchMarkets,
+  consensus: ParsedPrematchMarkets,
 ): ParsedPrematchMarkets {
   const merged: ParsedPrematchMarkets = {
-    ...tipico,
+    ...primary,
     correct_score_odds:
-      Object.keys(tipico.correct_score_odds).length > 0
-        ? { ...tipico.correct_score_odds }
-        : { ...uof.correct_score_odds },
+      Object.keys(primary.correct_score_odds).length > 0
+        ? { ...primary.correct_score_odds }
+        : { ...consensus.correct_score_odds },
   };
 
   const scalarKeys: Array<keyof Omit<ParsedPrematchMarkets, 'bookmaker' | 'correct_score_odds'>> = [
@@ -252,41 +252,40 @@ export function mergeTipicoAndUofMarkets(
   ];
 
   for (const key of scalarKeys) {
-    if (merged[key] === null && uof[key] !== null) {
-      (merged as unknown as Record<string, unknown>)[key] = uof[key];
+    if (merged[key] === null && consensus[key] !== null) {
+      (merged as unknown as Record<string, unknown>)[key] = consensus[key];
     }
   }
 
-  const hasTipico = Boolean(
-    tipico.odds_home !== null || Object.keys(tipico.correct_score_odds).length > 0,
+  const hasPrimary = Boolean(
+    primary.odds_home !== null || Object.keys(primary.correct_score_odds).length > 0,
   );
-  const hasUof = Boolean(
-    uof.odds_home !== null || Object.keys(uof.correct_score_odds).length > 0,
+  const hasConsensus = Boolean(
+    consensus.odds_home !== null || Object.keys(consensus.correct_score_odds).length > 0,
   );
-  if (hasTipico && hasUof) merged.bookmaker = 'Primary + Consensus';
-  else if (hasTipico) merged.bookmaker = 'Primary Bookmaker';
-  else if (hasUof) merged.bookmaker = 'Market Consensus';
+  if (hasPrimary && hasConsensus) merged.bookmaker = 'Primary + Consensus';
+  else if (hasPrimary) merged.bookmaker = 'Primary Bookmaker';
+  else if (hasConsensus) merged.bookmaker = 'Market Consensus';
 
   return merged;
 }
 
 /**
- * Compute the adaptive polling interval in milliseconds from a Gismo document's `_maxage` metadata,
- * matching Sportradar's `useFeedQuery` (`Math.max((doc._maxage ?? 3) * 1000, 3000)`).
+ * Compute the adaptive polling interval in milliseconds from a feed document's `_maxage` metadata
+ * (`Math.max((doc._maxage ?? 3) * 1000, 3000)`).
  */
-export function getAdaptiveRefetchIntervalMs(doc?: GismoDocument<unknown> | null): number {
+export function getAdaptiveRefetchIntervalMs(doc?: BetScoutDocument<unknown> | null): number {
   const maxAgeSec = typeof doc?._maxage === 'number' && doc._maxage > 0 ? doc._maxage : 3;
   return Math.max(maxAgeSec * 1000, 3000);
 }
 
 /**
- * Merge a base `match` summary with a real-time `match_timelinedelta` response using `updated_uts`,
- * matching Sportradar's client delta merger (`getLatestMatch-D9YBx4ON.js`).
+ * Merge a base `match` summary with a real-time `match_timelinedelta` response using `updated_uts`.
  */
 export function mergeLatestMatchDelta(
-  match: GismoMatchSummary,
-  timelineDelta?: GismoMatchTimelineDeltaResponse | null,
-): GismoMatchSummary {
+  match: BetScoutMatchSummary,
+  timelineDelta?: BetScoutMatchTimelineDeltaResponse | null,
+): BetScoutMatchSummary {
   const deltaMatch = timelineDelta?.match;
   if (!deltaMatch) return match;
   if (

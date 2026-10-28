@@ -1,30 +1,24 @@
 /**
- * Sportradar StatsHub & Tipico Gismo API Constants, Catalogs & Outcome Mappings.
- * Reference: `docs/SPORTRADAR_STATSHUB.md`
+ * BetScout Sports Data & Odds SDK — Catalogs, Market Identifiers & Outcome Mappings.
  */
 
-export const STATSHUB_TIPICO_URL = 'https://statshub.sportradar.com/tipico/en/';
-export const STATSHUB_SPORTRADAR_URL = 'https://statshub.sportradar.com/sportradar/en/';
-export const DIRECT_STATS_FN_BASE_URL = 'https://stats.fn.sportradar.com';
-export const FISHNET_BASE_URL = 'https://sh.fn.sportradar.com';
-
-export const SR_BOOKMAKER_IDS = {
-  /** Sportradar Main Unified Odds Feed (UOF consensus, 17+ markets/match) */
-  SPORTRADAR_UOF: 0,
-  /** Tipico retail bookmaker feed (`sr:crawler_odds:176`, 11+ markets/match) */
-  TIPICO: 176,
+export const BOOKMAKER_IDS = {
+  /** Global Consensus Odds Feed (17+ markets per match, including 28-outcome Correct Score) */
+  CONSENSUS: 0,
+  /** European Retail Bookmaker Feed (11+ primary markets per match) */
+  EU_RETAIL: 176,
 } as const;
 
-export const SR_SERVICE_IDS = {
+export const SERVICE_PROFILES = {
   /** General statistics tree */
   STATISTICS: 41,
-  /** Tipico StatsHub (`53` sports) */
-  TIPICO_STATSHUB: 67,
-  /** Sportradar Unlimited StatsHub (`56` sports) */
-  SPORTRADAR_UNLIMITED: 69,
+  /** European Retail Coverage (`53` sports) */
+  EU_RETAIL: 67,
+  /** Global Unlimited Coverage (`56` sports) */
+  GLOBAL_UNLIMITED: 69,
 } as const;
 
-export const SR_MARKET_IDS = {
+export const MARKET_IDS = {
   /** 3-Way 1X2 (`{$competitor1}`, `draw`, `{$competitor2}`) */
   MATCH_1X2: 1,
   /** Double Chance (`1X`, `12`, `X2`) */
@@ -65,18 +59,18 @@ export const SR_MARKET_IDS = {
   HOCKEY_WINNER_OT_SO: 406,
 } as const;
 
-export const SR_TENNIS_GROUND_IDS = {
+export const TENNIS_SURFACE_IDS = {
   ALL_SURFACES: 0,
   CLAY: 1,
   HARD_OUTDOOR: 2,
-  GRASS: 3,
-  HARD_INDOOR: 4,
+  INDOOR: 3,
+  GRASS: 4,
 } as const;
 
 /**
- * Complete 56-Sport Catalog from Sportradar StatsHub (`config_sports/69/0` & `config_sports/67/0`).
+ * Complete 56-Sport Catalog supported by the BetScout Data SDK.
  */
-export const SR_ALL_SPORTS_CATALOG: Readonly<Record<number, string>> = {
+export const SPORTS_CATALOG: Readonly<Record<number, string>> = {
   1: 'Soccer',
   5: 'Tennis',
   4: 'Ice Hockey',
@@ -136,9 +130,9 @@ export const SR_ALL_SPORTS_CATALOG: Readonly<Record<number, string>> = {
 };
 
 /**
- * Sportradar `sportId` mapping by slug/alias.
+ * Sport `sportId` mapping by slug/alias.
  */
-export const SR_SPORT_IDS: Readonly<Record<string, number>> = {
+export const SPORT_IDS: Readonly<Record<string, number>> = {
   soccer: 1,
   football_soccer: 1,
   basketball: 2,
@@ -212,9 +206,9 @@ export const SR_SPORT_IDS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Sportradar OddsAPI `marketId=41` (Correct Score) standard outcome ID -> `"H:A"` score mapping (28 outcomes).
+ * Correct Score (`marketId=41`) standard outcome ID -> `"H:A"` score mapping (28 outcomes).
  */
-export const SR_CORRECT_SCORE_OUTCOMES: Readonly<Record<string, string>> = {
+export const CORRECT_SCORE_OUTCOMES: Readonly<Record<string, string>> = {
   'sr:outcome:110': '0:0',
   'sr:outcome:114': '1:0',
   'sr:outcome:116': '2:0',
@@ -246,7 +240,7 @@ export const SR_CORRECT_SCORE_OUTCOMES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Resolve a sport slug (`'soccer'`, `'tennis'`, `'nhl'`) or numeric ID (`1`, `5`) to a canonical Sportradar `sportId`.
+ * Resolve a sport slug (`'soccer'`, `'tennis'`, `'nhl'`) or numeric ID (`1`, `5`) to a canonical `sportId`.
  */
 export function resolveSportId(sportOrId: string | number): number {
   if (typeof sportOrId === 'number' && Number.isFinite(sportOrId)) {
@@ -260,5 +254,5 @@ export function resolveSportId(sportOrId: string | number): number {
   if (!Number.isNaN(parsedInt) && String(parsedInt) === clean) {
     return parsedInt;
   }
-  return SR_SPORT_IDS[clean] ?? 1;
+  return SPORT_IDS[clean] ?? 1;
 }
