@@ -395,6 +395,7 @@ def evaluate_european_sport_gate(
     fav_wr: float | None = None,
     fav_session_sets_3h: int | None = None,
     fav_last_lost_5set: bool = False,
+    fav_lost_last_h2h: bool = False,
 ) -> tuple[bool, float, float]:
     """Sport-specific calibration & gating for European high-frequency sports
     (`table_tennis`, `handball`, `darts`, `snooker`, `mma`).
@@ -404,7 +405,9 @@ def evaluate_european_sport_gate(
       Sportradar's `stats_match_form` lists `form[0]` as the most recent match (`form[:3]` are the 3 most recent matches,
       verified against `streak: {type, value}` and `stats_team_lastx` timestamps).
       Vetoes any favorite currently on a >=2 match losing streak (`fav_loss_streak >= 2`), facing an underdog on a
-      >=3 match winning streak (`dog_win_streak >= 3`), or trailing in Last-3 session form (`recent3_diff_fav < 0.0`).
+      >=3 match winning streak (`dog_win_streak >= 3`), trailing in Last-3 session form (`recent3_diff_fav < 0.0`),
+      or who lost their most recent head-to-head meeting against today's opponent (`fav_lost_last_h2h == True`,
+      e.g. `Coulson, Derek vs Davies, David` where Davies defeated Coulson `4-2` in their immediately preceding match).
     - **Table Tennis Cold-Session Rust + Session Workload & 5-Set Decider Hangover Veto (`table_tennis`):**
       1. Vetoes any favorite who has not played a match in the last `48.0` hours (`fav_hours_since_last > 48.0`), or who has been
          inactive `>=18.0` hours longer than a warmed-up opponent (`fav_hours_since_last - dog_hours_since_last >= 18.0` when `fav_hours_since_last > 24.0`).
@@ -418,6 +421,8 @@ def evaluate_european_sport_gate(
     if n_form_home >= 4 and n_form_away >= 4 and form_diff_fav < 0.0:
         return False, 0.0, -100.0
     if fav_loss_streak >= 2 or dog_win_streak >= 3:
+        return False, 0.0, -100.0
+    if fav_lost_last_h2h:
         return False, 0.0, -100.0
     if recent3_diff_fav is not None and recent3_diff_fav < 0.0:
         return False, 0.0, -100.0

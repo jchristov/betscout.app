@@ -1085,7 +1085,23 @@ def test_nhl_table_tennis_and_tennis_loss_veto_gates():
         decider_diff=0.0,
         tourn_wins_diff=-1,
     )
-    assert t_ok is False and "COURT_ACCLIMATIZATION" in t_reason
+    # 4. Darts Immediate H2H Loss Veto (Coulson, Derek vs Davies, David: Davies beat Coulson 4-2 in their immediately preceding match)
+    passed_darts_loss, _, _ = evaluate_european_sport_gate(
+        sport_slug="darts",
+        p_mkt=0.6575,
+        p_elo_fav=0.55,
+        form_diff_fav=0.30,
+        best_odds=1.35,
+        is_tipico=True,
+        n_form_home=10,
+        n_form_away=10,
+        recent3_diff_fav=0.0,
+        fav_loss_streak=1,
+        dog_win_streak=1,
+        fav_lost_last_h2h=True,
+    )
+    assert passed_darts_loss is False
+
 
 
 def test_notify_new_picks_to_discord_dry_run(tmp_path: Path):

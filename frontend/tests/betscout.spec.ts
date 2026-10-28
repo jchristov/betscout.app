@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import {
   type BestBetItem,
+  SPORT_FA6_ICONIFY_NAMES,
   computeBankerBoosterCombos,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
@@ -48,15 +49,18 @@ function makeMockBet(overrides: Partial<BestBetItem> = {}): BestBetItem {
 }
 
 describe('BetScout Quantitative Formatters & Engines', () => {
-  it('maps every sport category to its canonical emoji and Iconify icon', () => {
+  it('maps every sport category to its canonical emoji, multi-color vector icon, and preserved FA6 icon', () => {
     expect(getSportEmoji('soccer')).toBe('⚽');
     expect(getSportEmoji('tennis')).toBe('🎾');
     expect(getSportEmoji('basketball')).toBe('🏀');
     expect(getSportEmoji('hockey')).toBe('🏒');
     expect(getSportEmoji('table_tennis')).toBe('🏓');
-    expect(getSportIconify('soccer')).toBe('fa6-solid:futbol');
-    expect(getSportIconify('tennis')).toBe('fa6-solid:tennis-ball');
-    expect(getSportIconify('table_tennis')).toBe('fa6-solid:table-tennis-paddle-ball');
+    expect(getSportIconify('soccer')).toBe('betscout-sport:soccer');
+    expect(getSportIconify('tennis')).toBe('betscout-sport:tennis');
+    expect(getSportIconify('table_tennis')).toBe('betscout-sport:table_tennis');
+    expect(SPORT_FA6_ICONIFY_NAMES.soccer).toBe('fa6-solid:futbol');
+    expect(SPORT_FA6_ICONIFY_NAMES.tennis).toBe('fa6-solid:tennis-ball');
+    expect(SPORT_FA6_ICONIFY_NAMES.table_tennis).toBe('fa6-solid:table-tennis-paddle-ball');
     expect(getSportBadgeTheme('soccer')).toContain('emerald');
     expect(getSportBadgeTheme('tennis')).toContain('lime');
     expect(getSportBadgeTheme('table_tennis')).toContain('fuchsia');

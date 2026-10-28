@@ -79,48 +79,72 @@ def _render_sport_icon_rgba(sport_cat: str, size: int = 30) -> Image.Image:
     draw.ellipse([(cx - r - 4, cy - r - 4), (cx + r + 4, cy + r + 4)], fill=(56, 189, 248, 32))
 
     if sp == "tennis":
-        draw.ellipse(bbox, fill=(163, 230, 53, 255), outline=(34, 197, 94, 255), width=6)
-        draw.arc([(cx - int(r * 1.32), cy - int(r * 0.85)), (cx - int(r * 0.16), cy + int(r * 0.85))], start=-55, end=55, fill=(255, 255, 255, 245), width=7)
-        draw.arc([(cx + int(r * 0.16), cy - int(r * 0.85)), (cx + int(r * 1.32), cy + int(r * 0.85))], start=125, end=235, fill=(255, 255, 255, 245), width=7)
+        # Optic yellow-green 3D tennis ball with white curved seams
+        draw.ellipse(bbox, fill=(163, 230, 53, 255), outline=(77, 124, 15, 255), width=6)
+        draw.ellipse([(cx - int(r * 0.65), cy - int(r * 0.72)), (cx - int(r * 0.05), cy - int(r * 0.25))], fill=(217, 249, 157, 135))
+        draw.arc([(cx - int(r * 1.32), cy - int(r * 0.85)), (cx - int(r * 0.16), cy + int(r * 0.85))], start=-55, end=55, fill=(255, 255, 255, 248), width=8)
+        draw.arc([(cx + int(r * 0.16), cy - int(r * 0.85)), (cx + int(r * 1.32), cy + int(r * 0.85))], start=125, end=235, fill=(255, 255, 255, 248), width=8)
     elif sp == "basketball":
-        draw.ellipse(bbox, fill=(249, 115, 22, 255), outline=(251, 146, 60, 255), width=6)
-        draw.line([(cx - r + 6, cy), (cx + r - 6, cy)], fill=(15, 23, 42, 240), width=6)
-        draw.line([(cx, cy - r + 6), (cx, cy + r - 6)], fill=(15, 23, 42, 240), width=6)
-        draw.arc([(cx - int(r * 1.2), cy - int(r * 0.8)), (cx - int(r * 0.12), cy + int(r * 0.8))], start=-55, end=55, fill=(15, 23, 42, 240), width=6)
-        draw.arc([(cx + int(r * 0.12), cy - int(r * 0.8)), (cx + int(r * 1.2), cy + int(r * 0.8))], start=125, end=235, fill=(15, 23, 42, 240), width=6)
+        # Rich orange 3D basketball with dark navy seam ribs
+        draw.ellipse(bbox, fill=(249, 115, 22, 255), outline=(154, 52, 18, 255), width=6)
+        draw.ellipse([(cx - int(r * 0.62), cy - int(r * 0.70)), (cx - int(r * 0.08), cy - int(r * 0.22))], fill=(253, 186, 116, 120))
+        draw.line([(cx - r + 6, cy), (cx + r - 6, cy)], fill=(15, 23, 42, 245), width=6)
+        draw.line([(cx, cy - r + 6), (cx, cy + r - 6)], fill=(15, 23, 42, 245), width=6)
+        draw.arc([(cx - int(r * 1.2), cy - int(r * 0.8)), (cx - int(r * 0.12), cy + int(r * 0.8))], start=-55, end=55, fill=(15, 23, 42, 245), width=6)
+        draw.arc([(cx + int(r * 0.12), cy - int(r * 0.8)), (cx + int(r * 1.2), cy + int(r * 0.8))], start=125, end=235, fill=(15, 23, 42, 245), width=6)
     elif sp == "hockey":
+        # Ice hockey stick + metallic silver/slate puck on dark ice circle
         draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=(56, 189, 248, 255), width=6)
-        draw.line([(cx - int(r * 0.55), cy - int(r * 0.55)), (cx + int(r * 0.42), cy + int(r * 0.42))], fill=(56, 189, 248, 255), width=10)
-        draw.line([(cx + int(r * 0.42), cy + int(r * 0.42)), (cx + int(r * 0.78), cy + int(r * 0.26))], fill=(56, 189, 248, 255), width=10)
-        draw.ellipse([(cx - int(r * 0.58), cy + int(r * 0.16)), (cx + int(r * 0.18), cy + int(r * 0.58))], fill=(226, 232, 240, 255))
+        draw.line([(cx - int(r * 0.52), cy - int(r * 0.56)), (cx + int(r * 0.36), cy + int(r * 0.38))], fill=(251, 191, 36, 255), width=11)
+        draw.line([(cx + int(r * 0.36), cy + int(r * 0.38)), (cx + int(r * 0.76), cy + int(r * 0.22))], fill=(56, 189, 248, 255), width=12)
+        draw.ellipse([(cx - int(r * 0.62), cy + int(r * 0.14)), (cx + int(r * 0.16), cy + int(r * 0.56))], fill=(30, 41, 59, 255), outline=(226, 232, 240, 255), width=5)
     elif sp == "football":
+        # NFL leather prolate football with white end stripes & laces
         draw.ellipse([(cx - r, cy - int(r * 0.68)), (cx + r, cy + int(r * 0.68))], fill=(180, 83, 9, 255), outline=(245, 158, 11, 255), width=6)
         draw.line([(cx - int(r * 0.45), cy), (cx + int(r * 0.45), cy)], fill=(255, 255, 255, 255), width=6)
         for lx in (-int(r * 0.3), 0, int(r * 0.3)):
-            draw.line([(cx + lx, cy - 10), (cx + lx, cy + 10)], fill=(255, 255, 255, 255), width=6)
+            draw.line([(cx + lx, cy - 11), (cx + lx, cy + 11)], fill=(255, 255, 255, 255), width=6)
     elif sp == "baseball":
+        # Crisp white baseball with crimson stitched seams
         draw.ellipse(bbox, fill=(248, 250, 252, 255), outline=(148, 163, 184, 255), width=6)
         draw.arc([(cx - int(r * 1.25), cy - int(r * 0.8)), (cx - int(r * 0.15), cy + int(r * 0.8))], start=-55, end=55, fill=(239, 68, 68, 255), width=7)
         draw.arc([(cx + int(r * 0.15), cy - int(r * 0.8)), (cx + int(r * 1.25), cy + int(r * 0.8))], start=125, end=235, fill=(239, 68, 68, 255), width=7)
     elif sp == "table_tennis":
-        draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=(239, 68, 68, 255), width=6)
-        draw.ellipse([(cx - int(r * 0.65), cy - int(r * 0.65)), (cx + int(r * 0.35), cy + int(r * 0.35))], fill=(239, 68, 68, 255), outline=(252, 165, 165, 255), width=5)
-        draw.line([(cx + int(r * 0.15), cy + int(r * 0.15)), (cx + int(r * 0.62), cy + int(r * 0.62))], fill=(217, 119, 6, 255), width=12)
-        draw.ellipse([(cx + int(r * 0.18), cy - int(r * 0.65)), (cx + int(r * 0.68), cy - int(r * 0.15))], fill=(255, 255, 255, 255))
+        # Crimson table-tennis racket + wood handle + white ping-pong ball
+        draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=(232, 121, 249, 220), width=5)
+        draw.line([(cx + int(r * 0.12), cy + int(r * 0.12)), (cx + int(r * 0.66), cy + int(r * 0.66))], fill=(217, 119, 6, 255), width=14)
+        draw.ellipse([(cx - int(r * 0.68), cy - int(r * 0.68)), (cx + int(r * 0.36), cy + int(r * 0.36))], fill=(239, 68, 68, 255), outline=(254, 202, 202, 255), width=5)
+        draw.ellipse([(cx + int(r * 0.16), cy - int(r * 0.68)), (cx + int(r * 0.68), cy - int(r * 0.16))], fill=(255, 255, 255, 255), outline=(203, 213, 225, 255), width=3)
     elif sp == "darts":
-        draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=(239, 68, 68, 255), width=7)
-        r_mid = int(r * 0.62)
-        r_in = int(r * 0.28)
-        draw.ellipse([(cx - r_mid, cy - r_mid), (cx + r_mid, cy + r_mid)], outline=(34, 197, 94, 255), width=7)
-        draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], fill=(239, 68, 68, 255))
-    elif sp in ("volleyball", "handball"):
-        col_fill = (56, 189, 248, 255) if sp == "volleyball" else (245, 158, 11, 255)
-        draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=col_fill, width=6)
-        draw.arc([(cx - r + 8, cy - r + 8), (cx + r - 8, cy + r - 8)], start=20, end=160, fill=col_fill, width=6)
-        draw.arc([(cx - r + 8, cy - r + 8), (cx + r - 8, cy + r - 8)], start=200, end=340, fill=(241, 245, 249, 255), width=6)
-        draw.line([(cx - r + 10, cy), (cx + r - 10, cy)], fill=col_fill, width=6)
+        # Red/white/green target bullseye board
+        draw.ellipse(bbox, fill=(239, 68, 68, 255), outline=(254, 202, 202, 255), width=5)
+        r_w = int(r * 0.72)
+        r_g = int(r * 0.46)
+        r_b = int(r * 0.22)
+        draw.ellipse([(cx - r_w, cy - r_w), (cx + r_w, cy + r_w)], fill=(248, 250, 252, 255))
+        draw.ellipse([(cx - r_g, cy - r_g), (cx + r_g, cy + r_g)], fill=(34, 197, 94, 255))
+        draw.ellipse([(cx - r_b, cy - r_b), (cx + r_b, cy + r_b)], fill=(239, 68, 68, 255))
+    elif sp == "handball":
+        # Indigo/cyan stitched team handball with star grip panels
+        draw.ellipse(bbox, fill=(79, 70, 229, 255), outline=(165, 180, 252, 255), width=6)
+        r_pent = r * 0.42
+        pent_pts = [
+            (cx + r_pent * math.cos(math.radians(-90 + i * 72)), cy + r_pent * math.sin(math.radians(-90 + i * 72)))
+            for i in range(5)
+        ]
+        draw.polygon(pent_pts, fill=(56, 189, 248, 255), outline=(255, 255, 255, 255))
+        for px, py in pent_pts:
+            ang = math.atan2(py - cy, px - cx)
+            draw.line([(px, py), (cx + (r - 6) * math.cos(ang), cy + (r - 6) * math.sin(ang))], fill=(255, 255, 255, 240), width=5)
+    elif sp == "volleyball":
+        # Gold/white/sky panelled volleyball
+        draw.ellipse(bbox, fill=(250, 204, 21, 255), outline=(254, 240, 138, 255), width=6)
+        draw.arc([(cx - r + 8, cy - r + 8), (cx + r - 8, cy + r - 8)], start=15, end=165, fill=(15, 23, 42, 235), width=6)
+        draw.arc([(cx - r + 8, cy - r + 8), (cx + r - 8, cy + r - 8)], start=195, end=345, fill=(15, 23, 42, 235), width=6)
+        draw.line([(cx - r + 10, cy), (cx + r - 10, cy)], fill=(15, 23, 42, 235), width=6)
     else:
-        draw.ellipse(bbox, fill=(241, 245, 249, 255), outline=(56, 189, 248, 255), width=6)
+        # Classic white & dark-slate pentagon football/soccer ball
+        draw.ellipse(bbox, fill=(248, 250, 252, 255), outline=(52, 211, 153, 255), width=6)
         r_pent = r * 0.44
         pent_pts = [
             (cx + r_pent * math.cos(math.radians(-90 + i * 72)), cy + r_pent * math.sin(math.radians(-90 + i * 72)))
@@ -134,40 +158,15 @@ def _render_sport_icon_rgba(sport_cat: str, size: int = 30) -> Image.Image:
     return img.resize((size, size), resample=Image.Resampling.LANCZOS)
 
 
+# NOTE: `_render_sport_emoji_rgba` is preserved for reference if OS-specific font glyphs are ever needed,
+# but `_paste_sport_icon` now uses `_render_sport_icon_rgba` directly so PNG cards render 100% platform-independent
+# multi-color vector sport icons matching the `betscout-sport:*` Iconify collection in the Vue 3 web app.
 def _render_sport_emoji_rgba(sport_cat: str, size: int = 34) -> Image.Image:
-    """Render the exact native Color Emoji (`⚽`, `🎾`, `🏀`, `🏐`, `🏒`, `🏈`, `⚾`, `🤾`, `🎯`, `🏓`)
-    at a high-resolution strike (e.g. `64px` or `109px`) and LANCZOS-scale it to `size x size`."""
-    sp = _infer_sport_cat(sport_cat)
-    emoji_ch = SPORT_EMOJIS.get(sp, "⚽")
-    emoji_font_paths = [
-        "/System/Library/Fonts/Apple Color Emoji.ttc",
-        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
-        "/usr/share/fonts/NotoColorEmoji.ttf",
-    ]
-    for fp in emoji_font_paths:
-        if not Path(fp).exists():
-            continue
-        for strike_sz in (64, 96, 109, 48, 40, 32):
-            try:
-                f_em = ImageFont.truetype(fp, strike_sz)
-                canvas = Image.new("RGBA", (strike_sz * 2, strike_sz * 2), (0, 0, 0, 0))
-                d_em = ImageDraw.Draw(canvas, "RGBA")
-                d_em.text((strike_sz // 4, strike_sz // 4), emoji_ch, font=f_em, embedded_color=True)
-                bbox = canvas.getbbox()
-                if bbox:
-                    crop = canvas.crop(bbox)
-                    cw, ch = crop.size
-                    side = max(cw, ch, 1)
-                    sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-                    sq.paste(crop, ((side - cw) // 2, (side - ch) // 2), crop)
-                    return sq.resize((size, size), resample=Image.Resampling.LANCZOS)
-            except Exception:
-                continue
-    return _render_sport_icon_rgba(sp, size=size)
+    return _render_sport_icon_rgba(sport_cat, size=size)
 
 
 def _paste_sport_icon(img: Image.Image, sport_cat: str, cx: int, cy: int, size: int = 26) -> None:
-    icon_rgba = _render_sport_emoji_rgba(sport_cat, size=size)
+    icon_rgba = _render_sport_icon_rgba(sport_cat, size=size)
     img.paste(icon_rgba, (int(cx - size // 2), int(cy - size // 2)), icon_rgba)
 
 

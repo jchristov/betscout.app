@@ -195,9 +195,102 @@ const FA6_SUBSET = {
   }
 };
 
+/**
+ * Multi-color Vector Sport Icon Collection (`betscout-sport:*`) matching the notification card
+ * sport emblems in `backend/src/betscout/pick_card.py` (`_render_sport_icon_rgba`).
+ * Rendered via `@iconify/vue` (`<Icon />`) for 100% cross-platform consistency (no OS-specific emoji font glyphs).
+ * Note: The monochrome FontAwesome 6 Solid sport icons (`fa6-solid:*`) remain registered in `FA6_SUBSET` above
+ * and documented in `SPORT_FA6_ICONIFY_NAMES` (`formatters.ts`) if we ever want to switch back.
+ */
+const BETSCOUT_SPORT_SUBSET = {
+  prefix: "betscout-sport",
+  width: 64,
+  height: 64,
+  icons: {
+    all: {
+      body: `<circle cx="32" cy="32" r="27" fill="#0f172a" stroke="#38bdf8" stroke-width="3.5"/>
+             <ellipse cx="32" cy="32" rx="13" ry="27" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+             <line x1="5" y1="32" x2="59" y2="32" stroke="#38bdf8" stroke-width="2.5"/>
+             <line x1="9" y1="20" x2="55" y2="20" stroke="#34d399" stroke-width="2.2"/>
+             <line x1="9" y1="44" x2="55" y2="44" stroke="#34d399" stroke-width="2.2"/>`,
+    },
+    soccer: {
+      body: `<circle cx="32" cy="32" r="27" fill="#f8fafc" stroke="#34d399" stroke-width="3.5"/>
+             <polygon points="32,19 44.4,28 39.6,42.5 24.4,42.5 19.6,28" fill="#0f172a"/>
+             <line x1="32" y1="19" x2="32" y2="6" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/>
+             <line x1="44.4" y1="28" x2="56.5" y2="23.5" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/>
+             <line x1="39.6" y1="42.5" x2="48" y2="53.5" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/>
+             <line x1="24.4" y1="42.5" x2="16" y2="53.5" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/>
+             <line x1="19.6" y1="28" x2="7.5" y2="23.5" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/>`,
+    },
+    tennis: {
+      body: `<circle cx="32" cy="32" r="27" fill="#a3e635" stroke="#4d7c0f" stroke-width="3.5"/>
+             <ellipse cx="23" cy="19" rx="8" ry="5" fill="#d9f99d" fill-opacity="0.55"/>
+             <path d="M 13 13 A 21 21 0 0 1 13 51" fill="none" stroke="#ffffff" stroke-width="4.2" stroke-linecap="round"/>
+             <path d="M 51 13 A 21 21 0 0 0 51 51" fill="none" stroke="#ffffff" stroke-width="4.2" stroke-linecap="round"/>`,
+    },
+    basketball: {
+      body: `<circle cx="32" cy="32" r="27" fill="#f97316" stroke="#9a3412" stroke-width="3.5"/>
+             <ellipse cx="23" cy="19" rx="8" ry="5" fill="#fdba74" fill-opacity="0.45"/>
+             <line x1="6" y1="32" x2="58" y2="32" stroke="#0f172a" stroke-width="3.2"/>
+             <line x1="32" y1="6" x2="32" y2="58" stroke="#0f172a" stroke-width="3.2"/>
+             <path d="M 14 12 A 22 22 0 0 1 14 52" fill="none" stroke="#0f172a" stroke-width="3.2"/>
+             <path d="M 50 12 A 22 22 0 0 0 50 52" fill="none" stroke="#0f172a" stroke-width="3.2"/>`,
+    },
+    hockey: {
+      body: `<circle cx="32" cy="32" r="27" fill="#0f172a" stroke="#38bdf8" stroke-width="3.5"/>
+             <line x1="17" y1="15" x2="42" y2="43" stroke="#fbbf24" stroke-width="5.5" stroke-linecap="round"/>
+             <line x1="42" y1="43" x2="53" y2="38" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+             <ellipse cx="25" cy="43" rx="11" ry="6" fill="#1e293b" stroke="#e2e8f0" stroke-width="2.8"/>`,
+    },
+    football: {
+      body: `<ellipse cx="32" cy="32" rx="27" ry="18.5" fill="#b45309" stroke="#f59e0b" stroke-width="3.5"/>
+             <path d="M 13 21 Q 17 32 13 43" fill="none" stroke="#fef3c7" stroke-width="3" stroke-linecap="round"/>
+             <path d="M 51 21 Q 47 32 51 43" fill="none" stroke="#fef3c7" stroke-width="3" stroke-linecap="round"/>
+             <line x1="20" y1="32" x2="44" y2="32" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round"/>
+             <line x1="24" y1="26.5" x2="24" y2="37.5" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+             <line x1="32" y1="26.5" x2="32" y2="37.5" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+             <line x1="40" y1="26.5" x2="40" y2="37.5" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>`,
+    },
+    baseball: {
+      body: `<circle cx="32" cy="32" r="27" fill="#f8fafc" stroke="#94a3b8" stroke-width="3.5"/>
+             <path d="M 14 13 A 21 21 0 0 1 14 51" fill="none" stroke="#ef4444" stroke-width="3.8" stroke-dasharray="4 3" stroke-linecap="round"/>
+             <path d="M 50 13 A 21 21 0 0 0 50 51" fill="none" stroke="#ef4444" stroke-width="3.8" stroke-dasharray="4 3" stroke-linecap="round"/>`,
+    },
+    table_tennis: {
+      body: `<circle cx="32" cy="32" r="27" fill="#0f172a" stroke="#e879f9" stroke-width="3"/>
+             <line x1="35" y1="35" x2="50" y2="50" stroke="#d97706" stroke-width="7" stroke-linecap="round"/>
+             <circle cx="27" cy="27" r="15" fill="#ef4444" stroke="#fecaca" stroke-width="2.8"/>
+             <circle cx="44" cy="19" r="6.5" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>`,
+    },
+    darts: {
+      body: `<circle cx="32" cy="32" r="27" fill="#ef4444" stroke="#fecaca" stroke-width="3"/>
+             <circle cx="32" cy="32" r="19.5" fill="#f8fafc"/>
+             <circle cx="32" cy="32" r="12.5" fill="#22c55e"/>
+             <circle cx="32" cy="32" r="6" fill="#ef4444"/>`,
+    },
+    handball: {
+      body: `<circle cx="32" cy="32" r="27" fill="#4f46e5" stroke="#a5b4fc" stroke-width="3.5"/>
+             <polygon points="32,20.5 42.9,28.4 38.7,41.2 25.3,41.2 21.1,28.4" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+             <line x1="32" y1="20.5" x2="32" y2="6.5" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+             <line x1="42.9" y1="28.4" x2="56" y2="24" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+             <line x1="38.7" y1="41.2" x2="47.5" y2="53" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+             <line x1="25.3" y1="41.2" x2="16.5" y2="53" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+             <line x1="21.1" y1="28.4" x2="8" y2="24" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>`,
+    },
+    volleyball: {
+      body: `<circle cx="32" cy="32" r="27" fill="#facc15" stroke="#fef08a" stroke-width="3.5"/>
+             <path d="M 10 22 Q 32 10 54 22" fill="none" stroke="#0f172a" stroke-width="3.2"/>
+             <path d="M 10 42 Q 32 54 54 42" fill="none" stroke="#0f172a" stroke-width="3.2"/>
+             <line x1="7" y1="32" x2="57" y2="32" stroke="#0f172a" stroke-width="3.2"/>`,
+    },
+  },
+};
+
 let initialized = false;
 export function setupIconifyCollections(): void {
   if (initialized) return;
   initialized = true;
   addCollection(FA6_SUBSET as any);
+  addCollection(BETSCOUT_SPORT_SUBSET as any);
 }

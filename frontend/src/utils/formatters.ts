@@ -11,7 +11,11 @@ export const SPORT_EMOJIS: Record<string, string> = {
   table_tennis: '🏓',
 };
 
-export const SPORT_ICONIFY_NAMES: Record<string, string> = {
+/**
+ * Preserved FontAwesome 6 Solid (`fa6-solid:*`) monochrome sport icon mapping.
+ * Kept intact so we can switch back to monochrome `fa6-solid:*` icons at any time in the future.
+ */
+export const SPORT_FA6_ICONIFY_NAMES: Record<string, string> = {
   all: 'fa6-solid:globe',
   soccer: 'fa6-solid:futbol',
   tennis: 'fa6-solid:tennis-ball',
@@ -23,6 +27,24 @@ export const SPORT_ICONIFY_NAMES: Record<string, string> = {
   handball: 'fa6-solid:handball',
   darts: 'fa6-solid:bullseye',
   table_tennis: 'fa6-solid:table-tennis-paddle-ball',
+};
+
+/**
+ * Active Multi-Color Vector Sport Iconify mapping (`betscout-sport:*`, registered in `iconifySetup.ts`),
+ * matching the notification card sport icons across all platforms without OS-dependent emoji font glyphs.
+ */
+export const SPORT_ICONIFY_NAMES: Record<string, string> = {
+  all: 'betscout-sport:all',
+  soccer: 'betscout-sport:soccer',
+  tennis: 'betscout-sport:tennis',
+  basketball: 'betscout-sport:basketball',
+  volleyball: 'betscout-sport:volleyball',
+  hockey: 'betscout-sport:hockey',
+  football: 'betscout-sport:football',
+  baseball: 'betscout-sport:baseball',
+  handball: 'betscout-sport:handball',
+  darts: 'betscout-sport:darts',
+  table_tennis: 'betscout-sport:table_tennis',
 };
 
 export const SPORT_CLEAN_LABELS: Record<string, string> = {
@@ -56,16 +78,16 @@ export const SPORT_LABELS: Record<string, string> = {
 export function getSportIconify(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (SPORT_ICONIFY_NAMES[low]) return SPORT_ICONIFY_NAMES[low];
-  if (low.includes('table tennis') || low.includes('table_tennis')) return 'fa6-solid:table-tennis-paddle-ball';
-  if (low.includes('handball')) return 'fa6-solid:handball';
-  if (low.includes('darts')) return 'fa6-solid:bullseye';
-  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'fa6-solid:tennis-ball';
-  if (low.includes('volleyball')) return 'fa6-solid:volleyball';
-  if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl')) return 'fa6-solid:basketball';
-  if (low.includes('hockey') || low.includes('nhl')) return 'fa6-solid:hockey-puck';
-  if (low.includes('nfl') || low.includes('american football')) return 'fa6-solid:football';
-  if (low.includes('baseball') || low.includes('mlb')) return 'fa6-solid:baseball-bat-ball';
-  return 'fa6-solid:futbol';
+  if (low.includes('table tennis') || low.includes('table_tennis') || low.includes('wtt')) return 'betscout-sport:table_tennis';
+  if (low.includes('handball')) return 'betscout-sport:handball';
+  if (low.includes('darts')) return 'betscout-sport:darts';
+  if (low.includes('tennis') || low.includes('atp') || low.includes('wta')) return 'betscout-sport:tennis';
+  if (low.includes('volleyball')) return 'betscout-sport:volleyball';
+  if (low.includes('basketball') || low.includes('nba') || low.includes('wnba') || low.includes('ncaa') || low.includes('nbl') || low.includes('fiba')) return 'betscout-sport:basketball';
+  if (low.includes('hockey') || low.includes('nhl')) return 'betscout-sport:hockey';
+  if (low.includes('nfl') || low.includes('american football')) return 'betscout-sport:football';
+  if (low.includes('baseball') || low.includes('mlb')) return 'betscout-sport:baseball';
+  return 'betscout-sport:soccer';
 }
 
 export function getSportIconColor(catOrLeague?: string | null): string {
