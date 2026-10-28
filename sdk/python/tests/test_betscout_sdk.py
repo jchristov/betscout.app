@@ -265,3 +265,64 @@ def test_enriched_league_table_and_match_center_dossier():
         299130,
     )
     assert h2h["home_win_pct"] == 100
+
+
+def test_betting_splits_v3_and_tokenless_divergence():
+    def mock_fetch(url: str, headers: dict[str, str], timeout: float) -> dict[str, Any] | None:
+        if "tipico/en/" in url and "match_markets/76034538/prematch" in url:
+            return _envelope(
+                {
+                    "markets": [
+                        {
+                            "_marketId": 186,
+                            "_bookmakerId": 176,
+                            "name": "Winner",
+                            "outcomes": [
+                                {"_id": "sr:outcome:4", "name": "{$competitor1}", "odds": 1.15},
+                                {"_id": "sr:outcome:5", "name": "{$competitor2}", "odds": 5.0},
+                            ],
+                        }
+                    ]
+                }
+            )
+        if "sportradar/en/" in url and "match_markets/76034538/prematch" in url:
+            return _envelope(
+                {
+                    "markets": [
+                        {
+                            "_marketId": 186,
+                            "_bookmakerId": 0,
+                            "name": "Winner",
+                            "outcomes": [
+                                {"_id": "sr:outcome:4", "name": "{$competitor1}", "odds": 1.1, "probability": 0.8786},
+                                {"_id": "sr:outcome:5", "name": "{$competitor2}", "odds": 5.99, "probability": 0.1214},
+                            ],
+                        }
+                    ]
+                }
+            )
+        return _envelope({"markets": []})
+
+    client = BetScoutClient(fetch_fn=mock_fetch)
+    assert client.build_betting_splits_url(
+        product="soccer", competition_id=17, game_id="sr:sport_event:61301185"
+    ) == (
+        "https://api.sportradar.com/betting-splits/v3/production/soccer/en/competition/sr%3Acompetition%3A17/game/sr%3Asport_event%3A61301185"
+    )
+    assert client.build_betting_splits_push_url("mlb") == (
+        "https://api.sportradar.com/betting-splits/production/stream/mlb/subscribe"
+    )
+
+    splits = client.get_betting_splits(
+        game_id=76034538,
+        product="soccer",
+        home_name="Fritz, Taylor",
+        away_name="Hijikata, Rinky",
+    )
+    assert splits["ok"] is True
+    assert splits["mode"] == "tokenless_retail_vs_consensus"
+    s0 = splits["markets"][0]["selections"][0]
+    assert s0["name"] == "Fritz, Taylor"
+    assert s0["stake_percentage"] == 87.86
+    assert s0["sharp_divergence_pct"] > 3.0
+    assert s0["direction"] == "steam_toward"

@@ -137,3 +137,15 @@ Run `npm run showcase` and open `http://127.0.0.1:8788` to explore an 8-tab inte
 | `getSeasonLeagueSummary(seasonId)` | Macro league summary (1X2 win %, goals/match, Over/Under `0.5`..`5.5` %, clean sheet %, BTTS %). |
 | `getSeasonTopScorers(seasonId)` / `getSeasonTopAssists(seasonId)` / `getSeasonTopCards(seasonId)` | League-wide player leaderboards for goals, assists, and cards. |
 | `getSeasonReferees(seasonId)` & `getRefereeSeasonStats(refereeId, seasonId)` | League referee pool and per-referee card/foul/penalty averages. |
+
+### 8. Insights Push Feeds, Betting Splits v3 & Retail vs. Consensus Sharp Divergence
+| Method | Description |
+| :--- | :--- |
+| `buildInsightsPushUrl(options)` | Builds the commercial Insights Push Stream URL (`https://api.sportradar.com/insights/production/stream/{league}/{provider}/subscribe?...`). |
+| `streamInsights(options)` | **Dual-Mode Real-Time Insights Generator:** Opens a persistent commercial push stream when `apiKey` is provided, or automatically falls back to **Tokenless Adaptive Delta Streaming** (`match_timelinedelta` `3s`, `match_phrasesdelta` `5s`, `match_funfacts`, and `event_get` `10s`) with event deduplication and heartbeat frames. |
+| `buildBettingSplitsUrl(options)` | Builds the commercial Betting Splits v3 REST URL (`/betting-splits/v3/production/soccer/en/competition/{compId}/game/{gameId}` or `/betting-splits/v3/production/{product}/en/game/{gameId}`). |
+| `buildBettingSplitsPushUrl(product)` | Builds the commercial Betting Splits Push Stream URL (`/betting-splits/production/stream/{product}/subscribe`). |
+| `getBettingSplits(options)` | **Dual-Mode Betting Splits & Sharp Divergence Analyzer:** Queries commercial 150+ bookmaker betting splits when `apiKey` is supplied, or automatically computes **Tokenless Retail (`_bookmakerId: 176`) vs. Global Consensus (`_bookmakerId: 0` + Live `_bookmakerId: 6908`) Betting Splits**, returning `bets_percentage` (de-vigged retail implied %), `stake_percentage` (consensus fair probability %), `sharp_divergence_pct` (`stake_percentage - bets_percentage`), and `direction` (`'steam_toward'` \| `'fade_against'` \| `'neutral'`). |
+| `getSeasonCompetitors(seasonId)` | Fetches all participating teams in a season (`stats_season_teams2/{seasonId}`). |
+| `getSeasonSchedule(seasonId)` / `getSeasonLastMatches(seasonId, limit?)` / `getSeasonNextMatches(seasonId, limit?)` | Full season schedule (`stats_season_fixtures2`) and rolling season completed/upcoming fixtures. |
+| `getCompetitionSeasons(uniqueTournamentId)` | Fetches all historical and active seasons for a competition (`uniquetournament_seasons/{utId}`). |

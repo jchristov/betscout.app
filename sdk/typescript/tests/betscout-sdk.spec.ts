@@ -1049,4 +1049,86 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
       'https://api.sportradar.com/insights/production/stream/nba/sportradar/subscribe?insight_type=scoring',
     );
   });
+
+  it('builds Betting Splits v3 REST/Push URLs and computes tokenless Retail vs. Consensus betting splits & sharp divergence', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('tipico/en/') && url.includes('match_markets/76034538/prematch')) {
+        return jsonResponse({
+          markets: [
+            {
+              _marketId: 186,
+              _bookmakerId: 176,
+              name: 'Winner',
+              outcomes: [
+                { _id: 'sr:outcome:4', name: '{$competitor1}', odds: 1.15 },
+                { _id: 'sr:outcome:5', name: '{$competitor2}', odds: 5.0 },
+              ],
+            },
+          ],
+        });
+      }
+      if (url.includes('sportradar/en/') && url.includes('match_markets/76034538/prematch')) {
+        return jsonResponse({
+          markets: [
+            {
+              _marketId: 186,
+              _bookmakerId: 0,
+              name: 'Winner',
+              outcomes: [
+                { _id: 'sr:outcome:4', name: '{$competitor1}', odds: 1.1, probability: 0.8786 },
+                { _id: 'sr:outcome:5', name: '{$competitor2}', odds: 5.99, probability: 0.1214 },
+              ],
+            },
+          ],
+        });
+      }
+      if (url.includes('match_markets/76034538/live')) {
+        return jsonResponse({ markets: [] });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+
+    expect(
+      client.buildBettingSplitsUrl({
+        product: 'soccer',
+        competitionId: 17,
+        gameId: 'sr:sport_event:61301185',
+      }),
+    ).toBe(
+      'https://api.sportradar.com/betting-splits/v3/production/soccer/en/competition/sr%3Acompetition%3A17/game/sr%3Asport_event%3A61301185',
+    );
+    expect(
+      client.buildBettingSplitsUrl({
+        product: 'nba',
+        gameId: 'sr:match:43065917',
+      }),
+    ).toBe(
+      'https://api.sportradar.com/betting-splits/v3/production/nba/en/game/sr%3Amatch%3A43065917',
+    );
+    expect(client.buildBettingSplitsPushUrl('mlb')).toBe(
+      'https://api.sportradar.com/betting-splits/production/stream/mlb/subscribe',
+    );
+
+    const splits = await client.getBettingSplits({
+      gameId: 76034538,
+      product: 'soccer',
+      homeName: 'Fritz, Taylor',
+      awayName: 'Hijikata, Rinky',
+    });
+
+    expect(splits.ok).toBe(true);
+    expect(splits.mode).toBe('tokenless_retail_vs_consensus');
+    expect(splits.markets.length).toBe(1);
+    const m0 = splits.markets[0]!;
+    expect(m0.display_market).toBe('Winner');
+    expect(m0.selections[0]?.name).toBe('Fritz, Taylor');
+    expect(m0.selections[0]?.retail_odds).toBe(1.15);
+    expect(m0.selections[0]?.consensus_odds).toBe(1.1);
+    expect(m0.selections[0]?.stake_percentage).toBe(87.86);
+    expect(m0.selections[0]?.sharp_divergence_pct).toBeGreaterThan(3);
+    expect(m0.selections[0]?.direction).toBe('steam_toward');
+  });
 });

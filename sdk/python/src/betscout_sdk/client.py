@@ -22,6 +22,7 @@ from .constants import SPORTS_CATALOG, resolve_sport_id
 from .utils import (
     compute_form_wdl_segments,
     compute_h2h_edge_summary,
+    format_market_placeholders,
     get_adaptive_refetch_interval_ms,
     get_country_flag_url,
     get_team_logo_url,
@@ -1557,6 +1558,223 @@ class BetScoutClient:
                 return
             time.sleep(sleep_ms / 1000.0)
 
+    # ==========================================================================
+    # I. Betting Splits v3 (Commercial REST/Push + Tokenless Retail vs Consensus Divergence)
+    # ==========================================================================
+
+    def build_betting_splits_url(
+        self,
+        *,
+        game_id: str | int,
+        product: str = "nba",
+        access_level: str = "production",
+        language_code: str = "en",
+        competition_id: str | int | None = None,
+    ) -> str:
+        from urllib.parse import quote
+
+        gid = quote(str(game_id))
+        if product == "soccer":
+            raw_comp = competition_id if competition_id is not None else "sr:competition:17"
+            comp_id = (
+                str(raw_comp)
+                if str(raw_comp).startswith("sr:competition:")
+                else f"sr:competition:{raw_comp}"
+            )
+            return f"https://api.sportradar.com/betting-splits/v3/{access_level}/soccer/{language_code}/competition/{quote(comp_id)}/game/{gid}"
+        return f"https://api.sportradar.com/betting-splits/v3/{access_level}/{product}/{language_code}/game/{gid}"
+
+    def build_betting_splits_push_url(self, product: str = "nba") -> str:
+        return f"https://api.sportradar.com/betting-splits/production/stream/{product}/subscribe"
+
+    def get_betting_splits(
+        self,
+        *,
+        game_id: str | int,
+        product: str = "soccer",
+        api_key: str | None = None,
+        access_level: str = "production",
+        language_code: str = "en",
+        competition_id: str | int | None = None,
+        home_name: str | None = None,
+        away_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Dual-Mode Betting Splits & Market Flow Analyzer."""
+        if api_key:
+            url = self.build_betting_splits_url(
+                game_id=game_id,
+                product=product,
+                access_level=access_level,
+                language_code=language_code,
+                competition_id=competition_id,
+            )
+            req = urllib.request.Request(
+                url,
+                headers={"x-api-key": api_key, "Accept": "application/json"},
+            )
+            ctx = ssl.create_default_context()
+            if hasattr(ssl, "VERIFY_X509_STRICT"):
+                ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            with urllib.request.urlopen(req, timeout=self.timeout_sec, context=ctx) as resp:
+                raw = json.loads(resp.read().decode("utf-8", errors="replace"))
+            return {
+                "ok": True,
+                "mode": "commercial_betting_splits_v3",
+                "match_id": game_id,
+                "product": product,
+                "updated_utc": datetime.now(timezone.utc).isoformat(),
+                "markets": [],
+                "raw_commercial_payload": raw,
+            }
+
+        import re
+
+        numeric_mid = re.sub(r"^sr:(?:sport_event|match):", "", str(game_id), flags=re.I)
+        retail_resp = self.get_match_markets(numeric_mid, "prematch", "eu-retail") or {}
+        consensus_resp = self.get_match_markets(numeric_mid, "prematch", "global") or {}
+        live_resp = self.get_match_markets(numeric_mid, "live", "global") or {}
+
+        retail_markets = retail_resp.get("markets") or []
+        consensus_markets = consensus_resp.get("markets") or []
+        live_markets = live_resp.get("markets") or []
+
+        def spec_key(mk: dict[str, Any]) -> str:
+            return f"{mk.get('_marketId')}:{json.dumps(mk.get('specifiers') or {}, sort_keys=True)}"
+
+        r_map = {spec_key(m): m for m in retail_markets if isinstance(m, dict)}
+        c_map = {spec_key(m): m for m in consensus_markets if isinstance(m, dict)}
+        l_map = {spec_key(m): m for m in live_markets if isinstance(m, dict)}
+
+        all_keys = list(dict.fromkeys(list(c_map.keys()) + list(r_map.keys())))
+        split_markets: list[dict[str, Any]] = []
+
+        for k in all_keys:
+            c_mk = c_map.get(k)
+            r_mk = r_map.get(k)
+            l_mk = l_map.get(k)
+            base_mk = c_mk or r_mk
+            if not base_mk:
+                continue
+
+            r_outcomes = (r_mk or {}).get("outcomes") or []
+            c_outcomes = (c_mk or {}).get("outcomes") or []
+            l_outcomes = (l_mk or {}).get("outcomes") or []
+
+            r_inv_sum = sum(
+                1.0 / float(o["odds"])
+                for o in r_outcomes
+                if o.get("odds") and float(o["odds"]) > 1.0
+            )
+            c_inv_sum = sum(
+                1.0 / float(o["odds"])
+                for o in c_outcomes
+                if o.get("odds") and float(o["odds"]) > 1.0
+            )
+
+            retail_overround = round((r_inv_sum - 1.0) * 100.0, 2) if r_inv_sum > 0 else None
+            consensus_overround = round((c_inv_sum - 1.0) * 100.0, 2) if c_inv_sum > 0 else None
+
+            base_outcomes = c_outcomes if c_outcomes else r_outcomes
+            selections: list[dict[str, Any]] = []
+
+            for bo in base_outcomes:
+                oid = str(bo.get("_id") or "")
+                r_out = next(
+                    (x for x in r_outcomes if str(x.get("_id")) == oid or x.get("name") == bo.get("name")),
+                    None,
+                )
+                c_out = next(
+                    (x for x in c_outcomes if str(x.get("_id")) == oid or x.get("name") == bo.get("name")),
+                    None,
+                )
+                l_out = next(
+                    (x for x in l_outcomes if str(x.get("_id")) == oid or x.get("name") == bo.get("name")),
+                    None,
+                )
+
+                r_odds = float(r_out["odds"]) if (r_out and r_out.get("odds")) else None
+                c_odds = float(c_out["odds"]) if (c_out and c_out.get("odds")) else None
+                l_odds = float(l_out["odds"]) if (l_out and l_out.get("odds")) else None
+
+                if r_odds and r_inv_sum > 0:
+                    retail_prob = ((1.0 / r_odds) / r_inv_sum) * 100.0
+                elif c_odds and c_inv_sum > 0:
+                    retail_prob = ((1.0 / c_odds) / c_inv_sum) * 100.0
+                else:
+                    retail_prob = 0.0
+
+                if c_out and isinstance(c_out.get("probability"), (int, float)) and c_out["probability"] > 0:
+                    consensus_prob = float(c_out["probability"]) * 100.0
+                elif c_odds and c_inv_sum > 0:
+                    consensus_prob = ((1.0 / c_odds) / c_inv_sum) * 100.0
+                else:
+                    consensus_prob = retail_prob
+
+                bets_pct = round(retail_prob, 2)
+                stake_pct = round(consensus_prob, 2)
+                diff_pct = round(stake_pct - bets_pct, 2)
+
+                raw_name = str(bo.get("name") or "")
+                home_away = (
+                    "home"
+                    if "competitor1" in raw_name
+                    else "away"
+                    if "competitor2" in raw_name
+                    else "draw"
+                    if raw_name.lower() == "draw"
+                    else None
+                )
+
+                selections.append(
+                    {
+                        "selection_id": oid,
+                        "name": format_market_placeholders(
+                            raw_name,
+                            home_name=home_name,
+                            away_name=away_name,
+                            specifiers=base_mk.get("specifiers"),
+                        ),
+                        "home_away": home_away,
+                        "retail_odds": r_odds,
+                        "consensus_odds": c_odds,
+                        "live_odds": l_odds,
+                        "bets_percentage": bets_pct,
+                        "stake_percentage": stake_pct,
+                        "sharp_divergence_pct": diff_pct,
+                        "direction": "steam_toward"
+                        if diff_pct >= 0.4
+                        else ("fade_against" if diff_pct <= -0.4 else "neutral"),
+                    }
+                )
+
+            display_market = format_market_placeholders(
+                str(base_mk.get("name") or f"Market #{base_mk.get('_marketId')}"),
+                home_name=home_name,
+                away_name=away_name,
+                specifiers=base_mk.get("specifiers"),
+            )
+
+            split_markets.append(
+                {
+                    "market_id": base_mk.get("_marketId"),
+                    "market_name": str(base_mk.get("name") or f"Market #{base_mk.get('_marketId')}"),
+                    "display_market": display_market,
+                    "specifiers": base_mk.get("specifiers"),
+                    "retail_overround_pct": retail_overround,
+                    "consensus_overround_pct": consensus_overround,
+                    "selections": selections,
+                }
+            )
+
+        return {
+            "ok": len(split_markets) > 0,
+            "mode": "tokenless_retail_vs_consensus",
+            "match_id": numeric_mid,
+            "product": product,
+            "updated_utc": datetime.now(timezone.utc).isoformat(),
+            "markets": split_markets,
+        }
+
     # CamelCase aliases for 1:1 parity with TypeScript BetScoutClient
     clearCache = clear_cache
     buildRelativePath = build_relative_path
@@ -1650,3 +1868,6 @@ class BetScoutClient:
     getMatchCenterDossier = get_match_center_dossier
     buildInsightsPushUrl = build_insights_push_url
     streamInsights = stream_insights
+    buildBettingSplitsUrl = build_betting_splits_url
+    buildBettingSplitsPushUrl = build_betting_splits_push_url
+    getBettingSplits = get_betting_splits

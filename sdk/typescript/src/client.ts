@@ -80,6 +80,11 @@ import type {
   BetScoutUniqueTournament,
   BetScoutUniqueTournamentInfoResponse,
   BetScoutVenueStatsResponse,
+  BettingSplitMarket,
+  BettingSplitSelection,
+  BettingSplitsAnalysisResult,
+  BettingSplitsProduct,
+  BettingSplitsRequestOptions,
   CountryFlagOptions,
   DailyMatchIndexEntry,
   DailyOddsLookupResult,
@@ -109,6 +114,7 @@ import type {
 import {
   computeFormWdlSegments,
   computeH2HEdgeSummary,
+  formatMarketPlaceholders,
   getAdaptiveRefetchIntervalMs,
   getCountryFlagUrl,
   getTeamLogoUrl,
@@ -2717,5 +2723,211 @@ export class BetScoutClient {
 
       await new Promise((resolve) => setTimeout(resolve, sleepMs));
     }
+  }
+
+  // ==========================================================================
+  // I. Betting Splits v3 (Commercial REST/Push + Tokenless Retail vs Consensus Divergence)
+  // ==========================================================================
+
+  /**
+   * Build the official **Betting Splits v3 REST URL**:
+   * - For `'soccer'`: `https://api.sportradar.com/betting-splits/v3/{accessLevel}/soccer/{languageCode}/competition/{competitionId}/game/{gameId}`
+   * - For US sports (`'nba'`, `'nfl'`, `'mlb'`, `'nhl'`, `'wnba'`, `'ncaafb'`, `'ncaamb'`, `'ncaawb'`):
+   *   `https://api.sportradar.com/betting-splits/v3/{accessLevel}/{product}/{languageCode}/game/{gameId}`
+   */
+  public buildBettingSplitsUrl(options: BettingSplitsRequestOptions): string {
+    const access = options.accessLevel ?? 'production';
+    const product = options.product ?? 'nba';
+    const lang = options.languageCode ?? 'en';
+    const gameId = encodeURIComponent(String(options.gameId));
+
+    if (product === 'soccer') {
+      const rawComp = options.competitionId ?? 'sr:competition:17';
+      const compId = String(rawComp).startsWith('sr:competition:')
+        ? String(rawComp)
+        : `sr:competition:${rawComp}`;
+      return `https://api.sportradar.com/betting-splits/v3/${access}/soccer/${lang}/competition/${encodeURIComponent(compId)}/game/${gameId}`;
+    }
+
+    return `https://api.sportradar.com/betting-splits/v3/${access}/${product}/${lang}/game/${gameId}`;
+  }
+
+  /**
+   * Build the official **Betting Splits Push Stream URL**:
+   * `https://api.sportradar.com/betting-splits/production/stream/{product}/subscribe`
+   */
+  public buildBettingSplitsPushUrl(product: BettingSplitsProduct = 'nba'): string {
+    return `https://api.sportradar.com/betting-splits/production/stream/${product}/subscribe`;
+  }
+
+  /**
+   * Dual-Mode **Betting Splits & Market Flow Analyzer** (`getBettingSplits(options)`):
+   * 1. **Commercial Mode (`options.apiKey` provided):** Queries `api.sportradar.com/betting-splits/v3/...`
+   *    with `x-api-key` and normalizes `selections_bets_percentage` and `selections_stake_percentage`.
+   * 2. **Tokenless Retail vs. Consensus Divergence Mode (`options.apiKey` omitted):**
+   *    Queries Primary European Retail (`_bookmakerId: 176`), Global Market Consensus (`_bookmakerId: 0` with `outcomes[].probability`),
+   *    and Live In-Play (`_bookmakerId: 6908`) markets in parallel for `options.gameId`, computing:
+   *    - De-vigged Retail Implied % (`bets_percentage`)
+   *    - Global Consensus Fair Probability % (`stake_percentage`)
+   *    - Sharp / Steam Divergence % (`sharp_divergence_pct = stake_percentage - bets_percentage`)
+   *    - Retail vs. Consensus Overround (`retail_overround_pct`, `consensus_overround_pct`).
+   */
+  public async getBettingSplits(
+    options: BettingSplitsRequestOptions,
+  ): Promise<BettingSplitsAnalysisResult> {
+    const product = options.product ?? 'soccer';
+
+    if (options.apiKey) {
+      const url = this.buildBettingSplitsUrl(options);
+      const resp = await this.fetchWithTimeout(url, {
+        headers: {
+          'x-api-key': options.apiKey,
+          Accept: 'application/json',
+        },
+      });
+      if (!resp.ok) {
+        throw new Error(`Betting Splits v3 HTTP ${resp.status}`);
+      }
+      const raw = (await resp.json()) as Record<string, unknown>;
+      return {
+        ok: true,
+        mode: 'commercial_betting_splits_v3',
+        match_id: options.gameId,
+        product,
+        updated_utc: new Date().toISOString(),
+        markets: [],
+        raw_commercial_payload: raw,
+      };
+    }
+
+    // Tokenless Retail vs. Global Consensus Divergence Mode
+    const numericMatchId = String(options.gameId).replace(/^sr:(?:sport_event|match):/i, '');
+    const [retailResp, consensusResp, liveResp] = await Promise.all([
+      this.getMatchMarkets(numericMatchId, 'prematch', 'eu-retail'),
+      this.getMatchMarkets(numericMatchId, 'prematch', 'global'),
+      this.getMatchMarkets(numericMatchId, 'live', 'global'),
+    ]);
+
+    const retailMarkets = retailResp?.markets ?? [];
+    const consensusMarkets = consensusResp?.markets ?? [];
+    const liveMarkets = liveResp?.markets ?? [];
+
+    const specKey = (mk: { _marketId: number; specifiers?: Record<string, string | undefined> | null }) =>
+      `${mk._marketId}:${JSON.stringify(mk.specifiers ?? {})}`;
+
+    const retailMap = new Map(retailMarkets.map((m) => [specKey(m), m]));
+    const consensusMap = new Map(consensusMarkets.map((m) => [specKey(m), m]));
+    const liveMap = new Map(liveMarkets.map((m) => [specKey(m), m]));
+
+    const allKeys = Array.from(new Set([...consensusMap.keys(), ...retailMap.keys()]));
+    const splitMarkets: BettingSplitMarket[] = [];
+
+    for (const k of allKeys) {
+      const cMk = consensusMap.get(k);
+      const rMk = retailMap.get(k);
+      const lMk = liveMap.get(k);
+      const baseMk = cMk ?? rMk;
+      if (!baseMk) continue;
+
+      const rOutcomes = rMk?.outcomes ?? [];
+      const cOutcomes = cMk?.outcomes ?? [];
+      const lOutcomes = lMk?.outcomes ?? [];
+
+      const rInvSum = rOutcomes.reduce(
+        (acc, o) => (o.odds && o.odds > 1 ? acc + 1 / o.odds : acc),
+        0,
+      );
+      const cInvSum = cOutcomes.reduce(
+        (acc, o) => (o.odds && o.odds > 1 ? acc + 1 / o.odds : acc),
+        0,
+      );
+
+      const retailOverround = rInvSum > 0 ? Number(((rInvSum - 1) * 100).toFixed(2)) : null;
+      const consensusOverround = cInvSum > 0 ? Number(((cInvSum - 1) * 100).toFixed(2)) : null;
+
+      const baseOutcomes = cOutcomes.length > 0 ? cOutcomes : rOutcomes;
+      const selections: BettingSplitSelection[] = baseOutcomes.map((bo) => {
+        const oid = String(bo._id);
+        const rOut = rOutcomes.find((x) => String(x._id) === oid || x.name === bo.name);
+        const cOut = cOutcomes.find((x) => String(x._id) === oid || x.name === bo.name);
+        const lOut = lOutcomes.find((x) => String(x._id) === oid || x.name === bo.name);
+
+        const rOdds = rOut?.odds ? Number(rOut.odds) : null;
+        const cOdds = cOut?.odds ? Number(cOut.odds) : null;
+        const lOdds = lOut?.odds ? Number(lOut.odds) : null;
+
+        // Retail de-vigged implied % (proxy for retail ticket share)
+        const retailProb =
+          rOdds && rInvSum > 0
+            ? (1 / rOdds / rInvSum) * 100
+            : cOdds && cInvSum > 0
+              ? (1 / cOdds / cInvSum) * 100
+              : 0;
+
+        // Global consensus fair probability % (proxy for sharp / global stake share)
+        const consensusProb =
+          typeof cOut?.probability === 'number' && cOut.probability > 0
+            ? cOut.probability * 100
+            : cOdds && cInvSum > 0
+              ? (1 / cOdds / cInvSum) * 100
+              : retailProb;
+
+        const betsPct = Number(retailProb.toFixed(2));
+        const stakePct = Number(consensusProb.toFixed(2));
+        const diffPct = Number((stakePct - betsPct).toFixed(2));
+
+        const rawName = String(bo.name ?? '');
+        const homeAway = rawName.includes('competitor1')
+          ? 'home'
+          : rawName.includes('competitor2')
+            ? 'away'
+            : rawName.toLowerCase() === 'draw'
+              ? 'draw'
+              : null;
+
+        return {
+          selection_id: oid,
+          name: formatMarketPlaceholders(rawName, {
+            homeName: options.homeName,
+            awayName: options.awayName,
+            specifiers: baseMk.specifiers ?? null,
+          }),
+          home_away: homeAway,
+          retail_odds: rOdds,
+          consensus_odds: cOdds,
+          live_odds: lOdds,
+          bets_percentage: betsPct,
+          stake_percentage: stakePct,
+          sharp_divergence_pct: diffPct,
+          direction:
+            diffPct >= 0.4 ? 'steam_toward' : diffPct <= -0.4 ? 'fade_against' : 'neutral',
+        };
+      });
+
+      const displayMarket = formatMarketPlaceholders(baseMk.name ?? `Market #${baseMk._marketId}`, {
+        homeName: options.homeName,
+        awayName: options.awayName,
+        specifiers: baseMk.specifiers ?? null,
+      });
+
+      splitMarkets.push({
+        market_id: baseMk._marketId,
+        market_name: String(baseMk.name ?? `Market #${baseMk._marketId}`),
+        display_market: displayMarket,
+        specifiers: baseMk.specifiers ?? null,
+        retail_overround_pct: retailOverround,
+        consensus_overround_pct: consensusOverround,
+        selections,
+      });
+    }
+
+    return {
+      ok: splitMarkets.length > 0,
+      mode: 'tokenless_retail_vs_consensus',
+      match_id: numericMatchId,
+      product,
+      updated_utc: new Date().toISOString(),
+      markets: splitMarkets,
+    };
   }
 }

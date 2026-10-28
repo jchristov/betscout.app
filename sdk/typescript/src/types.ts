@@ -1785,5 +1785,77 @@ export interface InsightsStreamEvent {
   payload: unknown;
 }
 
+// ============================================================================
+// I. Betting Splits v3 (Commercial 150+ Bookmaker Splits & Tokenless Retail vs Consensus Divergence)
+// ============================================================================
+
+export type BettingSplitsProduct =
+  | 'mlb'
+  | 'nba'
+  | 'ncaafb'
+  | 'ncaamb'
+  | 'ncaawb'
+  | 'nfl'
+  | 'nhl'
+  | 'soccer'
+  | 'wnba';
+
+export interface BettingSplitsRequestOptions {
+  /** Commercial API key (`x-api-key`) for `api.sportradar.com/betting-splits/v3/...` (optional) */
+  apiKey?: string;
+  /** Access level (`'production'` | `'trial'`, default: `'production'`) */
+  accessLevel?: 'production' | 'trial' | string;
+  /** Target Betting Splits product (`'nba'` | `'nfl'` | `'mlb'` | `'nhl'` | `'soccer'` | `'wnba'` | `'ncaafb'` | `'ncaamb'` | `'ncaawb'`) */
+  product?: BettingSplitsProduct;
+  /** 2-letter language code (default: `'en'`) */
+  languageCode?: string;
+  /** Competition ID required by the Soccer Betting Splits endpoint (`'sr:competition:17'` or numeric `17`) */
+  competitionId?: string | number;
+  /** Game / Match ID (`'sr:sport_event:...'`, `'sr:match:...'`, UUID, or numeric match ID) */
+  gameId: string | number;
+  /** Optional home competitor name for placeholder formatting in tokenless mode */
+  homeName?: string;
+  /** Optional away competitor name for placeholder formatting in tokenless mode */
+  awayName?: string;
+  /** Optional AbortSignal for streaming */
+  signal?: AbortSignal;
+}
+
+export interface BettingSplitSelection {
+  selection_id: string;
+  name: string;
+  home_away?: 'home' | 'away' | 'draw' | string | null;
+  retail_odds: number | null;
+  consensus_odds: number | null;
+  live_odds: number | null;
+  /** Ticket / Bet percentage (`0`–`100`) */
+  bets_percentage: number;
+  /** Money / Handle / Stake percentage (`0`–`100`) */
+  stake_percentage: number;
+  /** `stake_percentage - bets_percentage`: positive values indicate sharp money / consensus steam on this side */
+  sharp_divergence_pct: number;
+  direction: 'steam_toward' | 'fade_against' | 'neutral';
+}
+
+export interface BettingSplitMarket {
+  market_id: number | string;
+  market_name: string;
+  display_market: string;
+  specifiers: Record<string, string | undefined> | null;
+  retail_overround_pct: number | null;
+  consensus_overround_pct: number | null;
+  selections: BettingSplitSelection[];
+}
+
+export interface BettingSplitsAnalysisResult {
+  ok: boolean;
+  mode: 'commercial_betting_splits_v3' | 'tokenless_retail_vs_consensus';
+  match_id: string | number;
+  product: BettingSplitsProduct;
+  updated_utc: string;
+  markets: BettingSplitMarket[];
+  raw_commercial_payload?: unknown;
+}
+
 
 

@@ -42,4 +42,16 @@ milan = client.get_team_intelligence_bundle(2692, season_id=130971)
 
 # 4. Tennis Player Intelligence Bundle (profile, ATP rank & 2004–2026 surface W-L matrix)
 djokovic = client.get_tennis_player_intelligence_bundle(14882)
+
+# 5. Dual-Mode Betting Splits & Retail vs. Consensus Sharp Divergence
+splits = client.get_betting_splits(
+    game_id=76034538,
+    product="soccer",
+    home_name="Fritz, Taylor",
+    away_name="Hijikata, Rinky",
+)
+
+# 6. Dual-Mode Real-Time Insights & Live Delta Stream
+for event in client.stream_insights(game_id=76034538, sport_or_id="tennis", max_events=5):
+    print(event["event_type"], event["summary"])
 ```
