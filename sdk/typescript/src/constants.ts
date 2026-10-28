@@ -68,6 +68,24 @@ export const TENNIS_SURFACE_IDS = {
 } as const;
 
 /**
+ * Canonical player absence / availability status codes (`status._id` in `getSeasonInjuries` / `getTeamMissingPlayers`).
+ */
+export const PLAYER_STATUS_TYPES = {
+  /** National team duty, personal reasons, or unspecified absence */
+  OTHER: 0,
+  /** Physical injury (`"Injured"`) */
+  INJURED: 1,
+  /** Illness (`"Ill"`) */
+  ILLNESS: 2,
+  /** Suspended due to accumulated yellow cards */
+  YELLOW_CARD_SUSPENSION: 11,
+  /** Suspended due to second yellow / indirect red card */
+  YELLOW_RED_CARD_SUSPENSION: 12,
+  /** Suspended due to direct red card */
+  RED_CARD_SUSPENSION: 13,
+} as const;
+
+/**
  * Complete 56-Sport Catalog supported by the BetScout Data SDK.
  */
 export const SPORTS_CATALOG: Readonly<Record<number, string>> = {

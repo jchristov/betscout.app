@@ -83,6 +83,7 @@ import type {
   TeamGoalIntervalsSummary,
   TeamIntelligenceBundle,
   TeamLogoOptions,
+  TeamMissingPlayerEntry,
   TennisPlayerIntelligenceBundle,
   TennisSurfaceSummary,
 } from './types.js';
@@ -1713,18 +1714,90 @@ export class BetScoutClient {
   }
 
   /**
+   * Fetch all missing, injured, ill, doubtful, and suspended players for a specific team (`teamId`).
+   * - If `options.seasonId` is omitted, automatically resolves the team's current domestic league season (`s.current === true` in `uniqueteam_seasons/{teamId}`).
+   * - Filters out already-expired absences (`status.end.uts < referenceUts`) when `options.activeOnly` is `true` (default: `true`).
+   */
+  public async getTeamMissingPlayers(
+    teamId: number | string,
+    options: {
+      seasonId?: number | string;
+      activeOnly?: boolean;
+      referenceUts?: number;
+      requestOptions?: BetScoutRequestOptions;
+    } = {},
+  ): Promise<TeamMissingPlayerEntry[]> {
+    const activeOnly = options.activeOnly ?? true;
+    const refUts = options.referenceUts ?? Math.floor(Date.now() / 1000);
+    let targetSeasonId: number | string | null = options.seasonId ?? null;
+
+    if (!targetSeasonId) {
+      const seasonsData = await this.getTeamSeasons(teamId, options.requestOptions);
+      const seasonsList = Array.isArray(seasonsData?.seasons) ? seasonsData.seasons : [];
+      const currentSeason =
+        seasonsList.find((s) => s.current && s.containsdata) ??
+        seasonsList.find((s) => s.current) ??
+        seasonsList[0];
+      targetSeasonId = currentSeason?._id ?? null;
+    }
+
+    if (!targetSeasonId) return [];
+
+    const injList =
+      (await this.getSeasonInjuries(targetSeasonId, options.requestOptions)) ?? [];
+    if (!Array.isArray(injList)) return [];
+
+    const numTeamId = Number(teamId);
+    const out: TeamMissingPlayerEntry[] = [];
+
+    for (const item of injList) {
+      if (item.uniqueteam?._id !== numTeamId) continue;
+      const p = item.player;
+      const st = item.status;
+      if (!p?.name || !st) continue;
+
+      const startUts = typeof st.start?.uts === 'number' ? st.start.uts : null;
+      const endUts = typeof st.end?.uts === 'number' ? st.end.uts : null;
+      const isActive = endUts === null || endUts >= refUts;
+      if (activeOnly && !isActive) continue;
+
+      out.push({
+        player_id: Number(p._id ?? item._playerid ?? 0),
+        name: String(p.name),
+        position: String(p.position?.shortname ?? p.position?.abbr ?? ''),
+        shirt_number: p.shirtnumber ?? null,
+        cause: String(st.name ?? 'Out'),
+        status: String(st.status ?? 'Missing'),
+        status_id: Number(st._id ?? 0),
+        start_date: st.start?.date ?? null,
+        end_date: st.end?.date ?? null,
+        start_uts: startUts,
+        end_uts: endUts,
+        is_active: isActive,
+      });
+    }
+
+    return out;
+  }
+
+  /**
    * Build a complete **Club / Team Historical & Season Intelligence Bundle** for any `teamId` (e.g. `2692` AC Milan):
    * - Club profile (`founded`, `stadium`, `manager`, `homejersey`, `awayjersey`, `tournaments`)
    * - All historical & active seasons (`uniqueteam_seasons`)
    * - Per-game season team statistics (`goal_attempts`, `shots_on_goal`, `ball_possession`, `corner_kicks`, etc.)
    * - Home/Away/Total scoring & conceding splits + 15-minute goal intervals
    * - Preferred tactical formation (`formation`, e.g. `"3-5-2"`) & usual starting XI
-   * - Active 40+ player squad roster
+   * - Active 40+ player squad roster & currently **missing/injured/suspended players (`missing_players`)**
    * - Active streaks, upcoming match difficulty ratings, last $N$ completed matches, and next $N$ scheduled fixtures.
    */
   public async getTeamIntelligenceBundle(
     teamId: number | string,
-    options: { seasonId?: number | string; lastMatchesLimit?: number; nextMatchesLimit?: number } = {},
+    options: {
+      seasonId?: number | string;
+      injurySeasonId?: number | string;
+      lastMatchesLimit?: number;
+      nextMatchesLimit?: number;
+    } = {},
   ): Promise<TeamIntelligenceBundle> {
     const lastLimit = options.lastMatchesLimit ?? 15;
     const nextLimit = options.nextMatchesLimit ?? 10;
@@ -1755,22 +1828,33 @@ export class BetScoutClient {
       activeSeasonId = currentWithData?._id ?? null;
     }
 
+    const currentInjurySeasonId =
+      options.injurySeasonId ??
+      seasonsList.find((s) => s.current && s.containsdata)?._id ??
+      seasonsList.find((s) => s.current)?._id ??
+      activeSeasonId;
+
     let seasonStats: Record<string, string | number> | null = null;
     let scoringSplits: BetScoutTeamScoringConcedingResponse | null = null;
     let goalIntervals: TeamGoalIntervalsSummary = {};
     let usualLineup: BetScoutTeamUsualLineupResponse | null = null;
+    let missingPlayers: TeamMissingPlayerEntry[] = [];
 
     if (activeSeasonId) {
-      const [sStats, sSplits, gIntervals, uLineup] = await Promise.all([
+      const [sStats, sSplits, gIntervals, uLineup, mPlayers] = await Promise.all([
         this.getTeamSeasonStats(teamId, activeSeasonId),
         this.getTeamScoringConcedingSplits(activeSeasonId, teamId, 10),
         this.fetchTeamGoalIntervals(activeSeasonId, teamId, 10),
         this.getTeamUsualLineup(teamId, activeSeasonId),
+        currentInjurySeasonId
+          ? this.getTeamMissingPlayers(teamId, { seasonId: currentInjurySeasonId })
+          : Promise.resolve([]),
       ]);
       seasonStats = sStats?.stats ?? null;
       scoringSplits = sSplits;
       goalIntervals = gIntervals;
       usualLineup = uLineup;
+      missingPlayers = mPlayers;
     }
 
     const streakLabels: string[] = [];
@@ -1795,6 +1879,7 @@ export class BetScoutClient {
       usual_lineup: usualLineup,
       squad_count: squadPlayers.length,
       squad: squadPlayers,
+      missing_players: missingPlayers,
       streaks: streakLabels,
       next_matches_difficulty: streaksData?.nextmatches ?? [],
       last_matches: lastMatchesData?.matches ?? [],

@@ -48,6 +48,9 @@ async function main() {
     activeSeasonId: milan.active_season_id,
     usualFormation: milan.usual_lineup?.formation,
     squadSize: milan.squad_count,
+    missingPlayers: milan.missing_players.map(
+      (p) => `${p.name} (${p.position}, ${p.cause} until ${p.end_date ?? 'TBD'})`,
+    ),
     seasonAverages: milan.season_stats,
     goalIntervals10MatchWindow: {
       matchesSampled: milan.goal_intervals.matches_sampled,

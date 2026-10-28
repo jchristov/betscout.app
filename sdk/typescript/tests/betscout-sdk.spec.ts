@@ -389,6 +389,34 @@ describe('@betscout/sdk — Team & Player Historical Analytics (AC Milan 2692 & 
           players: [{ _id: 191210, name: 'Maignan, Mike' }],
         });
       }
+      if (url.includes('stats_season_injuries/130971')) {
+        return jsonResponse([
+          {
+            _playerid: 4001,
+            uniqueteam: { _id: 2692, name: 'Milan' },
+            player: { _id: 4001, name: 'Gabbia, Matteo', shirtnumber: '46', position: { shortname: 'DEF' } },
+            status: {
+              _id: 1,
+              name: 'Injured',
+              status: 'Missing',
+              start: { date: '22/10/26', uts: 1792627200 },
+              end: { date: '17/01/27', uts: 1899999999 },
+            },
+          },
+          {
+            _playerid: 4002,
+            uniqueteam: { _id: 2692, name: 'Milan' },
+            player: { _id: 4002, name: 'Fofana, Youssouf', shirtnumber: '29', position: { shortname: 'MID' } },
+            status: {
+              _id: 0,
+              name: 'Other',
+              status: 'Missing',
+              start: { date: '28/08/26', uts: 1700000000 },
+              end: { date: '06/09/26', uts: 1700500000 }, // Expired in the past
+            },
+          },
+        ]);
+      }
       if (url.includes('stats_player_stats/191210')) {
         return jsonResponse({
           player: { _id: 191210, name: 'Maignan, Mike' },
@@ -416,6 +444,9 @@ describe('@betscout/sdk — Team & Player Historical Analytics (AC Milan 2692 & 
     expect(clubBundle.usual_lineup?.formation).toBe('3-5-2');
     expect(clubBundle.squad_count).toBe(1);
     expect(clubBundle.squad[0]?.name).toBe('Maignan, Mike');
+    expect(clubBundle.missing_players.length).toBe(1);
+    expect(clubBundle.missing_players[0]?.name).toBe('Gabbia, Matteo');
+    expect(clubBundle.missing_players[0]?.cause).toBe('Injured');
     expect(clubBundle.goal_intervals.btts_pct).toBe(60);
     expect(clubBundle.goal_intervals.late_76_90_total_avg).toBe(0.7);
     expect(clubBundle.streaks).toEqual(['Unbeaten: 5']);

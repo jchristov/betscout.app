@@ -431,27 +431,59 @@ export interface BetScoutMatchSquadsResponse {
 }
 
 export interface BetScoutSeasonInjuryItem {
+  _doc?: 'playerstatus';
+  _id?: number;
+  _tid?: number;
+  _playerid?: number;
   uniqueteam?: {
     _id: number;
     name?: string;
+    mediumname?: string;
+    abbr?: string;
   };
   player?: {
     _id: number;
     name: string;
-    shirtnumber?: number;
+    shirtnumber?: number | string;
+    nationality?: BetScoutCountryCode;
     position?: {
       _id?: number | string;
+      _type?: string;
       name?: string;
       shortname?: string;
+      abbr?: string;
     };
   };
   status?: {
+    /** See `PLAYER_STATUS_TYPES` (`0`=Other, `1`=Injured, `2`=Illness, `11`=Yellow Card Suspension, `12`=Yellow-Red Suspension, `13`=Red Card Suspension) */
     _id?: number;
+    _statusid?: number;
     name?: string;
-    status?: string;
-    start?: { uts?: number; date?: string };
-    end?: { uts?: number; date?: string } | null;
+    status?: 'Missing' | 'Doubtful' | string;
+    comment?: string;
+    missing?: number;
+    doubtful?: number;
+    start?: BetScoutDateTime;
+    end?: BetScoutDateTime | null;
   };
+}
+
+export interface TeamMissingPlayerEntry {
+  player_id: number;
+  name: string;
+  position: string;
+  shirt_number: string | number | null;
+  /** Specific cause (`"Injured"`, `"Ill"`, `"Suspended"`, `"Other"`) */
+  cause: string;
+  /** Availability status (`"Missing"`, `"Doubtful"`) */
+  status: string;
+  status_id: number;
+  start_date: string | null;
+  end_date: string | null;
+  start_uts: number | null;
+  end_uts: number | null;
+  /** `true` if `end_uts` is null or `>= referenceUts` */
+  is_active: boolean;
 }
 
 export interface BetScoutTeamFormEntry {
@@ -1010,6 +1042,7 @@ export interface TeamIntelligenceBundle {
   usual_lineup: BetScoutTeamUsualLineupResponse | null;
   squad_count: number;
   squad: BetScoutExtendedPlayer[];
+  missing_players: TeamMissingPlayerEntry[];
   streaks: string[];
   next_matches_difficulty: BetScoutNextMatchDifficulty[];
   last_matches: BetScoutHistoricalMatchItem[];
