@@ -196,11 +196,32 @@
     }
 
     .main-sets-score {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 2.3rem;
       font-weight: 900;
       letter-spacing: 0.04em;
       color: var(--text-primary);
       line-height: 1.1;
+    }
+
+    .serve-ball-indicator {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.25rem;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .serve-ball-indicator.left {
+      right: calc(100% + 0.5rem);
+    }
+
+    .serve-ball-indicator.right {
+      left: calc(100% + 0.5rem);
     }
 
     .period-scores-table {
@@ -215,37 +236,88 @@
       border-bottom: 1px solid rgba(148, 163, 184, 0.1);
     }
 
-    /* Sub-tabs inside Match Center */
-    .nav-tabs {
+    /* Flush Folder-Style Tabs Connecting Directly to Tab Panel Below (Matching BetScout App) */
+    .workspace-tablist {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.25rem;
-    }
-    .nav-tab {
-      min-height: 40px;
-      padding: 0.5rem 1.1rem;
-      border-radius: var(--radius-inner);
-      background: var(--bg-surface);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-subtle);
-      font-size: 0.84rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition-property: transform, background-color, color, border-color;
-      transition-duration: 150ms;
-    }
-    .nav-tab.active {
-      background: rgba(56, 189, 248, 0.16);
-      color: var(--accent-cyan);
-      border-color: var(--border-accent);
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      gap: 6px;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      border: none;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
 
-    .tab-stage-container {
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(11, 18, 33, 0.96));
-      border-radius: var(--radius-shell);
-      border: 1px solid var(--border-strong);
-      box-shadow: var(--shadow-shell);
+    .workspace-tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      font-size: 0.83rem;
+      font-weight: 700;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      cursor: pointer;
+      white-space: nowrap;
+      background: rgba(15, 23, 42, 0.50);
+      color: #94a3b8;
+      border-top: 1px solid rgba(148, 163, 184, 0.20);
+      border-left: 1px solid rgba(148, 163, 184, 0.20);
+      border-right: 1px solid rgba(148, 163, 184, 0.20);
+      border-bottom: 1px solid transparent;
+      margin-bottom: 0;
+      transition:
+        background-color 180ms cubic-bezier(0.2, 0, 0, 1),
+        color 180ms cubic-bezier(0.2, 0, 0, 1),
+        border-color 180ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .workspace-tab:hover:not(.active) {
+      background: rgba(30, 41, 59, 0.72);
+      color: #f1f5f9;
+      border-top-color: rgba(125, 211, 252, 0.40);
+    }
+
+    .workspace-tab.active {
+      background: linear-gradient(180deg, rgba(22, 34, 58, 0.96) 0%, rgba(15, 23, 41, 0.98) 100%);
+      color: #ffffff;
+      border-top: 2px solid #38bdf8;
+      border-left: 1px solid rgba(56, 189, 248, 0.42);
+      border-right: 1px solid rgba(56, 189, 248, 0.42);
+      border-bottom: 1px solid rgba(15, 23, 41, 0.98);
+      margin-bottom: -1px;
+      padding-bottom: 12px;
+      z-index: 10;
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+        0 -6px 20px -4px rgba(56, 189, 248, 0.20);
+    }
+
+    .workspace-tabpanel {
+      position: relative;
       padding: 1.5rem;
+      background: linear-gradient(
+        180deg,
+        rgba(15, 23, 41, 0.92) 0%,
+        rgba(11, 17, 31, 0.94) 60%,
+        rgba(9, 14, 26, 0.96) 100%
+      );
+      border: 1px solid rgba(56, 189, 248, 0.42);
+      border-top-left-radius: 0;
+      border-top-right-radius: 16px;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      backdrop-filter: blur(22px) saturate(165%);
+      -webkit-backdrop-filter: blur(22px) saturate(165%);
+      box-shadow:
+        inset 0 0 36px 0 rgba(56, 189, 248, 0.04),
+        0 24px 56px -12px rgba(2, 6, 16, 0.78);
     }
 
     .section-panel { display: none; }
@@ -489,14 +561,14 @@
       </div>
     </section>
 
-    <!-- Sub-Navigation Tabs matching /match/76034538 (Overview | Statistics | Point-by-Point & Markets) -->
-    <nav class="nav-tabs">
-      <button class="nav-tab active" data-tab="overview">1. Match Overview, Surface Win Rate, H2H &amp; Player Info</button>
-      <button class="nav-tab" data-tab="statistics">2. Match Statistics (All Match, Set 1, Set 2)</button>
-      <button class="nav-tab" data-tab="timeline">3. Point-by-Point Timeline &amp; All Bookmaker Markets</button>
+    <!-- Flush Folder-Style Tabs Connecting Directly to Tab Panel Below -->
+    <nav class="workspace-tablist" role="tablist">
+      <button class="workspace-tab active" data-tab="overview">1. Match Overview, Surface Win Rate, H2H &amp; Player Info</button>
+      <button class="workspace-tab" data-tab="statistics">2. Match Statistics (All Match, Set 1, Set 2)</button>
+      <button class="workspace-tab" data-tab="timeline">3. Point-by-Point Timeline &amp; All Bookmaker Markets</button>
     </nav>
 
-    <div class="tab-stage-container">
+    <div class="workspace-tabpanel">
       <!-- TAB 1: OVERVIEW -->
       <section class="section-panel active" id="tab-overview">
         <div class="grid-2">
@@ -712,9 +784,9 @@
     let currentDossier = null;
     let selectedStatPeriod = 'all';
 
-    document.querySelectorAll('.nav-tab').forEach((btn) => {
+    document.querySelectorAll('.workspace-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.workspace-tab').forEach((b) => b.classList.remove('active'));
         document.querySelectorAll('.section-panel').forEach((p) => p.classList.remove('active'));
         btn.classList.add('active');
         const target = btn.getAttribute('data-tab');
@@ -904,12 +976,12 @@
       document.getElementById('away-form-strip').innerHTML =
         renderFormWdlStrip(fw.away, fw.away_form_pct, true);
 
-      // Scoreboard center: keep player names vertically aligned, put ball in front/back of main score above
+      // Scoreboard center: keep player names vertically aligned, keep main score strictly centered with absolute ball indicator
       document.getElementById('match-status-badge').textContent = m.status?.name || 'Live';
       const hSets = m.result?.home ?? 0;
       const aSets = m.result?.away ?? 0;
-      const hBallAbove = srv === '1' ? '<span title="Active Server" style="font-size:1.35rem;vertical-align:middle;margin-right:0.35rem;">🎾</span>' : '';
-      const aBallAbove = srv === '2' ? '<span title="Active Server" style="font-size:1.35rem;vertical-align:middle;margin-left:0.35rem;">🎾</span>' : '';
+      const hBallAbove = srv === '1' ? '<span class="serve-ball-indicator left" title="Active Server">🎾</span>' : '';
+      const aBallAbove = srv === '2' ? '<span class="serve-ball-indicator right" title="Active Server">🎾</span>' : '';
       document.getElementById('main-sets-score').innerHTML =
         `${hBallAbove}<span>${hSets} - ${aSets}</span>${aBallAbove}`;
 
@@ -1005,20 +1077,26 @@
         </tr>
       `).join('');
 
-      // H2H Edge Progress Bar & Meetings
+      // H2H Edge Progress Bar & Meetings (Emerald for Home, Cyan for Away, smooth gradient when both have wins)
       const h2hEdge = d.h2h_edge || { total_meetings: 0, home_wins: 0, draws: 0, away_wins: 0, home_win_pct: 50, draw_pct: 0, away_win_pct: 50 };
       const h2hBox = document.getElementById('h2h-edge-bar-box');
       if (h2hEdge.total_meetings > 0) {
+        const bothHaveWins = h2hEdge.home_wins > 0 && h2hEdge.away_wins > 0;
+        const barBgStyle = bothHaveWins && h2hEdge.draw_pct === 0
+          ? `background:linear-gradient(90deg, #10b981 0%, #34d399 ${Math.max(0, h2hEdge.home_win_pct - 8)}%, #38bdf8 ${Math.min(100, h2hEdge.home_win_pct + 8)}%, #0ea5e9 100%);`
+          : '';
         h2hBox.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;font-weight:700;margin-bottom:0.4rem;">
             <span style="color:var(--accent-emerald);">${hTeam.name}: ${h2hEdge.home_wins}W (${h2hEdge.home_win_pct}%)</span>
             <span style="color:var(--text-secondary);font-size:0.75rem;">${h2hEdge.total_meetings} Direct Meetings ${h2hEdge.since_year ? `since ${h2hEdge.since_year}` : ''} ${h2hEdge.draws > 0 ? `· ${h2hEdge.draws}D (${h2hEdge.draw_pct}%)` : ''}</span>
-            <span style="color:var(--accent-rose);">${aTeam.name}: ${h2hEdge.away_wins}W (${h2hEdge.away_win_pct}%)</span>
+            <span style="color:var(--accent-cyan);">${aTeam.name}: ${h2hEdge.away_wins}W (${h2hEdge.away_win_pct}%)</span>
           </div>
-          <div style="height:12px;border-radius:999px;background:var(--bg-surface);overflow:hidden;display:flex;gap:2px;">
-            <div style="width:${h2hEdge.home_win_pct}%;background:linear-gradient(90deg,#10b981,#34d399);height:100%;"></div>
-            ${h2hEdge.draw_pct > 0 ? `<div style="width:${h2hEdge.draw_pct}%;background:#f59e0b;height:100%;"></div>` : ''}
-            <div style="width:${h2hEdge.away_win_pct}%;background:linear-gradient(90deg,#fb7185,#f43f5e);height:100%;"></div>
+          <div style="height:12px;border-radius:999px;background:var(--bg-surface);overflow:hidden;display:flex;gap:${bothHaveWins && h2hEdge.draw_pct === 0 ? '0' : '2px'};${barBgStyle}">
+            ${bothHaveWins && h2hEdge.draw_pct === 0 ? '' : `
+              <div style="width:${h2hEdge.home_win_pct}%;background:linear-gradient(90deg,#10b981,#34d399);height:100%;"></div>
+              ${h2hEdge.draw_pct > 0 ? `<div style="width:${h2hEdge.draw_pct}%;background:#f59e0b;height:100%;"></div>` : ''}
+              <div style="width:${h2hEdge.away_win_pct}%;background:linear-gradient(90deg,#38bdf8,#0ea5e9);height:100%;"></div>
+            `}
           </div>
         `;
       } else {
