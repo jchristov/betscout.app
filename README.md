@@ -8,13 +8,29 @@ Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-l
 - **🏒🏈⚾ Hockey, American Football & Baseball (`1,313` matches):** `nhl` (`678`), `nfl` (`479`), `mlb` (`156`)
 - **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Live **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** 1X2, 28-score Correct Score matrices, Asian Handicaps, Player Injuries (`stats_season_injuries`), 15-Minute Goal Intervals (`stats_season_teamscoringconceding`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
 
-See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[docs/SPORTRADAR_STATSHUB.md](./docs/SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, and **[docs/FINDINGS.md](./docs/FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance.
+See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactive WebApp & feature user guide, **[docs/SPORTRADAR_STATSHUB.md](./docs/SPORTRADAR_STATSHUB.md)** for the direct Sportradar/Tipico API reference, **[docs/FINDINGS.md](./docs/FINDINGS.md)** for the complete technical report, verified out-of-sample walk-forward edges, and live prospective ledger performance, **[docs/png-notification-cards.html](./docs/png-notification-cards.html)** for the 12 PNG Notification Card designs catalog, and **[docs/logo-studio.html](./docs/logo-studio.html)** for the 60-variation SVG Logo Design Studio archive.
 
-## Quick Commands
+## Quick Commands (`Makefile` & `uv`)
 
 ```bash
-# Launch the live BetScout WebApp, SSE Stream & Background Auto-Poller (http://127.0.0.1:8090)
-uv run betscout --port 8090
+# Show all available Makefile targets
+make help
+
+# Build Vue 3 + Tailwind SPA (frontend/dist) and start local BetScout server on http://127.0.0.1:8090
+make dev
+
+# Run all frontend (Vitest) and backend (Pytest) unit & component test suites
+make test
+
+# Regenerate Option 7.3 SVG & PNG logo assets in all sizes and PNG notification cards design catalog
+make logos
+make cards-gallery
+
+# Test, build frontend/dist, and deploy to Google Cloud Run + Firebase Hosting
+make deploy
+
+# Launch the live BetScout WebApp, SSE Stream & Background Auto-Poller directly via uv (http://127.0.0.1:8090)
+cd backend && uv run betscout --port 8090
 
 # 0. Run the complete 4-stage daily pipeline (Config-driven incremental sync -> Quality check -> Multi-sport scanner -> HTML Dashboard)
 uv run betscout pipeline
@@ -69,6 +85,9 @@ uv run pytest -q
 
 ## Project Structure
 
+- `Makefile` — Root monorepo task runner (`make help`, `make install`, `make dev`, `make serve`, `make test`, `make logos`, `make cards-gallery`, `make sync`, `make rescan`, `make pipeline`, `make deploy`)
+- `frontend/` — **Vue 3 + TypeScript + Tailwind CSS + Pinia + Vue Router + Vitest** single-domain SPA (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `@iconify/vue` FontAwesome 6 Solid icons, PWA Service Worker & LocalStorage sync, and `canvasCard.ts` client-side PNG card preview)
+- `docs/` — Comprehensive documentation & design catalogs (`USER_MANUAL.md`, `FINDINGS.md`, `MONETIZATION_PLAN.md`, `CLOUD_ARCHITECTURE_OPTIONS.md`, `FIREBASE_CLOUD_RUN_SETUP.md`, `SPORTRADAR_STATSHUB.md`, `png-notification-cards.html`, and `logo-studio.html`)
 - `backend/ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
 - `backend/deploy/firebase_laya/` — Ready-to-deploy Firebase Cloud Functions (2nd Gen Python 3.12) & GCP Cloud Functions package (`functions/main.py`, `firebase.json`, `.firebaserc`, `package_checkpoint.sh`, and `README.md`) for hosting the `804 MB` `laya_sports_ckpt` model
 - `backend/deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
