@@ -788,6 +788,19 @@ def notify_new_settlements_to_discord(
                 )
             c_rel.commit()
             c_rel.close()
+
+        # Also mirror settlement alerts + PNG card to Telegram when configured
+        if not webhook_url:
+            try:
+                if get_telegram_env_config().get("configured"):
+                    send_telegram_message(
+                        discord_markdown_to_telegram_html(msg),
+                        dry_run=dry_run,
+                        image_bytes=settle_img_bytes,
+                        image_filename="betscout_settlement.png",
+                    )
+            except Exception:
+                pass
         return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
 
 
@@ -995,9 +1008,20 @@ def notify_new_picks_to_discord(
             c_rel.close()
 
         # Also ensure today's Free Daily Teaser has been posted to DISCORD_WEBHOOK_URL_FREE_TEASER
+        # and mirror new pre-match pick alerts + PNG card to Telegram when configured
         if not webhook_url:
             try:
                 ensure_daily_free_teaser_sent(db_path, dry_run=dry_run)
+            except Exception:
+                pass
+            try:
+                if get_telegram_env_config().get("configured"):
+                    send_telegram_message(
+                        discord_markdown_to_telegram_html(msg),
+                        dry_run=dry_run,
+                        image_bytes=pick_img_bytes,
+                        image_filename="betscout_picks.png",
+                    )
             except Exception:
                 pass
 
@@ -1297,7 +1321,22 @@ def notify_inplay_rebound_edges_to_discord(
                 sp_wh = resolve_discord_webhook_for_sport(sp_c)
                 if sp_wh and sp_wh != global_wh:
                     send_discord_message("\n".join(lines), webhook_url=sp_wh, dry_run=dry_run)
+            try:
+                if get_telegram_env_config().get("configured"):
+                    send_telegram_message(discord_markdown_to_telegram_html("\n".join(lines)), dry_run=dry_run)
+            except Exception:
+                pass
         return {**res, "notified_count": len(to_notify)}
+
+
+def discord_markdown_to_telegram_html(md_text: str) -> str:
+    """Convert Discord Markdown (`**bold**`, `*italic*`, `` `code` ``, `<https://...>`) to safe Telegram HTML."""
+    s = re.sub(r"<(https?://[^>]+)>", r"\1", str(md_text or ""))
+    s = html.escape(s)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<i>\1</i>", s)
+    return s
 
 
 def get_telegram_env_config(env_path: Path | None = None) -> dict[str, Any]:
@@ -1349,7 +1388,7 @@ def send_telegram_message(
         try:
             proc = subprocess.run(
                 [
-                    "curl", "-s", "-m", "20", "-X", "POST", photo_url,
+                    "curl", "-s", "--connect-timeout", "4", "-m", "12", "-X", "POST", photo_url,
                     "-F", f"chat_id={target_chat}",
                     "-F", "parse_mode=HTML",
                     "-F", f"caption={text}",
@@ -1362,15 +1401,16 @@ def send_telegram_message(
             tmp_png.unlink(missing_ok=True)
     else:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
+        safe_text = text if len(text) <= 4050 else (text[:4000].rsplit("\n", 1)[0] + "\n<i>…(see full slate at https://betscout.app)</i>")
         payload = {
             "chat_id": target_chat,
-            "text": text,
+            "text": safe_text,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }
         proc = subprocess.run(
             [
-                "curl", "-s", "-m", "15", "-X", "POST", url,
+                "curl", "-s", "--connect-timeout", "4", "-m", "10", "-X", "POST", url,
                 "-H", "Content-Type: application/json",
                 "-d", json.dumps(payload),
             ],
@@ -1385,7 +1425,7 @@ def send_telegram_message(
             try:
                 subprocess.run(
                     [
-                        "curl", "-s", "-m", "20", "-X", "POST", photo_url,
+                        "curl", "-s", "--connect-timeout", "4", "-m", "12", "-X", "POST", photo_url,
                         "-F", f"chat_id={target_chat}",
                         "-F", f"photo=@{tmp_png};filename={image_filename};type=image/png",
                     ],
