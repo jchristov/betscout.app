@@ -79,7 +79,7 @@
               <span>Updated: <b class="text-white">{{ store.generatedAtLocal }}</b></span>
             </span>
             <span class="hidden md:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
-              <Icon icon="fa6-solid:database" class="w-3 h-3 text-emerald-400" />
+              <Icon icon="fa6-solid:circle-check" class="w-3 h-3 text-emerald-400" />
               <span><b class="text-white">{{ store.totalMatches.toLocaleString() }}</b> Verified Matches</span>
             </span>
             <span
@@ -87,7 +87,7 @@
               class="hidden lg:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5"
               title="Snapshot & filter preferences are automatically persisted in browser LocalStorage for instant offline PWA access."
             >
-              <Icon icon="fa6-solid:circle-check" class="w-3 h-3 text-cyan-400" />
+              <Icon icon="fa6-solid:database" class="w-3 h-3 text-cyan-400" />
               <span>Local Cache: <b class="text-cyan-300">{{ store.lastLocalCacheTime }}</b></span>
             </span>
             <span
