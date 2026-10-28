@@ -96,6 +96,27 @@ async function main() {
     },
     sampleMatchInsights: matchInsights?.funfacts ?? [],
   });
+
+  console.log('\n=== 6. Enriched League Standings & Form Table (Serie A 26/27 — Season ID: 140782) ===');
+  const serieATable = await client.getEnrichedLeagueTable(140782, {
+    aroundTeamUid: 2692,
+    sliceSize: 5,
+  });
+  console.log({
+    season: serieATable.season_name,
+    round: `${serieATable.current_round}/${serieATable.max_rounds}`,
+    sliceAroundMilan: serieATable.rows.map((r) => ({
+      pos: r.pos,
+      change: r.change_total > 0 ? `+${r.change_total}` : String(r.change_total),
+      team: r.team_name,
+      promotion: r.promotion_short,
+      played: r.played.total,
+      wdl: `${r.win.total}-${r.draw.total}-${r.loss.total}`,
+      goals: `${r.goals_for.total}:${r.goals_against.total} (${r.goal_diff.total >= 0 ? '+' : ''}${r.goal_diff.total})`,
+      pts: r.points.total,
+      form: r.form_total.join('-'),
+    })),
+  });
 }
 
 main().catch((err) => {

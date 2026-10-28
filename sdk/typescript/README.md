@@ -20,7 +20,9 @@ Standalone TypeScript/Node.js SDK (`@betscout/sdk`) providing typed access to **
    - **Player Jersey Kit SVG Avatars (`renderTeamJerseySvg`)**: Generates standalone vector SVG kit avatars from `homejersey` / `awayjersey` / `gkjersey` colors (`base`, `sleeve`, `number`, `stripes`) and player `shirtNumber`.
    - **Venue & Stadium Analytics (`getSeasonVenues`, `getVenueSeasonStats`, `parseVenueCoordinates`)**: Stadium capacity, construction year, pitch dimensions (`pitchsize`), GPS coordinates (`googlecoords`), and venue-specific season goals, corners, cards, and top scorers.
    - **Match Insights & Editorial Commentary (`getMatchInsights`, `getMatchCommentary`, `getMatchCommentaryDelta`, `getSeasonLeagueSummary`)**: Automated pre-match & in-play fun facts, minute-by-minute natural-language match commentary phrases, and macro league summaries.
-5. **3-Second Live Timeline Delta Streaming & In-Play Pressure**
+5. **League Ranking Tables, Live Dynamic Tables & Form Tables**
+   - **Full Standings & Form Table Merger (`getEnrichedLeagueTable`, `getSeasonTables`, `getSeasonDynamicTable`, `getSeasonFormTable`, `getMatchTableSlice`)**: Combines league standings (`stats_season_tables` / `season_dynamictable`) and the form table (`stats_formtable`) into `EnrichedStandingsRow[]` with **Total / Home / Away** played, W-D-L, `goals_for`, `goals_against`, `goal_diff`, `points`, **round-over-round rank deltas (`change_total`, `change_home`, `change_away`)**, **UEFA/relegation promotion zones (`promotion`, `promotion_short`)**, and **chronological recent W/D/L form sequences (`form_total`, `form_home`, `form_away`)**. Supports optional `aroundTeamUid` + `sliceSize` (e.g., 5-team slice centered on AC Milan).
+6. **3-Second Live Timeline Delta Streaming & In-Play Pressure**
    - `getMatchTimelineDelta` (`_maxage: 3`), `fetchLiveMatchTimelineDelta` (live sets/periods, tennis point scores & active server `🎾`), and `fetchLiveMatchSituationsPressure` (live attack & dangerous-attack territorial share).
 
 ---

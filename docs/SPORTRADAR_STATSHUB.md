@@ -147,7 +147,10 @@ All endpoints below are callable directly via:
 | :--- | :--- | :--- |
 | **`tennis_team_surfacestats`** | `{playerUid}` *(use `clientAlias="common"`)* | **Multi-Season ATP/WTA Win–Loss Records by Surface:**<br>• `groundid: 0` — All Surfaces total W–L<br>• `groundid: 1` — Clay W–L<br>• `groundid: 2` — Hard Outdoor W–L<br>• `groundid: 3` — Grass W–L<br>• `groundid: 4` — Hard Indoor W–L |
 | **`tennis_ranking`** | `{type}/{year}/{week}` | Official ATP / WTA rankings table |
-| **`stats_season_tables`** | `{seasonId}/{tableType}/{round}` | League standings table (overall, home, away, form table) |
+| **`stats_season_tables`** | `{seasonId}` | Full league standings table with Total/Home/Away `pos`, rank changes (`changeTotal`/`changeHome`/`changeAway`), `promotion` zones (`Champions League`, `UEFA`, `Relegation`), W/D/L, `goalsFor*`, `goalsAgainst*`, `goalDiff*`, `points*`, and `rules` |
+| **`season_dynamictable`** | `{seasonId}` | Real-time live dynamic league standings table during active matchdays |
+| **`stats_formtable`** | `{seasonId}` | League form table with recent match-by-match `W`/`D`/`L` arrays (`form.total`, `form.home`, `form.away` with `matchid` and `homematch`) and rolling 6-match goal/point splits |
+| **`stats_match_tableslice`** | `{matchId}` | Head-to-head league standings slice for a specific match |
 | **`stats_season_overunder`** | `{seasonId}` | League-wide Over/Under goals distribution by team |
 | **`stats_season_teamscoringconceding`** | `{seasonId}/{teamUid}/{limit}` | 15-minute interval goal scoring & conceding distribution (`0-15'`, `16-30'`, ..., `76-90'`) + home/away/total scoring splits |
 | **`referee_seasonstats`** | `{refereeId}/{seasonId}` | Referee yellow/red cards, fouls, and penalties per match |

@@ -901,26 +901,177 @@ export interface BetScoutTennisRankingResponse {
   [key: string]: unknown;
 }
 
+export interface BetScoutTablePromotion {
+  _doc?: 'promotion';
+  _id: number;
+  name: string;
+  shortname?: string;
+  cssclass?: string;
+  position?: number;
+}
+
 export interface BetScoutSeasonTableRow {
+  _doc?: 'tablerow';
+  _id?: number;
   pos: number;
+  posHome?: number;
+  posAway?: number;
+  sortPositionTotal?: number;
+  sortPositionHome?: number;
+  sortPositionAway?: number;
+  /** Rank change since previous matchday (`+1`, `-2`, `0`) */
+  changeTotal?: number;
+  changeHome?: number;
+  changeAway?: number;
   team: BetScoutTeamRef;
-  played?: number;
-  win?: number;
-  draw?: number;
-  loss?: number;
-  goalsfor?: number;
-  goalsagainst?: number;
-  goaldiff?: number;
-  points?: number;
+  promotion?: BetScoutTablePromotion | null;
+  /** Matches played (Total / Home / Away) */
+  total?: number;
+  home?: number;
+  away?: number;
+  winTotal?: number;
+  winHome?: number;
+  winAway?: number;
+  drawTotal?: number;
+  drawHome?: number;
+  drawAway?: number;
+  lossTotal?: number;
+  lossHome?: number;
+  lossAway?: number;
+  goalsForTotal?: number;
+  goalsForHome?: number;
+  goalsForAway?: number;
+  goalsAgainstTotal?: number;
+  goalsAgainstHome?: number;
+  goalsAgainstAway?: number;
+  goalDiffTotal?: number;
+  goalDiffHome?: number;
+  goalDiffAway?: number;
+  pointsTotal?: number;
+  pointsHome?: number;
+  pointsAway?: number;
+  [key: string]: unknown;
+}
+
+export interface BetScoutLeagueTable {
+  _doc?: 'statistics_leaguetable';
+  _id?: string | number;
+  seasonid?: string | number;
+  name?: string;
+  abbr?: string;
+  groupname?: string | null;
+  maxrounds?: number;
+  currentround?: number;
+  totalrows?: number;
+  tournament?: BetScoutUniqueTournament;
+  realcategory?: BetScoutRealCategorySummary;
+  rules?: {
+    _doc?: 'tiebreakrule';
+    _id?: number;
+    name?: string;
+  };
+  tablerows?: BetScoutSeasonTableRow[];
+  [key: string]: unknown;
 }
 
 export interface BetScoutSeasonTablesResponse {
-  tables?: Array<{
-    _id?: number;
-    name?: string;
-    tablerows?: BetScoutSeasonTableRow[];
-  }>;
+  _id?: string | number;
+  name?: string;
+  abbr?: string;
+  year?: string;
+  tables?: BetScoutLeagueTable[];
   [key: string]: unknown;
+}
+
+export interface BetScoutDynamicTableResponse {
+  season?: BetScoutSeasonTablesResponse;
+  [key: string]: unknown;
+}
+
+export interface BetScoutFormTableMatchItem {
+  typeid: 'W' | 'D' | 'L' | string;
+  value: 'W' | 'D' | 'L' | string;
+  homematch?: boolean;
+  neutralground?: boolean;
+  matchid?: number;
+}
+
+export interface BetScoutFormTableTeamEntry {
+  team: BetScoutTeamRef;
+  position?: { total?: number; home?: number; away?: number };
+  played?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  win?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  draw?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  loss?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  goalsfor?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  goalsagainst?: {
+    total?: number;
+    totalhome?: number;
+    totalaway?: number;
+    home?: number;
+    away?: number;
+  };
+  goaldifference?: {
+    total?: number;
+    totalhome?: number;
+    totalaway?: number;
+    home?: number;
+    away?: number;
+  };
+  points?: { total?: number; totalhome?: number; totalaway?: number; home?: number; away?: number };
+  form?: {
+    total?: BetScoutFormTableMatchItem[];
+    home?: BetScoutFormTableMatchItem[];
+    away?: BetScoutFormTableMatchItem[];
+  };
+}
+
+export interface BetScoutFormTableResponse {
+  season?: BetScoutSeasonDescriptor;
+  winpoints?: number;
+  losspoints?: number;
+  currentround?: number;
+  teams?: BetScoutFormTableTeamEntry[];
+  [key: string]: unknown;
+}
+
+export interface EnrichedStandingsRow {
+  pos: number;
+  pos_home: number | null;
+  pos_away: number | null;
+  /** Position delta vs previous round (`+1` = moved up 1 spot, `-2` = dropped 2 spots, `0` = unchanged) */
+  change_total: number;
+  change_home: number;
+  change_away: number;
+  team_id: number;
+  team_uid: number;
+  team_name: string;
+  team_abbr: string;
+  promotion: string | null;
+  promotion_short: string | null;
+  played: { total: number; home: number; away: number };
+  win: { total: number; home: number; away: number };
+  draw: { total: number; home: number; away: number };
+  loss: { total: number; home: number; away: number };
+  goals_for: { total: number; home: number; away: number };
+  goals_against: { total: number; home: number; away: number };
+  goal_diff: { total: number; home: number; away: number };
+  points: { total: number; home: number; away: number };
+  /** Chronological recent form array (`['W', 'W', 'D', 'W', 'L']`) */
+  form_total: string[];
+  form_home: string[];
+  form_away: string[];
+  form_entries_total: BetScoutFormTableMatchItem[];
+}
+
+export interface EnrichedLeagueTableBundle {
+  ok: boolean;
+  season_id: string | number;
+  season_name: string | null;
+  current_round: number | null;
+  max_rounds: number | null;
+  tiebreak_rules: string | null;
+  rows: EnrichedStandingsRow[];
 }
 
 export interface BetScoutSeasonOverUnderResponse {

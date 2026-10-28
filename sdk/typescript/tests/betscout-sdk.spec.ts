@@ -705,4 +705,151 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
     const teamMarkets = await client.getTeamMarkets(2692, 'eu-retail');
     expect(teamMarkets?.matches?.['61061467']?.markets?.[0]?.outcomes?.[0]?.odds).toBe(1.85);
   });
+
+  it('merges League Standings (goal stats, rank changes, promotions) with Form Table into EnrichedLeagueTableBundle', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('stats_season_tables/140782')) {
+        return jsonResponse({
+          _id: '140782',
+          name: 'Serie A 26/27',
+          tables: [
+            {
+              _id: '108262',
+              name: 'Serie A 26/27',
+              currentround: 9,
+              maxrounds: 38,
+              rules: { name: '1. Head-to-head\n2. Goal difference' },
+              tablerows: [
+                {
+                  pos: 1,
+                  posHome: 3,
+                  posAway: 1,
+                  changeTotal: 1,
+                  changeHome: 0,
+                  changeAway: 2,
+                  promotion: { _id: 1, name: 'Champions League', shortname: 'CL' },
+                  team: { _id: 9267, uid: 2699, name: 'Lazio', mediumname: 'Lazio Rome', abbr: 'LAZ' },
+                  total: 9,
+                  home: 4,
+                  away: 5,
+                  winTotal: 8,
+                  winHome: 3,
+                  winAway: 5,
+                  drawTotal: 1,
+                  drawHome: 1,
+                  drawAway: 0,
+                  lossTotal: 0,
+                  lossHome: 0,
+                  lossAway: 0,
+                  goalsForTotal: 22,
+                  goalsForHome: 8,
+                  goalsForAway: 14,
+                  goalsAgainstTotal: 7,
+                  goalsAgainstHome: 4,
+                  goalsAgainstAway: 3,
+                  goalDiffTotal: 15,
+                  goalDiffHome: 4,
+                  goalDiffAway: 11,
+                  pointsTotal: 25,
+                  pointsHome: 10,
+                  pointsAway: 15,
+                },
+                {
+                  pos: 2,
+                  posHome: 1,
+                  posAway: 4,
+                  changeTotal: -1,
+                  changeHome: 0,
+                  changeAway: -1,
+                  promotion: { _id: 1, name: 'Champions League', shortname: 'CL' },
+                  team: { _id: 9246, uid: 2692, name: 'Milan', mediumname: 'AC Milan', abbr: 'ACM' },
+                  total: 9,
+                  home: 5,
+                  away: 4,
+                  winTotal: 6,
+                  winHome: 4,
+                  winAway: 2,
+                  drawTotal: 2,
+                  drawHome: 1,
+                  drawAway: 1,
+                  lossTotal: 1,
+                  lossHome: 0,
+                  lossAway: 1,
+                  goalsForTotal: 18,
+                  goalsForHome: 11,
+                  goalsForAway: 7,
+                  goalsAgainstTotal: 8,
+                  goalsAgainstHome: 3,
+                  goalsAgainstAway: 5,
+                  goalDiffTotal: 10,
+                  goalDiffHome: 8,
+                  goalDiffAway: 2,
+                  pointsTotal: 20,
+                  pointsHome: 13,
+                  pointsAway: 7,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      if (url.includes('stats_formtable/140782')) {
+        return jsonResponse({
+          currentround: 9,
+          teams: [
+            {
+              team: { _id: 9267, uid: 2699, name: 'Lazio' },
+              form: {
+                // Raw feed stores newest first; getEnrichedLeagueTable reverses to chronological order
+                total: [
+                  { typeid: 'W', value: 'W', matchid: 103 },
+                  { typeid: 'D', value: 'D', matchid: 102 },
+                  { typeid: 'W', value: 'W', matchid: 101 },
+                ],
+                home: [{ typeid: 'W', value: 'W', matchid: 103 }],
+                away: [{ typeid: 'D', value: 'D', matchid: 102 }],
+              },
+            },
+            {
+              team: { _id: 9246, uid: 2692, name: 'Milan' },
+              form: {
+                total: [
+                  { typeid: 'W', value: 'W', matchid: 203 },
+                  { typeid: 'L', value: 'L', matchid: 202 },
+                  { typeid: 'D', value: 'D', matchid: 201 },
+                ],
+              },
+            },
+          ],
+        });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+    const table = await client.getEnrichedLeagueTable(140782);
+
+    expect(table.ok).toBe(true);
+    expect(table.season_name).toBe('Serie A 26/27');
+    expect(table.current_round).toBe(9);
+    expect(table.max_rounds).toBe(38);
+    expect(table.rows.length).toBe(2);
+
+    const row1 = table.rows[0]!;
+    expect(row1.team_name).toBe('Lazio Rome');
+    expect(row1.pos).toBe(1);
+    expect(row1.change_total).toBe(1);
+    expect(row1.promotion).toBe('Champions League');
+    expect(row1.goals_for).toEqual({ total: 22, home: 8, away: 14 });
+    expect(row1.goals_against).toEqual({ total: 7, home: 4, away: 3 });
+    expect(row1.goal_diff).toEqual({ total: 15, home: 4, away: 11 });
+    expect(row1.points).toEqual({ total: 25, home: 10, away: 15 });
+    expect(row1.form_total).toEqual(['W', 'D', 'W']);
+
+    const row2 = table.rows[1]!;
+    expect(row2.team_name).toBe('AC Milan');
+    expect(row2.change_total).toBe(-1);
+    expect(row2.form_total).toEqual(['D', 'L', 'W']);
+  });
 });

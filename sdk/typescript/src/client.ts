@@ -17,9 +17,13 @@ import type {
   BetScoutClientOptions,
   BetScoutDailySportMatchesResponse,
   BetScoutDocument,
+  BetScoutDynamicTableResponse,
   BetScoutEnvelope,
   BetScoutEventGetResponse,
+  BetScoutFormTableMatchItem,
+  BetScoutFormTableResponse,
   BetScoutJerseyColors,
+  BetScoutLeagueTable,
   BetScoutMatchFormResponse,
   BetScoutMatchFunFactsResponse,
   BetScoutMatchHead2HeadResponse,
@@ -69,6 +73,8 @@ import type {
   CountryFlagOptions,
   DailyMatchIndexEntry,
   DailyOddsLookupResult,
+  EnrichedLeagueTableBundle,
+  EnrichedStandingsRow,
   FeedLanguage,
   FeedTimezone,
   GoalIntervalBucketSummary,
@@ -859,18 +865,211 @@ export class BetScoutClient {
     );
   }
 
-  /** Query league standings tables (`stats_season_tables/{seasonId}/{tableType}/{round}`). */
+  /**
+   * Query league standings tables (`stats_season_tables/{seasonId}` or `stats_season_tables/{seasonId}/{tableType}/{round}` when optional parameters are provided).
+   * Returns full `tablerows[]` with Total/Home/Away played, W/D/L, `goalsFor*`, `goalsAgainst*`, `goalDiff*`, `points*`, position changes (`changeTotal`/`changeHome`/`changeAway`), and `promotion` zones.
+   */
   public async getSeasonTables(
     seasonId: number | string,
-    tableType: number | string = 1,
-    round: number | string = 0,
+    tableType?: number | string,
+    round?: number | string,
     options?: BetScoutRequestOptions,
   ): Promise<BetScoutSeasonTablesResponse | null> {
-    return this.fetchFeed<BetScoutSeasonTablesResponse>(
-      'stats_season_tables',
-      `${seasonId}/${tableType}/${round}`,
-      { channel: 'neutral', ttlSec: 1800, ...options },
-    );
+    const params = [seasonId, tableType, round]
+      .filter((v): v is number | string => v !== undefined && v !== null && String(v).length > 0)
+      .join('/');
+    return this.fetchFeed<BetScoutSeasonTablesResponse>('stats_season_tables', params, {
+      channel: 'neutral',
+      ttlSec: 1800,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the real-time dynamic league table (`season_dynamictable/{seasonId}`), updating live during active matchdays.
+   */
+  public async getSeasonDynamicTable(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutDynamicTableResponse | null> {
+    return this.fetchFeed<BetScoutDynamicTableResponse>('season_dynamictable', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 120,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the league **Form Table** (`stats_formtable/{seasonId}`), returning recent match-by-match `W`/`D`/`L` arrays
+   * (`form.total`, `form.home`, `form.away` with `matchid` and `homematch`) plus rolling 6-match goal/point splits.
+   */
+  public async getSeasonFormTable(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutFormTableResponse | null> {
+    return this.fetchFeed<BetScoutFormTableResponse>('stats_formtable', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 900,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the head-to-head league table slice for a specific match (`stats_match_tableslice/{matchId}`).
+   */
+  public async getMatchTableSlice(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutLeagueTable | null> {
+    return this.fetchFeed<BetScoutLeagueTable>('stats_match_tableslice', String(matchId), {
+      channel: 'neutral',
+      ttlSec: 900,
+      ...options,
+    });
+  }
+
+  /**
+   * Build a complete **Enriched League Standings & Form Table Bundle** for a `seasonId` (e.g. `140782` Serie A):
+   * - Merges `stats_season_tables/{seasonId}` (or `season_dynamictable/{seasonId}`) with `stats_formtable/{seasonId}` in parallel.
+   * - Returns every team's `pos` (`total`/`home`/`away`), round-over-round position delta (`change_total`, `change_home`, `change_away`),
+   *   promotion/relegation zone (`promotion`: `"Champions League"`, `"Relegation"`, etc.), Total/Home/Away W-D-L,
+   *   `goals_for`, `goals_against`, `goal_diff`, `points`, and chronological recent form (`form_total: ['W', 'W', 'D', ...]`).
+   * - Supports optional `aroundTeamUid` + `sliceSize` (e.g. `5` rows centered on `2692` AC Milan) matching the platform's team-page table slice.
+   */
+  public async getEnrichedLeagueTable(
+    seasonId: number | string,
+    options: {
+      aroundTeamUid?: number | string;
+      sliceSize?: number;
+      requestOptions?: BetScoutRequestOptions;
+    } = {},
+  ): Promise<EnrichedLeagueTableBundle> {
+    const [tablesResp, formResp] = await Promise.all([
+      this.getSeasonTables(seasonId, undefined, undefined, options.requestOptions),
+      this.getSeasonFormTable(seasonId, options.requestOptions),
+    ]);
+
+    const mainTable = tablesResp?.tables?.[0];
+    if (!mainTable || !Array.isArray(mainTable.tablerows)) {
+      return {
+        ok: false,
+        season_id: seasonId,
+        season_name: tablesResp?.name ?? null,
+        current_round: null,
+        max_rounds: null,
+        tiebreak_rules: null,
+        rows: [],
+      };
+    }
+
+    const formByTeamId = new Map<
+      number,
+      {
+        total: BetScoutFormTableMatchItem[];
+        home: BetScoutFormTableMatchItem[];
+        away: BetScoutFormTableMatchItem[];
+      }
+    >();
+
+    for (const ftEntry of formResp?.teams ?? []) {
+      const tid = ftEntry.team?.uid ?? ftEntry.team?._id;
+      if (!tid) continue;
+      formByTeamId.set(Number(tid), {
+        total: Array.isArray(ftEntry.form?.total) ? [...ftEntry.form.total].reverse() : [],
+        home: Array.isArray(ftEntry.form?.home) ? [...ftEntry.form.home].reverse() : [],
+        away: Array.isArray(ftEntry.form?.away) ? [...ftEntry.form.away].reverse() : [],
+      });
+    }
+
+    let rawRows = [...mainTable.tablerows].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+
+    if (options.aroundTeamUid !== undefined) {
+      const limit = options.sliceSize ?? 5;
+      if (rawRows.length > limit) {
+        const targetUid = Number(options.aroundTeamUid);
+        const idx = rawRows.findIndex(
+          (r) => Number(r.team?.uid ?? r.team?._id) === targetUid,
+        );
+        if (idx >= 0) {
+          const half = Math.floor((limit - 1) / 2);
+          const start = Math.max(0, Math.min(rawRows.length - limit, idx - half));
+          rawRows = rawRows.slice(start, start + limit);
+        }
+      }
+    }
+
+    const enrichedRows: EnrichedStandingsRow[] = rawRows.map((row) => {
+      const uid = Number(row.team?.uid ?? row.team?._id ?? 0);
+      const fObj = formByTeamId.get(uid) ?? { total: [], home: [], away: [] };
+      return {
+        pos: Number(row.pos ?? 0),
+        pos_home: row.posHome ?? null,
+        pos_away: row.posAway ?? null,
+        change_total: Number(row.changeTotal ?? 0),
+        change_home: Number(row.changeHome ?? 0),
+        change_away: Number(row.changeAway ?? 0),
+        team_id: Number(row.team?._id ?? uid),
+        team_uid: uid,
+        team_name: String(row.team?.mediumname ?? row.team?.name ?? ''),
+        team_abbr: String(row.team?.abbr ?? ''),
+        promotion: row.promotion?.name ?? null,
+        promotion_short: row.promotion?.shortname ?? null,
+        played: {
+          total: Number(row.total ?? 0),
+          home: Number(row.home ?? 0),
+          away: Number(row.away ?? 0),
+        },
+        win: {
+          total: Number(row.winTotal ?? 0),
+          home: Number(row.winHome ?? 0),
+          away: Number(row.winAway ?? 0),
+        },
+        draw: {
+          total: Number(row.drawTotal ?? 0),
+          home: Number(row.drawHome ?? 0),
+          away: Number(row.drawAway ?? 0),
+        },
+        loss: {
+          total: Number(row.lossTotal ?? 0),
+          home: Number(row.lossHome ?? 0),
+          away: Number(row.lossAway ?? 0),
+        },
+        goals_for: {
+          total: Number(row.goalsForTotal ?? 0),
+          home: Number(row.goalsForHome ?? 0),
+          away: Number(row.goalsForAway ?? 0),
+        },
+        goals_against: {
+          total: Number(row.goalsAgainstTotal ?? 0),
+          home: Number(row.goalsAgainstHome ?? 0),
+          away: Number(row.goalsAgainstAway ?? 0),
+        },
+        goal_diff: {
+          total: Number(row.goalDiffTotal ?? 0),
+          home: Number(row.goalDiffHome ?? 0),
+          away: Number(row.goalDiffAway ?? 0),
+        },
+        points: {
+          total: Number(row.pointsTotal ?? 0),
+          home: Number(row.pointsHome ?? 0),
+          away: Number(row.pointsAway ?? 0),
+        },
+        form_total: fObj.total.map((x) => String(x.value ?? x.typeid)),
+        form_home: fObj.home.map((x) => String(x.value ?? x.typeid)),
+        form_away: fObj.away.map((x) => String(x.value ?? x.typeid)),
+        form_entries_total: fObj.total,
+      };
+    });
+
+    return {
+      ok: true,
+      season_id: seasonId,
+      season_name: mainTable.name ?? tablesResp?.name ?? null,
+      current_round: mainTable.currentround ?? formResp?.currentround ?? null,
+      max_rounds: mainTable.maxrounds ?? null,
+      tiebreak_rules: mainTable.rules?.name ?? null,
+      rows: enrichedRows,
+    };
   }
 
   /** Query league-wide Over/Under goals distributions (`stats_season_overunder/{seasonId}`). */
