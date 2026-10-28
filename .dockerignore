@@ -8,5 +8,7 @@ backend/.pytest_cache
 .env
 data/cache
 frontend/node_modules
+sdk/node_modules
+sdk/dist
 .firebase
 

@@ -1,0 +1,43 @@
+{
+  "name": "@betscout/sportradar-gismo-sdk",
+  "version": "1.0.0",
+  "description": "Standalone TypeScript/Node.js SDK for Sportradar StatsHub & Tipico Gismo JSON APIs (56 sports, Tipico + UOF markets, 28-outcome Correct Score matrix, injuries, streaks, tennis surface stats, and 3s live match_timelinedelta streaming).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "example": "npx tsx examples/quickstart.ts"
+  },
+  "keywords": [
+    "sportradar",
+    "gismo",
+    "statshub",
+    "tipico",
+    "sports-odds",
+    "correct-score",
+    "live-scores",
+    "typescript",
+    "sdk"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -5,7 +5,7 @@ export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 HOST ?= 127.0.0.1
 PORT ?= 8090
 
-.PHONY: help install dev serve frontend-dev frontend-build frontend-test backend-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
+.PHONY: help install dev serve frontend-dev frontend-build frontend-test sdk-build sdk-test backend-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
 
 help: ## Show all available Makefile commands
 	@echo "BetScout — Quantitative Sports Edge & Score Intelligence"
@@ -14,8 +14,9 @@ help: ## Show all available Makefile commands
 	@echo ""
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install both frontend (npm) and backend (uv) dependencies
+install: ## Install frontend (npm), sdk (npm), and backend (uv) dependencies
 	cd frontend && npm install --no-audit --no-fund
+	cd sdk && npm install --no-audit --no-fund
 	cd backend && uv sync
 
 frontend-dev: ## Run Vite frontend dev server with HMR
@@ -27,10 +28,16 @@ frontend-build: ## Build production Vue 3 + Tailwind SPA into frontend/dist
 frontend-test: ## Run Vitest unit & component tests in frontend/
 	cd frontend && npm run test
 
+sdk-build: ## Build standalone TypeScript Sportradar Gismo SDK into sdk/dist
+	cd sdk && npm run build
+
+sdk-test: ## Run Vitest unit & integration tests for the Sportradar Gismo SDK in sdk/
+	cd sdk && npm run test
+
 backend-test: ## Run Pytest suite in backend/
 	cd backend && uv run pytest -q
 
-test: frontend-test backend-test ## Run all frontend (Vitest) and backend (Pytest) test suites
+test: frontend-test sdk-test backend-test ## Run all frontend (Vitest), SDK (Vitest), and backend (Pytest) test suites
 
 logos: ## Regenerate SVG and PNG logo assets (Option 7.3) in all sizes
 	cp -f frontend/public/betscout-logo.svg frontend/public/favicon.svg
