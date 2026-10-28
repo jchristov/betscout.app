@@ -45,6 +45,7 @@ from .telegram_bot import (
     get_discord_env_config,
     get_telegram_env_config,
     notify_inplay_rebound_edges_to_discord,
+    notify_new_picks_to_discord,
     notify_new_settlements_to_discord,
     send_discord_message,
     send_telegram_message,
@@ -956,6 +957,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     )
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
+                notify_new_picks_to_discord(db_path)
                 if vetoes:
                     lines = ["🚨 **BETSCOUT — T-60m STARTING XI VETO ALERT**", ""]
                     for v in vetoes:
@@ -1867,8 +1869,9 @@ self.addEventListener('fetch', (event) => {{
                             except Exception:
                                 pass
 
-                    _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement alerts & regenerating dashboard..."
+                    _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement & new pick alerts & regenerating dashboard..."
                     notify_new_settlements_to_discord(db_path)
+                    notify_new_picks_to_discord(db_path)
                     generate_dashboard_html(
                         rec_path,
                         db_path,
@@ -1912,15 +1915,23 @@ self.addEventListener('fetch', (event) => {{
                 dry_run_d = bool(body.get("dry_run", False))
                 try:
                     _PIPELINE_STATUS["running"] = True
-                    _PIPELINE_STATUS["step"] = "[1/4] Settling overnight paper bets & scanning upcoming fixtures..."
+                    _PIPELINE_STATUS["step"] = "[1/4] Settling overnight paper bets..."
                     settle_pending_paper_bets(db_path)
                     notify_new_settlements_to_discord(db_path, dry_run=dry_run_d)
-                    scan_upcoming_and_log_paper_bets(
-                        db_path=db_path,
-                        days_ahead=days_d,
-                        decision_backend="laya",
-                        export_json_path=rec_path,
-                    )
+                    if not rec_path.exists() or bool(body.get("force_rescan", False)):
+                        scan_upcoming_and_log_paper_bets(
+                            db_path=db_path,
+                            days_ahead=days_d,
+                            decision_backend="none",
+                            export_json_path=rec_path,
+                        )
+                    elif db_path.exists():
+                        try:
+                            rec_obj = json.loads(rec_path.read_text(encoding="utf-8"))
+                            rec_obj["paper_ledger"] = get_paper_ledger_summary(db_path)
+                            rec_path.write_text(json.dumps(rec_obj, indent=2), encoding="utf-8")
+                        except Exception:
+                            pass
                     _PIPELINE_STATUS["step"] = "[2/4] Regenerating dashboard & flushing state to persistent storage..."
                     generate_dashboard_html(
                         rec_path,
@@ -1930,15 +1941,6 @@ self.addEventListener('fetch', (event) => {{
                         csv_export_path=best_csv_path,
                         json_export_path=best_json_path,
                     )
-                    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
-                    if gcs_dir.is_dir():
-                        for fname in ("betscout.db", "recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
-                            src_f = data_dir / fname
-                            if src_f.is_file():
-                                try:
-                                    shutil.copy2(src_f, gcs_dir / fname)
-                                except Exception:
-                                    pass
 
                     _PIPELINE_STATUS["step"] = "[3/4] Broadcasting Morning Daily Digest & Free Teaser to Discord & Telegram..."
                     cfg_d = _load_webapp_settings(data_dir)
@@ -1961,6 +1963,28 @@ self.addEventListener('fetch', (event) => {{
                         image_bytes=slate_png,
                     )
                     teaser_res = send_free_teaser_to_discord(rec=rec, db_path=db_path, dry_run=dry_run_d)
+                    # Mark active PENDING picks as notified so notify_new_picks_to_discord does not duplicate the morning slate
+                    if not dry_run_d and disc_res.get("ok") and db_path.exists():
+                        try:
+                            c_mk = sqlite3.connect(db_path, timeout=15.0)
+                            cols_mk = {r[1] for r in c_mk.execute("PRAGMA table_info(paper_bets)").fetchall()}
+                            if "pick_notified_at" not in cols_mk:
+                                c_mk.execute("ALTER TABLE paper_bets ADD COLUMN pick_notified_at TEXT")
+                            now_mk = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                            c_mk.execute("UPDATE paper_bets SET pick_notified_at = ? WHERE status = 'PENDING' AND pick_notified_at IS NULL", (now_mk,))
+                            c_mk.commit()
+                            c_mk.close()
+                        except Exception:
+                            pass
+                    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
+                    if gcs_dir.is_dir():
+                        for fname in ("betscout.db", "recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
+                            src_f = data_dir / fname
+                            if src_f.is_file():
+                                try:
+                                    shutil.copy2(src_f, gcs_dir / fname)
+                                except Exception:
+                                    pass
 
                     # Route per-sport morning digests to dedicated sport webhooks
                     global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))

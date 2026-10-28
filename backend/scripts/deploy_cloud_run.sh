@@ -51,10 +51,10 @@ gcloud run deploy "${SERVICE_NAME}" \
   --source="." \
   --execution-environment=gen2 \
   --allow-unauthenticated \
-  --cpu=1 \
-  --memory=1Gi \
+  --cpu=2 \
+  --memory=2Gi \
   --min-instances=0 \
-  --max-instances=2 \
+  --max-instances=3 \
   --timeout=900 \
   --add-volume="name=betscout-data,type=cloud-storage,bucket=${BUCKET_NAME}" \
   --add-volume-mount="volume=betscout-data,mount-path=/mnt/gcs" \
@@ -89,7 +89,7 @@ if gcloud scheduler jobs describe betscout-auto-sync --project="${PROJECT_ID}" -
   gcloud scheduler jobs update http betscout-auto-sync \
     --project="${PROJECT_ID}" \
     --location="${REGION}" \
-    --schedule="*/20 * * * *" \
+    --schedule="5,25,45 * * * *" \
     --uri="${CR_URL}/api/sync" \
     --http-method=POST \
     --update-headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \
@@ -100,7 +100,7 @@ else
   gcloud scheduler jobs create http betscout-auto-sync \
     --project="${PROJECT_ID}" \
     --location="${REGION}" \
-    --schedule="*/20 * * * *" \
+    --schedule="5,25,45 * * * *" \
     --uri="${CR_URL}/api/sync" \
     --http-method=POST \
     --headers="Content-Type=application/json,Authorization=Bearer ${CRON_SECRET}" \

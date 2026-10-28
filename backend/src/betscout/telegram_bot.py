@@ -790,6 +790,211 @@ def notify_new_settlements_to_discord(
         return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
 
 
+def notify_new_picks_to_discord(
+    db_path: Path,
+    webhook_url: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Atomically claim newly logged pre-match `PENDING` rows in `paper_bets` where `pick_notified_at IS NULL`,
+    post their initial Pick Suggestion + high-res Cyan-bordered PNG Card/Slate to Discord (plus per-sport webhooks),
+    and prevent duplicate announcements across concurrent scans."""
+    if not db_path.exists():
+        return {"ok": True, "notified_picks_count": 0}
+
+    with _SETTLEMENT_NOTIFY_LOCK:
+        conn = sqlite3.connect(db_path, timeout=30.0, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
+            if "pick_notified_at" not in cols:
+                conn.execute("ALTER TABLE paper_bets ADD COLUMN pick_notified_at TEXT")
+
+            unnotified_picks = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT * FROM paper_bets WHERE status = 'PENDING' AND pick_notified_at IS NULL AND (is_live = 0 OR is_live IS NULL) ORDER BY kickoff ASC"
+                ).fetchall()
+            ]
+            if not unnotified_picks:
+                conn.execute("COMMIT")
+                conn.close()
+                return {"ok": True, "notified_picks_count": 0}
+
+            claim_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if not dry_run:
+                for r in unnotified_picks:
+                    conn.execute(
+                        "UPDATE paper_bets SET pick_notified_at = ? WHERE league = ? AND event_id = ? AND pick_notified_at IS NULL",
+                        (claim_iso, r["league"], r["event_id"]),
+                    )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            conn.close()
+            raise
+        conn.close()
+
+        summary = get_paper_ledger_summary(db_path)
+        s_cnt = int(summary.get("settled_count") or 0)
+        s_wins = int(summary.get("settled_wins") or 0)
+        s_loss = int(summary.get("settled_losses") or 0)
+        s_wr = (s_wins / max(1, s_cnt)) * 100.0 if s_cnt else 0.0
+        s_prof = float(summary.get("settled_profit_u") or 0.0)
+        s_roi = float(summary.get("settled_roi_best") or 0.0) * 100.0
+
+        def _row_win_prob(r: dict[str, Any]) -> float:
+            lg_l = str(r.get("league") or "").lower()
+            comp_v = float(r.get("composite_score") or 0.0)
+            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99:
+                return comp_v
+            return min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
+
+        def _format_pick_bullet(r: dict[str, Any]) -> str:
+            sp_c = _league_to_sport_cat(r["league"])
+            sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
+            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            comp_lbl = LEAGUE_LABELS.get(r["league"], str(r["league"]).upper())
+            ko_loc = _format_local_time(r["kickoff"])
+            wp_v = _row_win_prob(r)
+            fair_o = 1.0 / max(wp_v, 0.05)
+            odds_v = float(r.get("logged_best_odds") or 1.25)
+            esc_str = f" · 🎲 Score Target: **{r['exact_score_pred']}**" if r.get("exact_score_pred") else ""
+            return (
+                f"• {sp_emoji} **{r['home']} vs {r['away']}** (*{comp_lbl}* · 🕒 `{ko_loc}`)\n"
+                f"  👉 Pick: **{pick_name} ({r['side']})** @ **{odds_v:.2f}** "
+                f"(Win Prob `{wp_v*100:.1f}%`, Min Fair `{fair_o:.2f}`, Tier `{r.get('tier') or 'high_conf'}`){esc_str}"
+            )
+
+        def _build_card_payload(r: dict[str, Any]) -> dict[str, Any]:
+            wp_v = _row_win_prob(r)
+            fair_o = 1.0 / max(wp_v, 0.05)
+            odds_v = float(r.get("logged_best_odds") or 1.25)
+            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            return {
+                "sport_cat": _league_to_sport_cat(r["league"]),
+                "competition": LEAGUE_LABELS.get(r["league"], str(r["league"]).upper()),
+                "announced_at_local": _format_local_time(r.get("logged_at") or claim_iso),
+                "date_local": _format_local_time(r["kickoff"]),
+                "match": f"{r['home']} vs {r['away']}",
+                "pick_name": f"{pick_name} ({r['side']})",
+                "tier": r.get("tier") or "HIGH-CONF",
+                "badge": str(r.get("tier") or "LIVE AI PICK").upper(),
+                "win_prob": wp_v,
+                "win_prob_str": f"{wp_v * 100:.1f}%",
+                "odds": odds_v,
+                "odds_display": f"{odds_v:.2f} (Fair {fair_o:.2f})",
+                "fair_str": f"@ {fair_o:.2f}",
+                "exact_score_pick": r.get("exact_score_pred") or "Moneyline Edge",
+            }
+
+        lines: list[str] = [
+            f"🎯 **BETSCOUT — NEW HIGH-CONVICTION PRE-MATCH PICK{'S' if len(unnotified_picks) != 1 else ''} ({len(unnotified_picks)} Active)**",
+            f"📈 *Verified Ledger: {s_cnt} Settled ({s_wins}W - {s_loss}L · {s_wr:.1f}%) · Profit: {s_prof:+.2f}u (ROI {s_roi:+.1f}%)*",
+            "",
+        ]
+        for r in unnotified_picks[:15]:
+            lines.append(_format_pick_bullet(r))
+        if len(unnotified_picks) > 15:
+            lines.append(f"\n*…plus {len(unnotified_picks) - 15} more active pre-match picks on <https://betscout.app>*")
+        else:
+            lines.append("\n🌐 *Live Quant Desk, Exact-Score Splits & 2-Leg Combos: <https://betscout.app>*")
+
+        pick_img_bytes: bytes | None = None
+        try:
+            from .pick_card import render_digest_slate_png, render_pick_card_png
+
+            card_payloads = [_build_card_payload(r) for r in unnotified_picks[:10]]
+            if len(card_payloads) == 1:
+                pick_img_bytes = render_pick_card_png(card_payloads[0])
+            elif card_payloads:
+                pick_img_bytes = render_digest_slate_png(
+                    card_payloads,
+                    title=f"NEW HIGH-CONVICTION PICKS SLATE ({len(unnotified_picks)} ACTIVE)",
+                    subtitle=f"Verified Track Record: {s_cnt} Settled ({s_wins}W - {s_loss}L · {s_wr:.1f}%) · Profit: {s_prof:+.2f}u",
+                )
+        except Exception:
+            pick_img_bytes = None
+
+        msg = "\n".join(lines)
+        res = send_discord_message(
+            msg,
+            webhook_url=webhook_url,
+            dry_run=dry_run,
+            env_path=None,
+            image_bytes=pick_img_bytes,
+            image_filename="betscout_picks.png",
+        )
+
+        # Also route sport-specific pre-match pick cards to dedicated per-sport Discord webhooks
+        if not webhook_url:
+            global_wh = resolve_discord_webhook_for_sport(None)
+            by_sp_picks: dict[str, list[dict[str, Any]]] = {}
+            for r in unnotified_picks:
+                sp_c = _league_to_sport_cat(r["league"])
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                if sp_wh and sp_wh != global_wh:
+                    by_sp_picks.setdefault(sp_c, []).append(r)
+            for sp_c, sp_rows in by_sp_picks.items():
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                sp_lines = [
+                    f"🎯 **BETSCOUT ({sp_c.upper()}) — NEW HIGH-CONVICTION PICK{'S' if len(sp_rows) != 1 else ''} ({len(sp_rows)} Active)**",
+                    "",
+                ]
+                for r in sp_rows[:12]:
+                    sp_lines.append(_format_pick_bullet(r))
+                sp_img: bytes | None = None
+                try:
+                    from .pick_card import render_digest_slate_png, render_pick_card_png
+
+                    sp_payloads = [_build_card_payload(r) for r in sp_rows[:10]]
+                    sp_img = (
+                        render_pick_card_png(sp_payloads[0])
+                        if len(sp_payloads) == 1
+                        else render_digest_slate_png(sp_payloads, title=f"{sp_c.upper()} HIGH-CONVICTION PICKS ({len(sp_rows)} ACTIVE)")
+                    )
+                except Exception:
+                    sp_img = None
+                send_discord_message(
+                    "\n".join(sp_lines),
+                    webhook_url=sp_wh,
+                    dry_run=dry_run,
+                    image_bytes=sp_img,
+                    image_filename=f"betscout_{sp_c}_picks.png",
+                    also_send_to_global=False,
+                )
+
+            try:
+                from .monetization import list_subscriber_webhooks
+
+                for sub_wh in list_subscriber_webhooks(db_path, active_only=True):
+                    if sub_wh.get("channel_type") == "discord" and str(sub_wh.get("target_url_or_chat") or "").startswith("https://discord"):
+                        send_discord_message(
+                            msg,
+                            webhook_url=str(sub_wh["target_url_or_chat"]),
+                            dry_run=dry_run,
+                            image_bytes=pick_img_bytes,
+                            image_filename="betscout_picks.png",
+                            also_send_to_global=False,
+                        )
+            except Exception:
+                pass
+
+        if not dry_run and not res.get("ok"):
+            c_rel = sqlite3.connect(db_path, timeout=15.0)
+            for r in unnotified_picks:
+                c_rel.execute(
+                    "UPDATE paper_bets SET pick_notified_at = NULL WHERE league = ? AND event_id = ? AND pick_notified_at = ?",
+                    (r["league"], r["event_id"], claim_iso),
+                )
+            c_rel.commit()
+            c_rel.close()
+        return {**res, "notified_picks_count": len(unnotified_picks)}
+
+
 _INPLAY_NOTIFIED_MEMORY: set[str] = set()
 
 

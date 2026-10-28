@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS paper_bets (
     exact_score_pred TEXT,
     exact_score_hit INTEGER,
     notified_at TEXT,
+    pick_notified_at TEXT,
     time_valid INTEGER DEFAULT 1,
     is_live INTEGER DEFAULT 0,
     live_score TEXT,

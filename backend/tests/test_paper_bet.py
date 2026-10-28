@@ -1086,3 +1086,51 @@ def test_nhl_table_tennis_and_tennis_loss_veto_gates():
         tourn_wins_diff=-1,
     )
     assert t_ok is False and "COURT_ACCLIMATIZATION" in t_reason
+
+
+def test_notify_new_picks_to_discord_dry_run(tmp_path: Path):
+    from betscout.telegram_bot import notify_new_picks_to_discord
+
+    db = tmp_path / "picks_notify.sqlite"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        """
+        CREATE TABLE matches (
+            event_id TEXT, league TEXT, sport TEXT, kickoff TEXT,
+            home TEXT, away TEXT, home_score REAL, away_score REAL, outcome TEXT
+        );
+        """
+        + PAPER_SCHEMA
+    )
+    conn.commit()
+    conn.close()
+
+    _upsert_paper_bet(
+        db,
+        {
+            "league": "ita.1",
+            "event_id": "401874988",
+            "kickoff": "2026-10-28T19:45Z",
+            "home": "Genoa",
+            "away": "Juventus",
+            "side": "A",
+            "tier": "top_8pct",
+            "score": 0.5016,
+            "p_mkt": 0.60,
+            "open_odds": 1.65,
+            "best_odds": 1.65,
+            "primary_odds": 1.65,
+            "close_odds": 1.65,
+            "synthetic_dc_odds": 1.15,
+            "factors_tanh_z": {"p_mkt": 0.77, "sot_d": 0.868},
+            "news_signal": {"backend": "none"},
+            "exact_score_pred": "0:2 (16.2%) · Cluster 0:1 / 0:2 / 1:2",
+        },
+        "2026-10-28T08:00:00Z",
+    )
+
+    res = notify_new_picks_to_discord(db, webhook_url="https://discord.com/api/webhooks/123/abc", dry_run=True)
+    assert res["ok"] is True and res["notified_picks_count"] == 1
+    assert "NEW HIGH-CONVICTION PRE-MATCH PICK" in res["preview"]
+    assert "Genoa vs Juventus" in res["preview"]
+
