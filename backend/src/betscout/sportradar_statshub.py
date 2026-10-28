@@ -864,10 +864,14 @@ def scan_sportradar_european_sports(
                         continue
                     tip_entry = mkt_tip.get(mid) or {}
                     uof_entry = mkt_uof.get(mid) or {}
+                    is_tipico_src = bool(tip_entry.get("markets"))
+                    # For Handball (or any sport where Tipico's bookmaker feed is active), strictly require
+                    # Tipico market availability so we never recommend unbettable UOF-only minor leagues (e.g. Swedish Handbollsligan)
+                    if (sp_slug == "handball" or mkt_tip) and not is_tipico_src:
+                        continue
                     raw_mkts = (tip_entry.get("markets") or []) or (uof_entry.get("markets") or [])
                     if not raw_mkts:
                         continue
-                    is_tipico_src = bool(tip_entry.get("markets"))
                     parsed_m = parse_tipico_prematch_markets(raw_mkts, flipped=False)
                     oh = parsed_m.get("odds_home")
                     oa = parsed_m.get("odds_away")
@@ -875,17 +879,22 @@ def scan_sportradar_european_sports(
                     if not oh or not oa or min(oh, oa) < 1.12 or min(oh, oa) > 1.72:
                         continue
 
-                    # Compute vig-free market probability
+                    # Compute vig-free market probability (in 3-way Handball, cap draw weight at 6.5% so 3-way draw vig doesn't distort 1X2 favorites)
                     inv_h = 1.0 / float(oh)
                     inv_a = 1.0 / float(oa)
-                    inv_d = (1.0 / float(od)) if od else 0.0
+                    inv_d = (
+                        min(1.0 / float(od), 0.065)
+                        if (od and sp_slug == "handball")
+                        else ((1.0 / float(od)) if od else 0.0)
+                    )
                     overround = inv_h + inv_a + inv_d
                     p_mkt_h = inv_h / overround
                     p_mkt_a = inv_a / overround
                     side = "H" if p_mkt_h >= p_mkt_a else "A"
                     p_mkt_fav = p_mkt_h if side == "H" else p_mkt_a
                     best_o = float(oh if side == "H" else oa)
-                    if p_mkt_fav < min_prob - 0.04:
+                    min_mkt_floor = 0.59 if sp_slug == "handball" else (min_prob - 0.04)
+                    if p_mkt_fav < min_mkt_floor:
                         continue
 
                     teams = m.get("teams") or {}

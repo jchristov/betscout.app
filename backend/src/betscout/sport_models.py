@@ -442,16 +442,19 @@ def evaluate_european_sport_gate(
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
     elo_edge = (p_elo_fav - 0.50) if abs(p_elo_fav - 0.50) > 0.01 else 0.0
     r3_bonus = (0.03 * recent3_diff_fav) if recent3_diff_fav is not None else 0.0
+    form_wt = 0.10 if sp == "handball" else 0.08
+    tip_bonus = 0.025 if (sp == "handball" and is_tipico) else (0.015 if is_tipico else 0.0)
     p_model = min(
         0.94,
         max(
             0.52,
-            p_mkt + 0.12 * elo_edge + 0.08 * form_diff_fav + r3_bonus + (0.015 if is_tipico else 0.0),
+            p_mkt + 0.12 * elo_edge + form_wt * form_diff_fav + r3_bonus + tip_bonus,
         ),
     )
     ev_pct = round((p_model * best_odds - 1.0) * 100.0, 2)
 
-    if p_model < min_prob or p_model < p_mkt or ev_pct < 0.0:
+    eff_min_prob = max(0.64, min_prob - 0.04) if sp == "handball" else min_prob
+    if p_model < eff_min_prob or p_model < p_mkt or ev_pct < 0.0:
         return False, round(p_model, 4), ev_pct
 
     if sp == "table_tennis":
@@ -462,7 +465,9 @@ def evaluate_european_sport_gate(
         if p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
     elif sp == "handball":
-        if best_odds < 1.18 or best_odds > 1.60 or form_diff_fav < 0.0 or p_elo_fav < 0.50:
+        if not is_tipico or best_odds < 1.15 or best_odds > 1.65 or form_diff_fav < 0.10 or p_elo_fav < 0.50:
+            return False, round(p_model, 4), ev_pct
+        if fav_wr is not None and fav_wr < 0.60:
             return False, round(p_model, 4), ev_pct
     elif sp == "darts":
         if best_odds < 1.15 or best_odds > 1.42 or form_diff_fav < 0.20 or p_elo_fav < 0.50:
