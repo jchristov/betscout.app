@@ -411,6 +411,7 @@
       gap: 2px;
     }
     .prob-fill-home { background: linear-gradient(90deg, #0ea5e9, #38bdf8); height: 100%; }
+    .prob-fill-draw { background: linear-gradient(90deg, #64748b, #94a3b8); height: 100%; }
     .prob-fill-away { background: linear-gradient(90deg, #f59e0b, #f43f5e); height: 100%; }
 
     /* Dual Comparison Stat Bars (Connected Inner Sides) */
@@ -512,7 +513,7 @@
             <span class="pill" id="match-id-pill">Match #76034538</span>
             <span class="pill pill-emerald" id="live-poll-pill"><span class="live-pulse-dot"></span><span>3s Live Delta Stream Active</span></span>
           </div>
-          <div style="font-size: 0.78rem; color: var(--text-secondary);">
+          <div style="font-size: 0.78rem; color: var(--text-secondary);" id="header-subtitle">
             1:1 SDK Replica of <code>/match/76034538</code> powered by <code>client.getMatchCenterDossier(76034538)</code>
           </div>
         </div>
@@ -596,9 +597,9 @@
 
     <!-- Flush Folder-Style Tabs Connecting Directly to Tab Panel Below -->
     <nav class="workspace-tablist" role="tablist">
-      <button class="workspace-tab active" data-tab="overview">1. Match Overview, Surface Win Rate, H2H &amp; Player Info</button>
-      <button class="workspace-tab" data-tab="statistics">2. Match Statistics (All Match, Set 1, Set 2)</button>
-      <button class="workspace-tab" data-tab="timeline">3. Point-by-Point Timeline &amp; All Bookmaker Markets</button>
+      <button class="workspace-tab active" data-tab="overview" id="tab-btn-overview">1. Match Overview, Surface Win Rate, H2H &amp; Player Info</button>
+      <button class="workspace-tab" data-tab="statistics" id="tab-btn-statistics">2. Match Statistics (All Match, Set 1, Set 2)</button>
+      <button class="workspace-tab" data-tab="timeline" id="tab-btn-timeline">3. Point-by-Point Timeline &amp; All Bookmaker Markets</button>
     </nav>
 
     <div class="workspace-tabpanel">
@@ -609,15 +610,17 @@
           <div class="card">
             <div class="card-header">
               <div class="card-title"><span>Win Probability &amp; Pre-Match Markets</span></div>
-              <span class="code-tag">getMatchMarkets(76034538, 'prematch')</span>
+              <span class="code-tag" id="markets-code-tag">getMatchMarkets(76034538, 'prematch')</span>
             </div>
             <div class="prob-bar-wrap">
               <div class="prob-labels">
                 <span id="prob-home-lbl" style="color:var(--accent-cyan);">Fritz, Taylor — 87.9% (1.10)</span>
+                <span id="prob-draw-lbl" style="color:#cbd5e1;display:none;">Draw — 0%</span>
                 <span id="prob-away-lbl" style="color:var(--accent-amber);">Hijikata, Rinky — 12.1% (5.99)</span>
               </div>
               <div class="prob-track">
                 <div id="prob-home-bar" class="prob-fill-home" style="width: 87.9%;"></div>
+                <div id="prob-draw-bar" class="prob-fill-draw" style="width: 0%; display: none;"></div>
                 <div id="prob-away-bar" class="prob-fill-away" style="width: 12.1%;"></div>
               </div>
             </div>
@@ -635,17 +638,17 @@
             </div>
           </div>
 
-          <!-- Surface Win Rate Comparison -->
+          <!-- Surface Win Rate OR Team Season Scoring & Form Comparison -->
           <div class="card">
             <div class="card-header">
-              <div class="card-title"><span>Surface Win Rate Comparison (All / Hard / Indoor / Clay / Grass)</span></div>
-              <span class="code-tag">getTeamProfile() · getTennisPlayerSurfaceStats()</span>
+              <div class="card-title"><span id="surf-card-title">Surface Win Rate Comparison (All / Hard / Indoor / Clay / Grass)</span></div>
+              <span class="code-tag" id="surf-card-tag">getTeamProfile() · getTennisPlayerSurfaceStats()</span>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Court Surface</th>
+                    <th id="surf-metric-th">Court Surface</th>
                     <th id="surf-home-th">Fritz, Taylor (W–L / %)</th>
                     <th id="surf-away-th">Hijikata, Rinky (W–L / %)</th>
                   </tr>
@@ -657,11 +660,11 @@
         </div>
 
         <div class="grid-2">
-          <!-- Competitor Biographical & Ranking Comparison -->
+          <!-- Competitor Biographical & Ranking OR Club Profile, Managers, Missing Players & Table Slice -->
           <div class="card">
             <div class="card-header">
-              <div class="card-title"><span>Player Info &amp; ATP Ranking Comparison</span></div>
-              <span class="code-tag">stats_team_info · stats_match_head2head</span>
+              <div class="card-title"><span id="bio-card-title">Player Info &amp; ATP Ranking Comparison</span></div>
+              <span class="code-tag" id="bio-card-tag">stats_team_info · stats_match_head2head</span>
             </div>
             <div class="table-wrap">
               <table>
@@ -675,6 +678,7 @@
                 <tbody id="player-info-compare-tbody"></tbody>
               </table>
             </div>
+            <div id="club-table-slice-box" style="margin-top: 0.9rem; display: none;"></div>
           </div>
 
           <!-- Head-to-Head Last Meetings + Color-Coded H2H Edge Progress Bar -->
@@ -689,9 +693,9 @@
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Round / Surface</th>
+                    <th id="h2h-col-round">Round / Surface</th>
                     <th>Home</th>
-                    <th>Sets (Games)</th>
+                    <th id="h2h-col-score">Sets (Games)</th>
                     <th>Away</th>
                   </tr>
                 </thead>
@@ -714,7 +718,7 @@
                   <tr>
                     <th>Date</th>
                     <th>Home</th>
-                    <th>Sets</th>
+                    <th id="last-home-col-score">Sets</th>
                     <th>Away</th>
                   </tr>
                 </thead>
@@ -734,7 +738,7 @@
                   <tr>
                     <th>Date</th>
                     <th>Home</th>
-                    <th>Sets</th>
+                    <th id="last-away-col-score">Sets</th>
                     <th>Away</th>
                   </tr>
                 </thead>
@@ -750,14 +754,14 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>Live Match Boxscore &amp; Serve/Return Statistics</span>
+              <span id="stats-card-title">Live Match Boxscore &amp; Serve/Return Statistics</span>
               <div style="display: inline-flex; gap: 0.4rem; margin-left: 0.75rem;">
                 <button class="btn-action" id="stat-period-all" onclick="setStatPeriod('all')">Match Total</button>
                 <button class="btn-action" id="stat-period-p1" onclick="setStatPeriod(0)">1st Set</button>
                 <button class="btn-action" id="stat-period-p2" onclick="setStatPeriod(1)">2nd Set</button>
               </div>
             </div>
-            <span class="code-tag">client.getMatchDetailsExtended(76034538)</span>
+            <span class="code-tag" id="stats-code-tag">client.getMatchDetailsExtended(76034538)</span>
           </div>
           <div id="match-details-bars"></div>
         </div>
@@ -768,7 +772,7 @@
         <div class="grid-2">
           <div class="card">
             <div class="card-header">
-              <div class="card-title"><span>Live Point-by-Point &amp; Score Change Timeline</span></div>
+              <div class="card-title"><span id="timeline-card-title">Live Point-by-Point &amp; Score Change Timeline</span></div>
               <span class="code-tag">getMatchFullTimeline() · getMatchTimelineDelta()</span>
             </div>
             <div class="table-wrap" style="max-height: 520px; overflow-y: auto;">
@@ -790,7 +794,7 @@
           <div class="card">
             <div class="card-header">
               <div class="card-title"><span>Complete Bookmaker Market Book</span></div>
-              <span class="code-tag">getMatchMarkets(76034538)</span>
+              <span class="code-tag" id="all-markets-code-tag">getMatchMarkets(76034538)</span>
             </div>
             <div class="table-wrap" style="max-height: 520px; overflow-y: auto;">
               <table>
@@ -846,6 +850,13 @@
       if (!out) return '';
       const spec = specifiers || {};
       out = out.replace(/\{!(\w+)\}/g, (_m, k) => (spec[k] !== undefined ? toOrdinal(spec[k]) : k));
+      out = out.replace(/\{([+-])(\w+)\}/g, (_m, sign, k) => {
+        if (spec[k] === undefined || spec[k] === null) return sign + k;
+        const num = Number(spec[k]);
+        if (isNaN(num)) return String(spec[k]);
+        const val = sign === '-' ? -num : num;
+        return val > 0 ? '+' + val : String(val);
+      });
       out = out.replace(/\{\$competitor1\}/gi, homeName || 'Home');
       out = out.replace(/\{\$competitor2\}/gi, awayName || 'Away');
       out = out.replace(/\{(\w+)\}/g, (_m, k) => (spec[k] !== undefined ? String(spec[k]) : k));
@@ -892,7 +903,14 @@
     function renderMatchStatistics(d) {
       const container = document.getElementById('match-details-bars');
       const values = d.match_details?.values || {};
-      const allRows = [
+      const isTennis = Number(d.sport_id) === 5;
+
+      const p1Btn = document.getElementById('stat-period-p1');
+      const p2Btn = document.getElementById('stat-period-p2');
+      if (p1Btn) p1Btn.textContent = isTennis ? '1st Set' : '1st Half';
+      if (p2Btn) p2Btn.textContent = isTennis ? '2nd Set' : '2nd Half';
+
+      const tennisRows = [
         { allKey: '130', setKey: '1518', label: 'Aces' },
         { allKey: '132', setKey: '1525', label: 'Double Faults' },
         { allKey: '1189', setKey: '1524', label: '1st Serve Successful' },
@@ -909,7 +927,30 @@
         { allKey: '143', setKey: '1531', label: 'Max Games in a Row' },
       ];
 
-      const rendered = allRows.map((r) => {
+      const footballRows = [
+        { allKey: '110', setKey: '1199', label: 'Ball Possession (%)', suffix: '%' },
+        { allKey: 'goalattempts', setKey: 'goalattemptsperiod', label: 'Goal Attempts' },
+        { allKey: '125', setKey: 'shotsonperiod', label: 'Shots on Target' },
+        { allKey: '126', setKey: 'shotsoffperiod', label: 'Shots off Target' },
+        { allKey: '171', setKey: 'shotsblockedperiod', label: 'Shots Blocked' },
+        { allKey: '124', setKey: '1634', label: 'Corner Kicks' },
+        { allKey: '120', setKey: 'freekicksperiod', label: 'Free Kicks' },
+        { allKey: '121', setKey: 'goalkicksperiod', label: 'Goal Kicks' },
+        { allKey: '122', setKey: 'throwinsperiod', label: 'Throw-ins' },
+        { allKey: '123', setKey: 'offsidesperiod', label: 'Offsides' },
+        { allKey: '127', setKey: 'savesperiod', label: 'Goalkeeper Saves' },
+        { allKey: '129', setKey: 'foulsperiod', label: 'Fouls' },
+        { allKey: '40', setKey: '1627', label: 'Yellow Cards' },
+        { allKey: '50', setKey: '1628', label: 'Red Cards' },
+        { allKey: '60', setKey: 'substitutionsperiod', label: 'Substitutions' },
+        { allKey: '1029', setKey: 'dangerousperiod', label: 'Dangerous Attacks' },
+        { allKey: '1126', setKey: 'attackperiod', label: 'Attacks' },
+        { allKey: '1030', setKey: 'ballsafeperiod', label: 'Ball Safe' },
+      ];
+
+      const activeRows = isTennis ? tennisRows : footballRows;
+
+      const rendered = activeRows.map((r) => {
         let hVal, aVal;
         if (selectedStatPeriod === 'all') {
           const item = values[r.allKey];
@@ -931,12 +972,13 @@
         const tot = Math.max(1, hNum + aNum);
         const hPct = Math.round((hNum / tot) * 100);
         const aPct = Math.round((aNum / tot) * 100);
+        const sfx = r.suffix && !String(hVal).includes('%') ? r.suffix : '';
 
         return `<div class="stat-compare-row">
           <div class="stat-compare-header">
-            <strong style="color:var(--accent-cyan);">${hVal}</strong>
+            <strong style="color:var(--accent-cyan);">${hVal}${sfx}</strong>
             <span style="color:var(--text-secondary);font-weight:600;">${r.label}</span>
-            <strong style="color:var(--accent-amber);">${aVal}</strong>
+            <strong style="color:var(--accent-amber);">${aVal}${sfx}</strong>
           </div>
           <div class="stat-compare-bars">
             <div class="bar-left-bg"><div class="bar-left-fill" style="width:${hPct}%;"></div></div>
@@ -948,21 +990,66 @@
       container.innerHTML = rendered || '<div style="color:var(--text-secondary);">No detailed statistics available for this period.</div>';
     }
 
+    function crestImg(teamObj, size = 18) {
+      const uid = teamObj?.uid || teamObj?._id;
+      if (!uid || !teamObj?.haslogo) return '';
+      return `<img src="https://img.sportradar.com/ls/crest/small/${uid}.png" width="${size}" height="${size}" alt="" style="vertical-align:middle;margin-right:0.35rem;object-fit:contain;" onerror="this.style.display='none'" />`;
+    }
+
     function renderDossier(d) {
       currentDossier = d;
       const mi = d.match_info || {};
       const m = d.timeline_delta?.match || mi.match || {};
       const hTeam = mi.match?.teams?.home || m.teams?.home || {};
       const aTeam = mi.match?.teams?.away || m.teams?.away || {};
+      const isTennis = Number(d.sport_id) === 5;
+      const hIsClub = Boolean(d.home_is_club || hTeam.haslogo || !isTennis);
+      const aIsClub = Boolean(d.away_is_club || aTeam.haslogo || !isTennis);
 
       document.getElementById('match-id-pill').textContent = `Match #${d.match_id}`;
       document.title = `Match Center #${d.match_id} — ${hTeam.name || 'Home'} vs ${aTeam.name || 'Away'} (@betscout/sdk)`;
+      const hdrSub = document.getElementById('header-subtitle');
+      if (hdrSub) {
+        hdrSub.innerHTML = `1:1 SDK Replica of <code>/match/${d.match_id}</code> powered by <code>client.getMatchCenterDossier(${d.match_id})</code>`;
+      }
+      const mkTag = document.getElementById('markets-code-tag');
+      if (mkTag) mkTag.textContent = `getMatchMarkets(${d.match_id}, 'prematch')`;
+      const stTag = document.getElementById('stats-code-tag');
+      if (stTag) stTag.textContent = `client.getMatchDetailsExtended(${d.match_id})`;
+      const stTitle = document.getElementById('stats-card-title');
+      if (stTitle) {
+        stTitle.textContent = isTennis
+          ? 'Live Match Boxscore & Serve/Return Statistics'
+          : 'Live Football Match Boxscore & Attacking Statistics';
+      }
+      const allMkTag = document.getElementById('all-markets-code-tag');
+      if (allMkTag) allMkTag.textContent = `getMatchMarkets(${d.match_id})`;
+
+      // Dynamic Tab Titles based on Sport
+      const tab1Btn = document.getElementById('tab-btn-overview');
+      const tab2Btn = document.getElementById('tab-btn-statistics');
+      const tab3Btn = document.getElementById('tab-btn-timeline');
+      if (tab1Btn) {
+        tab1Btn.textContent = isTennis
+          ? '1. Match Overview, Surface Win Rate, H2H & Player Info'
+          : '1. Match Overview, Season Scoring, Standings Slice, H2H & Club Info';
+      }
+      if (tab2Btn) {
+        tab2Btn.textContent = isTennis
+          ? '2. Match Statistics (All Match, Set 1, Set 2)'
+          : '2. Match Boxscore Statistics (Full Match, 1st Half, 2nd Half)';
+      }
+      if (tab3Btn) {
+        tab3Btn.textContent = isTennis
+          ? '3. Point-by-Point Timeline & All Bookmaker Markets'
+          : '3. Play-by-Play Timeline & All Bookmaker Markets';
+      }
 
       // Breadcrumbs & Venue
       const tourName = mi.season?.name || mi.tournament?.name || '';
-      const roundName = mi.match?.roundname?.name || '';
+      const roundName = mi.match?.roundname?.name || (mi.match?.round ? `Round ${mi.match.round}` : '');
       const groundName = mi.tournament?.ground?.name || '';
-      const stadiumName = mi.stadium ? `${mi.stadium.name} (${mi.stadium.city || ''})` : '';
+      const stadiumName = mi.stadium ? `${mi.stadium.name}${mi.stadium.city ? ` (${mi.stadium.city})` : ''}` : '';
       const tFlagHtml = d.tournament_flag_url
         ? `<img src="${d.tournament_flag_url}" width="18" height="13" alt="" style="vertical-align:middle;margin-right:0.3rem;" />`
         : '';
@@ -972,11 +1059,42 @@
       document.getElementById('hero-breadcrumbs').innerHTML =
         `<span>${d.sport_name}</span> · <span>${mi.realcategory?.name || ''}</span> · <span style="display:inline-flex;align-items:center;">${tFlagHtml}${tCrestHtml}<strong>${tourName}</strong></span> ${roundName ? `· <span class="pill">${roundName}</span>` : ''}`;
       document.getElementById('hero-venue-meta').innerHTML =
-        `${groundName ? `<span>Surface: <strong>${groundName}</strong></span>` : ''} ${stadiumName ? `· <span>Venue: <strong>${stadiumName}</strong></span>` : ''}`;
+        `${groundName ? `<span>Surface: <strong>${groundName}</strong></span>` : ''} ${stadiumName ? `${groundName ? '· ' : ''}<span>Venue: <strong>${stadiumName}</strong></span>` : ''}`;
 
-      // Headshots, Flags & Names
-      document.getElementById('home-headshot-img').src = d.home_headshot_url || d.home_flag_url || '';
-      document.getElementById('away-headshot-img').src = d.away_headshot_url || d.away_flag_url || '';
+      // Team Crests vs Player Headshots, Flags & Names
+      const hImgEl = document.getElementById('home-headshot-img');
+      const aImgEl = document.getElementById('away-headshot-img');
+      hImgEl.src = d.home_headshot_url || d.home_flag_url || '';
+      aImgEl.src = d.away_headshot_url || d.away_flag_url || '';
+
+      if (hIsClub) {
+        hImgEl.style.borderRadius = '14px';
+        hImgEl.style.objectFit = 'contain';
+        hImgEl.style.objectPosition = 'center center';
+        hImgEl.style.padding = '6px';
+        hImgEl.style.background = 'rgba(15, 23, 42, 0.85)';
+      } else {
+        hImgEl.style.borderRadius = '50%';
+        hImgEl.style.objectFit = 'cover';
+        hImgEl.style.objectPosition = 'center 15%';
+        hImgEl.style.padding = '0';
+        hImgEl.style.background = 'transparent';
+      }
+
+      if (aIsClub) {
+        aImgEl.style.borderRadius = '14px';
+        aImgEl.style.objectFit = 'contain';
+        aImgEl.style.objectPosition = 'center center';
+        aImgEl.style.padding = '6px';
+        aImgEl.style.background = 'rgba(15, 23, 42, 0.85)';
+      } else {
+        aImgEl.style.borderRadius = '50%';
+        aImgEl.style.objectFit = 'cover';
+        aImgEl.style.objectPosition = 'center 15%';
+        aImgEl.style.padding = '0';
+        aImgEl.style.background = 'transparent';
+      }
+
       document.getElementById('home-flag-img').src = d.home_flag_url || '';
       document.getElementById('away-flag-img').src = d.away_flag_url || '';
       document.getElementById('home-name').textContent = hTeam.name || 'Home';
@@ -991,16 +1109,32 @@
       aSeedEl.textContent = aSeed;
       aSeedEl.style.display = aSeed ? 'inline-flex' : 'none';
 
-      // Active server & Rank meta & Form
+      // Active server & Rank/Table meta & Form
       const srv = String(m.gamescore?.service ?? '');
       const hp = d.home_profile || {};
       const ap = d.away_profile || {};
-      const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
-      const aRank = ap.singlesrank || d.head2head?.rankings?.[aTeam._id]?.ranking;
-      document.getElementById('home-rank-meta').textContent =
-        `${hRank ? `Rank #${hRank}` : ''} ${hp.ranking?.points ? `(${hp.ranking.points} pts)` : ''} · ${hp.nationality || hTeam.cc?.name || ''}`;
-      document.getElementById('away-rank-meta').textContent =
-        `${aRank ? `Rank #${aRank}` : ''} ${ap.ranking?.points ? `(${ap.ranking.points} pts)` : ''} · ${ap.nationality || aTeam.cc?.name || ''}`;
+      const tRows = d.table_slice?.tablerows || [];
+      const hTableRow = tRows.find((r) => (r.team?.uid || r.team?._id) == (hTeam.uid || hTeam._id));
+      const aTableRow = tRows.find((r) => (r.team?.uid || r.team?._id) == (aTeam.uid || aTeam._id));
+
+      const hCountryName = hTeam.countrycode?.name || hTeam.cc?.name || hp.countrycode?.name || hp.nationality || mi.realcategory?.name || '';
+      const aCountryName = aTeam.countrycode?.name || aTeam.cc?.name || ap.countrycode?.name || ap.nationality || mi.realcategory?.name || '';
+
+      if (isTennis) {
+        const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
+        const aRank = ap.singlesrank || d.head2head?.rankings?.[aTeam._id]?.ranking;
+        document.getElementById('home-rank-meta').textContent =
+          `${hRank ? `Rank #${hRank}` : ''} ${hp.ranking?.points ? `(${hp.ranking.points} pts)` : ''} · ${hCountryName}`;
+        document.getElementById('away-rank-meta').textContent =
+          `${aRank ? `Rank #${aRank}` : ''} ${ap.ranking?.points ? `(${ap.ranking.points} pts)` : ''} · ${aCountryName}`;
+      } else {
+        const hPosStr = hTableRow?.pos ? `League Pos #${hTableRow.pos} (${hTableRow.pointsTotal ?? ''} pts)` : (hTeam.mediumname || hTeam.abbr || '');
+        const aPosStr = aTableRow?.pos ? `League Pos #${aTableRow.pos} (${aTableRow.pointsTotal ?? ''} pts)` : (aTeam.mediumname || aTeam.abbr || '');
+        document.getElementById('home-rank-meta').textContent =
+          `${hPosStr}${hPosStr && hCountryName ? ' · ' : ''}${hCountryName}`;
+        document.getElementById('away-rank-meta').textContent =
+          `${aPosStr}${aPosStr && aCountryName ? ' · ' : ''}${aCountryName}`;
+      }
 
       const fw = d.form_wdl || { home: [], away: [], home_form_pct: 0, away_form_pct: 0 };
       document.getElementById('home-form-strip').innerHTML =
@@ -1008,49 +1142,86 @@
       document.getElementById('away-form-strip').innerHTML =
         renderFormWdlStrip(fw.away, fw.away_form_pct, true);
 
-      // Scoreboard center: keep player names vertically aligned, keep main score strictly centered with absolute ball indicator
+      // Scoreboard center: keep player/team names vertically aligned, keep main score strictly centered
       document.getElementById('match-status-badge').textContent = m.status?.name || 'Live';
       const hSets = m.result?.home ?? 0;
       const aSets = m.result?.away ?? 0;
-      const hBallAbove = srv === '1' ? '<span class="serve-ball-indicator left" title="Active Server">🎾</span>' : '';
-      const aBallAbove = srv === '2' ? '<span class="serve-ball-indicator right" title="Active Server">🎾</span>' : '';
+      const hBallAbove = isTennis && srv === '1' ? '<span class="serve-ball-indicator left" title="Active Server">🎾</span>' : '';
+      const aBallAbove = isTennis && srv === '2' ? '<span class="serve-ball-indicator right" title="Active Server">🎾</span>' : '';
       document.getElementById('main-sets-score').innerHTML =
         `${hBallAbove}<span>${hSets} - ${aSets}</span>${aBallAbove}`;
 
       const periods = m.periods || {};
-      const pKeys = ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => periods[k]);
+      const pKeys = isTennis
+        ? ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => periods[k])
+        : ['p1', 'ft', 'ot', 'ap'].filter((k) => periods[k]);
+      const pHeaderLabels = pKeys.map((k, idx) => {
+        if (isTennis) return `S${idx + 1}`;
+        if (k === 'p1') return 'HT';
+        if (k === 'ft') return 'FT';
+        return k.toUpperCase();
+      });
+
       document.getElementById('period-headers-tr').innerHTML =
-        `<th style="text-align:left;">Competitor</th>` + pKeys.map((k, idx) => `<th>S${idx + 1}</th>`).join('') + (m.gamescore ? `<th>Pts</th>` : '');
+        `<th style="text-align:left;">${isTennis ? 'Player' : 'Team'}</th>` +
+        pHeaderLabels.map((lbl) => `<th>${lbl}</th>`).join('') +
+        (m.gamescore ? `<th>Pts</th>` : '');
       document.getElementById('period-scores-tbody').innerHTML = `
         <tr>
-          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${hTeam.abbr || hTeam.name}</td>
+          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${crestImg(hTeam, 16)}${hTeam.abbr || hTeam.name}</td>
           ${pKeys.map((k) => `<td><strong>${periods[k]?.home ?? '—'}</strong></td>`).join('')}
           ${m.gamescore ? `<td style="color:var(--accent-cyan);font-weight:800;">${m.gamescore.home ?? 0}</td>` : ''}
         </tr>
         <tr>
-          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${aTeam.abbr || aTeam.name}</td>
+          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${crestImg(aTeam, 16)}${aTeam.abbr || aTeam.name}</td>
           ${pKeys.map((k) => `<td><strong>${periods[k]?.away ?? '—'}</strong></td>`).join('')}
           ${m.gamescore ? `<td style="color:var(--accent-amber);font-weight:800;">${m.gamescore.away ?? 0}</td>` : ''}
         </tr>
       `;
 
-      // Win Probability & Markets (with placeholder interpolation!)
+      // Win Probability & Markets (supports both 2-Way and 3-Way Home / Draw / Away!)
       const mm = d.merged_markets || {};
       const rawM = d.raw_markets || [];
-      const winM = rawM.find((x) => x._marketId === 186 || x._marketId === 1);
-      let hProb = 50, aProb = 50;
-      if (winM && winM.outcomes && winM.outcomes.length >= 2) {
-        const o1 = winM.outcomes[0];
-        const o2 = winM.outcomes[winM.outcomes.length - 1];
-        if (o1.probability && o2.probability) {
-          hProb = Number((o1.probability * 100).toFixed(1));
-          aProb = Number((o2.probability * 100).toFixed(1));
-        } else if (o1.odds && o2.odds) {
-          const inv1 = 1 / o1.odds, inv2 = 1 / o2.odds;
-          hProb = Number(((inv1 / (inv1 + inv2)) * 100).toFixed(1));
-          aProb = Number(((inv2 / (inv1 + inv2)) * 100).toFixed(1));
+      const winM = rawM.find((x) => x._marketId === 1 || x._marketId === 186);
+      let hProb = 50, dProb = 0, aProb = 50;
+      let drawOdds = mm.odds_draw ?? null;
+
+      if (winM && Array.isArray(winM.outcomes) && winM.outcomes.length >= 2) {
+        const oHome = winM.outcomes[0];
+        const oAway = winM.outcomes[winM.outcomes.length - 1];
+        const oDraw = winM.outcomes.length >= 3 ? winM.outcomes[1] : null;
+        if (oDraw?.odds && !drawOdds) drawOdds = oDraw.odds;
+
+        if (oHome.probability && oAway.probability) {
+          hProb = Number((oHome.probability * 100).toFixed(1));
+          aProb = Number((oAway.probability * 100).toFixed(1));
+          const rawRem = Number((100 - hProb - aProb).toFixed(1));
+          dProb = oDraw?.probability
+            ? Number((oDraw.probability * 100).toFixed(1))
+            : (rawRem > 0.5 ? rawRem : 0);
+          // Ensure exact 100% total when draw is present
+          if (dProb > 0) {
+            dProb = Number(Math.max(0, 100 - hProb - aProb).toFixed(1));
+          }
+        } else if (oHome.odds && oAway.odds) {
+          const inv1 = 1 / oHome.odds;
+          const invX = oDraw?.odds ? 1 / oDraw.odds : 0;
+          const inv2 = 1 / oAway.odds;
+          const sumInv = inv1 + invX + inv2;
+          hProb = Number(((inv1 / sumInv) * 100).toFixed(1));
+          aProb = Number(((inv2 / sumInv) * 100).toFixed(1));
+          dProb = invX > 0 ? Number(Math.max(0, 100 - hProb - aProb).toFixed(1)) : 0;
         }
+      } else if (!isTennis && mm.odds_home && mm.odds_away) {
+        const inv1 = 1 / mm.odds_home;
+        const invX = mm.odds_draw ? 1 / mm.odds_draw : 0;
+        const inv2 = 1 / mm.odds_away;
+        const sumInv = inv1 + invX + inv2;
+        hProb = Number(((inv1 / sumInv) * 100).toFixed(1));
+        aProb = Number(((inv2 / sumInv) * 100).toFixed(1));
+        dProb = Number(Math.max(0, 100 - hProb - aProb).toFixed(1));
       }
+
       document.getElementById('prob-home-lbl').textContent =
         `${hTeam.name} — ${hProb}% (${mm.odds_home ?? '—'})`;
       document.getElementById('prob-away-lbl').textContent =
@@ -1058,13 +1229,28 @@
       document.getElementById('prob-home-bar').style.width = `${hProb}%`;
       document.getElementById('prob-away-bar').style.width = `${aProb}%`;
 
-      document.getElementById('overview-markets-tbody').innerHTML = rawM.slice(0, 8).map((mk) => {
+      const drawLblEl = document.getElementById('prob-draw-lbl');
+      const drawBarEl = document.getElementById('prob-draw-bar');
+      if (dProb > 0.5) {
+        drawLblEl.style.display = 'inline';
+        drawLblEl.textContent = `Draw — ${dProb}%${drawOdds ? ` (${drawOdds})` : ''}`;
+        drawBarEl.style.display = 'block';
+        drawBarEl.style.width = `${dProb}%`;
+      } else {
+        drawLblEl.style.display = 'none';
+        drawBarEl.style.display = 'none';
+        drawBarEl.style.width = '0%';
+      }
+
+      document.getElementById('overview-markets-tbody').innerHTML = rawM.slice(0, 6).map((mk) => {
         const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';
         const mkTitle = formatMarketText(mk.name || `Market #${mk._marketId}`, hTeam.name, aTeam.name, mk.specifiers);
-        const outStr = (mk.outcomes || []).map((o) => {
+        const allOuts = mk.outcomes || [];
+        const shownOuts = allOuts.slice(0, 6);
+        const outStr = shownOuts.map((o) => {
           const oLabel = formatMarketText(o.name, hTeam.name, aTeam.name, mk.specifiers);
-          return `<span class="pill" style="margin-right:0.35rem;">${oLabel}: <strong>${o.odds}</strong> ${o.probability ? `(${Math.round(o.probability * 100)}%)` : ''}</span>`;
-        }).join('');
+          return `<span class="pill" style="margin-right:0.35rem;margin-bottom:0.2rem;">${oLabel}: <strong>${o.odds}</strong> ${o.probability ? `(${Math.round(o.probability * 100)}%)` : ''}</span>`;
+        }).join('') + (allOuts.length > 6 ? `<span class="pill" style="opacity:0.75;">+${allOuts.length - 6} more</span>` : '');
         return `<tr>
           <td><strong>${mkTitle}</strong></td>
           <td><code>${specStr}</code></td>
@@ -1072,42 +1258,208 @@
         </tr>`;
       }).join('');
 
-      // Surface Win Rate Comparison
-      document.getElementById('surf-home-th').textContent = `${hTeam.name} (W–L / %)`;
-      document.getElementById('surf-away-th').textContent = `${aTeam.name} (W–L / %)`;
-      const hGs = hp.groundstats || [];
-      const aGs = ap.groundstats || [];
-      const grounds = ['All surfaces', 'Hardcourt', 'Indoor', 'Clay', 'Grass'];
-      document.getElementById('surface-comparison-tbody').innerHTML = grounds.map((gName) => {
-        const hg = hGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
-        const ag = aGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
-        return `<tr>
-          <td><strong>${gName}</strong></td>
-          <td><strong>${hg.matcheswon}-${hg.matcheslost}</strong> <span class="pill">${hg.matcheswon_percent}%</span></td>
-          <td><strong>${ag.matcheswon}-${ag.matcheslost}</strong> <span class="pill pill-amber">${ag.matcheswon_percent}%</span></td>
-        </tr>`;
-      }).join('');
+      // Card 2 (Right of Win Probability): Surface Win Rate (Tennis) OR Team Season Scoring & Form Comparison (Football / Team Sports)
+      const surfTitleEl = document.getElementById('surf-card-title');
+      const surfTagEl = document.getElementById('surf-card-tag');
+      const surfMetricTh = document.getElementById('surf-metric-th');
+      document.getElementById('surf-home-th').innerHTML = `${crestImg(hTeam, 16)}${hTeam.name}`;
+      document.getElementById('surf-away-th').innerHTML = `${crestImg(aTeam, 16)}${aTeam.name}`;
 
-      // Biographical Comparison
-      document.getElementById('bio-home-th').textContent = hTeam.name;
-      document.getElementById('bio-away-th').textContent = aTeam.name;
-      const bioRows = [
-        ['Current Single Rank', `#${hp.singlesrank || hRank || '—'}`, `#${ap.singlesrank || aRank || '—'}`],
-        ['Career High Rank', `#${hp.highestranking?.singles?.ranking || '—'} (${hp.highestranking?.singles?.date || '—'})`, `#${ap.highestranking?.singles?.ranking || '—'} (${ap.highestranking?.singles?.date || '—'})`],
-        ['Turned Pro', hp.turnedpro || '—', ap.turnedpro || '—'],
-        ['Date of Birth', hp.dateofbirth || '—', ap.dateofbirth || '—'],
-        ['Height / Weight', `${hp.height || '—'} cm / ${hp.weight || '—'} kg`, `${ap.height || '—'} cm / ${ap.weight || '—'} kg`],
-        ['Plays', hp.plays || '—', ap.plays || '—'],
-        ['Favourite Surface', hp.favouritesurface || '—', ap.favouritesurface || '—'],
-        ['Coach', hp.coachname || '—', ap.coachname || '—'],
-      ];
-      document.getElementById('player-info-compare-tbody').innerHTML = bioRows.map(([lbl, hv, av]) => `
-        <tr>
-          <td style="color:var(--text-secondary);">${lbl}</td>
-          <td><strong>${hv}</strong></td>
-          <td><strong>${av}</strong></td>
-        </tr>
-      `).join('');
+      if (isTennis) {
+        if (surfTitleEl) surfTitleEl.textContent = 'Surface Win Rate Comparison (All / Hard / Indoor / Clay / Grass)';
+        if (surfTagEl) surfTagEl.textContent = 'getTeamProfile() · getTennisPlayerSurfaceStats()';
+        if (surfMetricTh) surfMetricTh.textContent = 'Court Surface';
+        const hGs = hp.groundstats || [];
+        const aGs = ap.groundstats || [];
+        const grounds = ['All surfaces', 'Hardcourt', 'Indoor', 'Clay', 'Grass'];
+        document.getElementById('surface-comparison-tbody').innerHTML = grounds.map((gName) => {
+          const hg = hGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
+          const ag = aGs.find((x) => x.ground === gName) || { matcheswon: 0, matcheslost: 0, matcheswon_percent: 0 };
+          return `<tr>
+            <td><strong>${gName}</strong></td>
+            <td><strong>${hg.matcheswon}-${hg.matcheslost}</strong> <span class="pill">${hg.matcheswon_percent}%</span></td>
+            <td><strong>${ag.matcheswon}-${ag.matcheslost}</strong> <span class="pill pill-amber">${ag.matcheswon_percent}%</span></td>
+          </tr>`;
+        }).join('');
+      } else {
+        if (surfTitleEl) surfTitleEl.textContent = 'Season Statistics & Scoring Splits (Last 10 / Season Averages)';
+        if (surfTagEl) surfTagEl.textContent = 'getTeamScoringConcedingSplits() · getTeamSeasonStats()';
+        if (surfMetricTh) surfMetricTh.textContent = 'Season Metric';
+
+        const hSc = d.home_scoring_conceding?.stats || {};
+        const aSc = d.away_scoring_conceding?.stats || {};
+        const hSs = d.home_season_stats || {};
+        const aSs = d.away_season_stats || {};
+
+        const fmtPct = (v) => (v !== undefined && v !== null ? `${Math.round(Number(v) * 100)}%` : '—');
+        const fmtDec = (v) => (v !== undefined && v !== null && !isNaN(Number(v)) ? Number(v).toFixed(2) : '—');
+        const hPlayed = hSc.totalmatches?.total || hTableRow?.total || 10;
+        const aPlayed = aSc.totalmatches?.total || aTableRow?.total || 10;
+        const hWins = hTableRow?.winTotal ?? hSc.totalwins?.total ?? 0;
+        const aWins = aTableRow?.winTotal ?? aSc.totalwins?.total ?? 0;
+        const hDraws = hTableRow?.drawTotal ?? hSc.totaldraws?.total ?? 0;
+        const aDraws = aTableRow?.drawTotal ?? aSc.totaldraws?.total ?? 0;
+        const hLosses = hTableRow?.lossTotal ?? hSc.totallosses?.total ?? Math.max(0, Number(hPlayed) - Number(hWins) - Number(hDraws));
+        const aLosses = aTableRow?.lossTotal ?? aSc.totallosses?.total ?? Math.max(0, Number(aPlayed) - Number(aWins) - Number(aDraws));
+
+        const statRows = [
+          [
+            `Season Record (${hPlayed}M W-D-L)`,
+            `<strong>${hWins}W-${hDraws}D-${hLosses}L</strong> <span class="pill">${hPlayed ? Math.round((Number(hWins) / Number(hPlayed)) * 100) + '% W' : ''}</span>`,
+            `<strong>${aWins}W-${aDraws}D-${aLosses}L</strong> <span class="pill pill-amber">${aPlayed ? Math.round((Number(aWins) / Number(aPlayed)) * 100) + '% W' : ''}</span>`,
+          ],
+          [
+            'Goals Scored / Match',
+            `<strong>${fmtDec(hSc.scoring?.goalsscoredaverage?.total ?? hSs.goals_scored)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(${hSc.scoring?.goalsscored?.total ?? '—'} tot)</span>`,
+            `<strong>${fmtDec(aSc.scoring?.goalsscoredaverage?.total ?? aSs.goals_scored)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(${aSc.scoring?.goalsscored?.total ?? '—'} tot)</span>`,
+          ],
+          [
+            'Goals Conceded / Match',
+            `<strong>${fmtDec(hSc.conceding?.goalsconcededaverage?.total ?? hSs.goals_conceded)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(${hSc.conceding?.goalsconceded?.total ?? '—'} tot)</span>`,
+            `<strong>${fmtDec(aSc.conceding?.goalsconcededaverage?.total ?? aSs.goals_conceded)}</strong> <span style="font-size:0.75rem;color:var(--text-secondary);">(${aSc.conceding?.goalsconceded?.total ?? '—'} tot)</span>`,
+          ],
+          [
+            'Both Teams Scored (BTTS %)',
+            `<span class="pill">${fmtPct(hSc.scoring?.bothteamsscoredaverage?.total)}</span> (${hSc.scoring?.bothteamsscored?.total ?? '—'}/${hPlayed})`,
+            `<span class="pill pill-amber">${fmtPct(aSc.scoring?.bothteamsscoredaverage?.total)}</span> (${aSc.scoring?.bothteamsscored?.total ?? '—'}/${aPlayed})`,
+          ],
+          [
+            'Clean Sheets %',
+            `<span class="pill pill-emerald">${fmtPct(hSc.conceding?.cleansheetsaverage?.total)}</span> (${hSc.conceding?.cleansheets?.total ?? '—'}/${hPlayed})`,
+            `<span class="pill pill-emerald">${fmtPct(aSc.conceding?.cleansheetsaverage?.total)}</span> (${aSc.conceding?.cleansheets?.total ?? '—'}/${aPlayed})`,
+          ],
+          [
+            'Failed to Score %',
+            `${fmtPct(hSc.scoring?.failedtoscoreaverage?.total)} (${hSc.scoring?.failedtoscore?.total ?? '—'}/${hPlayed})`,
+            `${fmtPct(aSc.scoring?.failedtoscoreaverage?.total)} (${aSc.scoring?.failedtoscore?.total ?? '—'}/${aPlayed})`,
+          ],
+          [
+            'Avg Ball Possession / Shots',
+            `<strong>${hSs.ball_possession ?? '—'}%</strong> · ${hSs.goal_attempts ?? '—'} shots (${hSs.shots_on_goal ?? '—'} OT)`,
+            `<strong>${aSs.ball_possession ?? '—'}%</strong> · ${aSs.goal_attempts ?? '—'} shots (${aSs.shots_on_goal ?? '—'} OT)`,
+          ],
+          [
+            'Avg Corner Kicks / Yellow Cards',
+            `<strong>${hSs.corner_kicks ?? '—'}</strong> corners · ${hSs.yellow_cards ?? '—'} YC`,
+            `<strong>${aSs.corner_kicks ?? '—'}</strong> corners · ${aSs.yellow_cards ?? '—'} YC`,
+          ],
+        ];
+
+        document.getElementById('surface-comparison-tbody').innerHTML = statRows.map(([lbl, hv, av]) => `
+          <tr>
+            <td style="color:var(--text-secondary);font-weight:600;">${lbl}</td>
+            <td>${hv}</td>
+            <td>${av}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Card 3: Player Bio (Tennis) OR Club Info, Managers, Missing Players & Standings Slice (Football / Team Sports)
+      const bioTitleEl = document.getElementById('bio-card-title');
+      const bioTagEl = document.getElementById('bio-card-tag');
+      const tableSliceBox = document.getElementById('club-table-slice-box');
+      document.getElementById('bio-home-th').innerHTML = `${crestImg(hTeam, 16)}${hTeam.name}`;
+      document.getElementById('bio-away-th').innerHTML = `${crestImg(aTeam, 16)}${aTeam.name}`;
+
+      if (isTennis) {
+        if (bioTitleEl) bioTitleEl.textContent = 'Player Info & ATP Ranking Comparison';
+        if (bioTagEl) bioTagEl.textContent = 'stats_team_info · stats_match_head2head';
+        if (tableSliceBox) tableSliceBox.style.display = 'none';
+        const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
+        const aRank = ap.singlesrank || d.head2head?.rankings?.[aTeam._id]?.ranking;
+        const bioRows = [
+          ['Current Single Rank', `#${hp.singlesrank || hRank || '—'}`, `#${ap.singlesrank || aRank || '—'}`],
+          ['Career High Rank', `#${hp.highestranking?.singles?.ranking || '—'} (${hp.highestranking?.singles?.date || '—'})`, `#${ap.highestranking?.singles?.ranking || '—'} (${ap.highestranking?.singles?.date || '—'})`],
+          ['Turned Pro', hp.turnedpro || '—', ap.turnedpro || '—'],
+          ['Date of Birth', hp.dateofbirth || '—', ap.dateofbirth || '—'],
+          ['Height / Weight', `${hp.height || '—'} cm / ${hp.weight || '—'} kg`, `${ap.height || '—'} cm / ${ap.weight || '—'} kg`],
+          ['Plays', hp.plays || '—', ap.plays || '—'],
+          ['Favourite Surface', hp.favouritesurface || '—', ap.favouritesurface || '—'],
+          ['Coach', hp.coachname || '—', ap.coachname || '—'],
+        ];
+        document.getElementById('player-info-compare-tbody').innerHTML = bioRows.map(([lbl, hv, av]) => `
+          <tr>
+            <td style="color:var(--text-secondary);">${lbl}</td>
+            <td><strong>${hv}</strong></td>
+            <td><strong>${av}</strong></td>
+          </tr>
+        `).join('');
+      } else {
+        if (bioTitleEl) bioTitleEl.textContent = 'Club Profile, Managers, Missing Players & League Standings';
+        if (bioTagEl) bioTagEl.textContent = 'getTeamProfile() · getTeamMissingPlayers() · getMatchTableSlice()';
+        const hMgr = mi.manager?.home?.name || hp.manager?.name || '—';
+        const aMgr = mi.manager?.away?.name || ap.manager?.name || '—';
+        const hStad = hp.stadium?.name ? `${hp.stadium.name} (${hp.stadium.capacity ? Number(hp.stadium.capacity).toLocaleString() : ''})` : (mi.stadium?.name || '—');
+        const aStad = ap.stadium?.name ? `${ap.stadium.name} (${ap.stadium.capacity ? Number(ap.stadium.capacity).toLocaleString() : ''})` : '—';
+        const hMiss = (d.home_missing_players || []).slice(0, 5).map((p) => {
+          const pName = p.name || p.player_name || 'Player';
+          const pPos = p.position ? ` (${p.position})` : '';
+          const pReason = p.cause || p.reason || p.status || p.status_name || 'Out';
+          return `${pName}${pPos} <span class="pill pill-rose" style="font-size:0.65rem;">${pReason}</span>`;
+        }).join('<br/>') || '<span class="pill pill-emerald">Full Squad Fit</span>';
+        const aMiss = (d.away_missing_players || []).slice(0, 5).map((p) => {
+          const pName = p.name || p.player_name || 'Player';
+          const pPos = p.position ? ` (${p.position})` : '';
+          const pReason = p.cause || p.reason || p.status || p.status_name || 'Out';
+          return `${pName}${pPos} <span class="pill pill-rose" style="font-size:0.65rem;">${pReason}</span>`;
+        }).join('<br/>') || '<span class="pill pill-emerald">Full Squad Fit</span>';
+
+        const clubRows = [
+          ['League Standing', hTableRow ? `#${hTableRow.pos} (${hTableRow.pointsTotal} pts, ${hTableRow.winTotal}W-${hTableRow.drawTotal}D-${hTableRow.lossTotal}L)` : '—', aTableRow ? `#${aTableRow.pos} (${aTableRow.pointsTotal} pts, ${aTableRow.winTotal}W-${aTableRow.drawTotal}D-${aTableRow.lossTotal}L)` : '—'],
+          ['Head Coach / Manager', hMgr, aMgr],
+          ['Founded', hp.team?.founded || '—', ap.team?.founded || '—'],
+          ['Home Stadium', hStad, aStad],
+          ['Goals For / Against (Season)', hTableRow ? `${hTableRow.goalsForTotal}:${hTableRow.goalsAgainstTotal} (GD ${hTableRow.goalDiffTotal > 0 ? '+' + hTableRow.goalDiffTotal : hTableRow.goalDiffTotal})` : '—', aTableRow ? `${aTableRow.goalsForTotal}:${aTableRow.goalsAgainstTotal} (GD ${aTableRow.goalDiffTotal > 0 ? '+' + aTableRow.goalDiffTotal : aTableRow.goalDiffTotal})` : '—'],
+          ['Missing / Injured Players', hMiss, aMiss],
+        ];
+        document.getElementById('player-info-compare-tbody').innerHTML = clubRows.map(([lbl, hv, av]) => `
+          <tr>
+            <td style="color:var(--text-secondary);font-weight:600;">${lbl}</td>
+            <td>${hv}</td>
+            <td>${av}</td>
+          </tr>
+        `).join('');
+
+        if (tableSliceBox && tRows.length > 0) {
+          tableSliceBox.style.display = 'block';
+          tableSliceBox.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Club</th>
+                    <th>P</th>
+                    <th>W</th>
+                    <th>D</th>
+                    <th>L</th>
+                    <th>Goals</th>
+                    <th>DIFF</th>
+                    <th>PTS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tRows.map((r) => `
+                    <tr>
+                      <td><strong>${r.pos}</strong></td>
+                      <td><strong>${crestImg(r.team, 16)}${r.team?.name || ''}</strong></td>
+                      <td>${r.total ?? ''}</td>
+                      <td>${r.winTotal ?? ''}</td>
+                      <td>${r.drawTotal ?? ''}</td>
+                      <td>${r.lossTotal ?? ''}</td>
+                      <td>${r.goalsForTotal ?? 0}:${r.goalsAgainstTotal ?? 0}</td>
+                      <td>${r.goalDiffTotal > 0 ? '+' + r.goalDiffTotal : (r.goalDiffTotal ?? 0)}</td>
+                      <td><span class="pill">${r.pointsTotal ?? 0}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        } else if (tableSliceBox) {
+          tableSliceBox.style.display = 'none';
+        }
+      }
 
       // H2H Edge Progress Bar & Meetings (Matching Win Probability colors: Cyan for Home, Orange/Amber for Away)
       const h2hEdge = d.h2h_edge || { total_meetings: 0, home_wins: 0, draws: 0, away_wins: 0, home_win_pct: 50, draw_pct: 0, away_win_pct: 50 };
@@ -1130,28 +1482,39 @@
       }
 
       const vsMatches = d.versus?.matches || [];
+      const h2hColRound = document.getElementById('h2h-col-round');
+      const h2hColScore = document.getElementById('h2h-col-score');
+      const lastHomeScoreCol = document.getElementById('last-home-col-score');
+      const lastAwayScoreCol = document.getElementById('last-away-col-score');
+      if (h2hColRound) h2hColRound.textContent = isTennis ? 'Round / Surface' : 'Round';
+      if (h2hColScore) h2hColScore.textContent = isTennis ? 'Sets (Games)' : 'Score (HT)';
+      if (lastHomeScoreCol) lastHomeScoreCol.textContent = isTennis ? 'Sets' : 'Score';
+      if (lastAwayScoreCol) lastAwayScoreCol.textContent = isTennis ? 'Sets' : 'Score';
       document.getElementById('h2h-meetings-tbody').innerHTML = vsMatches.map((vm) => {
         const pStr = vm.periods
-          ? ['p1', 'p2', 'p3'].filter((k) => vm.periods[k]).map((k) => `${vm.periods[k].home}-${vm.periods[k].away}`).join(', ')
+          ? (isTennis
+              ? ['p1', 'p2', 'p3'].filter((k) => vm.periods[k]).map((k) => `${vm.periods[k].home}-${vm.periods[k].away}`).join(', ')
+              : (vm.periods.p1 ? `HT ${vm.periods.p1.home}-${vm.periods.p1.away}` : ''))
           : '';
+        const roundOrComp = vm.roundname?.shortname || vm.roundname?.name || (vm.round ? `R${vm.round}` : '—');
         return `<tr>
           <td>${vm.time?.date || '—'}</td>
-          <td>${vm.roundname?.shortname || vm.roundname?.name || '—'} · ${vm.ground?.name || ''}</td>
-          <td><strong>${vm.teams?.home?.name || hTeam.name}</strong></td>
-          <td><span class="pill">${vm.result?.home ?? 0}-${vm.result?.away ?? 0}</span> <span style="font-size:0.75rem;color:var(--text-secondary);">(${pStr})</span></td>
-          <td><strong>${vm.teams?.away?.name || aTeam.name}</strong></td>
+          <td>${roundOrComp}${vm.ground?.name ? ` · ${vm.ground.name}` : ''}</td>
+          <td><strong>${crestImg(vm.teams?.home, 16)}${vm.teams?.home?.name || hTeam.name}</strong></td>
+          <td><span class="pill">${vm.result?.home ?? 0}-${vm.result?.away ?? 0}</span> ${pStr ? `<span style="font-size:0.75rem;color:var(--text-secondary);">(${pStr})</span>` : ''}</td>
+          <td><strong>${crestImg(vm.teams?.away, 16)}${vm.teams?.away?.name || aTeam.name}</strong></td>
         </tr>`;
       }).join('') || '<tr><td colspan="5" style="color:var(--text-secondary);">First career meeting.</td></tr>';
 
       // Last Matches for Home & Away
-      document.getElementById('last-home-title').textContent = `${hTeam.name} — Last Completed Matches`;
-      document.getElementById('last-away-title').textContent = `${aTeam.name} — Last Completed Matches`;
+      document.getElementById('last-home-title').innerHTML = `${crestImg(hTeam, 18)}${hTeam.name} — Last Completed Matches`;
+      document.getElementById('last-away-title').innerHTML = `${crestImg(aTeam, 18)}${aTeam.name} — Last Completed Matches`;
       const renderMatchList = (list) => (list || []).slice(0, 8).map((lm) => `
         <tr>
           <td>${lm.time?.date || '—'}</td>
-          <td>${lm.teams?.home?.name || ''}</td>
+          <td>${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</td>
           <td><strong>${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong></td>
-          <td>${lm.teams?.away?.name || ''}</td>
+          <td>${crestImg(lm.teams?.away, 16)}${lm.teams?.away?.name || ''}</td>
         </tr>
       `).join('');
       document.getElementById('home-last-matches-tbody').innerHTML = renderMatchList(d.home_last_matches);
@@ -1160,19 +1523,37 @@
       // Tab 2: Match Statistics
       renderMatchStatistics(d);
 
-      // Tab 3: Point-by-Point Timeline & Raw Markets (with placeholder interpolation!)
+      // Tab 3: Point-by-Point / Play-by-Play Timeline & Raw Markets (with placeholder interpolation!)
       const events = (d.full_timeline?.events || []).filter((e) =>
-        e.type === 'score_change_tennis' || e.type === 'periodscore' || e.type === 'goal' || e.type === 'card'
+        e.type === 'score_change_tennis' || e.type === 'periodscore' || e.type === 'goal' || e.type === 'card' || e.type === 'substitution'
       ).reverse().slice(0, 80);
-      document.getElementById('point-timeline-tbody').innerHTML = events.map((ev) => `
-        <tr>
+      document.getElementById('point-timeline-tbody').innerHTML = events.map((ev) => {
+        const tmSide = ev.service === '1'
+          ? `🎾 ${hTeam.abbr || 'Home'}`
+          : ev.service === '2'
+          ? `🎾 ${aTeam.abbr || 'Away'}`
+          : ev.team === 'home'
+          ? `${crestImg(hTeam, 14)}${hTeam.abbr || hTeam.name}`
+          : ev.team === 'away'
+          ? `${crestImg(aTeam, 14)}${aTeam.abbr || aTeam.name}`
+          : (ev.team || '—');
+        const minStr = ev.time !== undefined && ev.time !== null && ev.time !== -1
+          ? `${ev.time}${ev.injurytime ? `+${ev.injurytime}` : ''}'`
+          : (ev.set_score ? `${ev.set_score.home}-${ev.set_score.away}` : '—');
+        const detailStr = ev.player?.name
+          ? `<strong>${ev.player.name}</strong>${ev.assist1?.name ? ` (ast. ${ev.assist1.name})` : ''}`
+          : (ev.game_score ? `<strong>${ev.game_score.home}-${ev.game_score.away}</strong>` : '—');
+        const scoreStr = ev.game_points
+          ? `${ev.game_points.home}-${ev.game_points.away}`
+          : (ev.result && ev.result.home !== undefined ? `${ev.result.home}-${ev.result.away}` : '—');
+        return `<tr>
           <td><strong>${ev.name || ev.type}</strong></td>
-          <td>${ev.service === '1' ? `🎾 ${hTeam.abbr || 'Home'}` : ev.service === '2' ? `🎾 ${aTeam.abbr || 'Away'}` : (ev.team || '—')}</td>
-          <td>${ev.set_score ? `${ev.set_score.home}-${ev.set_score.away}` : '—'}</td>
-          <td>${ev.game_score ? `<strong>${ev.game_score.home}-${ev.game_score.away}</strong>` : '—'}</td>
-          <td><span class="pill">${ev.game_points ? `${ev.game_points.home}-${ev.game_points.away}` : (ev.result ? `${ev.result.home}-${ev.result.away}` : '—')}</span></td>
-        </tr>
-      `).join('');
+          <td>${tmSide}</td>
+          <td>${minStr}</td>
+          <td>${detailStr}</td>
+          <td><span class="pill">${scoreStr}</span></td>
+        </tr>`;
+      }).join('');
 
       document.getElementById('all-raw-markets-tbody').innerHTML = rawM.map((mk) => {
         const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';

@@ -350,3 +350,103 @@ def test_stage_sports_and_cricket_events():
     assert f1_sum["name"] == "Formula 1 2027"
     cr = client.get_cricket_events()
     assert cr["sportEvents"][0]["eventId"] == "sr:match:75797492"
+
+
+def test_soccer_v4_parity_and_football_match_center_dossier():
+    def mock_fetch(url: str, headers: dict[str, str], timeout: float) -> dict[str, Any] | None:
+        if "stats_season_teams2/140782" in url:
+            return _envelope(
+                {
+                    "teams": [
+                        {"_id": 565059, "uid": 2713, "name": "Genoa", "haslogo": True},
+                        {"_id": 9245, "uid": 2687, "name": "Juventus", "haslogo": True},
+                    ]
+                }
+            )
+        if "stats_season_fixtures2/140782" in url:
+            return _envelope({"matches": [{"_id": 71945350, "round": 9}]})
+        if "stats_season_lastx/140782" in url:
+            return _envelope({"matches": [{"_id": 71945350, "result": {"home": 2, "away": 0}}]})
+        if "stats_season_nextx/140782" in url:
+            return _envelope({"matches": [{"_id": 71945360, "round": 10}]})
+        if "match_info_statshub/71945350" in url:
+            return _envelope(
+                {
+                    "sport": {"_id": 1, "name": "Soccer"},
+                    "realcategory": {"_id": 31, "name": "Italy", "cc": {"a2": "it", "name": "Italy"}},
+                    "season": {"_id": 140782, "name": "Serie A 26/27"},
+                    "match": {
+                        "_id": 71945350,
+                        "_sid": 1,
+                        "_seasonid": 140782,
+                        "teams": {
+                            "home": {
+                                "_id": 565059,
+                                "uid": 2713,
+                                "name": "Genoa",
+                                "haslogo": True,
+                                "countrycode": {"a2": "it", "name": "Italy"},
+                            },
+                            "away": {
+                                "_id": 9245,
+                                "uid": 2687,
+                                "name": "Juventus",
+                                "haslogo": True,
+                                "countrycode": {"a2": "it", "name": "Italy"},
+                            },
+                        },
+                        "result": {"home": 2, "away": 0, "winner": "home"},
+                        "periods": {"p1": {"home": 2, "away": 0}, "ft": {"home": 2, "away": 0}},
+                    },
+                }
+            )
+        if "stats_team_seasonstats/2713/140782" in url:
+            return _envelope({"stats": {"ball_possession": 44.67, "goal_attempts": 9.56}})
+        if "stats_season_teamscoringconceding/140782/2713/10" in url:
+            return _envelope({"stats": {"totalmatches": {"total": 9}, "totalwins": {"total": 3}}})
+        if "stats_season_injuries/140782" in url:
+            return _envelope(
+                [
+                    {
+                        "uniqueteam": {"_id": 2713, "name": "Genoa"},
+                        "player": {
+                            "_id": 2932421,
+                            "name": "Venturino, Lorenzo",
+                            "shirtnumber": "76",
+                            "position": {"shortname": "FWD"},
+                        },
+                        "status": {
+                            "status": 1,
+                            "name": "Injured",
+                            "start": {"date": "08/09/26", "uts": 1788825600},
+                            "end": {"date": "15/11/26", "uts": 4000000000},
+                        },
+                    }
+                ]
+            )
+        return _envelope({})
+
+    client = BetScoutClient(fetch_fn=mock_fetch)
+    assert len(client.get_season_competitors(140782)["teams"]) == 2
+    assert client.get_season_schedule(140782)["matches"][0]["_id"] == 71945350
+    assert client.get_season_last_matches(140782)["matches"][0]["_id"] == 71945350
+    assert client.get_season_next_matches(140782)["matches"][0]["_id"] == 71945360
+
+    dossier = client.get_match_center_dossier(71945350)
+    assert dossier["ok"] is True
+    assert dossier["sport_id"] == 1
+    assert dossier["sport_name"] == "Soccer"
+    assert dossier["home_season_stats"]["ball_possession"] == 44.67
+    assert dossier["home_scoring_conceding"]["stats"]["totalwins"]["total"] == 3
+    assert len(dossier["home_missing_players"]) == 1
+    assert dossier["home_missing_players"][0]["name"] == "Venturino, Lorenzo"
+    assert (
+        format_market_placeholders(
+            "{$competitor1} ({+hcp}) / {$competitor2} ({-hcp})",
+            home_name="Genoa",
+            away_name="Juventus",
+            specifiers={"hcp": "0.75"},
+        )
+        == "Genoa (+0.75) / Juventus (-0.75)"
+    )
+

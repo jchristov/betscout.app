@@ -1346,6 +1346,11 @@ class BetScoutClient:
         a_team = teams_obj.get("away") or {}
         h_uid = h_team.get("uid") or h_team.get("_id")
         a_uid = a_team.get("uid") or a_team.get("_id")
+        season_id = (
+            ((match_info or {}).get("season") or {}).get("_id")
+            or m.get("_seasonid")
+            or (((match_info or {}).get("match") or {}).get("_seasonid"))
+        )
 
         versus = self.get_team_versus(h_uid, a_uid, 10) if (h_uid and a_uid) else None
         home_profile = self.get_team_profile(h_uid) if h_uid else None
@@ -1355,6 +1360,36 @@ class BetScoutClient:
         )
         away_surface = (
             self.get_tennis_player_surface_stats(a_uid) if (sport_id == 5 and a_uid) else None
+        )
+        home_season_stats_resp = (
+            self.get_team_season_stats(h_uid, season_id)
+            if (sport_id != 5 and h_uid and season_id)
+            else None
+        )
+        away_season_stats_resp = (
+            self.get_team_season_stats(a_uid, season_id)
+            if (sport_id != 5 and a_uid and season_id)
+            else None
+        )
+        home_scoring_conceding = (
+            self.get_team_scoring_conceding_splits(season_id, h_uid, 10)
+            if (sport_id != 5 and h_uid and season_id)
+            else None
+        )
+        away_scoring_conceding = (
+            self.get_team_scoring_conceding_splits(season_id, a_uid, 10)
+            if (sport_id != 5 and a_uid and season_id)
+            else None
+        )
+        home_missing_players = (
+            self.get_team_missing_players(h_uid, season_id=season_id)
+            if (sport_id != 5 and h_uid and season_id)
+            else []
+        )
+        away_missing_players = (
+            self.get_team_missing_players(a_uid, season_id=season_id)
+            if (sport_id != 5 and a_uid and season_id)
+            else []
         )
         home_streaks = self.get_team_streaks(h_uid) if h_uid else None
         away_streaks = self.get_team_streaks(a_uid) if a_uid else None
@@ -1397,12 +1432,18 @@ class BetScoutClient:
             "versus": versus,
             "primary_markets": primary_parsed,
             "consensus_markets": consensus_parsed,
-            "merged_markets": mergedMarkets if "mergedMarkets" in locals() else merged_markets,
+            "merged_markets": merged_markets,
             "raw_markets": raw_markets,
             "home_profile": home_profile,
             "away_profile": away_profile,
             "home_surface_stats": home_surface,
             "away_surface_stats": away_surface,
+            "home_season_stats": (home_season_stats_resp or {}).get("stats"),
+            "away_season_stats": (away_season_stats_resp or {}).get("stats"),
+            "home_scoring_conceding": home_scoring_conceding,
+            "away_scoring_conceding": away_scoring_conceding,
+            "home_missing_players": home_missing_players,
+            "away_missing_players": away_missing_players,
             "home_streaks": home_streaks,
             "away_streaks": away_streaks,
             "home_last_matches": home_last_list,

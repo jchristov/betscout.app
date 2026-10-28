@@ -537,11 +537,26 @@ def format_market_placeholders(
     if not out:
         return ""
     spec = specifiers or {}
+
+    def _resolve_signed(m: re.Match[str]) -> str:
+        sign = m.group(1)
+        key = m.group(2)
+        if key not in spec or spec[key] is None:
+            return f"{sign}{key}"
+        try:
+            num = float(spec[key])
+            val = -num if sign == "-" else num
+            fmt = int(val) if val.is_integer() else val
+            return f"+{fmt}" if val > 0 else str(fmt)
+        except (ValueError, TypeError):
+            return str(spec[key])
+
     out = re.sub(
         r"\{!(\w+)\}",
         lambda m: _to_ordinal(spec[m.group(1)]) if m.group(1) in spec else m.group(1),
         out,
     )
+    out = re.sub(r"\{([+-])(\w+)\}", _resolve_signed, out)
     out = re.sub(r"\{\$competitor1\}", home_name or "Home", out, flags=re.IGNORECASE)
     out = re.sub(r"\{\$competitor2\}", away_name or "Away", out, flags=re.IGNORECASE)
     out = re.sub(

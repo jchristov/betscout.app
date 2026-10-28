@@ -545,6 +545,15 @@ export function formatMarketPlaceholders(
     const val = spec[key];
     return val !== undefined ? toOrdinal(val) : key;
   });
+  // Replace {+hcp} / {-hcp} with signed specifier value
+  out = out.replace(/\{([+-])(\w+)\}/g, (_m, sign: string, key: string) => {
+    const rawVal = spec[key];
+    if (rawVal === undefined || rawVal === null) return `${sign}${key}`;
+    const num = Number(rawVal);
+    if (Number.isNaN(num)) return String(rawVal);
+    const val = sign === '-' ? -num : num;
+    return val > 0 ? `+${val}` : String(val);
+  });
   // Replace {$competitor1} and {$competitor2}
   out = out.replace(/\{\$competitor1\}/gi, context.homeName || 'Home');
   out = out.replace(/\{\$competitor2\}/gi, context.awayName || 'Away');

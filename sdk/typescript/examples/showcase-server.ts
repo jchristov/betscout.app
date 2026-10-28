@@ -576,28 +576,50 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/match-center') {
       const matchId = urlObj.searchParams.get('matchId') ?? '76034538';
       const dossier = await client.getMatchCenterDossier(matchId);
-      const hTeam = dossier.match_info?.match?.teams?.home ?? dossier.timeline_delta?.match?.teams?.home;
-      const aTeam = dossier.match_info?.match?.teams?.away ?? dossier.timeline_delta?.match?.teams?.away;
+      const hTeam =
+        dossier.match_info?.match?.teams?.home ?? dossier.timeline_delta?.match?.teams?.home;
+      const aTeam =
+        dossier.match_info?.match?.teams?.away ?? dossier.timeline_delta?.match?.teams?.away;
+      const hUid = hTeam?.uid ?? hTeam?._id;
+      const aUid = aTeam?.uid ?? aTeam?._id;
+      const rcIso = dossier.match_info?.realcategory?.cc?.a2;
       const hIso =
-        (typeof hTeam?.cc === 'object' && hTeam?.cc?.a2 ? hTeam.cc.a2 : dossier.home_profile?.countrycode?.a2) ?? 'us';
+        (typeof hTeam?.cc === 'object' && hTeam?.cc?.a2
+          ? hTeam.cc.a2
+          : hTeam?.countrycode?.a2 ?? dossier.home_profile?.countrycode?.a2 ?? rcIso) ?? 'int';
       const aIso =
-        (typeof aTeam?.cc === 'object' && aTeam?.cc?.a2 ? aTeam.cc.a2 : dossier.away_profile?.countrycode?.a2) ?? 'au';
+        (typeof aTeam?.cc === 'object' && aTeam?.cc?.a2
+          ? aTeam.cc.a2
+          : aTeam?.countrycode?.a2 ?? dossier.away_profile?.countrycode?.a2 ?? rcIso) ?? 'int';
       const tourIso =
-        (dossier.match_info?.tournament as { tennisinfo?: { a2?: string } } | undefined)?.tennisinfo?.a2 ??
-        dossier.match_info?.realcategory?.cc?.a2 ??
-        'ch';
+        (dossier.match_info?.tournament as { tennisinfo?: { a2?: string } } | undefined)?.tennisinfo
+          ?.a2 ??
+        rcIso ??
+        'int';
       const seasonObj = dossier.match_info?.season as { name?: string } | undefined;
-      const [homeHeadshotUrl, awayHeadshotUrl, tournamentCrestUrl] = await Promise.all([
-        resolvePlayerHeadshotUrl(hTeam?.name),
-        resolvePlayerHeadshotUrl(aTeam?.name),
+
+      const homeImagePromise =
+        hTeam?.haslogo && hUid
+          ? Promise.resolve(getTeamLogoUrl(hUid, { size: 'big' }))
+          : resolvePlayerHeadshotUrl(hTeam?.name);
+      const awayImagePromise =
+        aTeam?.haslogo && aUid
+          ? Promise.resolve(getTeamLogoUrl(aUid, { size: 'big' }))
+          : resolvePlayerHeadshotUrl(aTeam?.name);
+
+      const [homeAvatarUrl, awayAvatarUrl, tournamentCrestUrl] = await Promise.all([
+        homeImagePromise,
+        awayImagePromise,
         resolveCompetitionCrestUrl(seasonObj?.name ?? dossier.match_info?.tournament?.name),
       ]);
       return sendJson(res, 200, {
         ...dossier,
+        home_is_club: Boolean(hTeam?.haslogo),
+        away_is_club: Boolean(aTeam?.haslogo),
         home_flag_url: getCountryFlagUrl(hIso, { format: 'svg', ratio: '4x3' }),
         away_flag_url: getCountryFlagUrl(aIso, { format: 'svg', ratio: '4x3' }),
-        home_headshot_url: homeHeadshotUrl,
-        away_headshot_url: awayHeadshotUrl,
+        home_headshot_url: homeAvatarUrl,
+        away_headshot_url: awayAvatarUrl,
         tournament_flag_url: getCountryFlagUrl(tourIso, { format: 'svg', ratio: '4x3' }),
         tournament_crest_url: tournamentCrestUrl,
       });

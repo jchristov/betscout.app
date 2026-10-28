@@ -2558,6 +2558,11 @@ export class BetScoutClient {
     const aTeam = matchInfo?.match?.teams?.away ?? m?.teams?.away;
     const hUid = hTeam?.uid ?? hTeam?._id ?? null;
     const aUid = aTeam?.uid ?? aTeam?._id ?? null;
+    const seasonId =
+      (matchInfo?.season as { _id?: number | string } | undefined)?._id ??
+      m?._seasonid ??
+      matchInfo?.match?._seasonid ??
+      null;
 
     const [
       versus,
@@ -2565,6 +2570,12 @@ export class BetScoutClient {
       awayProfile,
       homeSurface,
       awaySurface,
+      homeSeasonStatsResp,
+      awaySeasonStatsResp,
+      homeScoringConceding,
+      awayScoringConceding,
+      homeMissingPlayers,
+      awayMissingPlayers,
       homeStreaks,
       awayStreaks,
       homeLast,
@@ -2577,6 +2588,24 @@ export class BetScoutClient {
       aUid ? this.getTeamProfile(aUid) : Promise.resolve(null),
       sportId === 5 && hUid ? this.getTennisPlayerSurfaceStats(hUid) : Promise.resolve(null),
       sportId === 5 && aUid ? this.getTennisPlayerSurfaceStats(aUid) : Promise.resolve(null),
+      sportId !== 5 && hUid && seasonId
+        ? this.getTeamSeasonStats(hUid, seasonId)
+        : Promise.resolve(null),
+      sportId !== 5 && aUid && seasonId
+        ? this.getTeamSeasonStats(aUid, seasonId)
+        : Promise.resolve(null),
+      sportId !== 5 && hUid && seasonId
+        ? this.getTeamScoringConcedingSplits(seasonId, hUid, 10)
+        : Promise.resolve(null),
+      sportId !== 5 && aUid && seasonId
+        ? this.getTeamScoringConcedingSplits(seasonId, aUid, 10)
+        : Promise.resolve(null),
+      sportId !== 5 && hUid && seasonId
+        ? this.getTeamMissingPlayers(hUid, { seasonId })
+        : Promise.resolve([]),
+      sportId !== 5 && aUid && seasonId
+        ? this.getTeamMissingPlayers(aUid, { seasonId })
+        : Promise.resolve([]),
       hUid ? this.getTeamStreaks(hUid) : Promise.resolve(null),
       aUid ? this.getTeamStreaks(aUid) : Promise.resolve(null),
       hUid ? this.getTeamLastMatchesExtended(hUid, lastLimit) : Promise.resolve(null),
@@ -2618,6 +2647,12 @@ export class BetScoutClient {
       away_profile: awayProfile,
       home_surface_stats: homeSurface,
       away_surface_stats: awaySurface,
+      home_season_stats: homeSeasonStatsResp?.stats ?? null,
+      away_season_stats: awaySeasonStatsResp?.stats ?? null,
+      home_scoring_conceding: homeScoringConceding,
+      away_scoring_conceding: awayScoringConceding,
+      home_missing_players: homeMissingPlayers,
+      away_missing_players: awayMissingPlayers,
       home_streaks: homeStreaks,
       away_streaks: awayStreaks,
       home_last_matches: homeLastList,

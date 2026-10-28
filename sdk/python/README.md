@@ -54,4 +54,15 @@ splits = client.get_betting_splits(
 # 6. Dual-Mode Real-Time Insights & Live Delta Stream
 for event in client.stream_insights(game_id=76034538, sport_or_id="tennis", max_events=5):
     print(event["event_type"], event["summary"])
+
+# 7. Football Match Center Dossier (/match/71945350 — Genoa vs Juventus, Serie A)
+genoa_juve = client.get_match_center_dossier(71945350)
+print(genoa_juve["home_season_stats"])       # Per-game possession, shots, corners, cards
+print(genoa_juve["home_scoring_conceding"])  # Wins, BTTS %, Clean Sheets %, 15-min goal buckets
+print(genoa_juve["home_missing_players"])    # Currently injured/suspended Genoa players
+
+# 8. Stage Sports (Formula 1, MotoGP, Cycling, Winter Sports) & Cricket
+f1_seasons = client.get_stage_seasons(36)
+cricket = client.get_cricket_events()
 ```
+

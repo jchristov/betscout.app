@@ -151,6 +151,7 @@ export interface BetScoutTeamRef {
   surname?: string;
   sex?: 'm' | 'f' | string;
   cc?: BetScoutCountryCode | string | null;
+  countrycode?: BetScoutCountryCode | null;
   tennisteamid?: number;
 }
 
@@ -1703,6 +1704,12 @@ export interface MatchCenterDossier {
   away_profile: BetScoutTeamProfileResponse | null;
   home_surface_stats: BetScoutTennisSurfaceStatsResponse | null;
   away_surface_stats: BetScoutTennisSurfaceStatsResponse | null;
+  home_season_stats?: Record<string, string | number> | null;
+  away_season_stats?: Record<string, string | number> | null;
+  home_scoring_conceding?: BetScoutTeamScoringConcedingResponse | null;
+  away_scoring_conceding?: BetScoutTeamScoringConcedingResponse | null;
+  home_missing_players?: TeamMissingPlayerEntry[];
+  away_missing_players?: TeamMissingPlayerEntry[];
   home_streaks: BetScoutTeamStreaksResponse | null;
   away_streaks: BetScoutTeamStreaksResponse | null;
   home_last_matches: BetScoutHistoricalMatchItem[];

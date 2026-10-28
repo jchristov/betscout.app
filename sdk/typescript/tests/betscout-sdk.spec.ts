@@ -991,6 +991,22 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
       }),
     ).toBe('Fritz, Taylor');
 
+    expect(
+      formatMarketPlaceholders('{$competitor1} ({+hcp})', {
+        homeName: 'Genoa',
+        awayName: 'Juventus',
+        specifiers: { hcp: '0.75' },
+      }),
+    ).toBe('Genoa (+0.75)');
+
+    expect(
+      formatMarketPlaceholders('{$competitor2} ({-hcp})', {
+        homeName: 'Genoa',
+        awayName: 'Juventus',
+        specifiers: { hcp: '0.75' },
+      }),
+    ).toBe('Juventus (-0.75)');
+
     const form = computeFormWdlSegments(
       [
         {
@@ -1169,5 +1185,108 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
     expect((cricket?.sportEvents as Array<{ eventId: string }>)?.[0]?.eventId).toBe(
       'sr:match:75797492',
     );
+  });
+
+  it('fetches Soccer v4 parity endpoints (season competitors, full schedule, last/next matches) and football MatchCenterDossier (71945350 Genoa vs Juventus)', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('stats_season_teams2/140782')) {
+        return jsonResponse({
+          teams: [
+            { _id: 565059, uid: 2713, name: 'Genoa', mediumname: 'Genoa CFC', abbr: 'GEN', haslogo: true },
+            { _id: 9245, uid: 2687, name: 'Juventus', mediumname: 'Juventus Turin', abbr: 'JUV', haslogo: true },
+          ],
+        });
+      }
+      if (url.includes('stats_season_fixtures2/140782')) {
+        return jsonResponse({
+          matches: [{ _id: 71945350, round: 9 }],
+        });
+      }
+      if (url.includes('stats_season_lastx/140782')) {
+        return jsonResponse({
+          matches: [{ _id: 71945350, result: { home: 2, away: 0 } }],
+        });
+      }
+      if (url.includes('stats_season_nextx/140782')) {
+        return jsonResponse({
+          matches: [{ _id: 71945360, round: 10 }],
+        });
+      }
+      if (url.includes('uniquetournament_seasons/23')) {
+        return jsonResponse({
+          seasons: { '140782': { _id: '140782', name: 'Serie A 26/27', year: '26/27' } },
+        });
+      }
+      if (url.includes('match_info_statshub/71945350')) {
+        return jsonResponse({
+          sport: { _id: 1, name: 'Soccer' },
+          realcategory: { _id: 31, name: 'Italy', cc: { a2: 'it', name: 'Italy' } },
+          season: { _id: 140782, name: 'Serie A 26/27' },
+          match: {
+            _id: 71945350,
+            _sid: 1,
+            _seasonid: 140782,
+            teams: {
+              home: { _id: 565059, uid: 2713, name: 'Genoa', abbr: 'GEN', haslogo: true, countrycode: { a2: 'it', name: 'Italy' } },
+              away: { _id: 9245, uid: 2687, name: 'Juventus', abbr: 'JUV', haslogo: true, countrycode: { a2: 'it', name: 'Italy' } },
+            },
+            result: { home: 2, away: 0, winner: 'home' },
+            periods: { p1: { home: 2, away: 0 }, ft: { home: 2, away: 0 } },
+          },
+        });
+      }
+      if (url.includes('stats_team_seasonstats/2713/140782')) {
+        return jsonResponse({
+          stats: { ball_possession: 44.67, goal_attempts: 9.56, goals_scored: 0.89 },
+        });
+      }
+      if (url.includes('stats_season_teamscoringconceding/140782/2713/10')) {
+        return jsonResponse({
+          stats: {
+            totalmatches: { total: 9 },
+            totalwins: { total: 3 },
+            scoring: { goalsscoredaverage: { total: 0.89 }, bothteamsscoredaverage: { total: 0.44 } },
+            conceding: { goalsconcededaverage: { total: 1.44 }, cleansheetsaverage: { total: 0.22 } },
+          },
+        });
+      }
+      if (url.includes('stats_season_injuries/140782')) {
+        return jsonResponse([
+          {
+            uniqueteam: { _id: 2713, name: 'Genoa' },
+            player: { _id: 2932421, name: 'Venturino, Lorenzo', shirtnumber: '76', position: { shortname: 'FWD' } },
+            status: { status: 1, name: 'Injured', start: { date: '08/09/26', uts: 1788825600 }, end: { date: '15/11/26', uts: 4000000000 } },
+          },
+        ]);
+      }
+      return jsonResponse({});
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+
+    const competitors = await client.getSeasonCompetitors(140782);
+    expect((competitors?.teams as Array<{ name: string }>)?.length).toBe(2);
+
+    const schedule = await client.getSeasonSchedule(140782);
+    expect((schedule?.matches as Array<{ _id: number }>)?.[0]?._id).toBe(71945350);
+
+    const lastM = await client.getSeasonLastMatches(140782);
+    expect((lastM?.matches as Array<{ _id: number }>)?.[0]?._id).toBe(71945350);
+
+    const nextM = await client.getSeasonNextMatches(140782);
+    expect((nextM?.matches as Array<{ _id: number }>)?.[0]?._id).toBe(71945360);
+
+    const compSeasons = await client.getCompetitionSeasons(23);
+    expect(compSeasons).toBeTruthy();
+
+    const dossier = await client.getMatchCenterDossier(71945350);
+    expect(dossier.ok).toBe(true);
+    expect(dossier.sport_id).toBe(1);
+    expect(dossier.sport_name).toBe('Soccer');
+    expect(dossier.home_season_stats?.ball_possession).toBe(44.67);
+    expect(dossier.home_scoring_conceding?.stats?.totalwins?.total).toBe(3);
+    expect(dossier.home_missing_players?.length).toBe(1);
+    expect(dossier.home_missing_players?.[0]?.name).toBe('Venturino, Lorenzo');
   });
 });

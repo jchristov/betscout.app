@@ -103,21 +103,45 @@ def _build_match_center_payload(match_id: int | str) -> dict[str, Any]:
     teams = mi_match.get("teams") or {}
     h_team = teams.get("home") or {}
     a_team = teams.get("away") or {}
-    h_iso = (h_team.get("cc") or {}).get("a2") or (
-        ((dossier.get("home_profile") or {}).get("countrycode") or {}).get("a2")
-    ) or "us"
-    a_iso = (a_team.get("cc") or {}).get("a2") or (
-        ((dossier.get("away_profile") or {}).get("countrycode") or {}).get("a2")
-    ) or "au"
+    h_uid = h_team.get("uid") or h_team.get("_id")
+    a_uid = a_team.get("uid") or a_team.get("_id")
+    rc_iso = (((dossier.get("match_info") or {}).get("realcategory") or {}).get("cc") or {}).get("a2")
+    h_iso = (
+        (h_team.get("cc") or {}).get("a2")
+        or (h_team.get("countrycode") or {}).get("a2")
+        or (((dossier.get("home_profile") or {}).get("countrycode") or {}).get("a2"))
+        or rc_iso
+        or "int"
+    )
+    a_iso = (
+        (a_team.get("cc") or {}).get("a2")
+        or (a_team.get("countrycode") or {}).get("a2")
+        or (((dossier.get("away_profile") or {}).get("countrycode") or {}).get("a2"))
+        or rc_iso
+        or "int"
+    )
     tour_obj = (dossier.get("match_info") or {}).get("tournament") or {}
-    tour_iso = (tour_obj.get("tennisinfo") or {}).get("a2") or "ch"
+    tour_iso = (tour_obj.get("tennisinfo") or {}).get("a2") or rc_iso or "int"
     tour_name = ((dossier.get("match_info") or {}).get("season") or {}).get("name") or tour_obj.get("name")
+
+    h_img = (
+        get_team_logo_url(h_uid, size="big")
+        if (h_team.get("haslogo") and h_uid)
+        else resolve_player_headshot_url(h_team.get("name"))
+    )
+    a_img = (
+        get_team_logo_url(a_uid, size="big")
+        if (a_team.get("haslogo") and a_uid)
+        else resolve_player_headshot_url(a_team.get("name"))
+    )
     return {
         **dossier,
+        "home_is_club": bool(h_team.get("haslogo")),
+        "away_is_club": bool(a_team.get("haslogo")),
         "home_flag_url": get_country_flag_url(h_iso, fmt="svg", ratio="4x3"),
         "away_flag_url": get_country_flag_url(a_iso, fmt="svg", ratio="4x3"),
-        "home_headshot_url": resolve_player_headshot_url(h_team.get("name")),
-        "away_headshot_url": resolve_player_headshot_url(a_team.get("name")),
+        "home_headshot_url": h_img,
+        "away_headshot_url": a_img,
         "tournament_flag_url": get_country_flag_url(tour_iso, fmt="svg", ratio="4x3"),
         "tournament_crest_url": resolve_competition_crest_url(tour_name),
     }

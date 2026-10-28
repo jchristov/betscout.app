@@ -149,3 +149,18 @@ Run `npm run showcase` and open `http://127.0.0.1:8788` to explore an 8-tab inte
 | `getSeasonCompetitors(seasonId)` | Fetches all participating teams in a season (`stats_season_teams2/{seasonId}`). |
 | `getSeasonSchedule(seasonId)` / `getSeasonLastMatches(seasonId, limit?)` / `getSeasonNextMatches(seasonId, limit?)` | Full season schedule (`stats_season_fixtures2`) and rolling season completed/upcoming fixtures. |
 | `getCompetitionSeasons(uniqueTournamentId)` | Fetches all historical and active seasons for a competition (`uniquetournament_seasons/{utId}`). |
+
+### 9. Stage Sports (Formula 1, MotoGP, NASCAR, IndyCar, Rally, Cycling, Winter Sports), Cricket & Match Center Dossier
+| Method / Utility | Description |
+| :--- | :--- |
+| `STAGE_SPORT_IDS` & `isStageSport(sportId)` | Set and helper identifying all 15 Stage / Racing sports (`36`=Formula 1, `67`=MotoGP, `38`=NASCAR, `129`=IndyCar, `140`=Rally, `17`=Cycling, `43`–`50`=Winter Sports). |
+| `getStageSeasons(sportOrId)` | Fetches all historical and active championship seasons for a stage sport (`stage_seasons/{sportId}`). |
+| `getStageSeasonSummary(stageId)` | Fetches driver/rider standings, constructor teams, and race calendar (`stage_seasonsummary/{stageId}`). |
+| `getStageDetails(stageId)` | Fetches detailed Grand Prix / stage classification, lap times, pit stops, and grid (`stage_details/{stageId}`). |
+| `getStageCalendar(year?, tzOffset?)` & `getStageDayEvents(timestampSec?, tzOffset?)` | Global stage racing calendar and daily stage events. |
+| `getCricketEvents()` | Dedicated Cricket event center (`cricket/get_events`) with innings scores, overs, toss results, and run rates. |
+| `getMatchDetails(matchId)` & `getMatchDetailsExtended(matchId)` | Full match and period-by-period boxscore statistics (`match_detailsextended/{matchId}` — Tennis Aces/Serve %/Break Points or Football Possession/Shots/Corners/Dangerous Attacks). |
+| `getMatchCenterDossier(matchId, options?)` | **1-Call Complete Match Center Replica Bundle:** Fetches and normalizes every widget needed to render `/match/76034538` (Tennis) or `/match/71945350` (Football: Genoa vs Juventus), including 3-way win probabilities, season scoring/conceding splits, missing/injured players, league standings slice, `form_wdl` (`computeFormWdlSegments`), and `h2h_edge` (`computeH2HEdgeSummary`). |
+| `formatMarketPlaceholders(rawText, context)` | Interpolates `{!setnr}` (`2nd`), `{+hcp}`/`{-hcp}` (`+0.75`/`-0.75`), `{total}`, `{$competitor1}`, and `{$competitor2}` into human-readable market/outcome titles. |
+| `resolvePlayerHeadshotUrl(playerName)` & `resolveCompetitionCrestUrl(name)` | Resolves circular player headshots and tournament badges via Wikimedia REST API with deterministic SVG monogram fallback (`renderMonogramCrestDataUri`). |
+
