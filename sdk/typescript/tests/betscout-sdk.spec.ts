@@ -852,4 +852,120 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
     expect(row2.change_total).toBe(-1);
     expect(row2.form_total).toEqual(['D', 'L', 'W']);
   });
+
+  it('fetches Season Goal Timing (firstgoal/avg time), Over/Under Half Splits, NBA Pace/Efficiency, H2H Versus, and Cup Brackets', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('stats_season_goals/140782')) {
+        return jsonResponse({
+          teams: [
+            {
+              team: { _id: 9264, uid: 2697, name: 'Inter', mediumname: 'Inter Milano' },
+              scored: { '0-15': 3, '76-90': 7 },
+              scoredsum: 23,
+              conceded: { '0-15': 3, '76-90': 1 },
+              concededsum: 10,
+              firstgoal: 6,
+              lastgoal: 7,
+              average_time_first_goal: 36.25,
+              matches: 8,
+              penalty_success_count: '2',
+            },
+          ],
+          totals: { scoredsum: 259, average_time_first_goal: 31.45, matches: 83 },
+        });
+      }
+      if (url.includes('stats_season_overunder/140782')) {
+        return jsonResponse({
+          values: { '1': '0.5', '2': '1.5', '3': '2.5' },
+          stats: {
+            '2692': {
+              team: { _id: 2692, name: 'Milan' },
+              matches: 8,
+              winrate: {
+                ft: { matches: 8, wins: 5, average: 0.63 },
+                p1: { matches: 8, wins: 3, average: 0.38 },
+                p2: { matches: 8, wins: 4, average: 0.5 },
+              },
+              total: {
+                ft: { '2.5': { over: 4, under: 4 } },
+                p1: { '0.5': { over: 4, under: 4 } },
+                p2: { '0.5': { over: 8, under: 0 } },
+              },
+            },
+          },
+        });
+      }
+      if (url.includes('stats_season_uniqueteamstats/142074')) {
+        return jsonResponse({
+          stats: {
+            uniqueteams: {
+              '3433': {
+                uniqueteam: { _id: 3433, name: 'Toronto', mediumname: 'Toronto Raptors' },
+                points_scored: { average: 113.67, total: 341, matches: 3 },
+                possessions_per_game: { average: 107.24, total: 321.72, matches: 3 },
+                points_per_possession: { average: 1.06, matches: 3 },
+              },
+            },
+          },
+        });
+      }
+      if (url.includes('stats_team_versus/2692/2697/10')) {
+        return jsonResponse({
+          matches: [
+            {
+              _id: 71913828,
+              comment: '0:1 (52.) F.Dimarco, 1:1 (83.) C.Nkunku',
+              result: { home: 1, away: 1 },
+            },
+          ],
+          currentmanagers: {
+            '2692': [{ name: 'Allegri, Massimiliano' }],
+          },
+        });
+      }
+      if (url.includes('uniquetournament_seasonswinners/23')) {
+        return jsonResponse({
+          seasons: [
+            {
+              _id: '130971',
+              name: 'Serie A 25/26',
+              year: '25/26',
+              champion: { _id: 2697, name: 'Inter', mediumname: 'Inter Milano' },
+            },
+          ],
+        });
+      }
+      if (url.includes('stats_cup_brackets/110232')) {
+        return jsonResponse({
+          bracket: { _id: 110232, type: 'Single-elimination, dynamic' },
+          cup: { _id: '198114', name: 'UEFA Champions League 26/27, Playoff Round' },
+        });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+
+    const goals = await client.getSeasonGoalsDistribution(140782);
+    expect(goals?.teams?.[0]?.firstgoal).toBe(6);
+    expect(goals?.teams?.[0]?.average_time_first_goal).toBe(36.25);
+
+    const ou = await client.getSeasonOverUnder(140782);
+    expect(ou?.stats?.['2692']?.total?.p2?.['0.5']?.over).toBe(8);
+    expect(ou?.stats?.['2692']?.winrate?.p2?.average).toBe(0.5);
+
+    const nbaStats = await client.getSeasonUniqueTeamStats(142074);
+    expect(nbaStats?.stats?.uniqueteams?.['3433']?.points_scored?.average).toBe(113.67);
+    expect(nbaStats?.stats?.uniqueteams?.['3433']?.possessions_per_game?.average).toBe(107.24);
+
+    const versus = await client.getTeamVersus(2692, 2697, 10);
+    expect(versus?.matches?.[0]?.comment).toContain('Dimarco');
+
+    const winners = await client.getTournamentSeasonsWinners(23);
+    expect(winners?.seasons?.[0]?.champion?.mediumname).toBe('Inter Milano');
+
+    const brackets = await client.getCupBrackets(110232);
+    expect(brackets?.cup?.name).toContain('Champions League');
+  });
 });

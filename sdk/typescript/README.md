@@ -22,7 +22,12 @@ Standalone TypeScript/Node.js SDK (`@betscout/sdk`) providing typed access to **
    - **Match Insights & Editorial Commentary (`getMatchInsights`, `getMatchCommentary`, `getMatchCommentaryDelta`, `getSeasonLeagueSummary`)**: Automated pre-match & in-play fun facts, minute-by-minute natural-language match commentary phrases, and macro league summaries.
 5. **League Ranking Tables, Live Dynamic Tables & Form Tables**
    - **Full Standings & Form Table Merger (`getEnrichedLeagueTable`, `getSeasonTables`, `getSeasonDynamicTable`, `getSeasonFormTable`, `getMatchTableSlice`)**: Combines league standings (`stats_season_tables` / `season_dynamictable`) and the form table (`stats_formtable`) into `EnrichedStandingsRow[]` with **Total / Home / Away** played, W-D-L, `goals_for`, `goals_against`, `goal_diff`, `points`, **round-over-round rank deltas (`change_total`, `change_home`, `change_away`)**, **UEFA/relegation promotion zones (`promotion`, `promotion_short`)**, and **chronological recent W/D/L form sequences (`form_total`, `form_home`, `form_away`)**. Supports optional `aroundTeamUid` + `sliceSize` (e.g., 5-team slice centered on AC Milan).
-6. **3-Second Live Timeline Delta Streaming & In-Play Pressure**
+6. **First-to-Score Timing, Half Over/Under Splits, Multi-Sport Pace/Efficiency & Knockout Brackets**
+   - **Season Goal Timing & First-to-Score (`getSeasonGoalsDistribution`)**: Per-team 15-minute goal buckets (`0-15'`..`76-90'`), `firstgoal` count (scored `1-0`), `lastgoal` count, `average_time_first_goal`, and `penalty_success_count`.
+   - **Full-Time & Half-by-Half Over/Under Matrices (`getSeasonOverUnder`)**: Per-team Total/Home/Away Over/Under (`0.5`..`5.5`) hit counts across `ft`, `p1` (1st Half), and `p2` (2nd Half), plus half-by-half win rates (`winrate.p1`, `winrate.p2`) and clean sheets.
+   - **Multi-Sport Team Pace & Efficiency (`getSeasonUniqueTeamStats`)**: NBA/Basketball & UEFA team pace (`possessions_per_game`), offensive efficiency (`points_per_possession`), `points_scored`, `opponent_points_per_game`, 2PT/3PT/FT shooting splits, rebounds, assists, steals, blocks, and turnovers.
+   - **Rich Head-to-Head Versus, Roll of Honor & Knockout Brackets (`getTeamVersus`, `getUniqueTournamentInfo`, `getTournamentSeasonsWinners`, `getSeasonMeta`, `getCupBrackets`, `getSeasonReferees`, `getMatchFullTimeline`)**.
+7. **3-Second Live Timeline Delta Streaming & In-Play Pressure**
    - `getMatchTimelineDelta` (`_maxage: 3`), `fetchLiveMatchTimelineDelta` (live sets/periods, tennis point scores & active server `🎾`), and `fetchLiveMatchSituationsPressure` (live attack & dangerous-attack territorial share).
 
 ---

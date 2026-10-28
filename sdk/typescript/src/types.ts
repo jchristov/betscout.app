@@ -556,6 +556,8 @@ export interface BetScoutHistoricalMatchItem {
   bestof?: number;
   walkover?: boolean;
   retired?: boolean;
+  /** Scorer & goal-minute summary string (e.g. `"0:1 (52.) F.Dimarco, 1:1 (83.) C.Nkunku"`) */
+  comment?: string | null;
 }
 
 export interface BetScoutMatchHead2HeadResponse {
@@ -1074,8 +1076,98 @@ export interface EnrichedLeagueTableBundle {
   rows: EnrichedStandingsRow[];
 }
 
+export interface BetScoutOverUnderLineCounts {
+  over: number;
+  under: number;
+}
+
+export interface BetScoutOverUnderPeriodMap {
+  /** Keyed by goal line (`"0.5"`, `"1.5"`, `"2.5"`, `"3.5"`, `"4.5"`, `"5.5"`) */
+  ft?: Record<string, BetScoutOverUnderLineCounts>;
+  p1?: Record<string, BetScoutOverUnderLineCounts>;
+  p2?: Record<string, BetScoutOverUnderLineCounts>;
+}
+
+export interface BetScoutTeamOverUnderProfile {
+  team?: BetScoutTeamRef;
+  matches?: number;
+  homematches?: number;
+  awaymatches?: number;
+  winrate?: {
+    ft?: { matches?: number; wins?: number; average?: number };
+    p1?: { matches?: number; wins?: number; average?: number };
+    p2?: { matches?: number; wins?: number; average?: number };
+  };
+  goalsscored?: Record<
+    string,
+    { total?: number; average?: number; atleastonegoal?: number; matches?: number }
+  >;
+  conceded?: Record<
+    string,
+    { total?: number; average?: number; cleansheets?: number; matches?: number }
+  >;
+  total?: BetScoutOverUnderPeriodMap;
+  home?: BetScoutOverUnderPeriodMap;
+  away?: BetScoutOverUnderPeriodMap;
+}
+
 export interface BetScoutSeasonOverUnderResponse {
-  teams?: Record<string, unknown>;
+  season?: BetScoutSeasonDescriptor;
+  /** Map of threshold index -> line string (`{"1": "0.5", "2": "1.5", "3": "2.5", "4": "3.5", "5": "4.5", "6": "5.5"}`) */
+  values?: Record<string, string>;
+  /** Keyed by `teamId` (`"2692"` = AC Milan, `"2697"` = Inter) */
+  stats?: Record<string, BetScoutTeamOverUnderProfile>;
+  league?: {
+    totals?: {
+      matches?: number;
+      goalsscored?: Record<string, { average?: number; total?: number; matches?: number }>;
+      conceded?: Record<string, { average?: number; total?: number; matches?: number }>;
+      ft?: Record<
+        string,
+        { totalover?: number; totalunder?: number; over?: number; under?: number }
+      >;
+      p1?: Record<
+        string,
+        { totalover?: number; totalunder?: number; over?: number; under?: number }
+      >;
+      p2?: Record<
+        string,
+        { totalover?: number; totalunder?: number; over?: number; under?: number }
+      >;
+    };
+  };
+  [key: string]: unknown;
+}
+
+export interface BetScoutSeasonGoalsTeamEntry {
+  team: BetScoutTeamRef;
+  /** Goals scored per 15-min interval (`"0-15"`, `"16-30"`, `"31-45"`, `"46-60"`, `"61-75"`, `"76-90"`) */
+  scored: Record<string, number>;
+  scoredsum: number;
+  /** Goals conceded per 15-min interval */
+  conceded: Record<string, number>;
+  concededsum: number;
+  /** Number of matches where this team scored the opening goal (`1-0`) */
+  firstgoal: number;
+  /** Number of matches where this team scored the final goal of the game */
+  lastgoal: number;
+  /** Average minute of the team's first goal (`e.g. 36.25`) */
+  average_time_first_goal: number;
+  matches: number;
+  penalty_success_count?: string | number;
+}
+
+export interface BetScoutSeasonGoalsResponse {
+  season?: BetScoutSeasonDescriptor;
+  tables?: unknown[];
+  cups?: unknown[];
+  teams?: BetScoutSeasonGoalsTeamEntry[];
+  totals?: {
+    scored?: Record<string, number>;
+    scoredsum?: number;
+    average_time_first_goal?: number;
+    matches?: number;
+  };
   [key: string]: unknown;
 }
 
@@ -1440,4 +1532,133 @@ export interface BetScoutOddsFormatEntry {
   us?: string | number;
   [key: string]: unknown;
 }
+
+// ============================================================================
+// H. Advanced Quantitative Analytics (Multi-Sport Pace/Efficiency, Brackets, H2H Versus & Tournament History)
+// ============================================================================
+
+export interface BetScoutMultiSportTeamStatMetric {
+  average?: number;
+  total?: number;
+  matches?: number;
+  percentage?: number;
+}
+
+export interface BetScoutSeasonUniqueTeamStatsEntry {
+  uniqueteam: BetScoutTeamRef;
+  blocks?: BetScoutMultiSportTeamStatMetric;
+  points_scored?: BetScoutMultiSportTeamStatMetric;
+  steals?: BetScoutMultiSportTeamStatMetric;
+  assists?: BetScoutMultiSportTeamStatMetric;
+  possessions_for_team?: BetScoutMultiSportTeamStatMetric;
+  possessions_per_game?: BetScoutMultiSportTeamStatMetric;
+  points_per_possession?: BetScoutMultiSportTeamStatMetric;
+  opponent_points_per_game?: BetScoutMultiSportTeamStatMetric;
+  three_points_attempts?: BetScoutMultiSportTeamStatMetric;
+  two_points_attempts?: BetScoutMultiSportTeamStatMetric;
+  free_throws_attempts?: BetScoutMultiSportTeamStatMetric;
+  two_points?: BetScoutMultiSportTeamStatMetric;
+  three_points?: BetScoutMultiSportTeamStatMetric;
+  free_trows?: BetScoutMultiSportTeamStatMetric;
+  field_goals?: BetScoutMultiSportTeamStatMetric;
+  rebounds?: BetScoutMultiSportTeamStatMetric;
+  offensive_rebounds?: BetScoutMultiSportTeamStatMetric;
+  defensive_rebounds?: BetScoutMultiSportTeamStatMetric;
+  turnovers?: BetScoutMultiSportTeamStatMetric;
+  personal_fouls?: BetScoutMultiSportTeamStatMetric;
+  [statKey: string]: BetScoutTeamRef | BetScoutMultiSportTeamStatMetric | undefined;
+}
+
+export interface BetScoutSeasonUniqueTeamStatsResponse {
+  season?: BetScoutSeasonDescriptor;
+  stats?: {
+    uniqueteams?: Record<string, BetScoutSeasonUniqueTeamStatsEntry>;
+    [key: string]: unknown;
+  };
+}
+
+export interface BetScoutTeamVersusResponse {
+  livematchid?: number | null;
+  matches?: BetScoutHistoricalMatchItem[];
+  upcomingmatches?: BetScoutHistoricalMatchItem[];
+  tournaments?: Record<string, BetScoutUniqueTournament>;
+  realcategories?: Record<string, BetScoutRealCategorySummary>;
+  teams?: Record<string, BetScoutTeamRef>;
+  currentmanagers?: Record<string, Array<{ _id?: number; name?: string; nationality?: BetScoutCountryCode }>>;
+  jersey?: Record<string, Record<string, BetScoutJerseyColors>>;
+  next?: BetScoutHistoricalMatchItem | null;
+}
+
+export interface BetScoutUniqueTournamentInfoResponse {
+  uniquetournament?: BetScoutUniqueTournament & { currentseason?: number };
+  realcategory?: BetScoutRealCategorySummary;
+  sport?: BetScoutSportConfigItem;
+  tournaments?: Record<string, BetScoutUniqueTournament>;
+  defendingchampion?: BetScoutTeamRef;
+  currentleader?: BetScoutTeamRef;
+  matches?: Record<string, unknown>;
+  goals?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface BetScoutSeasonWinnerEntry extends BetScoutSeasonDescriptor {
+  champion?: BetScoutTeamRef;
+  runnerup?: BetScoutTeamRef;
+}
+
+export interface BetScoutTournamentSeasonsWinnersResponse {
+  seasons?: BetScoutSeasonWinnerEntry[];
+}
+
+export interface BetScoutSeasonMetaResponse {
+  season?: BetScoutSeasonDescriptor;
+  sport?: BetScoutSportConfigItem;
+  realcategory?: BetScoutRealCategorySummary;
+  tournamentids?: number[];
+  tableids?: number[];
+  cupids?: number[];
+  /** Playoff / knockout bracket IDs (pass to `getCupBrackets(bracketId)`) */
+  brackets?: number[];
+  uniquetournament?: BetScoutUniqueTournament;
+  statscoverage?: Record<string, boolean>;
+}
+
+export interface BetScoutCupBracketsResponse {
+  bracket?: {
+    _id: number;
+    _typeid?: number;
+    state_id?: number;
+    state_name?: string;
+    type?: string;
+    cup_id?: number;
+    tournament_id?: number;
+  };
+  cup?: {
+    _id: string | number;
+    tournamentid?: string | number;
+    name?: string;
+    abbr?: string;
+    seasonid?: string | number;
+    seasontypename?: string;
+    start?: string;
+    end?: string;
+  };
+  sportid?: number;
+  season?: BetScoutSeasonDescriptor;
+  roundsets?: Record<string, unknown>;
+  stadiums?: Record<string, BetScoutStadiumInfo>;
+  translations?: Record<string, string>;
+}
+
+export interface BetScoutSeasonRefereesResponse {
+  season?: BetScoutSeasonDescriptor;
+  referees?: Record<string, BetScoutExtendedPlayer> | BetScoutExtendedPlayer[];
+}
+
+export interface BetScoutMatchTimelineResponse {
+  match?: BetScoutMatchSummary;
+  events?: BetScoutTimelineDeltaEvent[];
+  [key: string]: unknown;
+}
+
 

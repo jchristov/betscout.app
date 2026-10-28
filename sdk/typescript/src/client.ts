@@ -15,6 +15,7 @@ import type {
   BetScoutBatchMarketsResponse,
   BetScoutCategoryTreeMini,
   BetScoutClientOptions,
+  BetScoutCupBracketsResponse,
   BetScoutDailySportMatchesResponse,
   BetScoutDocument,
   BetScoutDynamicTableResponse,
@@ -34,6 +35,7 @@ import type {
   BetScoutMatchSquadsResponse,
   BetScoutMatchStatsResponse,
   BetScoutMatchTimelineDeltaResponse,
+  BetScoutMatchTimelineResponse,
   BetScoutOddsFormatEntry,
   BetScoutPlayerCareerStatsResponse,
   BetScoutPlayerFactsResponse,
@@ -41,12 +43,16 @@ import type {
   BetScoutRefereeSeasonStatsResponse,
   BetScoutRequestOptions,
   BetScoutSeasonDescriptor,
+  BetScoutSeasonGoalsResponse,
   BetScoutSeasonInjuryItem,
   BetScoutSeasonLeagueSummaryResponse,
   BetScoutSeasonMarketsResponse,
+  BetScoutSeasonMetaResponse,
   BetScoutSeasonOverUnderResponse,
+  BetScoutSeasonRefereesResponse,
   BetScoutSeasonTablesResponse,
   BetScoutSeasonTopListResponse,
+  BetScoutSeasonUniqueTeamStatsResponse,
   BetScoutSeasonVenuesResponse,
   BetScoutSportConfigItem,
   BetScoutTeamMatchesResponse,
@@ -63,12 +69,15 @@ import type {
   BetScoutTeamTournamentsResponse,
   BetScoutTeamTransfersResponse,
   BetScoutTeamUsualLineupResponse,
+  BetScoutTeamVersusResponse,
   BetScoutTennisCalendarResponse,
   BetScoutTennisRankingResponse,
   BetScoutTennisSurfaceRecord,
   BetScoutTennisSurfaceStatsResponse,
+  BetScoutTournamentSeasonsWinnersResponse,
   BetScoutUniqueTeamMarketsResponse,
   BetScoutUniqueTournament,
+  BetScoutUniqueTournamentInfoResponse,
   BetScoutVenueStatsResponse,
   CountryFlagOptions,
   DailyMatchIndexEntry,
@@ -1072,7 +1081,10 @@ export class BetScoutClient {
     };
   }
 
-  /** Query league-wide Over/Under goals distributions (`stats_season_overunder/{seasonId}`). */
+  /**
+   * Query league-wide and per-team Over/Under (`0.5`..`5.5`) and Half-by-Half (`ft`, `p1`, `p2`)
+   * goal distributions, clean sheet rates, and win rates (`stats_season_overunder/{seasonId}`).
+   */
   public async getSeasonOverUnder(
     seasonId: number | string,
     options?: BetScoutRequestOptions,
@@ -1082,6 +1094,144 @@ export class BetScoutClient {
       String(seasonId),
       { channel: 'neutral', ttlSec: 1800, ...options },
     );
+  }
+
+  /**
+   * Query league-wide **Season Goal Timing, First-to-Score & Penalty Analytics** (`stats_season_goals/{seasonId}`):
+   * returns every team's 15-minute goal buckets (`0-15'`..`76-90'`), `firstgoal` count (matches where team scored 1-0),
+   * `lastgoal` count, `average_time_first_goal` (e.g. `36.25` min), and `penalty_success_count`.
+   */
+  public async getSeasonGoalsDistribution(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonGoalsResponse | null> {
+    return this.fetchFeed<BetScoutSeasonGoalsResponse>('stats_season_goals', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 1800,
+      ...options,
+    });
+  }
+
+  /**
+   * Query **Multi-Sport Team Pace, Efficiency & Shooting Splits** (`stats_season_uniqueteamstats/{seasonId}`):
+   * for NBA / Basketball, NHL, and UEFA competitions, returns per-team `possessions_per_game`, `points_per_possession`,
+   * `points_scored`, `opponent_points_per_game`, `two_points`, `three_points`, `free_throws_attempts`, `rebounds`,
+   * `offensive_rebounds`, `defensive_rebounds`, `assists`, `steals`, `blocks`, and `turnovers`.
+   */
+  public async getSeasonUniqueTeamStats(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonUniqueTeamStatsResponse | null> {
+    return this.fetchFeed<BetScoutSeasonUniqueTeamStatsResponse>(
+      'stats_season_uniqueteamstats',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /**
+   * Query rich **Head-to-Head Versus Dossier** between two clubs (`stats_team_versus/{teamIdA}/{teamIdB}/{limit}`),
+   * including past H2H `matches` (with goal-minute & scorer `comment`), `upcomingmatches`, `currentmanagers`, and `jersey` maps.
+   */
+  public async getTeamVersus(
+    teamIdA: number | string,
+    teamIdB: number | string,
+    limit = 10,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutTeamVersusResponse | null> {
+    return this.fetchFeed<BetScoutTeamVersusResponse>(
+      'stats_team_versus',
+      `${teamIdA}/${teamIdB}/${limit}`,
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /**
+   * Query **Tournament Overview, Defending Champion & Current Leader** (`uniquetournament_info/{uniqueTournamentId}`).
+   */
+  public async getUniqueTournamentInfo(
+    uniqueTournamentId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutUniqueTournamentInfoResponse | null> {
+    return this.fetchFeed<BetScoutUniqueTournamentInfoResponse>(
+      'uniquetournament_info',
+      String(uniqueTournamentId),
+      { channel: 'neutral', ttlSec: 3600, ...options },
+    );
+  }
+
+  /**
+   * Query **Historical Season Champions & Runners-Up** across all editions of a competition
+   * (`uniquetournament_seasonswinners/{uniqueTournamentId}`).
+   */
+  public async getTournamentSeasonsWinners(
+    uniqueTournamentId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutTournamentSeasonsWinnersResponse | null> {
+    return this.fetchFeed<BetScoutTournamentSeasonsWinnersResponse>(
+      'uniquetournament_seasonswinners',
+      String(uniqueTournamentId),
+      { channel: 'neutral', ttlSec: 3600, ...options },
+    );
+  }
+
+  /**
+   * Query **Season Metadata, Coverage Matrix & Bracket IDs** (`stats_season_meta/{seasonId}`).
+   * Returns `statscoverage` flags, `tableids`, `cupids`, and knockout `brackets` IDs.
+   */
+  public async getSeasonMeta(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonMetaResponse | null> {
+    return this.fetchFeed<BetScoutSeasonMetaResponse>('stats_season_meta', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 3600,
+      ...options,
+    });
+  }
+
+  /**
+   * Query **Playoff / Knockout Cup Brackets** (`stats_cup_brackets/{bracketId}`),
+   * returning elimination `roundsets`, `cup` metadata, and `stadiums`.
+   */
+  public async getCupBrackets(
+    bracketId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutCupBracketsResponse | null> {
+    return this.fetchFeed<BetScoutCupBracketsResponse>('stats_cup_brackets', String(bracketId), {
+      channel: 'neutral',
+      ttlSec: 1800,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the **Full League Referee Pool** for a season (`stats_season_referees/{seasonId}`).
+   */
+  public async getSeasonReferees(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonRefereesResponse | null> {
+    return this.fetchFeed<BetScoutSeasonRefereesResponse>(
+      'stats_season_referees',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 3600, ...options },
+    );
+  }
+
+  /**
+   * Query the **Complete Historical Match Event Timeline** (`match_timeline/{matchId}`),
+   * returning all chronological goals, cards, substitutions, period scores, and point-by-point events.
+   */
+  public async getMatchFullTimeline(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchTimelineResponse | null> {
+    return this.fetchFeed<BetScoutMatchTimelineResponse>('match_timeline', String(matchId), {
+      channel: 'neutral',
+      ttlSec: 60,
+      ...options,
+    });
   }
 
   /** Query referee cards, fouls, and penalties per match (`referee_seasonstats/{refereeId}/{seasonId}`). */

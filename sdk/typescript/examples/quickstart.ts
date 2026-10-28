@@ -117,6 +117,47 @@ async function main() {
       form: r.form_total.join('-'),
     })),
   });
+
+  console.log('\n=== 7. First-to-Score Timing, Half Over/Under Splits, NBA Pace & Roll of Honor ===');
+  const [seasonGoals, seasonOu, nbaTeamStats, serieAWinners, derbyVersus] = await Promise.all([
+    client.getSeasonGoalsDistribution(140782),
+    client.getSeasonOverUnder(140782),
+    client.getSeasonUniqueTeamStats(142074), // NBA 26/27
+    client.getTournamentSeasonsWinners(23), // Serie A Roll of Honor
+    client.getTeamVersus(2692, 2697, 5), // AC Milan vs Inter
+  ]);
+  const milanGoals = seasonGoals?.teams?.find((t) => t.team?.uid === 2692);
+  const milanOu = seasonOu?.stats?.['2692'];
+  const raptorsStats = nbaTeamStats?.stats?.uniqueteams?.['3433'];
+  console.log({
+    milanGoalTiming: {
+      scoredSum: milanGoals?.scoredsum,
+      firstGoalMatches: milanGoals?.firstgoal,
+      lastGoalMatches: milanGoals?.lastgoal,
+      avgMinuteFirstGoal: milanGoals?.average_time_first_goal,
+      lateGoals76To90: milanGoals?.scored?.['76-90'],
+    },
+    milanOverUnderSplits: {
+      ftWinRate: milanOu?.winrate?.ft?.average,
+      p1WinRate: milanOu?.winrate?.p1?.average,
+      p2WinRate: milanOu?.winrate?.p2?.average,
+      ftOver2_5: milanOu?.total?.ft?.['2.5'],
+      p1Over0_5: milanOu?.total?.p1?.['0.5'],
+      p2Over0_5: milanOu?.total?.p2?.['0.5'],
+    },
+    nbaSampleTeamPace: {
+      team: raptorsStats?.uniqueteam?.mediumname,
+      ptsPerGame: raptorsStats?.points_scored?.average,
+      possessionsPerGame: raptorsStats?.possessions_per_game?.average,
+      ptsPerPossession: raptorsStats?.points_per_possession?.average,
+    },
+    recentSerieAChampions: (serieAWinners?.seasons ?? []).slice(0, 3).map((s) => ({
+      year: s.year,
+      champion: s.champion?.mediumname ?? s.champion?.name,
+      runnerUp: s.runnerup?.mediumname ?? s.runnerup?.name,
+    })),
+    latestDerbyComment: derbyVersus?.matches?.[0]?.comment,
+  });
 }
 
 main().catch((err) => {
