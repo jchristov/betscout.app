@@ -63,10 +63,35 @@ async function main() {
   console.log('\n=== 4. Individual Squad Player Career & Season Log (ID: 191210 — Mike Maignan) ===');
   const maignanCareer = await client.getPlayerCareerStats(191210);
   const maignanMatches = await client.getPlayerSeasonMatches(191210, 130971);
+  const squadFacts = await client.getTeamPlayerSeasonFacts(2692, 130971);
   console.log({
     player: maignanCareer?.player?.fullname,
+    marketValueEur: squadFacts?.['191210']?.player?.marketvalue,
+    shirtNumber: squadFacts?.['191210']?.player?.shirtnumber,
     clubCount: Object.keys(maignanCareer?.uniqueteams ?? {}).length,
     serieA2526MatchesLogged: maignanMatches?.matches?.length ?? 0,
+    serieA2526MinutesPlayed: squadFacts?.['191210']?.stats?.total?.minutes_played,
+  });
+
+  console.log('\n=== 5. Visual Assets (Team Crest, Country Flag, Kit Avatar SVG & San Siro Venue Stats) ===');
+  const sanSiro = await client.getVenueSeasonStats(647, 130971);
+  const matchInsights = await client.getMatchInsights(71945344);
+  console.log({
+    acMilanLogoBigUrl: client.getTeamLogoUrl(2692, { size: 'big' }),
+    serbiaFlagSvgUrl: client.getCountryFlagUrl('rs', { format: 'svg', ratio: '4x3' }),
+    maignanGkJerseySvgLength: client.renderTeamJerseySvg(milan.profile?.gkjersey, {
+      shirtNumber: 16,
+    }).length,
+    venue: {
+      name: sanSiro?.stadium?.name,
+      capacity: sanSiro?.stadium?.capacity,
+      coords: sanSiro?.stadium?.googlecoords,
+      pitchSize: sanSiro?.stadium?.pitchsize,
+      homeGoals: sanSiro?.statistics?.venue_home_goals,
+      awayGoals: sanSiro?.statistics?.venue_away_goals,
+      homeCorners: sanSiro?.statistics?.venue_home_corner_kicks,
+    },
+    sampleMatchInsights: matchInsights?.funfacts ?? [],
   });
 }
 

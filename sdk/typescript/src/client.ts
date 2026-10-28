@@ -19,14 +19,18 @@ import type {
   BetScoutDocument,
   BetScoutEnvelope,
   BetScoutEventGetResponse,
+  BetScoutJerseyColors,
   BetScoutMatchFormResponse,
+  BetScoutMatchFunFactsResponse,
   BetScoutMatchHead2HeadResponse,
   BetScoutMatchInfoResponse,
   BetScoutMatchMarketsResponse,
+  BetScoutMatchPhrasesResponse,
   BetScoutMatchSituationsResponse,
   BetScoutMatchSquadsResponse,
   BetScoutMatchStatsResponse,
   BetScoutMatchTimelineDeltaResponse,
+  BetScoutOddsFormatEntry,
   BetScoutPlayerCareerStatsResponse,
   BetScoutPlayerFactsResponse,
   BetScoutPlayerSeasonMatchesResponse,
@@ -34,11 +38,15 @@ import type {
   BetScoutRequestOptions,
   BetScoutSeasonDescriptor,
   BetScoutSeasonInjuryItem,
+  BetScoutSeasonLeagueSummaryResponse,
   BetScoutSeasonMarketsResponse,
   BetScoutSeasonOverUnderResponse,
   BetScoutSeasonTablesResponse,
+  BetScoutSeasonTopListResponse,
+  BetScoutSeasonVenuesResponse,
   BetScoutSportConfigItem,
   BetScoutTeamMatchesResponse,
+  BetScoutTeamPlayerFactsMap,
   BetScoutTeamPositionHistoryResponse,
   BetScoutTeamProfileResponse,
   BetScoutTeamScoringConcedingResponse,
@@ -55,13 +63,17 @@ import type {
   BetScoutTennisRankingResponse,
   BetScoutTennisSurfaceRecord,
   BetScoutTennisSurfaceStatsResponse,
+  BetScoutUniqueTeamMarketsResponse,
   BetScoutUniqueTournament,
+  BetScoutVenueStatsResponse,
+  CountryFlagOptions,
   DailyMatchIndexEntry,
   DailyOddsLookupResult,
   FeedLanguage,
   FeedTimezone,
   GoalIntervalBucketSummary,
   InjuryGateEvaluation,
+  JerseySvgOptions,
   LiveMatchSituationsPressure,
   LiveTimelineDeltaSummary,
   MatchIntelligenceBundle,
@@ -70,10 +82,18 @@ import type {
   SportCatalogItem,
   TeamGoalIntervalsSummary,
   TeamIntelligenceBundle,
+  TeamLogoOptions,
   TennisPlayerIntelligenceBundle,
   TennisSurfaceSummary,
 } from './types.js';
-import { mergePrimaryAndConsensusMarkets, namesMatch, parsePrematchMarkets } from './utils.js';
+import {
+  getCountryFlagUrl,
+  getTeamLogoUrl,
+  mergePrimaryAndConsensusMarkets,
+  namesMatch,
+  parsePrematchMarkets,
+  renderTeamJerseySvg,
+} from './utils.js';
 
 interface CacheEntry<T = unknown> {
   expiresAtMs: number;
@@ -875,6 +895,213 @@ export class BetScoutClient {
       `${refereeId}/${seasonId}`,
       { channel: 'neutral', ttlSec: 3600, ...options },
     );
+  }
+
+  // ==========================================================================
+  // F. Visual Assets (Team Logos, Country Flags & Player Jersey SVG Avatars)
+  // ==========================================================================
+
+  /**
+   * Build the direct tokenless PNG logo URL for any club/team ID (`small` | `medium` | `big` or NCAA `ap250x188ut` | `ap500x375ut` | `ap1000x750ut`).
+   * Example: `client.getTeamLogoUrl(2692, { size: 'big' })` for AC Milan.
+   */
+  public getTeamLogoUrl(teamId: number | string, options: TeamLogoOptions = {}): string {
+    return getTeamLogoUrl(teamId, options);
+  }
+
+  /**
+   * Build the direct tokenless SVG (`4x3` | `1x1`) or PNG (`small` | `medium` | `big`) country/federation flag URL.
+   * Example: `client.getCountryFlagUrl('rs', { format: 'svg', ratio: '4x3' })` for Serbia.
+   */
+  public getCountryFlagUrl(countryIso2: string, options: CountryFlagOptions = {}): string {
+    return getCountryFlagUrl(countryIso2, options);
+  }
+
+  /**
+   * Render a standalone vector SVG player kit avatar from a team's `homejersey` / `awayjersey` / `gkjersey` colors
+   * and optional player `shirtNumber`.
+   */
+  public renderTeamJerseySvg(
+    jersey: BetScoutJerseyColors | null | undefined,
+    options: JerseySvgOptions = {},
+  ): string {
+    return renderTeamJerseySvg(jersey, options);
+  }
+
+  // ==========================================================================
+  // G. Insights, Editorial Commentary, Venues & Team/Futures Markets
+  // ==========================================================================
+
+  /**
+   * Fetch automated pre-match & in-play **Match Insights / Fun Facts** (`match_funfacts/{matchId}`).
+   * Returns natural-language streaks and head-to-head insights (`funfacts[]` and `facts[]`).
+   */
+  public async getMatchInsights(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchFunFactsResponse | null> {
+    return this.fetchFeed<BetScoutMatchFunFactsResponse>('match_funfacts', String(matchId), {
+      channel: 'neutral',
+      ttlSec: 300,
+      ...options,
+    });
+  }
+
+  /**
+   * Fetch full natural-language **Editorial Match Commentary** (`match_phrases/{matchId}`).
+   */
+  public async getMatchCommentary(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchPhrasesResponse | null> {
+    return this.fetchFeed<BetScoutMatchPhrasesResponse>('match_phrases', String(matchId), {
+      channel: 'neutral',
+      ttlSec: 30,
+      ...options,
+    });
+  }
+
+  /**
+   * Fetch rolling delta updates of **Editorial Match Commentary** (`match_phrasesdelta/{matchId}`).
+   */
+  public async getMatchCommentaryDelta(
+    matchId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutMatchPhrasesResponse | null> {
+    return this.fetchFeed<BetScoutMatchPhrasesResponse>('match_phrasesdelta', String(matchId), {
+      channel: 'neutral',
+      ttlSec: 5,
+      ...options,
+    });
+  }
+
+  /**
+   * Fetch macro **Season League Summary Insights** (`stats_season_leaguesummary/{seasonId}`):
+   * home/draw/away win percentages, goals per match, Over/Under (`0.5`..`5.5`) hit rates, clean sheet %, and BTTS %.
+   */
+  public async getSeasonLeagueSummary(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonLeagueSummaryResponse | null> {
+    return this.fetchFeed<BetScoutSeasonLeagueSummaryResponse>(
+      'stats_season_leaguesummary',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 3600, ...options },
+    );
+  }
+
+  /**
+   * Fetch per-player season facts, **market values (`marketvalue`)**, shirt numbers, and full season statistics
+   * for all players on a team in a season (`stats_teamplayer_facts/{teamId}/{seasonId}`).
+   */
+  public async getTeamPlayerSeasonFacts(
+    teamId: number | string,
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutTeamPlayerFactsMap | null> {
+    return this.fetchFeed<BetScoutTeamPlayerFactsMap>(
+      'stats_teamplayer_facts',
+      `${teamId}/${seasonId}`,
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /**
+   * Fetch all stadiums/venues for a league season (`stats_season_venues/{seasonId}`),
+   * including capacity, construction year, address, pitch dimensions (`pitchsize`), and `googlecoords`.
+   */
+  public async getSeasonVenues(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonVenuesResponse | null> {
+    return this.fetchFeed<BetScoutSeasonVenuesResponse>('stats_season_venues', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 3600,
+      ...options,
+    });
+  }
+
+  /**
+   * Fetch detailed **Venue / Stadium Season Statistics** (`stats_season_venuestats/{stadiumId}/{seasonId}`),
+   * including stadium metadata (`capacity`, `googlecoords`, `pitchsize`) and venue-specific home/away goals,
+   * corner kicks, yellow cards, 15-minute goal buckets, and top stadium goalscorers (`venue_top_scorer`).
+   */
+  public async getVenueSeasonStats(
+    stadiumId: number | string,
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutVenueStatsResponse | null> {
+    return this.fetchFeed<BetScoutVenueStatsResponse>(
+      'stats_season_venuestats',
+      `${stadiumId}/${seasonId}`,
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /** Fetch league-wide top goalscorers for a season (`stats_season_topgoals/{seasonId}`). */
+  public async getSeasonTopScorers(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonTopListResponse | null> {
+    return this.fetchFeed<BetScoutSeasonTopListResponse>(
+      'stats_season_topgoals',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /** Fetch league-wide top assist providers for a season (`stats_season_topassists/{seasonId}`). */
+  public async getSeasonTopAssists(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonTopListResponse | null> {
+    return this.fetchFeed<BetScoutSeasonTopListResponse>(
+      'stats_season_topassists',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /** Fetch league-wide disciplinary / card leaders for a season (`stats_season_topcards/{seasonId}`). */
+  public async getSeasonTopCards(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutSeasonTopListResponse | null> {
+    return this.fetchFeed<BetScoutSeasonTopListResponse>(
+      'stats_season_topcards',
+      String(seasonId),
+      { channel: 'neutral', ttlSec: 1800, ...options },
+    );
+  }
+
+  /**
+   * Fetch all active & upcoming bookmaker markets (`1x2`, totals, handicaps, outrights) for a specific team
+   * (`uniqueteam_markets/{teamId}`), including implied probabilities (`probability`).
+   */
+  public async getTeamMarkets(
+    teamId: number | string,
+    channel: ProviderChannel = 'eu-retail',
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutUniqueTeamMarketsResponse | null> {
+    return this.fetchFeed<BetScoutUniqueTeamMarketsResponse>(
+      'uniqueteam_markets',
+      String(teamId),
+      { channel, ttlSec: 900, ...options },
+    );
+  }
+
+  /**
+   * Fetch the complete 328-entry Decimal <-> UK Fractional & US Moneyline odds conversion table (`odds_ukformat`).
+   */
+  public async getOddsFormatTable(
+    options?: BetScoutRequestOptions,
+  ): Promise<BetScoutOddsFormatEntry[] | null> {
+    return this.fetchFeed<BetScoutOddsFormatEntry[]>('odds_ukformat', '', {
+      channel: 'neutral',
+      language: 'agnostic',
+      ttlSec: 86400,
+      ...options,
+    });
   }
 
   // ==========================================================================

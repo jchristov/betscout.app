@@ -1,13 +1,16 @@
 /**
  * @internal
- * Private upstream transport configuration and channel alias resolution.
+ * Private upstream transport configuration, image CDN URL builders, and channel alias resolution.
  * Never exported from the public SDK entrypoint.
  */
 
-import type { ProviderChannel } from '../types.js';
+import type { CountryFlagOptions, ProviderChannel, TeamLogoOptions } from '../types.js';
 
 /** @internal */
 export const DEFAULT_UPSTREAM_BASE_URL = 'https://stats.fn.sportradar.com';
+
+/** @internal */
+export const DEFAULT_UPSTREAM_IMAGE_BASE_URL = 'https://img.sportradar.com';
 
 /** @internal */
 export const DEFAULT_UPSTREAM_PROTOCOL = 'gismo';
@@ -20,6 +23,14 @@ const CHANNEL_MAP: Readonly<Record<string, string>> = {
   common: 'common',
   sportradar: 'sportradar',
   tipico: 'tipico',
+};
+
+/** @internal */
+const UK_HOME_NATION_SVG_MAP: Readonly<Record<string, string>> = {
+  en: 'gb-eng',
+  s: 'gb-sct',
+  n: 'gb-nir',
+  w: 'gb-wls',
 };
 
 /** @internal */
@@ -37,7 +48,7 @@ export function buildUpstreamFeedUrl(
   timezone: string,
   endpoint: string,
   params?: string | number | Array<string | number | undefined | null>,
-  token?: string
+  token?: string,
 ): string {
   const cleanBase = baseUrl.replace(/\/+$/, '');
   const cleanEndpoint = endpoint.replace(/^\/+|\/+$/g, '');
@@ -59,4 +70,37 @@ export function buildUpstreamFeedUrl(
     return `${url}?T=${encodeURIComponent(token)}`;
   }
   return url;
+}
+
+/** @internal */
+export function buildUpstreamTeamLogoUrl(
+  teamId: number | string,
+  options: TeamLogoOptions = {},
+): string {
+  const base = (options.imageBaseUrl ?? DEFAULT_UPSTREAM_IMAGE_BASE_URL).replace(/\/+$/, '');
+  if (options.ncaa) {
+    const ncaaSize = options.ncaaSize ?? 'ap250x188ut';
+    return `${base}/ls/teams/${ncaaSize}/${teamId}.png`;
+  }
+  const size = options.size ?? 'big';
+  return `${base}/ls/crest/${size}/${teamId}.png`;
+}
+
+/** @internal */
+export function buildUpstreamCountryFlagUrl(
+  countryIso2: string,
+  options: CountryFlagOptions = {},
+): string {
+  const base = (options.imageBaseUrl ?? DEFAULT_UPSTREAM_IMAGE_BASE_URL).replace(/\/+$/, '');
+  const cleanIso = String(countryIso2 || '')
+    .trim()
+    .toLowerCase();
+  const format = options.format ?? 'svg';
+  if (format === 'svg') {
+    const ratio = options.ratio ?? '4x3';
+    const mappedCode = UK_HOME_NATION_SVG_MAP[cleanIso] ?? cleanIso;
+    return `${base}/ls/crest/${ratio}/${mappedCode}.svg`;
+  }
+  const size = options.size ?? 'medium';
+  return `${base}/ls/crest/${size}/${cleanIso}.png`;
 }

@@ -174,6 +174,20 @@ These endpoints power the team and competitor pages (such as `/sport/5/team/1488
 | **`stats_player_stats`** | `{playerId}` | Individual squad player's multi-season career statistics across all clubs & leagues (e.g. `191210` Mike Maignan) |
 | **`stats_player_facts`** | `{playerId}` | Individual player career milestones, roles, clubs, and aggregate stats |
 | **`player_seasonmatches`** | `{playerId}/{seasonId}` | Match-by-match appearance and event log for an individual player in a season |
+| **`stats_teamplayer_facts`** | `{teamUid}/{seasonId}` | Full squad season facts including player **`marketvalue` (EUR)**, `shirtnumber`, `membersince`, `minutes_played`, `started`, `team_scored`, `team_conceded`, and half-by-half card counts |
+
+### F. Visual Assets (`img.sportradar.com`), Insights, Commentary, Venues & Futures Mapping
+Mapping official Sportradar API families (`images-and-editorials`, `insights`, `oddscomparison-futures`) to tokenless Gismo & CDN endpoints:
+
+| Official API Family | Tokenless Gismo / CDN Endpoint | Description & Capabilities |
+| :--- | :--- | :--- |
+| **Team / Club Logos** | `https://img.sportradar.com/ls/crest/{size}/{teamUid}.png` | Tokenless transparent PNG club crests across all sports (`size`: `small` \| `medium` \| `big`; e.g. `2692.png` AC Milan, `3427.png` Boston Celtics, `3688.png` NHL) when `team.haslogo === true`. |
+| **US College / NCAA Logos** | `https://img.sportradar.com/ls/teams/{size}/{teamUid}.png` | Tokenless NCAA team logos (`size`: `ap250x188ut` \| `ap500x375ut` \| `ap1000x750ut`). |
+| **Country & Federation Flags** | `https://img.sportradar.com/ls/crest/{ratio}/{a2}.svg`<br>`https://img.sportradar.com/ls/crest/{size}/{a2}.png` | Tokenless vector SVG (`ratio`: `4x3` \| `1x1`) and PNG (`small` \| `medium` \| `big`) flags (`en` $\rightarrow$ `gb-eng`, `s` $\rightarrow$ `gb-sct`, `n` $\rightarrow$ `gb-nir`, `w` $\rightarrow$ `gb-wls`). |
+| **Player Avatars / Kits** | `stats_team_info/{teamUid}` + `stats_teamplayer_facts/{teamUid}/{seasonId}` | Photographic editorial headshots/action shots (`api.sportradar.com/images-images3/ap\|getty\|reuters/...`) require commercial wire-agency API keys (`player.haslogo` is `false` in Gismo). Instead, StatsHub renders vector **Player Kit Avatars** from `homejersey`/`awayjersey`/`gkjersey` hex colors + `shirtnumber` + `nationality.a2` flag badge (implemented via `renderTeamJerseySvg` in `@betscout/sdk`). |
+| **Venues & Stadiums** | `stats_season_venues/{seasonId}`<br>`stats_season_venuestats/{stadiumId}/{seasonId}` | Full stadium metadata (`name`, `capacity`, `constryear`, `address`, `url`, **`googlecoords: "45.478025,9.124206"`** for map/satellite tiles, **`pitchsize: {x: 105, y: 68}`**) plus venue-specific goals, corners, cards, 15-min goal intervals, and `venue_top_scorer`. |
+| **Insights & Commentary** | `match_funfacts/{matchId}`<br>`match_phrases/{matchId}`<br>`match_phrasesdelta/{matchId}`<br>`stats_season_leaguesummary/{seasonId}` | Automated pre-match & in-play streak/form insights (`funfacts[]`, `facts[]`), real-time natural-language commentary sentences (`phrases[]` with pitch `X,Y` coordinates), and season-wide Over/Under, clean-sheet & BTTS rates. |
+| **Odds Comparison & Futures** | `uniqueteam_markets/{teamUid}`<br>`season_markets/{seasonId}`<br>`odds_ukformat` | All active/upcoming bookmaker markets and implied probabilities (`probability`) for a specific team or season, plus the 328-entry Decimal $\leftrightarrow$ UK Fractional & US Moneyline conversion table. |
 
 ---
 

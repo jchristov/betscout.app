@@ -1026,3 +1026,234 @@ export interface TennisPlayerIntelligenceBundle {
   last_matches: BetScoutHistoricalMatchItem[];
   next_matches: BetScoutHistoricalMatchItem[];
 }
+
+// ============================================================================
+// F. Visual Assets (Team Logos, Country Flags, Player Kit SVG & Venue Coordinates)
+// ============================================================================
+
+export type TeamLogoSize = 'small' | 'medium' | 'big';
+export type NcaaLogoSize = 'ap250x188ut' | 'ap500x375ut' | 'ap1000x750ut';
+
+export interface TeamLogoOptions {
+  /** Standard crest size (`'small'` | `'medium'` | `'big'`, default: `'big'`) */
+  size?: TeamLogoSize;
+  /** Set `true` for US College / NCAA teams using the `teams/{ncaaSize}/{teamId}.png` path */
+  ncaa?: boolean;
+  /** NCAA emblem resolution (`'ap250x188ut'` | `'ap500x375ut'` | `'ap1000x750ut'`) */
+  ncaaSize?: NcaaLogoSize;
+  /** Optional custom image CDN origin */
+  imageBaseUrl?: string;
+}
+
+export interface CountryFlagOptions {
+  /** Output image format (`'svg'` vector or `'png'` raster, default: `'svg'`) */
+  format?: 'svg' | 'png';
+  /** Aspect ratio when `format === 'svg'` (`'4x3'` | `'1x1'`, default: `'4x3'`) */
+  ratio?: '4x3' | '1x1';
+  /** Size when `format === 'png'` (`'small'` | `'medium'` | `'big'`, default: `'medium'`) */
+  size?: TeamLogoSize;
+  /** Optional custom image CDN origin */
+  imageBaseUrl?: string;
+}
+
+export interface JerseySvgOptions {
+  /** Optional player shirt number rendered on the jersey (`"16"`, `10`, etc.) */
+  shirtNumber?: number | string | null;
+  /** Rendered SVG width/height in pixels (default: `96`) */
+  sizePx?: number;
+}
+
+// ============================================================================
+// G. Insights, Editorial Commentary, Venues & Futures Markets
+// ============================================================================
+
+export interface BetScoutMatchFunFactItem {
+  _id: number;
+  _typeid?: number;
+  sentence: string;
+}
+
+export interface BetScoutMatchFunFactsResponse {
+  _id: number;
+  funfacts?: string[];
+  facts?: BetScoutMatchFunFactItem[];
+}
+
+export interface BetScoutMatchPhraseItem {
+  _doc?: 'phrase';
+  _id: string | number;
+  uts?: number;
+  typeid?: number | null;
+  funfactid?: number;
+  text: string;
+  sentence?: string;
+  time?: number;
+  injurytime?: number;
+  event?: Record<string, unknown>;
+}
+
+export interface BetScoutMatchPhrasesResponse {
+  match?: BetScoutMatchSummary;
+  owncommentary?: boolean;
+  phrases?: BetScoutMatchPhraseItem[];
+}
+
+export interface BetScoutSeasonLeagueSummaryResponse {
+  _doc?: 'summary';
+  matches?: {
+    played?: number;
+    home_wins?: number;
+    draws?: number;
+    away_wins?: number;
+  };
+  goals?: {
+    total?: number;
+    pr_match?: number;
+    pr_match_home?: number;
+    pr_match_away?: number;
+  };
+  overunder?: Record<string, number>;
+  clean_sheet?: {
+    total?: number;
+    pr_match?: number;
+  };
+  both_teams_to_score?: {
+    total?: number;
+    pr_match?: number;
+  };
+  [key: string]: unknown;
+}
+
+export interface BetScoutTeamPlayerFactEntry {
+  player?: BetScoutExtendedPlayer & {
+    marketvalue?: number;
+    shirtnumber?: string | number;
+    membersince?: BetScoutDateTime;
+    twitter?: string;
+  };
+  stats?: {
+    _doc?: 'toplistentry';
+    _id?: number;
+    playerid?: number;
+    teams?: Record<
+      string,
+      {
+        seasons?: Record<
+          string,
+          {
+            active?: boolean;
+            lastevent?: string;
+            started?: number;
+            matches?: number;
+            minutes_played?: number;
+            substituted_in?: number;
+            substituted_out?: number;
+            goals?: number;
+            assists?: number;
+            yellow_cards?: number;
+            red_cards?: number;
+            team_scored?: number;
+            team_conceded?: number;
+            matches_won?: number;
+            matches_drawn?: number;
+            matches_lost?: number;
+            [key: string]: unknown;
+          }
+        >;
+      }
+    >;
+    total?: Record<string, number>;
+  };
+}
+
+export type BetScoutTeamPlayerFactsMap = Record<string, BetScoutTeamPlayerFactEntry>;
+
+export interface BetScoutStadiumInfo {
+  _doc?: 'stadium';
+  _id: string | number;
+  name: string;
+  description?: string;
+  city?: string;
+  country?: string;
+  state?: string | null;
+  cc?: BetScoutCountryCode;
+  capacity?: string | number;
+  constryear?: string | number;
+  address?: string;
+  phone?: string;
+  url?: string;
+  /** Latitude,Longitude string (e.g. `"45.478025,9.124206"` for Stadio Giuseppe Meazza / San Siro) */
+  googlecoords?: string;
+  pitchsize?: {
+    x?: number;
+    y?: number;
+  };
+  hometeams?: BetScoutTeamRef[];
+}
+
+export interface BetScoutSeasonVenuesResponse {
+  season?: BetScoutSeasonDescriptor;
+  stadiums?: BetScoutStadiumInfo[];
+}
+
+export interface BetScoutVenueStatsResponse {
+  stadium?: BetScoutStadiumInfo;
+  season?: BetScoutSeasonDescriptor;
+  statistics?: {
+    venue_home_goals?: string | number;
+    venue_away_goals?: string | number;
+    venue_home_wins?: string | number;
+    venue_away_wins?: string | number;
+    venue_draws?: string | number;
+    venue_home_corner_kicks?: string | number;
+    venue_away_corner_kicks?: string | number;
+    venue_yellow_cards?: string | number;
+    venue_red_cards?: string | number;
+    venue_goals_0_15?: string | number;
+    venue_goals_16_30?: string | number;
+    venue_goals_31_45?: string | number;
+    venue_goals_46_60?: string | number;
+    venue_goals_61_75?: string | number;
+    venue_goals_76_90?: string | number;
+    venue_top_scorer?: BetScoutExtendedPlayer[];
+    [key: string]: unknown;
+  };
+  lastmatches?: BetScoutHistoricalMatchItem[];
+  nextmatches?: BetScoutHistoricalMatchItem[];
+  [key: string]: unknown;
+}
+
+export interface BetScoutSeasonTopListResponse {
+  season?: BetScoutSeasonDescriptor;
+  players?: Array<{
+    player?: BetScoutExtendedPlayer;
+    team?: BetScoutTeamRef;
+    goals?: string | number;
+    assists?: string | number;
+    cards?: string | number;
+    yellow_cards?: string | number;
+    red_cards?: string | number;
+    matches?: string | number;
+    [key: string]: unknown;
+  }>;
+  teams?: Record<string, BetScoutTeamRef>;
+}
+
+export interface BetScoutUniqueTeamMarketsResponse {
+  matches?: Record<
+    string,
+    {
+      _id?: number;
+      markets?: BetScoutMarket[];
+    }
+  >;
+}
+
+export interface BetScoutOddsFormatEntry {
+  _doc?: string;
+  decimal?: string | number;
+  uk?: string;
+  us?: string | number;
+  [key: string]: unknown;
+}
+

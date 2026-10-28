@@ -8,11 +8,15 @@ import {
   SERVICE_PROFILES,
   SPORTS_CATALOG,
   getAdaptiveRefetchIntervalMs,
+  getCountryFlagUrl,
+  getTeamLogoUrl,
   mergeLatestMatchDelta,
   mergePrimaryAndConsensusMarkets,
   namesMatch,
   normalizeTeamName,
   parsePrematchMarkets,
+  parseVenueCoordinates,
+  renderTeamJerseySvg,
   resolveSportId,
 } from '../src/index.js';
 import type { BetScoutEnvelope, BetScoutMarket, BetScoutMatchSummary } from '../src/index.js';
@@ -545,5 +549,129 @@ describe('@betscout/sdk — 3s Live Timeline Delta Stream & Match Intelligence W
     expect(gate.backed_gk_out).toBe(1);
     expect(gate.prob_adjustment).toBeLessThan(0);
     expect(gate.status).toContain('ALERT_DEPLETED_SQUAD');
+  });
+});
+
+describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Markets', () => {
+  it('builds tokenless team logo URLs, SVG/PNG country flags, jersey SVG avatars, and venue coordinates', () => {
+    expect(getTeamLogoUrl(2692, { size: 'big' })).toMatch(/\/ls\/crest\/big\/2692\.png$/);
+    expect(getTeamLogoUrl(2509, { ncaa: true, ncaaSize: 'ap250x188ut' })).toMatch(
+      /\/ls\/teams\/ap250x188ut\/2509\.png$/,
+    );
+    expect(getCountryFlagUrl('rs', { format: 'svg', ratio: '4x3' })).toMatch(
+      /\/ls\/crest\/4x3\/rs\.svg$/,
+    );
+    expect(getCountryFlagUrl('en', { format: 'svg', ratio: '4x3' })).toMatch(
+      /\/ls\/crest\/4x3\/gb-eng\.svg$/,
+    );
+    expect(getCountryFlagUrl('it', { format: 'png', size: 'medium' })).toMatch(
+      /\/ls\/crest\/medium\/it\.png$/,
+    );
+
+    const svg = renderTeamJerseySvg(
+      { base: 'ff0000', sleeve: '121212', number: 'f8f6f6', stripes: '000000' },
+      { shirtNumber: 16, sizePx: 96 },
+    );
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('#ff0000');
+    expect(svg).toContain('>16</text>');
+
+    expect(parseVenueCoordinates('45.478025,9.124206')).toEqual({
+      lat: 45.478025,
+      lng: 9.124206,
+    });
+  });
+
+  it('fetches Match Insights, Editorial Commentary, Venue Stats (San Siro 647), Squad Market Values, and Team Markets', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('match_funfacts/71945344')) {
+        return jsonResponse({
+          _id: 71945344,
+          funfacts: [
+            "Udinese haven't won in their last 6 games.",
+            "Milan's away record this season: 1-3-0.",
+          ],
+          facts: [{ _id: 1, _typeid: 1, sentence: "Udinese haven't won in their last 6 games." }],
+        });
+      }
+      if (url.includes('match_phrases/71945344')) {
+        return jsonResponse({
+          owncommentary: true,
+          phrases: [
+            { _id: 'p1', time: 1, text: 'The whistle has gone to start the match.' },
+          ],
+        });
+      }
+      if (url.includes('stats_season_venuestats/647/130971')) {
+        return jsonResponse({
+          stadium: {
+            _id: '647',
+            name: 'Stadio Giuseppe Meazza',
+            city: 'Milan',
+            capacity: '80018',
+            googlecoords: '45.478025,9.124206',
+            pitchsize: { x: 105, y: 68 },
+          },
+          statistics: {
+            venue_home_goals: '75',
+            venue_away_goals: '37',
+            venue_home_corner_kicks: '234',
+            venue_yellow_cards: '133',
+          },
+        });
+      }
+      if (url.includes('stats_teamplayer_facts/2692/130971')) {
+        return jsonResponse({
+          '191210': {
+            player: {
+              _id: 191210,
+              name: 'Maignan, Mike',
+              marketvalue: 45000000,
+              shirtnumber: '16',
+            },
+            stats: {
+              total: { matches: 37, minutes_played: 3296, yellow_cards: 4 },
+            },
+          },
+        });
+      }
+      if (url.includes('uniqueteam_markets/2692')) {
+        return jsonResponse({
+          matches: {
+            '61061467': {
+              markets: [
+                {
+                  _marketId: 1,
+                  _bookmakerId: 176,
+                  outcomes: [{ _id: 'sr:outcome:1', name: '{$competitor1}', odds: 1.85 }],
+                },
+              ],
+            },
+          },
+        });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+
+    const insights = await client.getMatchInsights(71945344);
+    expect(insights?.funfacts?.length).toBe(2);
+
+    const commentary = await client.getMatchCommentary(71945344);
+    expect(commentary?.phrases?.[0]?.text).toContain('whistle');
+
+    const sanSiro = await client.getVenueSeasonStats(647, 130971);
+    expect(sanSiro?.stadium?.name).toBe('Stadio Giuseppe Meazza');
+    expect(sanSiro?.stadium?.capacity).toBe('80018');
+    expect(sanSiro?.statistics?.venue_home_goals).toBe('75');
+
+    const squadFacts = await client.getTeamPlayerSeasonFacts(2692, 130971);
+    expect(squadFacts?.['191210']?.player?.marketvalue).toBe(45000000);
+    expect(squadFacts?.['191210']?.stats?.total?.minutes_played).toBe(3296);
+
+    const teamMarkets = await client.getTeamMarkets(2692, 'eu-retail');
+    expect(teamMarkets?.matches?.['61061467']?.markets?.[0]?.outcomes?.[0]?.odds).toBe(1.85);
   });
 });

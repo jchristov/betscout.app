@@ -3,12 +3,20 @@
  */
 
 import { CORRECT_SCORE_OUTCOMES, MARKET_IDS } from './constants.js';
+import {
+  buildUpstreamCountryFlagUrl,
+  buildUpstreamTeamLogoUrl,
+} from './internal/transport.js';
 import type {
   BetScoutDocument,
+  BetScoutJerseyColors,
   BetScoutMarket,
   BetScoutMatchSummary,
   BetScoutMatchTimelineDeltaResponse,
+  CountryFlagOptions,
+  JerseySvgOptions,
   ParsedPrematchMarkets,
+  TeamLogoOptions,
 } from './types.js';
 
 const CLUB_ALIASES: Readonly<Record<string, string>> = {
@@ -295,4 +303,67 @@ export function mergeLatestMatchDelta(
     return deltaMatch;
   }
   return deltaMatch;
+}
+
+/**
+ * Build the direct tokenless PNG logo URL for any club/team ID (`small` | `medium` | `big` or NCAA `ap250x188ut` | `ap500x375ut` | `ap1000x750ut`).
+ * Example: `getTeamLogoUrl(2692, { size: 'big' })` for AC Milan.
+ */
+export function getTeamLogoUrl(teamId: number | string, options: TeamLogoOptions = {}): string {
+  return buildUpstreamTeamLogoUrl(teamId, options);
+}
+
+/**
+ * Build the direct tokenless SVG (`4x3` | `1x1`) or PNG (`small` | `medium` | `big`) country/federation flag URL.
+ * Automatically maps UK home-nation codes (`en` -> `gb-eng`, `s` -> `gb-sct`, `n` -> `gb-nir`, `w` -> `gb-wls`).
+ */
+export function getCountryFlagUrl(
+  countryIso2: string,
+  options: CountryFlagOptions = {},
+): string {
+  return buildUpstreamCountryFlagUrl(countryIso2, options);
+}
+
+/**
+ * Render a standalone vector SVG player kit avatar from a team's `homejersey` / `awayjersey` / `gkjersey` colors
+ * (`base`, `sleeve`, `number`, `stripes`) and optional player `shirtNumber`.
+ */
+export function renderTeamJerseySvg(
+  jersey: BetScoutJerseyColors | null | undefined,
+  options: JerseySvgOptions = {},
+): string {
+  const cleanHex = (c?: string, fallback = '1e293b') =>
+    `#${String(c || fallback).replace(/^#+/, '')}`;
+  const base = cleanHex(jersey?.base, 'dc2626');
+  const sleeve = cleanHex(jersey?.sleeve, base.slice(1));
+  const numberColor = cleanHex(jersey?.number, 'ffffff');
+  const stripeColor = jersey?.stripes ? cleanHex(jersey.stripes) : null;
+  const size = options.sizePx ?? 96;
+  const numText =
+    options.shirtNumber !== undefined && options.shirtNumber !== null
+      ? String(options.shirtNumber).trim()
+      : '';
+
+  const stripesMarkup = stripeColor
+    ? `<rect x="36" y="18" width="8" height="68" fill="${stripeColor}" opacity="0.9"/><rect x="52" y="18" width="8" height="68" fill="${stripeColor}" opacity="0.9"/>`
+    : '';
+  const numberMarkup = numText
+    ? `<text x="48" y="60" text-anchor="middle" fill="${numberColor}" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="24">${numText}</text>`
+    : '';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 96 96" role="img" aria-label="Player Jersey"><path d="M26 14 L38 14 C41 20 55 20 58 14 L70 14 L88 32 L76 44 L68 36 L68 86 L28 86 L28 36 L20 44 L8 32 Z" fill="${base}" stroke="rgba(255,255,255,0.22)" stroke-width="2"/><path d="M26 14 L8 32 L20 44 L28 36 L28 22 Z" fill="${sleeve}"/><path d="M70 14 L88 32 L76 44 L68 36 L68 22 Z" fill="${sleeve}"/>${stripesMarkup}${numberMarkup}</svg>`;
+}
+
+/**
+ * Parse a stadium's `googlecoords` string (`"45.478025,9.124206"`) into `{ lat, lng }` coordinates.
+ */
+export function parseVenueCoordinates(
+  googlecoords?: string | null,
+): { lat: number; lng: number } | null {
+  if (!googlecoords || !googlecoords.includes(',')) return null;
+  const [latStr, lngStr] = googlecoords.split(',', 2);
+  const lat = Number.parseFloat(String(latStr).trim());
+  const lng = Number.parseFloat(String(lngStr).trim());
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
 }
