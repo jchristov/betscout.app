@@ -2370,14 +2370,45 @@ def scan_upcoming_and_log_paper_bets(
                     )
                     best_candidate["starting_xi_gate"] = xi_gate
                     vetoed_xi = bool(xi_gate["vetoed"])
+
+                    # Pre-Match Squad Depletion & Injury Gate (`betscout_sdk` / `sportradar_statshub`):
+                    # Before T-60m lineups drop, check `stats_season_injuries` for severe squad depletion
+                    # (e.g. Genoa 2-0 Juventus where Juventus had 10 players out injured vs Genoa's 2).
+                    sr_inj_gate: dict[str, Any] = {}
+                    vetoed_sr_inj = False
+                    if not vetoed_xi:
+                        try:
+                            from .sportradar_statshub import lookup_statshub_match_intel
+
+                            sr_intel = lookup_statshub_match_intel(
+                                home, away, sport="soccer", date_ymd=kickoff[:10]
+                            )
+                            sr_inj_gate = sr_intel.get("injury_gate") or {}
+                            if best_candidate["side"] == "A":
+                                # In lookup_statshub_match_intel, backed_out defaults to home; recompute for away side
+                                from .sportradar_statshub import evaluate_sportradar_injury_gate
+
+                                sr_inj_gate = evaluate_sportradar_injury_gate(
+                                    sr_intel.get("season_id"),
+                                    sr_intel.get("away_uid"),
+                                    sr_intel.get("home_uid"),
+                                )
+                            vetoed_sr_inj = bool(sr_inj_gate.get("veto_recommended"))
+                        except Exception:
+                            vetoed_sr_inj = False
+
+                    vetoed_any = vetoed_xi or vetoed_sr_inj
                     if vetoed_xi:
                         best_candidate["action"] = "VETOED_BY_DEPLETED_XI"
+                    elif vetoed_sr_inj:
+                        best_candidate["action"] = "VETOED_BY_DEPLETED_SQUAD"
                     else:
                         best_candidate["action"] = "PAPER_BET"
                     best_candidate["news_signal"] = {
                         "backend": "structured_xi_gate",
-                        "net_edge_for_pick": 0.0,
-                        "vetoed": False,
+                        "net_edge_for_pick": float(sr_inj_gate.get("prob_adjustment") or 0.0),
+                        "vetoed": vetoed_any,
+                        "injury_gate": sr_inj_gate,
                         "home_positive": 0.0,
                         "home_negative": 0.0,
                         "away_positive": 0.0,
@@ -2386,11 +2417,11 @@ def scan_upcoming_and_log_paper_bets(
                     }
                     qualifying_picks.append(best_candidate)
                     # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
-                    if not vetoed_xi:
+                    if not vetoed_any:
                         if not best_candidate.get("is_live"):
                             _upsert_paper_bet(db_path, best_candidate, now_iso)
                     else:
-                        # Remove from active PENDING paper_bets ONLY if vetoed by T-60m depleted Starting XI before kickoff
+                        # Remove from active PENDING paper_bets ONLY if vetoed by T-60m depleted Starting XI or Squad Injury Gate before kickoff
                         c_del = _open_db(db_path)
                         c_del.execute(
                             "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",

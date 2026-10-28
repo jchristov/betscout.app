@@ -43,7 +43,14 @@ def evaluate_soccer_gate(
     draws_z = float(factors_tanh_z.get("recent_draws", 0.0))
 
     # 1. Universal Stalemate-Draw & Foul-Trouble Veto
-    if p_mkt < 0.62 and draws_z > 0.80 and dom_z < -0.30 and disc_z < -0.60:
+    # Catches stalemate/foul-trouble traps up to p_mkt < 0.65 (e.g. Toulouse 0-0 Troyes and Bayern Munich W 2-2 Real Madrid W)
+    if p_mkt < 0.65 and draws_z > 0.80 and dom_z < -0.30 and disc_z < -0.60:
+        return "pass"
+
+    # 1b. Weak-Shot-Dominance & Stalemate-Rebound Veto
+    # Sub-65% favorites with weak rolling Shot-on-Target dominance (sot_z < 0.35), high recent draws (draws_z > 0.80),
+    # and negative dominance rebound (dom_z < -0.30) are vulnerable to counter-attacking upsets (e.g. AC Milan 2-4 Bologna).
+    if p_mkt < 0.65 and sot_z < 0.35 and draws_z > 0.80 and dom_z < -0.30:
         return "pass"
 
     is_uefa = lg.startswith("uefa.") or lg.startswith("fifa.")
@@ -470,6 +477,12 @@ def evaluate_european_sport_gate(
         if is_tipico and form_diff_fav < 0.10:
             return False, round(p_model, 4), ev_pct
         if fav_wr is not None and fav_wr < 0.60:
+            return False, round(p_model, 4), ev_pct
+        # Handball Fresh-Defeat & Non-Retail Heavy Chalk Veto:
+        # When a Handball favorite lost their most recent match (`fav_loss_streak >= 1`) and is priced on a
+        # Consensus-only line (`not is_tipico`) or lacks strong Last-3 momentum (`recent3_diff_fav <= 0.35`),
+        # veto to avoid domestic turnover blowouts (e.g. Savehof 21-31 Amo after Savehof's prior defeat).
+        if fav_loss_streak >= 1 and (not is_tipico or (recent3_diff_fav is not None and recent3_diff_fav <= 0.35)):
             return False, round(p_model, 4), ev_pct
     elif sp == "darts":
         if best_odds < 1.15 or best_odds > 1.42 or form_diff_fav < 0.20 or p_elo_fav < 0.50:

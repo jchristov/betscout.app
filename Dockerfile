@@ -20,7 +20,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install Python dependencies first for layer caching (resolve from public PyPI in Cloud Build)
-COPY sdk/python ./sdk/python
+COPY sdk/python /sdk/python
 COPY api/pyproject.toml README.md ./
 COPY api/src ./src
 RUN uv sync --no-dev --default-index https://pypi.org/simple

@@ -7,11 +7,15 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "betscout-sdk",
     "numpy>=2.5.4",
     "pillow>=13.0.0",
     "pytest>=9.1.1",
     "scikit-learn>=1.9.1",
 ]
+
+[tool.uv.sources]
+betscout-sdk = { path = "../sdk/python", editable = true }
 
 [project.scripts]
 betscout = "betscout:cli"

@@ -1061,6 +1061,66 @@ def test_nhl_table_tennis_and_tennis_loss_veto_gates():
     )
     assert passed_darts_loss is False
 
+    # 5. Handball Fresh-Defeat & Consensus-Only Heavy Chalk Veto (Savehof vs Amo: Savehof lost prior match, fav_loss_streak=1, is_tipico=False)
+    passed_hb_loss, _, _ = evaluate_european_sport_gate(
+        sport_slug="handball",
+        p_mkt=0.8096,
+        p_elo_fav=0.55,
+        form_diff_fav=0.30,
+        best_odds=1.21,
+        is_tipico=False,
+        n_form_home=10,
+        n_form_away=10,
+        recent3_diff_fav=0.0,
+        fav_loss_streak=1,
+        dog_win_streak=0,
+        fav_wr=0.80,
+    )
+    assert passed_hb_loss is False
+
+    # 6. Football Stalemate-Draw & Weak-Shot-Dominance Vetoes (Bayern Munich W vs Real Madrid W 2-2 & AC Milan vs Bologna 2-4)
+    from betscout.sport_models import evaluate_soccer_gate
+
+    thresholds_sample = {"top_8pct": 0.36, "top_10pct": 0.31, "top_15pct": 0.26, "top_25pct": 0.17}
+    assert (
+        evaluate_soccer_gate(
+            league="uefa.wchampions",
+            score=0.244,
+            thresholds=thresholds_sample,
+            p_mkt=0.6277,
+            ev_pct=2.5,
+            factors_tanh_z={
+                "p_mkt": 0.904,
+                "vig_neg": -0.925,
+                "sot_d": 0.982,
+                "discipline": -0.673,
+                "h2h_adv": 0.941,
+                "dom_rebound": -0.408,
+                "recent_draws": 0.887,
+            },
+        )
+        == "pass"
+    )
+    assert (
+        evaluate_soccer_gate(
+            league="ita.1",
+            score=0.3436,
+            thresholds=thresholds_sample,
+            p_mkt=0.5818,
+            ev_pct=1.8,
+            factors_tanh_z={
+                "p_mkt": 0.766,
+                "vig_neg": -0.167,
+                "sot_d": 0.226,
+                "discipline": 0.481,
+                "h2h_adv": 0.621,
+                "dom_rebound": -0.408,
+                "recent_draws": 0.887,
+            },
+        )
+        == "pass"
+    )
+
 
 
 def test_notify_new_picks_to_discord_dry_run(tmp_path: Path):

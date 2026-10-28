@@ -40,7 +40,7 @@ sdk-test: ## Run Vitest & Pytest suites for TypeScript and Python SDKs
 	cd sdk/python && PYTHONPATH=src ../../api/.venv/bin/pytest -q
 
 api-test: ## Run Pytest suite in api/
-	cd api && uv run pytest -q
+	cd api && uv run python -m pytest -q
 
 backend-test: api-test
 
