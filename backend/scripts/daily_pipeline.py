@@ -28,12 +28,11 @@ from betscout.universal_ingest import ingest_universal  # noqa: E402
 def run_pipeline(
     lookback_days: int | None = None,
     days_ahead: int = 5,
-    decision_backend: str = "laya",
     min_odds: float = 1.10,
 ) -> None:
     db_path = ROOT / "data" / "betscout.db"
     cache_dir = ROOT / "data" / "cache"
-    cfg_path = ROOT / "ingestion_config.json"
+    cfg_path = ROOT / "ingestion_config.json" if (ROOT / "ingestion_config.json").exists() else (Path(__file__).resolve().parents[1] / "ingestion_config.json")
     rec_json = ROOT / "data" / "recommendations.json"
     dash_html = ROOT / "data" / "dashboard.html"
 
@@ -57,11 +56,10 @@ def run_pipeline(
             print(f"      [ERROR] {err.check} ({err.league}): {err.count} — {err.note}")
         raise RuntimeError("Database quality check failed with errors.")
 
-    print(f"[3/4] Settling paper bets & scanning upcoming fixtures ({days_ahead} days ahead, news={decision_backend})...")
+    print(f"[3/4] Settling paper bets & scanning upcoming fixtures ({days_ahead} days ahead)...")
     rep = scan_upcoming_and_log_paper_bets(
         db_path=db_path,
         days_ahead=days_ahead,
-        decision_backend=decision_backend,
         export_json_path=rec_json,
     )
     notify_new_settlements_to_discord(db_path)
@@ -147,14 +145,8 @@ def main() -> None:
     parser.add_argument("--lookback", type=int, default=None, help="Days of recent completed results to force-scan (default: incremental watermark from ingestion_config.json)")
     parser.add_argument("--days", type=int, default=5, help="Days of upcoming fixtures to scan (default: 5)")
     parser.add_argument("--min-odds", type=float, default=1.10, help="Soft filter threshold: exclude odds <= min-odds (default: 1.10)")
-    parser.add_argument(
-        "--decision-backend",
-        choices=("laya", "laya-sports", "laya-base", "ms-decision-1", "auto", "none"),
-        default="laya",
-        help="Decision model backend for pre-match news veto gate (default: laya)",
-    )
     args = parser.parse_args()
-    run_pipeline(lookback_days=args.lookback, days_ahead=args.days, decision_backend=args.decision_backend, min_odds=args.min_odds)
+    run_pipeline(lookback_days=args.lookback, days_ahead=args.days, min_odds=args.min_odds)
 
 
 if __name__ == "__main__":

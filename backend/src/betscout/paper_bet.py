@@ -19,7 +19,6 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from .decision_signal import score_match_news
 from .elo import Elo
 from .enrich import _extract_soccer_details, _extract_two_way_details, infer_surface
 from .espn import BASE, LEAGUE_LABELS, OTHER_LEAGUES, SOCCER_LEAGUES, TENNIS_LEAGUES, League
@@ -1522,9 +1521,8 @@ def _evaluate_us_sport_injuries_and_news(
     home: str,
     away: str,
     side: str,
-    decision_backend: str = "laya",
 ) -> dict[str, Any]:
-    """Evaluate ESPN structured `injuries` and news articles for NBA/NHL/NFL/MLB via `laya-sports`."""
+    """Evaluate ESPN structured `injuries` roster statuses (`Out`, `IR`, `Doubtful`, `Suspension`) for NBA/NHL/NFL/MLB."""
     backed_team = home if side == "H" else away
     opp_team = away if side == "H" else home
     backed_out_count = 0
@@ -1546,17 +1544,14 @@ def _evaluate_us_sport_injuries_and_news(
                 elif is_opp:
                     opp_out_count += 1
 
-    news_sig = score_match_news(summary, home, away, backend=decision_backend)
-    net_news = round(news_sig.net_edge(side), 3)
-    # Veto if System-1 news edge <= -0.50 OR if backed team has >= 4 more players Out/IR than opponent
-    vetoed = (net_news <= -0.50) or (backed_out_count - opp_out_count >= 5)
+    vetoed = (backed_out_count - opp_out_count) >= 5
     return {
-        "backend": news_sig.backend,
-        "net_edge_for_pick": net_news,
+        "backend": "structured_injuries",
+        "net_edge_for_pick": 0.0,
         "backed_out_count": backed_out_count,
         "opp_out_count": opp_out_count,
         "backed_out_players": backed_out_names,
-        "headlines": news_sig.matched_headlines,
+        "headlines": [],
         "vetoed": vetoed,
     }
 
@@ -1566,7 +1561,6 @@ def scan_upcoming_other_sports(
     days_ahead: int = 4,
     start_date: datetime | None = None,
     min_prob: float = 0.58,
-    decision_backend: str = "laya",
 ) -> list[dict[str, Any]]:
     """Build 7-Factor Boxscore + Rest/B2B + Rebound Composite & Elo ratings for NBA, NHL, NFL, MLB and score upcoming games."""
     conn = _open_db(db_path)
@@ -1798,9 +1792,7 @@ def scan_upcoming_other_sports(
                     pick_goal_diff=pick_goal_diff,
                 ):
                     continue
-                inj_gate = _evaluate_us_sport_injuries_and_news(
-                    summary, home, away, side, decision_backend=decision_backend
-                )
+                inj_gate = _evaluate_us_sport_injuries_and_news(summary, home, away, side)
                 if inj_gate["vetoed"]:
                     continue
                 ev_pct = (p_mod * odds_pick - 1.0) * 100.0
@@ -2163,11 +2155,10 @@ def scan_upcoming_and_log_paper_bets(
     db_path: Path,
     days_ahead: int = 5,
     start_date: datetime | None = None,
-    decision_backend: str = "laya",
     leagues: tuple[str, ...] = EXPANDED_SOCCER_LEAGUES,
     export_json_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Fetch upcoming soccer fixtures, score with the frozen 7-Factor Composite + Decision Model,
+    """Fetch upcoming soccer fixtures, score with the frozen 7-Factor Composite + T-60m Starting XI Gate,
     log qualifying picks to `paper_bets` with CLV tracking, and export `recommendations.json`."""
     conn = _open_db(db_path)
     conn.executescript(PAPER_SCHEMA)
@@ -2378,33 +2369,28 @@ def scan_upcoming_and_log_paper_bets(
                         summary, lg.key, backed_team, best_candidate["side"], xi_hist
                     )
                     best_candidate["starting_xi_gate"] = xi_gate
-                    news_sig = score_match_news(summary, home, away, backend=decision_backend)
-                    net_news = round(news_sig.net_edge(best_candidate["side"]), 3)
-                    vetoed_news = net_news <= -0.50
                     vetoed_xi = bool(xi_gate["vetoed"])
-                    if vetoed_news:
-                        best_candidate["action"] = "VETOED_BY_INJURY_NEWS"
-                    elif vetoed_xi:
+                    if vetoed_xi:
                         best_candidate["action"] = "VETOED_BY_DEPLETED_XI"
                     else:
                         best_candidate["action"] = "PAPER_BET"
                     best_candidate["news_signal"] = {
-                        "backend": news_sig.backend,
-                        "net_edge_for_pick": net_news,
-                        "vetoed": vetoed_news,
-                        "home_positive": round(news_sig.home_positive, 3),
-                        "home_negative": round(news_sig.home_negative, 3),
-                        "away_positive": round(news_sig.away_positive, 3),
-                        "away_negative": round(news_sig.away_negative, 3),
-                        "headlines": news_sig.matched_headlines,
+                        "backend": "structured_xi_gate",
+                        "net_edge_for_pick": 0.0,
+                        "vetoed": False,
+                        "home_positive": 0.0,
+                        "home_negative": 0.0,
+                        "away_positive": 0.0,
+                        "away_negative": 0.0,
+                        "headlines": [],
                     }
                     qualifying_picks.append(best_candidate)
                     # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
-                    if not (vetoed_news or vetoed_xi):
+                    if not vetoed_xi:
                         if not best_candidate.get("is_live"):
                             _upsert_paper_bet(db_path, best_candidate, now_iso)
                     else:
-                        # Remove from active PENDING paper_bets ONLY if vetoed by injury/lineup news before kickoff
+                        # Remove from active PENDING paper_bets ONLY if vetoed by T-60m depleted Starting XI before kickoff
                         c_del = _open_db(db_path)
                         c_del.execute(
                             "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",
@@ -2422,7 +2408,7 @@ def scan_upcoming_and_log_paper_bets(
         qualifying_picks.sort(key=lambda x: -x["score"])
     tennis_picks = [] if "tennis" in disabled_sports else scan_upcoming_tennis(db_path, days_ahead=min(days_ahead, 3), start_date=start_date)
     other_sport_picks = scan_upcoming_other_sports(
-        db_path, days_ahead=min(days_ahead, 4), start_date=start_date, decision_backend=decision_backend
+        db_path, days_ahead=min(days_ahead, 4), start_date=start_date
     )
     recommended_doubles = build_recommended_2leg_doubles(qualifying_picks, tennis_picks, other_sport_picks)
     for d_combo in recommended_doubles:

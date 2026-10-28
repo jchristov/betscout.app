@@ -4,14 +4,9 @@ from pathlib import Path
 
 from collections import deque
 from betscout.dashboard import generate_dashboard_html
-from betscout.decision_signal import (
-    NewsSignal,
-    extract_team_news_text,
-    record_distillation_pair,
-    score_match_news,
-)
 from betscout.paper_bet import (
     PAPER_SCHEMA,
+    _evaluate_us_sport_injuries_and_news,
     _upsert_paper_bet,
     evaluate_starting_xi_gate,
     get_paper_ledger_summary,
@@ -19,63 +14,27 @@ from betscout.paper_bet import (
 )
 
 
-def test_extract_team_news_text_and_signal():
-    summary = {
-        "news": {
-            "articles": [
-                {
-                    "headline": "AC Milan captain returns to full training ahead of Udinese trip",
-                    "description": "Milan receive a major fitness boost for Sunday.",
-                },
-                {
-                    "headline": "Unrelated Premier League transfer rumor",
-                    "description": "Nothing about Serie A.",
-                },
-            ]
-        }
+def test_us_sport_structured_injuries_gate():
+    summary_healthy = {
+        "injuries": [
+            {"team": {"displayName": "Boston Celtics"}, "injuries": [{"status": "Out", "athlete": {"displayName": "Player A"}}]},
+            {"team": {"displayName": "New York Knicks"}, "injuries": [{"status": "Out", "athlete": {"displayName": "Player B"}}]},
+        ]
     }
-    text, matched = extract_team_news_text(summary, "Udinese", "AC Milan")
-    assert len(matched) == 1
-    assert "AC Milan captain returns" in matched[0]
-    assert "Udinese (Home) vs AC Milan (Away)" in text
+    res_ok = _evaluate_us_sport_injuries_and_news(summary_healthy, "Boston Celtics", "New York Knicks", "H")
+    assert res_ok["vetoed"] is False and res_ok["backed_out_count"] == 1 and res_ok["opp_out_count"] == 1
 
-    sig = NewsSignal(
-        backend="test",
-        home_positive=0.1,
-        home_negative=0.4,
-        away_positive=0.8,
-        away_negative=0.1,
-        matched_headlines=matched,
-    )
-    # Away net = +0.7, Home net = -0.3 -> net_edge('A') = +1.0, net_edge('H') = -1.0
-    assert round(sig.net_edge("A"), 3) == 1.0
-    assert round(sig.net_edge("H"), 3) == -1.0
-
-    neutral = score_match_news(summary, "Udinese", "AC Milan", backend="none")
-    assert neutral.backend == "none" and neutral.net_edge("A") == 0.0
-
-
-def test_record_distillation_pair_dedup(tmp_path: Path):
-    from betscout.decision_signal import split_match_text_by_team
-    pairs_file = tmp_path / "pairs.jsonl"
-    ans = {"home_positive": 0.1, "home_negative": 0.85, "away_positive": 0.75, "away_negative": 0.05}
-    assert record_distillation_pair("Match: Arsenal vs Chelsea\n- Saka out", "Arsenal", "Chelsea", ans, pairs_file) is True
-    # Duplicate state must be skipped
-    assert record_distillation_pair("Match: Arsenal vs Chelsea\n- Saka out", "Arsenal", "Chelsea", ans, pairs_file) is False
-    lines = pairs_file.read_text().strip().splitlines()
-    assert len(lines) == 1
-    assert '"home_negative"' in lines[0] and '"expected"' in lines[0]
-
-    # Subject-aware team attribution test
-    h_txt, a_txt = split_match_text_by_team(
-        "Match: Arsenal (Home) vs Chelsea (Away).\n"
-        "- Arsenal star Bukayo Saka ruled out of Chelsea clash.\n"
-        "- Chelsea star Cole Palmer returns fit for Arsenal trip.",
-        "Arsenal",
-        "Chelsea",
-    )
-    assert "Bukayo Saka ruled out" in h_txt and "Cole Palmer" not in h_txt
-    assert "Cole Palmer returns fit" in a_txt and "Bukayo Saka" not in a_txt
+    summary_depleted = {
+        "injuries": [
+            {
+                "team": {"displayName": "Boston Celtics"},
+                "injuries": [{"status": "Out", "athlete": {"displayName": f"Star {i}"}} for i in range(6)],
+            },
+            {"team": {"displayName": "New York Knicks"}, "injuries": []},
+        ]
+    }
+    res_veto = _evaluate_us_sport_injuries_and_news(summary_depleted, "Boston Celtics", "New York Knicks", "H")
+    assert res_veto["vetoed"] is True and res_veto["backed_out_count"] == 6
 
 
 def test_paper_bet_upsert_clv_and_settlement(tmp_path: Path):

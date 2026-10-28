@@ -16,8 +16,6 @@
         <string>5</string>
         <string>--min-odds</string>
         <string>1.10</string>
-        <string>--decision-backend</string>
-        <string>laya</string>
     </array>
     <key>StartCalendarInterval</key>
     <array>

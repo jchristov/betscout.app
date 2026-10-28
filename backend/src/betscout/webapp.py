@@ -985,7 +985,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     today_str = now_loc.strftime("%Y-%m-%d")
                     if now_loc.hour == int(digest_hr_str) and last_digest_ymd[0] != today_str:
                         last_digest_ymd[0] = today_str
-                        scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=3, decision_backend="laya", export_json_path=rec_path)
+                        scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=3, export_json_path=rec_path)
                         generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
                         rec_d = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                         msg_d = format_discord_digest(rec=rec_d, db_path=db_path, min_odds=1.15, day_filter="today")
@@ -1852,7 +1852,6 @@ self.addEventListener('fetch', (event) => {{
                         scan_upcoming_and_log_paper_bets(
                             db_path=db_path,
                             days_ahead=int(body.get("days") or 3),
-                            decision_backend="laya",
                             export_json_path=rec_path,
                         )
                         newly_settled = 0
@@ -1934,7 +1933,6 @@ self.addEventListener('fetch', (event) => {{
                         scan_upcoming_and_log_paper_bets(
                             db_path=db_path,
                             days_ahead=days_d,
-                            decision_backend="none",
                             export_json_path=rec_path,
                         )
                     elif db_path.exists():

@@ -20,14 +20,8 @@ from betscout.paper_bet import scan_upcoming_and_log_paper_bets  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Scan upcoming fixtures, score 7-factor composite + news, log paper bets.")
+    parser = argparse.ArgumentParser(description="Scan upcoming fixtures, score 7-factor composite + structured gates, log paper bets.")
     parser.add_argument("--days", type=int, default=5, help="Number of days ahead to scan (default: 5)")
-    parser.add_argument(
-        "--decision-backend",
-        choices=("laya", "laya-sports", "laya-base", "ms-decision-1", "auto", "none"),
-        default="laya",
-        help="Decision model backend for injury/preview news scoring (default: laya)",
-    )
     args = parser.parse_args()
 
     db_path = ROOT / "data" / "betscout.db"
@@ -36,7 +30,6 @@ def main() -> None:
     rep = scan_upcoming_and_log_paper_bets(
         db_path=db_path,
         days_ahead=args.days,
-        decision_backend=args.decision_backend,
         export_json_path=out_json,
     )
 

@@ -86,8 +86,6 @@ SUBCOMMAND_MODULES: dict[str, str] = {
     "ledger": "ledger",
     "discord": "discord_post",
     "telegram": "telegram_post",
-    "distill": "distill_laya_sports",
-    "compare": "compare_decision_models",
     "exact-score": "exact_score_eval",
     "calibrate": "calibration_report",
     "apikey": "monetization_cli",
@@ -121,8 +119,6 @@ def cli() -> None:
             print("  exact-score  Evaluate Dixon-Coles exact-score & tennis set-score calibration")
             print("  calibrate    Run out-of-sample reliability & calibration audit")
             print("  apikey       Manage paid B2B API keys, Pro subscribers & syndicate webhooks")
-            print("  distill      Distill teacher labels into local Laya sports checkpoint")
-            print("  compare      Benchmark decision models")
             return
     _run_script("webapp")
 
