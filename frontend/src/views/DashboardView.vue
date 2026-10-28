@@ -400,88 +400,93 @@
     </section>
 
     <!-- Color-Coded Filter Bar -->
-    <div class="card-surface flex flex-wrap items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3 text-[11.5px]">
-      <b class="text-slate-200">Sport:</b>
-      <div class="flex flex-wrap gap-1.5">
-        <button
-          v-for="(label, key) in SPORT_CLEAN_LABELS"
-          :key="key"
-          type="button"
-          class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap"
-          :class="
-            store.sportFilter === key
-              ? getSportBadgeTheme(key) + ' shadow-[0_0_12px_rgba(56,189,248,0.2)]'
-              : 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-500'
-          "
-          @click="store.sportFilter = key"
-        >
-          <Icon
-            :icon="SPORT_ICONIFY_NAMES[key] || 'fa6-solid:globe'"
-            class="w-3.5 h-3.5 shrink-0"
-            :class="store.sportFilter === key ? '' : getSportIconColor(key)"
+    <div class="card-surface flex flex-col gap-2.5 rounded-xl px-3.5 py-2.5 mb-3 text-[11.5px]">
+      <!-- Row 1: Sport Filters -->
+      <div class="flex flex-wrap items-center gap-2">
+        <b class="text-slate-200">Sport:</b>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="(label, key) in SPORT_CLEAN_LABELS"
+            :key="key"
+            type="button"
+            class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap"
+            :class="
+              store.sportFilter === key
+                ? getSportBadgeTheme(key) + ' shadow-[0_0_12px_rgba(56,189,248,0.2)]'
+                : 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-500'
+            "
+            @click="store.sportFilter = key"
+          >
+            <Icon
+              :icon="SPORT_ICONIFY_NAMES[key] || 'fa6-solid:globe'"
+              class="w-3.5 h-3.5 shrink-0"
+              :class="store.sportFilter === key ? '' : getSportIconColor(key)"
+            />
+            <span>{{ label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 2: Day Filters + Min Odds, Search & Analyze Match -->
+      <div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-800/70">
+        <b class="text-slate-200">Day:</b>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
+            :class="
+              store.dayFilter === 'all'
+                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
+            "
+            @click="store.dayFilter = 'all'"
+          >
+            All Days ({{ store.activeBestBets.length }})
+          </button>
+          <button
+            v-for="dObj in store.availableDays"
+            :key="dObj.day"
+            type="button"
+            class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
+            :class="
+              store.dayFilter === dObj.day
+                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
+            "
+            @click="store.dayFilter = dObj.day"
+          >
+            {{ dObj.day }} ({{ dObj.count }})
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 ml-auto w-full sm:w-auto pt-1 sm:pt-0">
+          <b class="text-slate-200">Min Odds:</b>
+          <input
+            v-model.number="store.minOdds"
+            type="range"
+            min="1.05"
+            max="2.00"
+            step="0.05"
+            class="w-24 sm:w-28 accent-sky-400 cursor-pointer"
           />
-          <span>{{ label }}</span>
-        </button>
-      </div>
-
-      <span class="hidden sm:inline text-slate-700">|</span>
-      <b class="text-slate-200">Day:</b>
-      <div class="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
-          :class="
-            store.dayFilter === 'all'
-              ? 'bg-sky-500/20 border-sky-400 text-sky-300'
-              : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
-          "
-          @click="store.dayFilter = 'all'"
-        >
-          All Days ({{ store.activeBestBets.length }})
-        </button>
-        <button
-          v-for="dObj in store.availableDays"
-          :key="dObj.day"
-          type="button"
-          class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border tabular-nums"
-          :class="
-            store.dayFilter === dObj.day
-              ? 'bg-sky-500/20 border-sky-400 text-sky-300'
-              : 'bg-slate-900/80 border-slate-700/80 text-slate-300'
-          "
-          @click="store.dayFilter = dObj.day"
-        >
-          {{ dObj.day }} ({{ dObj.count }})
-        </button>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2 ml-auto w-full sm:w-auto pt-1 sm:pt-0">
-        <b class="text-slate-200">Min Odds:</b>
-        <input
-          v-model.number="store.minOdds"
-          type="range"
-          min="1.05"
-          max="2.00"
-          step="0.05"
-          class="w-24 sm:w-28 accent-sky-400 cursor-pointer"
-        />
-        <span class="font-mono tabular-nums text-amber-300">
-          &gt;<b>{{ store.minOdds.toFixed(2) }}</b> (+{{ Math.round((store.minOdds - 1) * 100) }}%)
-        </span>
-        <input
-          v-model="store.searchQuery"
-          type="search"
-          placeholder="Search team, player, league..."
-          class="bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px] flex-1 sm:min-w-[180px]"
-        />
-        <button
-          type="button"
-          class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
-          @click="analyzerModalOpen = true"
-        >
-          <Icon icon="fa6-solid:magnifying-glass" class="w-3.5 h-3.5" />
-          <span>Analyze Match</span>
-        </button>
+          <span class="font-mono tabular-nums text-amber-300">
+            &gt;<b>{{ store.minOdds.toFixed(2) }}</b> (+{{ Math.round((store.minOdds - 1) * 100) }}%)
+          </span>
+          <input
+            v-model="store.searchQuery"
+            type="search"
+            placeholder="Search team, player, league..."
+            class="bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px] flex-1 sm:min-w-[180px]"
+          />
+          <button
+            type="button"
+            class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
+            @click="analyzerModalOpen = true"
+          >
+            <Icon icon="fa6-solid:magnifying-glass" class="w-3.5 h-3.5" />
+            <span>Analyze Match</span>
+          </button>
+        </div>
       </div>
     </div>
 
