@@ -1206,7 +1206,9 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
 
                 sz = 192 if "192" in parsed.path else (180 if "apple" in parsed.path else 512)
                 logo_candidates = [
+                    root_dir / "frontend" / "dist" / "betscout-logo.png",
                     root_dir / "frontend" / "public" / "betscout-logo.png",
+                    root_dir.parent / "frontend" / "dist" / "betscout-logo.png",
                     root_dir.parent / "frontend" / "public" / "betscout-logo.png",
                     root_dir / "betscout-logo.png",
                     root_dir.parent / "betscout-logo.png",
@@ -1221,9 +1223,11 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self.wfile.write(png_bytes)
                 return
 
-            if parsed.path == "/betscout-logo.svg":
+            if parsed.path in ("/betscout-logo.svg", "/favicon.svg"):
                 svg_candidates = [
+                    root_dir / "frontend" / "dist" / "betscout-logo.svg",
                     root_dir / "frontend" / "public" / "betscout-logo.svg",
+                    root_dir.parent / "frontend" / "dist" / "betscout-logo.svg",
                     root_dir.parent / "frontend" / "public" / "betscout-logo.svg",
                     root_dir / "betscout-logo.svg",
                     root_dir.parent / "betscout-logo.svg",
