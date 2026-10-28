@@ -3,15 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>@betscout/sdk — Interactive Sports Data, Analytics & Multi-Bookmaker Odds Explorer</title>
+  <title>@betscout/sdk — Interactive Sports Data, Analytics &amp; Multi-Bookmaker Odds Explorer</title>
+  <link rel="icon" href="/betscout-logo.svg" type="image/svg+xml" />
   <style>
     :root {
-      --bg-base: #070b14;
-      --bg-surface: #0f172a;
-      --bg-card: #131c31;
+      --bg-base: #060a13;
+      --bg-surface: #0b1221;
+      --bg-container: #0f172a;
+      --bg-card: #141f38;
       --bg-elevated: #1e293b;
       --border-subtle: rgba(148, 163, 184, 0.14);
-      --border-accent: rgba(56, 189, 248, 0.35);
+      --border-strong: rgba(148, 163, 184, 0.24);
+      --border-accent: rgba(56, 189, 248, 0.42);
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
@@ -20,9 +23,11 @@
       --accent-amber: #f59e0b;
       --accent-rose: #f43f5e;
       --accent-violet: #a855f7;
+      --radius-shell: 22px;
       --radius-outer: 16px;
       --radius-inner: 10px;
-      --shadow-layered: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      --shadow-shell: 0 2px 6px rgba(0, 0, 0, 0.5), 0 18px 42px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      --shadow-layered: 0 1px 2px rgba(0, 0, 0, 0.38), 0 8px 24px -4px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     * {
@@ -32,8 +37,8 @@
     }
 
     body {
-      background: radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.09), transparent 40%),
-                  radial-gradient(circle at 85% 10%, rgba(16, 185, 129, 0.07), transparent 40%),
+      background: radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.09), transparent 42%),
+                  radial-gradient(circle at 88% 8%, rgba(16, 185, 129, 0.08), transparent 42%),
                   var(--bg-base);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
@@ -59,7 +64,7 @@
     }
 
     .container {
-      max-width: 1380px;
+      max-width: 1420px;
       margin: 0 auto;
       padding: 0 1.5rem;
     }
@@ -68,11 +73,11 @@
     .topbar {
       position: sticky;
       top: 0;
-      z-index: 40;
-      backdrop-filter: blur(16px);
-      background: rgba(7, 11, 20, 0.82);
+      z-index: 50;
+      backdrop-filter: blur(18px);
+      background: rgba(6, 10, 19, 0.86);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 1rem 0;
+      padding: 0.9rem 0 0.7rem;
     }
 
     .topbar-inner {
@@ -86,28 +91,23 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 0.9rem;
     }
 
-    .brand-badge {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #0ea5e9, #10b981);
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: #041019;
-      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 4px 14px rgba(56, 189, 248, 0.3));
     }
 
     .brand-title {
-      font-size: 1.15rem;
+      font-size: 1.18rem;
       font-weight: 800;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.55rem;
+      flex-wrap: wrap;
     }
 
     .pill {
@@ -116,7 +116,7 @@
       gap: 0.35rem;
       padding: 0.2rem 0.65rem;
       border-radius: 999px;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 600;
       background: rgba(56, 189, 248, 0.12);
       color: var(--accent-cyan);
@@ -141,23 +141,117 @@
       border-color: rgba(245, 158, 11, 0.28);
     }
 
+    /* Dynamic Lookup Bar */
+    .lookup-bar {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.9rem;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .lookup-group {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    .lookup-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-right: 0.2rem;
+    }
+
+    .input-ctrl, .select-ctrl {
+      height: 34px;
+      padding: 0 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+
+    .btn-action {
+      height: 34px;
+      padding: 0 0.8rem;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent-cyan);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition-property: transform, background-color, border-color;
+      transition-duration: 140ms;
+    }
+
+    .btn-action:hover {
+      background: rgba(56, 189, 248, 0.24);
+      border-color: var(--accent-cyan);
+    }
+
+    .btn-action:active {
+      transform: scale(0.96);
+    }
+
+    /* Clickable Interlink Badges */
+    .entity-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-primary);
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.15rem 0.45rem;
+      margin: -0.15rem -0.45rem;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      font-family: inherit;
+      font-size: inherit;
+      text-align: left;
+      transition-property: color, background-color, border-color, transform;
+      transition-duration: 140ms;
+    }
+
+    .entity-link:hover {
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.28);
+    }
+
+    .entity-link:active {
+      transform: scale(0.96);
+    }
+
     /* Navigation Tabs */
     .nav-tabs {
       display: flex;
       gap: 0.45rem;
       overflow-x: auto;
-      padding: 1rem 0 0.25rem;
+      padding: 0.75rem 0 0.15rem;
       scrollbar-width: none;
     }
 
     .nav-tab {
       min-height: 40px;
-      padding: 0.5rem 0.95rem;
+      padding: 0.48rem 0.95rem;
       border-radius: var(--radius-inner);
       background: var(--bg-surface);
       color: var(--text-secondary);
       border: 1px solid var(--border-subtle);
-      font-size: 0.84rem;
+      font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
@@ -176,51 +270,87 @@
     }
 
     .nav-tab.active {
-      background: rgba(56, 189, 248, 0.15);
+      background: rgba(56, 189, 248, 0.16);
       color: var(--accent-cyan);
       border-color: var(--border-accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15);
     }
 
     /* KPI Strip */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 1rem;
-      margin: 1.5rem 0;
+      margin: 1.35rem 0;
     }
 
     .kpi-card {
       background: var(--bg-card);
       border-radius: var(--radius-outer);
-      padding: 1.15rem 1.25rem;
+      padding: 1.05rem 1.2rem;
       box-shadow: var(--shadow-layered);
       border: 1px solid var(--border-subtle);
     }
 
     .kpi-label {
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--text-secondary);
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.3rem;
     }
 
     .kpi-value {
-      font-size: 1.65rem;
+      font-size: 1.55rem;
       font-weight: 800;
       color: var(--text-primary);
     }
 
     .kpi-sub {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Outer Tab Content Shell Container */
+    .tab-stage-container {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(11, 18, 33, 0.96));
+      border-radius: var(--radius-shell);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-shell);
+      padding: 1.5rem;
+    }
+
+    .tab-stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tab-stage-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .tab-stage-subtitle {
+      font-size: 0.83rem;
+      color: var(--text-secondary);
       margin-top: 0.2rem;
     }
 
     /* Section Panels */
     .section-panel {
       display: none;
-      animation: fadeSlideIn 220ms cubic-bezier(0.2, 0, 0, 1);
+      animation: fadeSlideIn 200ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .section-panel.active {
@@ -230,7 +360,7 @@
     @keyframes fadeSlideIn {
       from {
         opacity: 0;
-        transform: translateY(6px);
+        transform: translateY(5px);
       }
       to {
         opacity: 1;
@@ -240,22 +370,27 @@
 
     .grid-2 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
       gap: 1.25rem;
       margin-bottom: 1.25rem;
     }
 
-    .grid-3 {
+    .sports-browser-layout {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      grid-template-columns: 330px 1fr;
       gap: 1.25rem;
-      margin-bottom: 1.25rem;
+    }
+
+    @media (max-width: 980px) {
+      .sports-browser-layout {
+        grid-template-columns: 1fr;
+      }
     }
 
     .card {
       background: var(--bg-card);
       border-radius: var(--radius-outer);
-      padding: 1.35rem;
+      padding: 1.3rem;
       box-shadow: var(--shadow-layered);
       border: 1px solid var(--border-subtle);
     }
@@ -265,13 +400,14 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
+      margin-bottom: 0.95rem;
+      padding-bottom: 0.7rem;
       border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
     }
 
     .card-title {
-      font-size: 1.02rem;
+      font-size: 0.98rem;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -280,12 +416,12 @@
 
     .code-tag {
       font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-      font-size: 0.74rem;
-      background: rgba(15, 23, 42, 0.85);
+      font-size: 0.73rem;
+      background: rgba(6, 10, 19, 0.85);
       color: var(--accent-cyan);
       padding: 0.2rem 0.55rem;
       border-radius: 6px;
-      border: 1px solid rgba(56, 189, 248, 0.22);
+      border: 1px solid rgba(56, 189, 248, 0.24);
     }
 
     /* Tables */
@@ -293,25 +429,26 @@
       overflow-x: auto;
       border-radius: var(--radius-inner);
       border: 1px solid var(--border-subtle);
+      background: rgba(11, 18, 33, 0.55);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.84rem;
+      font-size: 0.83rem;
     }
 
     th, td {
-      padding: 0.65rem 0.85rem;
+      padding: 0.6rem 0.8rem;
       text-align: left;
       border-bottom: 1px solid var(--border-subtle);
     }
 
     th {
-      background: rgba(15, 23, 42, 0.75);
+      background: rgba(6, 10, 19, 0.75);
       color: var(--text-secondary);
       font-weight: 600;
-      font-size: 0.75rem;
+      font-size: 0.73rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
@@ -321,13 +458,13 @@
     }
 
     tr.highlight-row {
-      background: rgba(56, 189, 248, 0.09);
+      background: rgba(56, 189, 248, 0.11);
     }
 
     /* Form Badges */
     .form-strip {
       display: inline-flex;
-      gap: 0.25rem;
+      gap: 0.24rem;
     }
 
     .form-dot {
@@ -336,7 +473,7 @@
       border-radius: 5px;
       display: inline-grid;
       place-items: center;
-      font-size: 0.72rem;
+      font-size: 0.71rem;
       font-weight: 700;
     }
 
@@ -354,17 +491,17 @@
     .stat-box {
       background: var(--bg-surface);
       border-radius: var(--radius-inner);
-      padding: 0.75rem 0.85rem;
+      padding: 0.7rem 0.85rem;
       border: 1px solid var(--border-subtle);
     }
 
     .stat-box-label {
-      font-size: 0.72rem;
+      font-size: 0.71rem;
       color: var(--text-secondary);
     }
 
     .stat-box-val {
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-weight: 700;
       margin-top: 0.15rem;
       color: var(--text-primary);
@@ -373,7 +510,7 @@
     /* Jersey row */
     .jersey-showcase {
       display: flex;
-      gap: 1.25rem;
+      gap: 1.1rem;
       align-items: center;
       flex-wrap: wrap;
       margin: 0.75rem 0;
@@ -382,45 +519,96 @@
     .jersey-item {
       background: var(--bg-surface);
       border-radius: var(--radius-inner);
-      padding: 0.75rem 1rem;
+      padding: 0.7rem 0.95rem;
       border: 1px solid var(--border-subtle);
       text-align: center;
     }
 
     .jersey-item span {
       display: block;
-      font-size: 0.74rem;
+      font-size: 0.73rem;
       color: var(--text-secondary);
-      margin-top: 0.35rem;
+      margin-top: 0.3rem;
     }
 
-    .sports-pill-grid {
+    /* Interactive Sport List */
+    .sport-list-scroll {
+      max-height: 620px;
+      overflow-y: auto;
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding-right: 0.25rem;
     }
 
-    .sport-chip {
+    .sport-item-btn {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.75rem;
+      border-radius: 9px;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 0.35rem 0.7rem;
-      font-size: 0.78rem;
       color: var(--text-primary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition-property: background-color, border-color, transform;
+      transition-duration: 140ms;
     }
 
-    .sport-chip code {
+    .sport-item-btn:hover {
+      border-color: rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .sport-item-btn.active {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.16);
       color: var(--accent-cyan);
-      margin-right: 0.3rem;
+    }
+
+    .league-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+      gap: 0.65rem;
+      max-height: 540px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .league-card-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      transition-property: border-color, background-color, transform;
+      transition-duration: 140ms;
+    }
+
+    .league-card-btn:hover {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .league-card-btn:active {
+      transform: scale(0.97);
     }
 
     pre.code-block {
-      background: #090e1a;
+      background: #060a13;
       border-radius: var(--radius-inner);
       padding: 1rem;
       overflow-x: auto;
       font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-      font-size: 0.79rem;
+      font-size: 0.78rem;
       color: #e2e8f0;
       border: 1px solid var(--border-subtle);
       line-height: 1.55;
@@ -431,32 +619,83 @@
   <header class="topbar">
     <div class="container topbar-inner">
       <div class="brand">
-        <div class="brand-badge">BS</div>
+        <!-- Official BetScout Compass Star SVG Logo -->
+        <svg class="brand-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BetScout Logo">
+          <defs>
+            <linearGradient id="bsBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#132038"/>
+              <stop offset="55%" stop-color="#0b1324"/>
+              <stop offset="100%" stop-color="#050912"/>
+            </linearGradient>
+            <linearGradient id="bsRimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="50%" stop-color="#2dd4bf"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+          <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#bsBgGrad)" stroke="url(#bsRimGrad)" stroke-width="2.2"/>
+          <circle cx="32" cy="32" r="18.5" stroke="#38bdf8" stroke-opacity="0.28" stroke-width="1.4"/>
+          <polygon points="32,8 32,32 27,27" fill="#fde047"/>
+          <polygon points="32,8 37,27 32,32" fill="#10b981"/>
+          <polygon points="32,56 32,32 37,37" fill="#34d399"/>
+          <polygon points="32,56 27,37 32,32" fill="#047857"/>
+          <polygon points="56,32 32,32 37,27" fill="#7dd3fc"/>
+          <polygon points="56,32 37,37 32,32" fill="#0284c7"/>
+          <polygon points="8,32 32,32 27,37" fill="#38bdf8"/>
+          <polygon points="8,32 27,27 32,32" fill="#0369a1"/>
+        </svg>
         <div>
           <div class="brand-title">
-            <span>@betscout/sdk</span>
-            <span class="pill">v1.1.0 TypeScript SDK</span>
-            <span class="pill pill-emerald" id="live-status-pill">Live Data Connected</span>
+            <span>BetScout Data &amp; Odds SDK</span>
+            <span class="pill">@betscout/sdk v1.1.0</span>
+            <span class="pill pill-emerald" id="live-status-pill">Live SDK Connected</span>
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-secondary);">
-            Interactive Explorer covering all 9 SDK capability domains (56 Sports, Standings + Form, Club &amp; Player Analytics, Visual Assets, Venues, Insights &amp; Markets)
+          <div style="font-size: 0.79rem; color: var(--text-secondary);">
+            Interactive Explorer with Cross-Tab Entity Interlinking across all 56 Sports, Leagues, Standings, Clubs, Players, Venues &amp; Markets
           </div>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.65rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
         <span class="code-tag">BetScoutClient</span>
       </div>
     </div>
+
+    <!-- Live Dynamic SDK Lookup & Interlinking Bar -->
     <div class="container">
+      <div class="lookup-bar">
+        <div class="lookup-group">
+          <span class="lookup-label">Quick Presets:</span>
+          <button class="btn-action" onclick="inspectSeason(140782, 23, 'Serie A 26/27')">🇮🇹 Serie A (140782)</button>
+          <button class="btn-action" onclick="inspectSeason(140756, 17, 'Premier League 26/27')">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League (140756)</button>
+          <button class="btn-action" onclick="inspectSeason(140798, 35, 'Bundesliga 26/27')">🇩🇪 Bundesliga (140798)</button>
+          <button class="btn-action" onclick="inspectTeam(2692, 130971)">⚽ AC Milan (2692)</button>
+          <button class="btn-action" onclick="inspectTeam(2672)">⚽ Bayern Munich (2672)</button>
+          <button class="btn-action" onclick="inspectTeam(14882)">🎾 Djokovic, N. (14882)</button>
+          <button class="btn-action" onclick="inspectPlayer(191210, 2692, 130971)">🧤 Maignan, M. (191210)</button>
+        </div>
+
+        <div class="lookup-group">
+          <span class="lookup-label">Live SDK Lookup:</span>
+          <select id="lookup-entity-type" class="select-ctrl" aria-label="Entity Type">
+            <option value="season">Season ID → Standings &amp; Goals</option>
+            <option value="team">Team / Tennis Player ID → Profile</option>
+            <option value="player">Squad Player ID → Career &amp; Log</option>
+            <option value="match">Match ID → Markets &amp; Commentary</option>
+          </select>
+          <input id="lookup-entity-id" class="input-ctrl" type="text" value="2692" placeholder="Enter ID..." style="width: 110px;" />
+          <button class="btn-action" onclick="runCustomLookup()">Query SDK →</button>
+        </div>
+      </div>
+
       <nav class="nav-tabs" id="nav-tabs">
-        <button class="nav-tab active" data-tab="standings">1. Standings &amp; Form Table</button>
-        <button class="nav-tab" data-tab="club">2. Club Intelligence &amp; Missing Players</button>
-        <button class="nav-tab" data-tab="tennis">3. Tennis Player &amp; Surface Matrix</button>
-        <button class="nav-tab" data-tab="player">4. Squad Player &amp; Kit Avatar SVG</button>
-        <button class="nav-tab" data-tab="goals-ou">5. Goal Timing &amp; Half Over/Under</button>
-        <button class="nav-tab" data-tab="multisport">6. NBA Pace, H2H Versus &amp; Roll of Honor</button>
-        <button class="nav-tab" data-tab="venue-insights">7. Venue Stats, Insights &amp; Markets</button>
-        <button class="nav-tab" data-tab="catalog">8. 56-Sport Catalog &amp; SDK Reference</button>
+        <button class="nav-tab active" data-tab="catalog">1. All 56 Sports &amp; Leagues Explorer</button>
+        <button class="nav-tab" data-tab="standings">2. Standings &amp; Form Table</button>
+        <button class="nav-tab" data-tab="club">3. Club Intelligence &amp; Squad</button>
+        <button class="nav-tab" data-tab="tennis">4. Tennis Player &amp; Surface Matrix</button>
+        <button class="nav-tab" data-tab="player">5. Squad Player &amp; Kit Avatar SVG</button>
+        <button class="nav-tab" data-tab="goals-ou">6. Goal Timing &amp; Half Over/Under</button>
+        <button class="nav-tab" data-tab="multisport">7. NBA Pace, H2H Versus &amp; Champions</button>
+        <button class="nav-tab" data-tab="venue-insights">8. Venue Stats, Insights &amp; Markets</button>
       </nav>
     </div>
   </header>
@@ -467,440 +706,575 @@
       <div class="kpi-card">
         <div class="kpi-label">Supported Sports</div>
         <div class="kpi-value" id="kpi-sports">56</div>
-        <div class="kpi-sub"><code>listAllSports()</code> · Global Catalog</div>
+        <div class="kpi-sub">Click any sport &amp; league to load live season data</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Club Spotlight (ID: 2692)</div>
+        <div class="kpi-label">Active League / Season</div>
+        <div class="kpi-value" id="kpi-season">Serie A 26/27</div>
+        <div class="kpi-sub" id="kpi-season-sub">Season #140782 · 20 Clubs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Club Spotlight</div>
         <div class="kpi-value" id="kpi-club">AC Milan</div>
         <div class="kpi-sub" id="kpi-club-sub">Formation 3-5-2 · 41 Squad Players</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Tennis Spotlight (ID: 14882)</div>
+        <div class="kpi-label">Active Player Spotlight</div>
+        <div class="kpi-value" id="kpi-player">Maignan, M.</div>
+        <div class="kpi-sub" id="kpi-player-sub">€45,000,000 · 37 Serie A Matches</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Tennis Competitor</div>
         <div class="kpi-value" id="kpi-tennis">Djokovic, N.</div>
         <div class="kpi-sub" id="kpi-tennis-sub">2004–2026 Surface W–L Matrix</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Venue Analytics (ID: 647)</div>
-        <div class="kpi-value" id="kpi-venue">San Siro</div>
-        <div class="kpi-sub" id="kpi-venue-sub">Cap. 80,018 · GPS 45.478, 9.124</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Correct Score Outcomes</div>
-        <div class="kpi-value" id="kpi-cs">28</div>
-        <div class="kpi-sub"><code>MARKET_IDS.CORRECT_SCORE (41)</code></div>
-      </div>
     </section>
 
-    <!-- TAB 1: Standings & Form Table -->
-    <section class="section-panel active" id="tab-standings">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <img id="serie-a-flag" src="" alt="Italy" width="24" height="18" />
-            <span id="standings-title">Serie A 26/27 — Enriched Standings, Goal Splits, Rank Changes &amp; Form Table</span>
-          </div>
-          <span class="code-tag">client.getEnrichedLeagueTable(140782)</span>
-        </div>
-        <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 1rem;">
-          Merges <code>getSeasonTables(140782)</code> and <code>getSeasonFormTable(140782)</code> in parallel, combining Total/Home/Away goal statistics, round-over-round position changes (<code>change_total</code>), UEFA/relegation promotion badges, and chronological 6-match form sequences.
-        </p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Δ</th>
-                <th>Club</th>
-                <th>Zone</th>
-                <th>P</th>
-                <th>W-D-L (Total)</th>
-                <th>Home W-D-L</th>
-                <th>Away W-D-L</th>
-                <th>Goals (GF:GA)</th>
-                <th>GD</th>
-                <th>Pts</th>
-                <th>Chronological Form</th>
-              </tr>
-            </thead>
-            <tbody id="standings-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+    <!-- Dedicated Outer Tab Content Stage Container -->
+    <div class="tab-stage-container">
 
-    <!-- TAB 2: Club Intelligence & Missing Players -->
-    <section class="section-panel" id="tab-club">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <img id="milan-logo" src="" alt="AC Milan" width="32" height="32" />
-              <span>Club Profile, Kits &amp; Usual Formation (ID: 2692)</span>
+      <!-- TAB 1: All 56 Sports & Leagues Explorer -->
+      <section class="section-panel active" id="tab-catalog">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <span>All 56 Sports &amp; Global Leagues Directory</span>
+              <span class="pill" id="selected-sport-badge">Soccer (#1)</span>
             </div>
-            <span class="code-tag">getTeamIntelligenceBundle(2692)</span>
+            <div class="tab-stage-subtitle">
+              Select any sport on the left to load all of its leagues via <code>getUniqueTournaments()</code> &amp; <code>getAllUniqueTournaments()</code>. Click any league to dynamically load its Standings, Form Table, Goal Timing &amp; Champions!
+            </div>
           </div>
-          <div id="milan-profile-summary" style="margin-bottom: 1rem; font-size: 0.86rem; color: var(--text-secondary);"></div>
-          <div class="jersey-showcase" id="milan-jerseys"></div>
-          <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin: 1rem 0 0.5rem;">Per-Game Season Averages (<code>getTeamSeasonStats(2692, 130971)</code>)</h4>
-          <div class="stat-grid" id="milan-season-stats"></div>
+          <span class="code-tag">listAllSports() · getAllUniqueTournaments(69, sportId)</span>
+        </div>
+
+        <div class="sports-browser-layout">
+          <!-- Left column: All 56 Sports -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>56 Sports Catalog</span></div>
+              <input id="sport-filter-input" class="input-ctrl" type="text" placeholder="Filter sports..." style="width: 135px;" oninput="filterSportsList()" />
+            </div>
+            <div class="sport-list-scroll" id="sports-sidebar-list"></div>
+          </div>
+
+          <!-- Right column: Leagues & Daily Matches for Selected Sport -->
+          <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <span id="leagues-panel-title">Available Leagues &amp; Competitions in Soccer</span>
+                  <span class="pill pill-emerald" id="leagues-count-pill">0 Leagues</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <input id="league-filter-input" class="input-ctrl" type="text" placeholder="Search league or country..." style="width: 210px;" oninput="renderLeaguesGrid()" />
+                </div>
+              </div>
+              <div class="league-cards-grid" id="leagues-cards-grid"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <span>Daily Scheduled &amp; Live Fixtures Explorer (<code>getDailyMatchIndex</code>)</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <input id="daily-date-input" class="input-ctrl" type="date" value="2026-10-28" />
+                  <button class="btn-action" onclick="loadDailyMatchesForSelectedSport()">Load Fixtures →</button>
+                </div>
+              </div>
+              <div class="table-wrap" style="max-height: 320px; overflow-y: auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Match ID</th>
+                      <th>Competition</th>
+                      <th>Home (Click to Inspect)</th>
+                      <th>Score / Status</th>
+                      <th>Away (Click to Inspect)</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="daily-matches-tbody">
+                    <tr><td colspan="6" style="color:var(--text-secondary);">Click "Load Fixtures →" or select a sport to browse daily matches and interlink into Teams or Match Markets.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Standings & Form Table -->
+      <section class="section-panel" id="tab-standings">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <img id="serie-a-flag" src="" alt="" width="24" height="18" />
+              <span id="standings-title">Serie A 26/27 — Enriched Standings, Goal Splits, Rank Changes &amp; Form Table</span>
+            </div>
+            <div class="tab-stage-subtitle">
+              Click any <strong>Club Name</strong> in the ranking table to jump directly to its <strong>Club Intelligence, Squad &amp; Missing Players</strong> dossier!
+            </div>
+          </div>
+          <span class="code-tag" id="standings-code-tag">client.getEnrichedLeagueTable(140782)</span>
         </div>
 
         <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Active Missing, Injured &amp; Suspended Players</span>
-            </div>
-            <span class="code-tag">getTeamMissingPlayers(2692)</span>
-          </div>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.85rem;">
-            Automatically resolves the active domestic season and filters out already-expired absences (<code>end.uts &gt;= referenceUts</code>). Status codes map via <code>PLAYER_STATUS_TYPES</code>.
-          </p>
-          <div class="table-wrap" style="margin-bottom: 1.25rem;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Pos</th>
-                  <th>Shirt</th>
-                  <th>Cause</th>
-                  <th>Status</th>
-                  <th>Since</th>
-                  <th>Expected Return</th>
-                </tr>
-              </thead>
-              <tbody id="milan-missing-tbody"></tbody>
-            </table>
-          </div>
-
-          <div class="card-header" style="margin-top: 0.5rem;">
-            <div class="card-title"><span>Recent Completed Matches (<code>getTeamLastMatches</code>)</span></div>
-          </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Match ID</th>
-                  <th>Home</th>
-                  <th>Score</th>
-                  <th>Away</th>
+                  <th>#</th>
+                  <th>Δ</th>
+                  <th>Club (Click to Inspect Club)</th>
+                  <th>Zone</th>
+                  <th>P</th>
+                  <th>W-D-L (Total)</th>
+                  <th>Home W-D-L</th>
+                  <th>Away W-D-L</th>
+                  <th>Goals (GF:GA)</th>
+                  <th>GD</th>
+                  <th>Pts</th>
+                  <th>Chronological Form</th>
                 </tr>
               </thead>
-              <tbody id="milan-last-matches-tbody"></tbody>
+              <tbody id="standings-tbody"></tbody>
             </table>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- TAB 3: Tennis Player & Surface Matrix -->
-    <section class="section-panel" id="tab-tennis">
-      <div class="grid-2">
+      <!-- TAB 3: Club Intelligence, Squad & Missing Players -->
+      <section class="section-panel" id="tab-club">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <img id="milan-logo" src="" alt="" width="30" height="30" />
+              <span id="club-stage-title">Club Intelligence, Kits, Missing Players &amp; Squad Roster</span>
+            </div>
+            <div class="tab-stage-subtitle">
+              Click any <strong>Player</strong> in the Missing Players or Squad Roster tables to inspect their individual <strong>Player Career, Market Value &amp; Season Match Log</strong>, or click any <strong>Match</strong> to inspect its Markets &amp; Commentary!
+            </div>
+          </div>
+          <span class="code-tag" id="club-code-tag">client.getTeamIntelligenceBundle(2692)</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Club Profile, Kits &amp; Per-Game Season Averages</span></div>
+              <span class="code-tag">getTeamProfile · renderTeamJerseySvg · getTeamSeasonStats</span>
+            </div>
+            <div id="milan-profile-summary" style="margin-bottom: 1rem; font-size: 0.86rem; color: var(--text-secondary);"></div>
+            <div class="jersey-showcase" id="milan-jerseys"></div>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin: 1rem 0 0.5rem;">Per-Game Season Averages</h4>
+            <div class="stat-grid" id="milan-season-stats"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Active Missing, Injured &amp; Suspended Players</span></div>
+              <span class="code-tag">getTeamMissingPlayers() · PLAYER_STATUS_TYPES</span>
+            </div>
+            <div class="table-wrap" style="margin-bottom: 1.25rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Player (Click to Inspect)</th>
+                    <th>Pos</th>
+                    <th>Shirt</th>
+                    <th>Cause</th>
+                    <th>Status</th>
+                    <th>Since</th>
+                    <th>Return</th>
+                  </tr>
+                </thead>
+                <tbody id="milan-missing-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="card-header">
+              <div class="card-title"><span>Recent Completed Matches (Click Match or Opponent)</span></div>
+              <span class="code-tag">getTeamLastMatches()</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Match ID</th>
+                    <th>Home</th>
+                    <th>Score</th>
+                    <th>Away</th>
+                  </tr>
+                </thead>
+                <tbody id="milan-last-matches-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full Interactive Squad Roster Table -->
         <div class="card">
           <div class="card-header">
             <div class="card-title">
+              <span>Full Active Club Squad Roster (Click any Player to open Player Spotlight)</span>
+              <span class="pill pill-emerald" id="club-squad-count-pill">41 Players</span>
+            </div>
+            <span class="code-tag">getTeamSquad() · getTeamPlayerSeasonFacts()</span>
+          </div>
+          <div class="table-wrap" style="max-height: 380px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Player (Click to Inspect)</th>
+                  <th>Position</th>
+                  <th>Nationality</th>
+                  <th>Height / Weight</th>
+                  <th>Preferred Foot</th>
+                  <th>Market Value</th>
+                </tr>
+              </thead>
+              <tbody id="club-squad-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: Tennis Player & Surface Matrix -->
+      <section class="section-panel" id="tab-tennis">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
               <img id="djokovic-flag" src="" alt="Serbia" width="26" height="20" />
-              <span>Competitor Profile &amp; Ground Stats (ID: 14882 — Novak Djokovic)</span>
+              <span id="tennis-stage-title">Tennis Competitor Profile &amp; Multi-Season Surface Matrix (ID: 14882 — Novak Djokovic)</span>
             </div>
-            <span class="code-tag">getTennisPlayerIntelligenceBundle(14882)</span>
-          </div>
-          <div class="stat-grid" id="djokovic-bio-grid" style="margin-bottom: 1.2rem;"></div>
-          <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.55rem;">Rolling Surface Win Percentages (<code>profile.groundstats</code>)</h4>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Surface</th>
-                  <th>Matches</th>
-                  <th>Won</th>
-                  <th>Lost</th>
-                  <th>Win %</th>
-                </tr>
-              </thead>
-              <tbody id="djokovic-groundstats-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Multi-Season Surface W–L Matrix (2018–2026)</span>
+            <div class="tab-stage-subtitle">
+              Click any opponent in the recent match log to dynamically load their Tennis Competitor Profile &amp; Surface W–L Matrix!
             </div>
-            <span class="code-tag">getTennisPlayerSurfaceStats(14882)</span>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Season</th>
-                  <th>Year-End Rank</th>
-                  <th>All Surfaces</th>
-                  <th>Hard Outdoor</th>
-                  <th>Clay</th>
-                  <th>Indoor</th>
-                  <th>Grass</th>
-                </tr>
-              </thead>
-              <tbody id="djokovic-surface-years-tbody"></tbody>
-            </table>
-          </div>
+          <span class="code-tag" id="tennis-code-tag">client.getTennisPlayerIntelligenceBundle(14882)</span>
         </div>
-      </div>
-    </section>
 
-    <!-- TAB 4: Squad Player & Kit Avatar SVG -->
-    <section class="section-panel" id="tab-player">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <img id="maignan-flag" src="" alt="France" width="26" height="20" />
-              <span>Squad Player Spotlight (ID: 191210 — Mike Maignan)</span>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Biographical Profile &amp; Rolling Surface Win %</span></div>
+              <span class="code-tag">getTeamProfile()</span>
             </div>
-            <span class="code-tag">getTeamPlayerSeasonFacts(2692, 130971)</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.2rem;">
-            <div id="maignan-kit-avatar"></div>
-            <div id="maignan-bio-summary" style="font-size: 0.88rem; color: var(--text-secondary);"></div>
-          </div>
-          <div class="stat-grid" id="maignan-season-totals"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Player Season Match Log &amp; Career Clubs</span>
+            <div class="stat-grid" id="djokovic-bio-grid" style="margin-bottom: 1.2rem;"></div>
+            <div class="table-wrap" style="margin-bottom: 1.2rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Surface</th>
+                    <th>Matches</th>
+                    <th>Won</th>
+                    <th>Lost</th>
+                    <th>Win %</th>
+                  </tr>
+                </thead>
+                <tbody id="djokovic-groundstats-tbody"></tbody>
+              </table>
             </div>
-            <span class="code-tag">getPlayerSeasonMatches(191210, 130971)</span>
-          </div>
-          <div id="maignan-clubs-list" style="margin-bottom: 1rem;"></div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Match ID</th>
-                  <th>Date</th>
-                  <th>Home</th>
-                  <th>Score</th>
-                  <th>Away</th>
-                </tr>
-              </thead>
-              <tbody id="maignan-matches-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 5: Goal Timing & Half Over/Under -->
-    <section class="section-panel" id="tab-goals-ou">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>15-Minute Goal Timing &amp; First-to-Score Analytics</span>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Recent Matches (Click Opponent to Inspect)</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Match ID</th>
+                    <th>Player 1</th>
+                    <th>Sets</th>
+                    <th>Player 2</th>
+                  </tr>
+                </thead>
+                <tbody id="tennis-last-matches-tbody"></tbody>
+              </table>
             </div>
-            <span class="code-tag">getSeasonGoalsDistribution(140782)</span>
           </div>
-          <div class="stat-grid" id="milan-goal-timing-kpis" style="margin-bottom: 1.15rem;"></div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Minute Bucket</th>
-                  <th>AC Milan Scored</th>
-                  <th>AC Milan Conceded</th>
-                  <th>Serie A League Total</th>
-                </tr>
-              </thead>
-              <tbody id="goal-intervals-tbody"></tbody>
-            </table>
-          </div>
-        </div>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Full-Time, 1st-Half (p1) &amp; 2nd-Half (p2) Over/Under Matrix</span>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Multi-Season Surface W–L Matrix (2016–2026)</span></div>
+              <span class="code-tag">getTennisPlayerSurfaceStats()</span>
             </div>
-            <span class="code-tag">getSeasonOverUnder(140782)</span>
-          </div>
-          <div class="stat-grid" id="milan-half-winrates" style="margin-bottom: 1.15rem;"></div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Goal Line</th>
-                  <th>Full Time (Over / Under)</th>
-                  <th>1st Half p1 (Over / Under)</th>
-                  <th>2nd Half p2 (Over / Under)</th>
-                </tr>
-              </thead>
-              <tbody id="milan-ou-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 6: Multi-Sport Pace, H2H Versus & Roll of Honor -->
-    <section class="section-panel" id="tab-multisport">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>NBA Team Pace, Efficiency &amp; Shooting Splits (Season 142074)</span>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Season</th>
+                    <th>ATP/WTA Rank</th>
+                    <th>All Surfaces</th>
+                    <th>Hard Outdoor</th>
+                    <th>Clay</th>
+                    <th>Indoor</th>
+                    <th>Grass</th>
+                  </tr>
+                </thead>
+                <tbody id="djokovic-surface-years-tbody"></tbody>
+              </table>
             </div>
-            <span class="code-tag">getSeasonUniqueTeamStats(142074)</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th>PTS / G</th>
-                  <th>Opp PTS / G</th>
-                  <th>Possessions / G</th>
-                  <th>PTS / Poss</th>
-                  <th>REB / G</th>
-                  <th>AST / G</th>
-                </tr>
-              </thead>
-              <tbody id="nba-pace-tbody"></tbody>
-            </table>
           </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Derby della Madonnina H2H Versus &amp; Serie A Roll of Honor</span>
+      <!-- TAB 5: Squad Player & Kit Avatar SVG -->
+      <section class="section-panel" id="tab-player">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <img id="maignan-flag" src="" alt="" width="26" height="20" />
+              <span id="player-stage-title">Squad Player Spotlight — Career, Market Value &amp; Season Match Log</span>
             </div>
-            <span class="code-tag">getTeamVersus(2692, 2697) · getTournamentSeasonsWinners(23)</span>
-          </div>
-          <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">AC Milan vs Inter — Direct H2H Matches with Goal Scorers</h4>
-          <div class="table-wrap" style="margin-bottom: 1.15rem;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Home</th>
-                  <th>Score</th>
-                  <th>Away</th>
-                  <th>Goal Scorers &amp; Minute Log</th>
-                </tr>
-              </thead>
-              <tbody id="derby-versus-tbody"></tbody>
-            </table>
-          </div>
-
-          <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Serie A Historical Champions &amp; Runners-Up</h4>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Season</th>
-                  <th>Champion</th>
-                  <th>Runner-Up</th>
-                </tr>
-              </thead>
-              <tbody id="roll-of-honor-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 7: Venue Stats, Insights & Markets -->
-    <section class="section-panel" id="tab-venue-insights">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Venue Analytics — Stadio Giuseppe Meazza / San Siro (ID: 647)</span>
+            <div class="tab-stage-subtitle">
+              Click any <strong>Career Club</strong> pill to jump to that club's dossier, or click any <strong>Match ID</strong> in the player's appearance log to inspect the match!
             </div>
-            <span class="code-tag">getVenueSeasonStats(647, 130971)</span>
           </div>
-          <div class="stat-grid" id="venue-stats-grid" style="margin-bottom: 1.15rem;"></div>
-          <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Automated Pre-Match Insights (<code>getMatchInsights(71945344)</code>)</h4>
-          <ul id="match-funfacts-list" style="padding-left: 1.2rem; font-size: 0.86rem; color: var(--text-primary); margin-bottom: 1.15rem;"></ul>
-          <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Editorial Play-by-Play Commentary (<code>getMatchCommentary(71945344)</code>)</h4>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Min</th>
-                  <th>Commentary Phrase</th>
-                </tr>
-              </thead>
-              <tbody id="commentary-tbody"></tbody>
-            </table>
-          </div>
+          <span class="code-tag" id="player-code-tag">getPlayerCareerStats · getTeamPlayerSeasonFacts · getPlayerSeasonMatches</span>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>Multi-Bookmaker Odds &amp; 28-Outcome Correct Score Matrix</span>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Player Bio, Dynamic Kit Avatar SVG &amp; Season Totals</span></div>
             </div>
-            <span class="code-tag">getMatchMarkets(71945344) · parsePrematchMarkets()</span>
+            <div style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.2rem;">
+              <div id="maignan-kit-avatar"></div>
+              <div id="maignan-bio-summary" style="font-size: 0.88rem; color: var(--text-secondary);"></div>
+            </div>
+            <div class="stat-grid" id="maignan-season-totals"></div>
           </div>
-          <div class="stat-grid" id="markets-summary-grid" style="margin-bottom: 1.15rem;"></div>
-          <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">28-Outcome Correct Score Grid (<code>correct_score_odds</code>)</h4>
-          <div class="stat-grid" id="correct-score-grid"></div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Career Clubs &amp; Season Match Appearances (Click to Interlink)</span></div>
+            </div>
+            <div id="maignan-clubs-list" style="margin-bottom: 1rem;"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Match ID</th>
+                    <th>Date</th>
+                    <th>Home</th>
+                    <th>Score</th>
+                    <th>Away</th>
+                  </tr>
+                </thead>
+                <tbody id="maignan-matches-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- TAB 8: 56-Sport Catalog & SDK Reference -->
-    <section class="section-panel" id="tab-catalog">
-      <div class="card" style="margin-bottom: 1.25rem;">
-        <div class="card-header">
-          <div class="card-title"><span>Complete 56-Sport Catalog</span></div>
-          <span class="code-tag">client.listAllSports() · SPORTS_CATALOG</span>
+      <!-- TAB 6: Goal Timing & Half Over/Under -->
+      <section class="section-panel" id="tab-goals-ou">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <span id="goals-ou-stage-title">15-Minute Goal Timing, First-to-Score &amp; Half Over/Under Matrices</span>
+            </div>
+            <div class="tab-stage-subtitle">
+              Powered by <code>getSeasonGoalsDistribution(seasonId)</code> and <code>getSeasonOverUnder(seasonId)</code>. Updates automatically when you inspect a new club or season!
+            </div>
+          </div>
+          <span class="code-tag">getSeasonGoalsDistribution() · getSeasonOverUnder()</span>
         </div>
-        <div class="sports-pill-grid" id="all-sports-grid"></div>
-      </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title"><span>Quickstart TypeScript Code Snippet</span></div>
-          <span class="code-tag">@betscout/sdk</span>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>15-Minute Goal Timing &amp; First-to-Score Analytics</span></div>
+            </div>
+            <div class="stat-grid" id="milan-goal-timing-kpis" style="margin-bottom: 1.15rem;"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Minute Bucket</th>
+                    <th>Team Scored</th>
+                    <th>Team Conceded</th>
+                    <th>League Total Goals</th>
+                  </tr>
+                </thead>
+                <tbody id="goal-intervals-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Full-Time, 1st-Half (p1) &amp; 2nd-Half (p2) Over/Under Matrix</span></div>
+            </div>
+            <div class="stat-grid" id="milan-half-winrates" style="margin-bottom: 1.15rem;"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Goal Line</th>
+                    <th>Full Time (Over / Under)</th>
+                    <th>1st Half p1 (Over / Under)</th>
+                    <th>2nd Half p2 (Over / Under)</th>
+                  </tr>
+                </thead>
+                <tbody id="milan-ou-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <pre class="code-block">import { BetScoutClient, getTeamLogoUrl, getCountryFlagUrl } from '@betscout/sdk';
+      </section>
 
-const client = new BetScoutClient({ defaultChannel: 'eu-retail' });
+      <!-- TAB 7: Multi-Sport Pace, H2H Versus & Roll of Honor -->
+      <section class="section-panel" id="tab-multisport">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <span>Multi-Sport NBA Team Pace, H2H Versus Dossier &amp; Roll of Honor</span>
+            </div>
+            <div class="tab-stage-subtitle">
+              Click any <strong>NBA Team</strong>, <strong>H2H Club</strong>, or <strong>Historical Champion</strong> to jump directly to its Team Intelligence Dossier!
+            </div>
+          </div>
+          <span class="code-tag">getSeasonUniqueTeamStats(142074) · getTeamVersus() · getTournamentSeasonsWinners()</span>
+        </div>
 
-// 1. Enriched League Standings + Form Table (with goal splits, rank changes &amp; promotions)
-const table = await client.getEnrichedLeagueTable(140782, { aroundTeamUid: 2692, sliceSize: 5 });
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>NBA Team Pace, Efficiency &amp; Splits (Click Team to Inspect)</span></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>PTS / G</th>
+                    <th>Opp PTS / G</th>
+                    <th>Possessions / G</th>
+                    <th>PTS / Poss</th>
+                    <th>REB / G</th>
+                    <th>AST / G</th>
+                  </tr>
+                </thead>
+                <tbody id="nba-pace-tbody"></tbody>
+              </table>
+            </div>
+          </div>
 
-// 2. Club Intelligence Bundle (profile, 41-man squad, active missing/injured players, 3-5-2 lineup &amp; season stats)
-const milan = await client.getTeamIntelligenceBundle(2692, { seasonId: 130971 });
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Head-to-Head Versus &amp; League Roll of Honor (Click Club to Inspect)</span></div>
+            </div>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Direct H2H Matches with Goal Scorers (<code>getTeamVersus(2692, 2697)</code>)</h4>
+            <div class="table-wrap" style="margin-bottom: 1.15rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Home</th>
+                    <th>Score</th>
+                    <th>Away</th>
+                    <th>Goal Scorers &amp; Minute Log</th>
+                  </tr>
+                </thead>
+                <tbody id="derby-versus-tbody"></tbody>
+              </table>
+            </div>
 
-// 3. Tennis Player Intelligence Bundle (profile, ATP rank &amp; 2004–2026 surface W-L matrix)
-const djokovic = await client.getTennisPlayerIntelligenceBundle(14882);
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Historical Season Champions &amp; Runners-Up (<code>getTournamentSeasonsWinners</code>)</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Season</th>
+                    <th>Champion (Click to Inspect)</th>
+                    <th>Runner-Up (Click to Inspect)</th>
+                  </tr>
+                </thead>
+                <tbody id="roll-of-honor-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
 
-// 4. First-to-Score Goal Timing, Half Over/Under Splits &amp; NBA Team Pace
-const [goals, overUnder, nbaPace] = await Promise.all([
-  client.getSeasonGoalsDistribution(140782),
-  client.getSeasonOverUnder(140782),
-  client.getSeasonUniqueTeamStats(142074),
-]);</pre>
-      </div>
-    </section>
+      <!-- TAB 8: Venue Stats, Insights & Markets -->
+      <section class="section-panel" id="tab-venue-insights">
+        <div class="tab-stage-header">
+          <div>
+            <div class="tab-stage-title">
+              <span id="match-venue-stage-title">Venue Analytics, Pre-Match Insights, Play-by-Play Commentary &amp; 28-Outcome Correct Score</span>
+            </div>
+            <div class="tab-stage-subtitle">
+              Inspect any match by ID or click any fixture in the Club / Player / Daily Fixtures tables to load its Markets, Fun Facts &amp; Commentary!
+            </div>
+          </div>
+          <span class="code-tag" id="match-code-tag">getVenueSeasonStats · getMatchInsights · getMatchCommentary · getMatchMarkets</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span>Venue Analytics &amp; Automated Match Insights</span></div>
+            </div>
+            <div class="stat-grid" id="venue-stats-grid" style="margin-bottom: 1.15rem;"></div>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Automated Match Insights (<code>getMatchInsights</code>)</h4>
+            <ul id="match-funfacts-list" style="padding-left: 1.2rem; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 1.15rem;"></ul>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Editorial Play-by-Play Commentary (<code>getMatchCommentary</code>)</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Min</th>
+                    <th>Commentary Phrase</th>
+                  </tr>
+                </thead>
+                <tbody id="commentary-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><span id="match-markets-card-title">Multi-Bookmaker Odds &amp; 28-Outcome Correct Score Matrix</span></div>
+            </div>
+            <div id="match-teams-interlink" style="margin-bottom: 0.85rem;"></div>
+            <div class="stat-grid" id="markets-summary-grid" style="margin-bottom: 1.15rem;"></div>
+            <h4 style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.5rem;">28-Outcome Correct Score Grid (<code>correct_score_odds</code>)</h4>
+            <div class="stat-grid" id="correct-score-grid"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
   </main>
 
   <script>
-    // Tab switching
-    document.querySelectorAll('.nav-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
-        document.querySelectorAll('.section-panel').forEach((p) => p.classList.remove('active'));
-        btn.classList.add('active');
-        const target = btn.getAttribute('data-tab');
-        const panel = document.getElementById('tab-' + target);
-        if (panel) panel.classList.add('active');
+    let globalSports = [];
+    let currentSportId = 1;
+    let currentSportLeagues = [];
+    let currentClubTeamId = 2692;
+    let currentSeasonId = 130971;
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.nav-tab').forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === tabId);
       });
+      document.querySelectorAll('.section-panel').forEach((p) => {
+        p.classList.toggle('active', p.id === 'tab-' + tabId);
+      });
+    }
+
+    document.querySelectorAll('.nav-tab').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
     });
+
+    function setStatus(text, isLoading = false) {
+      const pill = document.getElementById('live-status-pill');
+      pill.textContent = text;
+      pill.className = isLoading ? 'pill pill-amber' : 'pill pill-emerald';
+    }
 
     function renderFormBadges(formArr) {
       if (!Array.isArray(formArr) || !formArr.length) return '<span style="color:var(--text-muted)">—</span>';
@@ -909,23 +1283,223 @@ const [goals, overUnder, nbaPace] = await Promise.all([
       )).join('') + '</div>';
     }
 
-    async function loadShowcase() {
-      const res = await fetch('/api/showcase');
-      const data = await res.json();
+    // ------------------------------------------------------------------------
+    // 1. Sports & Leagues Directory + Interlinking
+    // ------------------------------------------------------------------------
+    function filterSportsList() {
+      const q = (document.getElementById('sport-filter-input').value || '').trim().toLowerCase();
+      const filtered = globalSports.filter((s) =>
+        !q || s.name.toLowerCase().includes(q) || String(s.sportId).includes(q)
+      );
+      const container = document.getElementById('sports-sidebar-list');
+      container.innerHTML = filtered.map((s) => `
+        <button class="sport-item-btn ${s.sportId === currentSportId ? 'active' : ''}" onclick="selectSport(${s.sportId}, '${s.name.replace(/'/g, "\\'")}')">
+          <span>${s.name}</span>
+          <span class="pill">#${s.sportId}</span>
+        </button>
+      `).join('');
+    }
 
-      // KPIs
-      document.getElementById('kpi-sports').textContent = data.catalog.sportsCount;
-      document.getElementById('kpi-club').textContent = data.clubIntelligence.profile?.team?.mediumname || 'AC Milan';
-      document.getElementById('kpi-club-sub').textContent =
-        `Formation ${data.clubIntelligence.usual_lineup?.formation || '3-5-2'} · ${data.clubIntelligence.squad_count} Squad · ${data.clubIntelligence.missing_players.length} Out`;
-      document.getElementById('kpi-tennis-sub').textContent =
-        `Rank #${data.tennisIntelligence.profile?.singlesrank || 12} · ${data.tennisIntelligence.current_surface_summary.season_wl} Season W–L`;
+    async function selectSport(sportId, sportName) {
+      currentSportId = Number(sportId);
+      filterSportsList();
+      document.getElementById('selected-sport-badge').textContent = `${sportName} (#${sportId})`;
+      setStatus(`Loading leagues for ${sportName}...`, true);
+      try {
+        const res = await fetch(`/api/sport-leagues?sportId=${sportId}`);
+        const data = await res.json();
+        currentSportLeagues = data.leagues && data.leagues.length ? data.leagues : (data.featured || []);
+        document.getElementById('leagues-panel-title').textContent =
+          `Available Leagues & Competitions in ${data.sportName}`;
+        document.getElementById('leagues-count-pill').textContent =
+          `${currentSportLeagues.length} Leagues`;
+        renderLeaguesGrid();
+        await loadDailyMatchesForSelectedSport();
+        setStatus('Live SDK Connected');
+      } catch (e) {
+        console.error(e);
+        setStatus('Error Loading Sport', true);
+      }
+    }
 
-      // 1. Standings & Form Table
-      document.getElementById('serie-a-flag').src = data.clubIntelligence.countryFlagSvgUrl;
-      const st = data.standingsAndForm;
+    function renderLeaguesGrid() {
+      const q = (document.getElementById('league-filter-input').value || '').trim().toLowerCase();
+      const list = currentSportLeagues.filter((l) =>
+        !q ||
+        (l.name || '').toLowerCase().includes(q) ||
+        (l.categoryName || '').toLowerCase().includes(q) ||
+        String(l._id).includes(q)
+      );
+      const grid = document.getElementById('leagues-cards-grid');
+      if (!list.length) {
+        grid.innerHTML = '<div style="color:var(--text-secondary);font-size:0.84rem;">No leagues matching filter.</div>';
+        return;
+      }
+      grid.innerHTML = list.slice(0, 120).map((l) => {
+        const sid = l.currentseason || l.seasonid || '';
+        const flagHtml = l.flagSvgUrl
+          ? `<img src="${l.flagSvgUrl}" width="18" height="14" alt="" />`
+          : '';
+        return `<button class="league-card-btn" onclick="inspectSeason('${sid}', '${l._id}', '${(l.name || '').replace(/'/g, "\\'")}')">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;width:100%;">
+            <span style="display:flex;align-items:center;gap:0.4rem;font-weight:700;font-size:0.84rem;">
+              ${flagHtml}
+              <span>${l.name}</span>
+            </span>
+            <span class="pill">#${l._id}</span>
+          </div>
+          <div style="font-size:0.74rem;color:var(--text-secondary);display:flex;justify-content:space-between;width:100%;">
+            <span>${l.categoryName || (l.a2 ? l.a2.toUpperCase() : 'International')}</span>
+            <span>${sid ? `Season #${sid} →` : 'Inspect →'}</span>
+          </div>
+        </button>`;
+      }).join('');
+    }
+
+    async function loadDailyMatchesForSelectedSport() {
+      const dt = document.getElementById('daily-date-input').value || '2026-10-28';
+      const tbody = document.getElementById('daily-matches-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-secondary);">Loading fixtures via getDailyMatchIndex()...</td></tr>';
+      try {
+        const res = await fetch(`/api/daily-matches?sportId=${currentSportId}&date=${encodeURIComponent(dt)}`);
+        const data = await res.json();
+        const matches = data.matches || [];
+        if (!matches.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-secondary);">No fixtures found on this date for this sport.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = matches.map((m) => `
+          <tr>
+            <td><button class="entity-link" onclick="inspectMatch(${m.matchId})"><code>#${m.matchId}</code></button></td>
+            <td>${m.tournament}</td>
+            <td><button class="entity-link" onclick="inspectTeam(${m.homeUid}, ${m.seasonId || ''})">${m.home}</button></td>
+            <td><strong>${m.score}</strong> <span style="font-size:0.73rem;color:var(--text-secondary);">(${m.status})</span></td>
+            <td><button class="entity-link" onclick="inspectTeam(${m.awayUid}, ${m.seasonId || ''})">${m.away}</button></td>
+            <td><button class="btn-action" style="height:28px;padding:0 0.55rem;" onclick="inspectMatch(${m.matchId})">Markets &amp; Info →</button></td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. Dynamic Interlinked Lookups (Season, Team/Tennis, Squad Player, Match)
+    // ------------------------------------------------------------------------
+    async function inspectSeason(seasonId, utId, label) {
+      if (!seasonId) return;
+      currentSeasonId = seasonId;
+      setStatus(`Loading Season #${seasonId}...`, true);
+      try {
+        const url = `/api/season?seasonId=${encodeURIComponent(seasonId)}${utId ? `&utId=${encodeURIComponent(utId)}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.standingsAndForm && data.standingsAndForm.rows && data.standingsAndForm.rows.length) {
+          renderStandingsSection(data.standingsAndForm);
+          document.getElementById('kpi-season').textContent =
+            data.standingsAndForm.season_name || label || `Season #${seasonId}`;
+          document.getElementById('kpi-season-sub').textContent =
+            `Season #${seasonId} · ${data.standingsAndForm.rows.length} Teams`;
+        }
+        if (data.rollOfHonor && data.rollOfHonor.length) {
+          renderRollOfHonor(data.rollOfHonor);
+        }
+        if (data.multiSportTeams && data.multiSportTeams.length) {
+          renderMultiSportPace(data.multiSportTeams);
+        }
+        switchTab('standings');
+        setStatus('Live SDK Connected');
+      } catch (e) {
+        console.error(e);
+        setStatus('Error Loading Season', true);
+      }
+    }
+
+    async function inspectTeam(teamId, seasonId) {
+      if (!teamId) return;
+      setStatus(`Loading Competitor #${teamId}...`, true);
+      try {
+        const url = `/api/team?teamId=${encodeURIComponent(teamId)}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.kind === 'tennis_player' && data.tennisIntelligence) {
+          renderTennisSection(data.tennisIntelligence);
+          switchTab('tennis');
+        } else if (data.clubIntelligence) {
+          currentClubTeamId = Number(teamId);
+          currentSeasonId = data.clubIntelligence.active_season_id || seasonId || 130971;
+          renderClubSection(data.clubIntelligence);
+          if (data.goalTimingAndOverUnder) {
+            renderGoalTimingAndOverUnder(
+              data.goalTimingAndOverUnder.teamGoals,
+              data.goalTimingAndOverUnder.leagueTotals,
+              data.goalTimingAndOverUnder.teamOverUnder,
+              data.clubIntelligence.profile?.team?.mediumname || data.clubIntelligence.profile?.team?.name
+            );
+          }
+          switchTab('club');
+        }
+        setStatus('Live SDK Connected');
+      } catch (e) {
+        console.error(e);
+        setStatus('Error Loading Team', true);
+      }
+    }
+
+    async function inspectPlayer(playerId, teamId, seasonId) {
+      if (!playerId) return;
+      const tid = teamId || currentClubTeamId || 2692;
+      const sid = seasonId || currentSeasonId || 130971;
+      setStatus(`Loading Player #${playerId}...`, true);
+      try {
+        const res = await fetch(`/api/player?playerId=${encodeURIComponent(playerId)}&teamId=${encodeURIComponent(tid)}&seasonId=${encodeURIComponent(sid)}`);
+        const data = await res.json();
+        if (data.playerSpotlight) {
+          renderPlayerSection(data.playerSpotlight);
+          switchTab('player');
+        }
+        setStatus('Live SDK Connected');
+      } catch (e) {
+        console.error(e);
+        setStatus('Error Loading Player', true);
+      }
+    }
+
+    async function inspectMatch(matchId) {
+      if (!matchId) return;
+      setStatus(`Loading Match #${matchId}...`, true);
+      try {
+        const res = await fetch(`/api/match?matchId=${encodeURIComponent(matchId)}`);
+        const data = await res.json();
+        if (data.match) {
+          renderMatchAndVenueSection(data.match, data.venue);
+          switchTab('venue-insights');
+        }
+        setStatus('Live SDK Connected');
+      } catch (e) {
+        console.error(e);
+        setStatus('Error Loading Match', true);
+      }
+    }
+
+    function runCustomLookup() {
+      const type = document.getElementById('lookup-entity-type').value;
+      const id = (document.getElementById('lookup-entity-id').value || '').trim();
+      if (!id) return;
+      if (type === 'season') inspectSeason(id);
+      else if (type === 'team') inspectTeam(id);
+      else if (type === 'player') inspectPlayer(id, currentClubTeamId, currentSeasonId);
+      else if (type === 'match') inspectMatch(id);
+    }
+
+    // ------------------------------------------------------------------------
+    // Section Renderers with Interlinked Entity Buttons
+    // ------------------------------------------------------------------------
+    function renderStandingsSection(st) {
+      document.getElementById('standings-code-tag').textContent =
+        `client.getEnrichedLeagueTable(${st.season_id})`;
       document.getElementById('standings-title').textContent =
-        `${st.season_name || 'Serie A'} — Round ${st.current_round}/${st.max_rounds} Standings, Goal Splits & Form`;
+        `${st.season_name || 'League Standings'} — Round ${st.current_round || '—'}/${st.max_rounds || '—'} Standings, Goal Splits & Form`;
 
       const stBody = document.getElementById('standings-tbody');
       stBody.innerHTML = (st.rows || []).map((r) => {
@@ -938,12 +1512,14 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           ? `<span class="pill ${r.promotion_short === 'CL' ? 'pill-emerald' : r.promotion_short === 'Rel' ? 'pill-rose' : 'pill-amber'}">${r.promotion_short}</span>`
           : '';
         const gd = r.goal_diff.total >= 0 ? `+${r.goal_diff.total}` : String(r.goal_diff.total);
-        return `<tr class="${r.team_uid === 2692 ? 'highlight-row' : ''}">
+        return `<tr class="${r.team_uid === currentClubTeamId ? 'highlight-row' : ''}">
           <td><strong>${r.pos}</strong></td>
           <td>${delta}</td>
-          <td style="display:flex;align-items:center;gap:0.55rem;">
-            <img src="${r.logoUrl}" alt="${r.team_abbr}" width="20" height="20" />
-            <strong>${r.team_name}</strong>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${r.team_uid}, '${st.season_id}')">
+              <img src="${r.logoUrl}" alt="${r.team_abbr}" width="20" height="20" />
+              <span>${r.team_name}</span>
+            </button>
           </td>
           <td>${zonePill}</td>
           <td>${r.played.total}</td>
@@ -956,17 +1532,27 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td>${renderFormBadges(r.form_total)}</td>
         </tr>`;
       }).join('');
+    }
 
-      // 2. Club Intelligence & Missing Players
-      const club = data.clubIntelligence;
+    function renderClubSection(club) {
+      const clubName = club.profile?.team?.mediumname || club.profile?.team?.name || `Club #${club.team_id}`;
       document.getElementById('milan-logo').src = club.logoBigUrl;
+      document.getElementById('club-stage-title').textContent =
+        `${clubName} (ID: ${club.team_id}) — Club Intelligence, Kits, Missing Players & Squad`;
+      document.getElementById('club-code-tag').textContent =
+        `client.getTeamIntelligenceBundle(${club.team_id})`;
+
+      document.getElementById('kpi-club').textContent = clubName;
+      document.getElementById('kpi-club-sub').textContent =
+        `Formation ${club.usual_lineup?.formation || '—'} · ${club.squad_count} Squad · ${(club.missing_players || []).length} Out`;
+
       document.getElementById('milan-profile-summary').innerHTML =
-        `<strong>${club.profile?.team?.mediumname}</strong> (Founded <strong>${club.profile?.team?.founded}</strong>) · Stadium: <strong>${club.profile?.stadium?.name}</strong> (${club.profile?.stadium?.capacity} cap.) · Manager: <strong>${club.profile?.manager?.name || 'Active'}</strong> · Usual Lineup Formation: <span class="pill">${club.usual_lineup?.formation || '3-5-2'}</span>`;
+        `<strong>${clubName}</strong> (Founded <strong>${club.profile?.team?.founded || '—'}</strong>) · Stadium: <strong>${club.profile?.stadium?.name || '—'}</strong> (${club.profile?.stadium?.capacity || '—'} cap.) · Manager: <strong>${club.profile?.manager?.name || 'Active'}</strong> · Usual Lineup Formation: <span class="pill">${club.usual_lineup?.formation || '4-3-3'}</span>`;
 
       document.getElementById('milan-jerseys').innerHTML = `
-        <div class="jersey-item">${club.homeJerseySvg}<span>Home Kit (#10)</span></div>
-        <div class="jersey-item">${club.awayJerseySvg}<span>Away Kit (#11)</span></div>
-        <div class="jersey-item">${club.gkJerseySvg}<span>GK Kit (#16)</span></div>
+        <div class="jersey-item">${club.homeJerseySvg || ''}<span>Home Kit (#10)</span></div>
+        <div class="jersey-item">${club.awayJerseySvg || ''}<span>Away Kit (#11)</span></div>
+        <div class="jersey-item">${club.gkJerseySvg || ''}<span>GK Kit (#1)</span></div>
       `;
 
       const sStats = club.season_stats || {};
@@ -979,7 +1565,11 @@ const [goals, overUnder, nbaPace] = await Promise.all([
 
       document.getElementById('milan-missing-tbody').innerHTML = (club.missing_players || []).map((p) => `
         <tr>
-          <td><strong>${p.name}</strong></td>
+          <td>
+            <button class="entity-link" onclick="inspectPlayer(${p.player_id}, ${club.team_id}, '${club.active_season_id || 130971}')">
+              <span>${p.name}</span>
+            </button>
+          </td>
           <td><span class="pill">${p.position}</span></td>
           <td>#${p.shirt_number || '—'}</td>
           <td><span class="pill pill-rose">${p.cause}</span></td>
@@ -987,34 +1577,63 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td>${p.start_date || '—'}</td>
           <td><strong>${p.end_date || 'TBD'}</strong></td>
         </tr>
-      `).join('');
+      `).join('') || '<tr><td colspan="7" style="color:var(--text-secondary);">No currently missing players reported.</td></tr>';
 
-      document.getElementById('milan-last-matches-tbody').innerHTML = (club.last_matches || []).map((m) => `
-        <tr>
-          <td><code>${m._id}</code></td>
-          <td>${m.teams?.home?.name || ''}</td>
+      document.getElementById('milan-last-matches-tbody').innerHTML = (club.last_matches || []).map((m) => {
+        const hUid = m.teams?.home?.uid || m.teams?.home?._id;
+        const aUid = m.teams?.away?.uid || m.teams?.away?._id;
+        return `<tr>
+          <td><button class="entity-link" onclick="inspectMatch(${m._id})"><code>#${m._id}</code></button></td>
+          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
           <td><strong>${m.result?.home ?? ''} - ${m.result?.away ?? ''}</strong></td>
-          <td>${m.teams?.away?.name || ''}</td>
+          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('club-squad-count-pill').textContent = `${(club.squad || []).length} Players`;
+      document.getElementById('club-squad-tbody').innerHTML = (club.squad || []).map((p) => `
+        <tr>
+          <td><strong>#${p.shirtnumber || '—'}</strong></td>
+          <td>
+            <button class="entity-link" onclick="inspectPlayer(${p._id}, ${club.team_id}, '${club.active_season_id || 130971}')">
+              <span>${p.fullname || p.name}</span>
+            </button>
+          </td>
+          <td><span class="pill">${p.position?.shortname || p.position?.name || '—'}</span></td>
+          <td>${p.nationality?.name || '—'}</td>
+          <td>${p.height ? `${p.height} cm` : '—'} / ${p.weight ? `${p.weight} kg` : '—'}</td>
+          <td>${p.foot || '—'}</td>
+          <td>${p.marketvalue ? `<span class="pill pill-emerald">€${Number(p.marketvalue).toLocaleString()}</span>` : '—'}</td>
         </tr>
       `).join('');
+    }
 
-      // 3. Tennis Intelligence (Djokovic 14882)
-      const tn = data.tennisIntelligence;
+    function renderTennisSection(tn) {
       document.getElementById('djokovic-flag').src = tn.countryFlagSvgUrl;
       const tp = tn.profile || {};
+      const pName = tp.team?.name || `Player #${tn.player_id}`;
+      document.getElementById('tennis-stage-title').textContent =
+        `${pName} (ID: ${tn.player_id}) — Tennis Competitor Profile & Surface Matrix`;
+      document.getElementById('tennis-code-tag').textContent =
+        `client.getTennisPlayerIntelligenceBundle(${tn.player_id})`;
+
+      document.getElementById('kpi-tennis').textContent = pName;
+      document.getElementById('kpi-tennis-sub').textContent =
+        `Rank #${tp.singlesrank || '—'} · ${tn.current_surface_summary?.season_wl || '0-0'} Season W–L`;
+
       document.getElementById('djokovic-bio-grid').innerHTML = [
-        ['Player', tp.team?.name],
+        ['Player', pName],
         ['Turned Pro', tp.turnedpro],
         ['Plays', tp.plays],
         ['Favourite Surface', tp.favouritesurface],
-        ['Height / Weight', `${tp.height} cm / ${tp.weight} kg`],
-        ['Current ATP Rank', `#${tp.singlesrank} (${tp.ranking?.points} pts)`],
-        ['Career High Rank', `#${tp.highestranking?.singles?.ranking} (${tp.highestranking?.singles?.date})`],
+        ['Height / Weight', `${tp.height || '—'} cm / ${tp.weight || '—'} kg`],
+        ['Current Rank', `#${tp.singlesrank || '—'} (${tp.ranking?.points || '—'} pts)`],
+        ['Career High Rank', `#${tp.highestranking?.singles?.ranking || '—'} (${tp.highestranking?.singles?.date || '—'})`],
         ['Coach', tp.coachname],
       ].map(([lbl, val]) => `
         <div class="stat-box">
           <div class="stat-box-label">${lbl}</div>
-          <div class="stat-box-val" style="font-size:0.98rem;">${val || '—'}</div>
+          <div class="stat-box-val" style="font-size:0.96rem;">${val || '—'}</div>
         </div>
       `).join('');
 
@@ -1028,8 +1647,19 @@ const [goals, overUnder, nbaPace] = await Promise.all([
         </tr>
       `).join('');
 
+      document.getElementById('tennis-last-matches-tbody').innerHTML = (tn.last_matches || []).map((m) => {
+        const hUid = m.teams?.home?.uid || m.teams?.home?._id;
+        const aUid = m.teams?.away?.uid || m.teams?.away?._id;
+        return `<tr>
+          <td><button class="entity-link" onclick="inspectMatch(${m._id})"><code>#${m._id}</code></button></td>
+          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
+          <td><strong>${m.result?.home ?? ''} - ${m.result?.away ?? ''}</strong></td>
+          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+        </tr>`;
+      }).join('');
+
       const singlesMap = tn.career_surface_stats?.singles || {};
-      const years = Object.keys(singlesMap).sort((a, b) => Number(b) - Number(a)).slice(0, 10);
+      const years = Object.keys(singlesMap).sort((a, b) => Number(b) - Number(a)).slice(0, 12);
       document.getElementById('djokovic-surface-years-tbody').innerHTML = years.map((yr) => {
         const yObj = singlesMap[yr] || {};
         const fmt = (g) => yObj[g] ? `${yObj[g].wins ?? 0}-${yObj[g].losses ?? 0}` : '0-0';
@@ -1043,15 +1673,24 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td>${fmt('4')}</td>
         </tr>`;
       }).join('');
+    }
 
-      // 4. Squad Player Spotlight (Mike Maignan 191210)
-      const ps = data.playerSpotlight;
+    function renderPlayerSection(ps) {
       document.getElementById('maignan-flag').src = ps.flagSvgUrl;
-      document.getElementById('maignan-kit-avatar').innerHTML = club.gkJerseySvg;
+      if (ps.kitAvatarSvg) {
+        document.getElementById('maignan-kit-avatar').innerHTML = ps.kitAvatarSvg;
+      }
+      const pName = ps.player?.fullname || ps.player?.name || 'Squad Player';
+      document.getElementById('player-stage-title').textContent =
+        `${pName} (#${ps.shirtNumber || '—'}) — Career, Market Value & Season Match Log`;
+      document.getElementById('kpi-player').textContent = ps.player?.name || pName;
+      document.getElementById('kpi-player-sub').textContent =
+        `${ps.marketValueEur ? `€${Number(ps.marketValueEur).toLocaleString()}` : 'Active'} · ${ps.seasonMatchesCount || 0} Season Matches`;
+
       document.getElementById('maignan-bio-summary').innerHTML = `
-        <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);">${ps.player?.fullname || 'Maignan, Mike'} (#${ps.shirtNumber || 16})</div>
-        <div>Position: <strong>${ps.player?.position?.name || 'Goalkeeper'}</strong> · Foot: <strong>${ps.player?.foot || 'Right'}</strong> · Height: <strong>${ps.player?.height} cm</strong></div>
-        <div style="margin-top:0.35rem;">Market Value: <span class="pill pill-emerald">€${Number(ps.marketValueEur || 0).toLocaleString()}</span> · Member Since: <strong>${ps.memberSince || '—'}</strong></div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);">${pName} (#${ps.shirtNumber || '—'})</div>
+        <div>Position: <strong>${ps.player?.position?.name || ps.player?.primaryposition?.name || '—'}</strong> · Foot: <strong>${ps.player?.foot || '—'}</strong> · Height: <strong>${ps.player?.height || '—'} cm</strong></div>
+        <div style="margin-top:0.35rem;">Market Value: <span class="pill pill-emerald">${ps.marketValueEur ? `€${Number(ps.marketValueEur).toLocaleString()}` : '—'}</span> · Member Since: <strong>${ps.memberSince || '—'}</strong></div>
       `;
 
       document.getElementById('maignan-season-totals').innerHTML = Object.entries(ps.seasonTotals || {}).map(([k, v]) => `
@@ -1062,28 +1701,38 @@ const [goals, overUnder, nbaPace] = await Promise.all([
       `).join('');
 
       document.getElementById('maignan-clubs-list').innerHTML =
-        `<span style="font-size:0.82rem;color:var(--text-secondary);margin-right:0.5rem;">Career Clubs:</span>` +
-        (ps.clubs || []).map((c) => `<span class="pill" style="margin-right:0.4rem;">${c.mediumname || c.name}</span>`).join('');
+        `<span style="font-size:0.82rem;color:var(--text-secondary);margin-right:0.5rem;">Career Clubs (Click to Inspect):</span>` +
+        (ps.clubs || []).map((c) => `
+          <button class="btn-action" style="margin-right:0.4rem;height:28px;" onclick="inspectTeam(${c._id})">
+            ${c.mediumname || c.name} (#${c._id})
+          </button>
+        `).join('');
 
-      document.getElementById('maignan-matches-tbody').innerHTML = (ps.recentMatches || []).map((m) => `
-        <tr>
-          <td><code>${m._id}</code></td>
+      document.getElementById('maignan-matches-tbody').innerHTML = (ps.recentMatches || []).map((m) => {
+        const hUid = m.teams?.home?.uid || m.teams?.home?._id;
+        const aUid = m.teams?.away?.uid || m.teams?.away?._id;
+        return `<tr>
+          <td><button class="entity-link" onclick="inspectMatch(${m._id})"><code>#${m._id}</code></button></td>
           <td>${m.time?.date || '—'}</td>
-          <td>${m.teams?.home?.name || ''}</td>
+          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
           <td><strong>${m.result?.home ?? ''} - ${m.result?.away ?? ''}</strong></td>
-          <td>${m.teams?.away?.name || ''}</td>
-        </tr>
-      `).join('');
+          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+        </tr>`;
+      }).join('');
+    }
 
-      // 5. Goal Timing & Over/Under
-      const gt = data.goalTimingAndOverUnder;
-      const mg = gt.milanGoals || {};
+    function renderGoalTimingAndOverUnder(mg, leagueTotals, mou, teamLabel) {
+      mg = mg || {};
+      mou = mou || {};
+      document.getElementById('goals-ou-stage-title').textContent =
+        `${teamLabel || 'Club'} — 15-Minute Goal Timing, First-to-Score & Half Over/Under Matrices`;
+
       document.getElementById('milan-goal-timing-kpis').innerHTML = [
         ['Total Goals Scored', mg.scoredsum],
         ['Total Goals Conceded', mg.concededsum],
-        ['Scored First (1-0)', `${mg.firstgoal} / ${mg.matches} matches`],
-        ['Scored Last Goal', `${mg.lastgoal} / ${mg.matches} matches`],
-        ['Avg First Goal Minute', `${mg.average_time_first_goal}'`],
+        ['Scored First (1-0)', mg.matches ? `${mg.firstgoal} / ${mg.matches} matches` : '—'],
+        ['Scored Last Goal', mg.matches ? `${mg.lastgoal} / ${mg.matches} matches` : '—'],
+        ['Avg First Goal Minute', mg.average_time_first_goal ? `${mg.average_time_first_goal}'` : '—'],
         ['Penalties Converted', mg.penalty_success_count],
       ].map(([l, v]) => `
         <div class="stat-box">
@@ -1098,15 +1747,14 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td><strong>${b}'</strong></td>
           <td style="color:var(--accent-emerald);font-weight:700;">${mg.scored?.[b] ?? 0}</td>
           <td style="color:var(--accent-rose);">${mg.conceded?.[b] ?? 0}</td>
-          <td>${gt.leagueTotals?.scored?.[b] ?? 0}</td>
+          <td>${leagueTotals?.scored?.[b] ?? 0}</td>
         </tr>
       `).join('');
 
-      const mou = gt.milanOverUnder || {};
       document.getElementById('milan-half-winrates').innerHTML = [
-        ['Full-Time Win Rate', `${Math.round((mou.winrate?.ft?.average || 0) * 100)}% (${mou.winrate?.ft?.wins}/${mou.winrate?.ft?.matches})`],
-        ['1st-Half (p1) Win Rate', `${Math.round((mou.winrate?.p1?.average || 0) * 100)}% (${mou.winrate?.p1?.wins}/${mou.winrate?.p1?.matches})`],
-        ['2nd-Half (p2) Win Rate', `${Math.round((mou.winrate?.p2?.average || 0) * 100)}% (${mou.winrate?.p2?.wins}/${mou.winrate?.p2?.matches})`],
+        ['Full-Time Win Rate', `${Math.round((mou.winrate?.ft?.average || 0) * 100)}% (${mou.winrate?.ft?.wins || 0}/${mou.winrate?.ft?.matches || 0})`],
+        ['1st-Half (p1) Win Rate', `${Math.round((mou.winrate?.p1?.average || 0) * 100)}% (${mou.winrate?.p1?.wins || 0}/${mou.winrate?.p1?.matches || 0})`],
+        ['2nd-Half (p2) Win Rate', `${Math.round((mou.winrate?.p2?.average || 0) * 100)}% (${mou.winrate?.p2?.wins || 0}/${mou.winrate?.p2?.matches || 0})`],
       ].map(([l, v]) => `
         <div class="stat-box">
           <div class="stat-box-label">${l}</div>
@@ -1126,14 +1774,16 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td><span style="color:var(--accent-amber);font-weight:700;">${p2.over} O</span> / ${p2.under} U</td>
         </tr>`;
       }).join('');
+    }
 
-      // 6. Multi-Sport NBA Pace, Derby Versus & Roll of Honor
-      const ms = data.multiSportAndTournaments;
-      document.getElementById('nba-pace-tbody').innerHTML = (ms.nbaTeams || []).map((t) => `
+    function renderMultiSportPace(nbaTeams) {
+      document.getElementById('nba-pace-tbody').innerHTML = (nbaTeams || []).map((t) => `
         <tr>
-          <td style="display:flex;align-items:center;gap:0.5rem;">
-            ${t.logoUrl ? `<img src="${t.logoUrl}" width="22" height="22" alt="${t.abbr}" />` : ''}
-            <strong>${t.name}</strong>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${t.id})">
+              ${t.logoUrl ? `<img src="${t.logoUrl}" width="22" height="22" alt="${t.abbr}" />` : ''}
+              <span>${t.name}</span>
+            </button>
           </td>
           <td><strong>${t.ptsPerGame ?? '—'}</strong></td>
           <td>${t.oppPtsPerGame ?? '—'}</td>
@@ -1143,60 +1793,70 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <td>${t.assistsPerGame ?? '—'}</td>
         </tr>
       `).join('');
+    }
 
-      document.getElementById('derby-versus-tbody').innerHTML = (ms.derbyVersus?.matches || []).map((m) => `
-        <tr>
-          <td>${m.teams?.home?.name || ''}</td>
-          <td><strong>${m.result?.home ?? ''} : ${m.result?.away ?? ''}</strong></td>
-          <td>${m.teams?.away?.name || ''}</td>
-          <td style="font-size:0.78rem;color:var(--text-secondary);">${m.comment || '—'}</td>
-        </tr>
-      `).join('');
-
-      document.getElementById('roll-of-honor-tbody').innerHTML = (ms.serieARollOfHonor || []).map((s) => `
+    function renderRollOfHonor(seasons) {
+      document.getElementById('roll-of-honor-tbody').innerHTML = (seasons || []).map((s) => `
         <tr>
           <td><strong>${s.year}</strong></td>
-          <td style="display:flex;align-items:center;gap:0.5rem;">
-            ${s.championLogo ? `<img src="${s.championLogo}" width="18" height="18" alt="" />` : ''}
-            <strong style="color:var(--accent-emerald);">${s.champion || '—'}</strong>
+          <td>
+            ${s.championId ? `<button class="entity-link" onclick="inspectTeam(${s.championId})">
+              ${s.championLogo ? `<img src="${s.championLogo}" width="18" height="18" alt="" />` : ''}
+              <span style="color:var(--accent-emerald);">${s.champion || '—'}</span>
+            </button>` : (s.champion || '—')}
           </td>
-          <td>${s.runnerUp || '—'}</td>
+          <td>
+            ${s.runnerUpId ? `<button class="entity-link" onclick="inspectTeam(${s.runnerUpId})">${s.runnerUp}</button>` : (s.runnerUp || '—')}
+          </td>
         </tr>
       `).join('');
+    }
 
-      // 7. Venue Stats, Insights & Markets
-      const vi = data.venueAndInsights;
-      const stInfo = vi.venue?.stadium || {};
-      const vStats = vi.venue?.statistics || {};
-      document.getElementById('venue-stats-grid').innerHTML = [
-        ['Stadium', stInfo.name],
-        ['City / Capacity', `${stInfo.city} (${stInfo.capacity})`],
-        ['Built / Pitch Size', `${stInfo.constryear} (${stInfo.pitchsize?.x}×${stInfo.pitchsize?.y}m)`],
-        ['GPS Coordinates', stInfo.googlecoords],
-        ['Season Home Goals', vStats.venue_home_goals],
-        ['Season Away Goals', vStats.venue_away_goals],
-        ['Home Corners', vStats.venue_home_corner_kicks],
-        ['Yellow Cards', vStats.venue_yellow_cards],
-      ].map(([l, v]) => `
-        <div class="stat-box">
-          <div class="stat-box-label">${l}</div>
-          <div class="stat-box-val" style="font-size:0.95rem;">${v ?? '—'}</div>
-        </div>
-      `).join('');
+    function renderMatchAndVenueSection(match, venue) {
+      document.getElementById('match-venue-stage-title').textContent =
+        `Match #${match.matchId}: ${match.home || 'Home'} vs ${match.away || 'Away'} (${match.result?.home ?? '—'}:${match.result?.away ?? '—'})`;
+      document.getElementById('match-code-tag').textContent =
+        `getMatchMarkets(${match.matchId}) · getMatchInsights(${match.matchId}) · getMatchCommentary(${match.matchId})`;
 
-      document.getElementById('match-funfacts-list').innerHTML = (vi.match?.funFacts || []).map((f) => `
+      document.getElementById('match-teams-interlink').innerHTML = `
+        <span style="font-size:0.8rem;color:var(--text-secondary);margin-right:0.5rem;">Competing Teams:</span>
+        ${match.homeUid ? `<button class="btn-action" style="margin-right:0.4rem;" onclick="inspectTeam(${match.homeUid}, '${match.seasonId || ''}')">${match.home} (#${match.homeUid}) →</button>` : ''}
+        ${match.awayUid ? `<button class="btn-action" onclick="inspectTeam(${match.awayUid}, '${match.seasonId || ''}')">${match.away} (#${match.awayUid}) →</button>` : ''}
+      `;
+
+      if (venue && venue.stadium) {
+        const stInfo = venue.stadium || {};
+        const vStats = venue.statistics || {};
+        document.getElementById('venue-stats-grid').innerHTML = [
+          ['Stadium', stInfo.name],
+          ['City / Capacity', `${stInfo.city || '—'} (${stInfo.capacity || '—'})`],
+          ['Built / Pitch Size', `${stInfo.constryear || '—'} (${stInfo.pitchsize?.x || 105}×${stInfo.pitchsize?.y || 68}m)`],
+          ['GPS Coordinates', stInfo.googlecoords],
+          ['Season Home Goals', vStats.venue_home_goals],
+          ['Season Away Goals', vStats.venue_away_goals],
+          ['Home Corners', vStats.venue_home_corner_kicks],
+          ['Yellow Cards', vStats.venue_yellow_cards],
+        ].map(([l, v]) => `
+          <div class="stat-box">
+            <div class="stat-box-label">${l}</div>
+            <div class="stat-box-val" style="font-size:0.95rem;">${v ?? '—'}</div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('match-funfacts-list').innerHTML = (match.funFacts || []).map((f) => `
         <li style="margin-bottom:0.35rem;">${f}</li>
-      `).join('');
+      `).join('') || '<li style="color:var(--text-secondary);">No pre-match fun facts archived for this fixture.</li>';
 
-      document.getElementById('commentary-tbody').innerHTML = (vi.match?.commentarySample || []).map((c) => `
+      document.getElementById('commentary-tbody').innerHTML = (match.commentarySample || []).map((c) => `
         <tr>
           <td><span class="pill">${c.time ?? 0}'</span></td>
           <td>${c.text}</td>
         </tr>
-      `).join('');
+      `).join('') || '<tr><td colspan="2" style="color:var(--text-secondary);">No commentary phrases archived for this fixture.</td></tr>';
 
-      const pm = vi.match?.primaryMarkets || {};
-      const cm = vi.match?.consensusMarkets || {};
+      const pm = match.primaryMarkets || {};
+      const cm = match.consensusMarkets || {};
       const activeM = pm.odds_home ? pm : cm;
       document.getElementById('markets-summary-grid').innerHTML = [
         ['1X2 Home', activeM.odds_home],
@@ -1222,19 +1882,70 @@ const [goals, overUnder, nbaPace] = await Promise.all([
           <div class="stat-box-label">Score ${sc}</div>
           <div class="stat-box-val" style="color:var(--accent-cyan);font-size:1rem;">${Number(odd).toFixed(2)}</div>
         </div>
-      `).join('') || '<div style="color:var(--text-muted);font-size:0.84rem;">Correct Score matrix archived after settlement.</div>';
+      `).join('') || '<div style="color:var(--text-muted);font-size:0.84rem;">Correct Score matrix settled/archived for this historical match; select an upcoming match in Tab 1 to view live Correct Score odds.</div>';
+    }
 
-      // 8. 56-Sport Catalog
-      document.getElementById('all-sports-grid').innerHTML = (data.catalog.sports || []).map((s) => `
-        <div class="sport-chip"><code>#${s.sportId}</code>${s.name}</div>
-      `).join('');
+    // ------------------------------------------------------------------------
+    // Initial Bootstrap
+    // ------------------------------------------------------------------------
+    async function loadShowcase() {
+      const res = await fetch('/api/showcase');
+      const data = await res.json();
+
+      document.getElementById('kpi-sports').textContent = data.catalog.sportsCount;
+      document.getElementById('serie-a-flag').src = data.clubIntelligence.countryFlagSvgUrl;
+
+      globalSports = data.catalog.sports || [];
+      filterSportsList();
+
+      const initLeagues = data.catalog.initialSportLeagues;
+      if (initLeagues) {
+        currentSportLeagues = initLeagues.leagues && initLeagues.leagues.length
+          ? initLeagues.leagues
+          : (initLeagues.featured || []);
+        document.getElementById('leagues-count-pill').textContent =
+          `${currentSportLeagues.length} Leagues`;
+        renderLeaguesGrid();
+      }
+      loadDailyMatchesForSelectedSport();
+
+      renderStandingsSection(data.standingsAndForm);
+      renderClubSection(data.clubIntelligence);
+      renderTennisSection(data.tennisIntelligence);
+      renderPlayerSection({
+        ...data.playerSpotlight,
+        kitAvatarSvg: data.clubIntelligence.gkJerseySvg,
+      });
+
+      const gt = data.goalTimingAndOverUnder;
+      renderGoalTimingAndOverUnder(
+        gt.milanGoals,
+        gt.leagueTotals,
+        gt.milanOverUnder,
+        'AC Milan'
+      );
+
+      const ms = data.multiSportAndTournaments;
+      renderMultiSportPace(ms.nbaTeams);
+      renderRollOfHonor(ms.serieARollOfHonor);
+
+      document.getElementById('derby-versus-tbody').innerHTML = (ms.derbyVersus?.matches || []).map((m) => {
+        const hUid = m.teams?.home?.uid || m.teams?.home?._id;
+        const aUid = m.teams?.away?.uid || m.teams?.away?._id;
+        return `<tr>
+          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
+          <td><button class="entity-link" onclick="inspectMatch(${m._id})"><strong>${m.result?.home ?? ''} : ${m.result?.away ?? ''}</strong></button></td>
+          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+          <td style="font-size:0.78rem;color:var(--text-secondary);">${m.comment || '—'}</td>
+        </tr>`;
+      }).join('');
+
+      renderMatchAndVenueSection(data.venueAndInsights.match, data.venueAndInsights.venue);
     }
 
     loadShowcase().catch((err) => {
       console.error(err);
-      const pill = document.getElementById('live-status-pill');
-      pill.textContent = 'Error Loading Data';
-      pill.className = 'pill pill-rose';
+      setStatus('Error Loading Data', true);
     });
   </script>
 </body>
