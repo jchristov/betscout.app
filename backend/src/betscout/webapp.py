@@ -40,6 +40,7 @@ from .paper_bet import (
     settle_pending_paper_bets,
 )
 from .telegram_bot import (
+    ensure_daily_free_teaser_sent,
     format_discord_digest,
     format_telegram_digest,
     get_discord_env_config,
@@ -958,6 +959,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 notify_new_picks_to_discord(db_path)
+                ensure_daily_free_teaser_sent(db_path)
                 if vetoes:
                     lines = ["🚨 **BETSCOUT — T-60m STARTING XI VETO ALERT**", ""]
                     for v in vetoes:
@@ -1872,6 +1874,7 @@ self.addEventListener('fetch', (event) => {{
                     _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement & new pick alerts & regenerating dashboard..."
                     notify_new_settlements_to_discord(db_path)
                     notify_new_picks_to_discord(db_path)
+                    ensure_daily_free_teaser_sent(db_path)
                     generate_dashboard_html(
                         rec_path,
                         db_path,

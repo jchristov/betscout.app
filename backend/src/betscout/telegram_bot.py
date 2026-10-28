@@ -19,6 +19,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from . import load_dotenv
 from .dashboard import DEFAULT_LOCAL_TZ, _format_local_time, _league_to_sport_cat, build_best_bets_summary
@@ -992,6 +993,14 @@ def notify_new_picks_to_discord(
                 )
             c_rel.commit()
             c_rel.close()
+
+        # Also ensure today's Free Daily Teaser has been posted to DISCORD_WEBHOOK_URL_FREE_TEASER
+        if not webhook_url:
+            try:
+                ensure_daily_free_teaser_sent(db_path, dry_run=dry_run)
+            except Exception:
+                pass
+
         return {**res, "notified_picks_count": len(unnotified_picks)}
 
 
@@ -999,7 +1008,7 @@ _INPLAY_NOTIFIED_MEMORY: set[str] = set()
 
 
 def send_free_teaser_to_discord(
-    rec: dict[str, Any],
+    rec: dict[str, Any] | None = None,
     db_path: Path | None = None,
     webhook_url: str | None = None,
     dry_run: bool = False,
@@ -1013,7 +1022,14 @@ def send_free_teaser_to_discord(
     if not target_wh.startswith("https://discord"):
         return {"ok": False, "error": "DISCORD_WEBHOOK_URL_FREE_TEASER not configured"}
 
-    ledger = rec.get("paper_ledger") or {}
+    rec_obj = dict(rec or {})
+    if not rec_obj and db_path and (db_path.parent / "recommendations.json").exists():
+        try:
+            rec_obj = json.loads((db_path.parent / "recommendations.json").read_text(encoding="utf-8"))
+        except Exception:
+            rec_obj = {}
+
+    ledger = rec_obj.get("paper_ledger") or {}
     if db_path and db_path.exists():
         try:
             ledger = get_paper_ledger_summary(db_path)
@@ -1027,17 +1043,60 @@ def send_free_teaser_to_discord(
     s_prof = float(ledger.get("settled_profit_u") or 0.0)
     s_roi = float(ledger.get("settled_roi_best") or 0.0) * 100.0
 
-    all_bets = build_best_bets_summary(rec, min_odds=1.12, sport_filter="all")
+    all_bets = build_best_bets_summary(rec_obj, min_odds=1.12, sport_filter="all") if rec_obj else []
+    if not all_bets and db_path and db_path.exists():
+        try:
+            conn_b = sqlite3.connect(db_path, timeout=15.0)
+            conn_b.row_factory = sqlite3.Row
+            pend_rows = [
+                dict(r)
+                for r in conn_b.execute(
+                    "SELECT * FROM paper_bets WHERE status = 'PENDING' AND (is_live = 0 OR is_live IS NULL) ORDER BY kickoff ASC"
+                ).fetchall()
+            ]
+            conn_b.close()
+            for r in pend_rows:
+                lg_l = str(r.get("league") or "").lower()
+                comp_v = float(r.get("composite_score") or 0.0)
+                wp_v = (
+                    comp_v
+                    if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99
+                    else min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
+                )
+                odds_v = float(r.get("logged_best_odds") or 1.25)
+                fair_o = round(1.0 / max(wp_v, 0.05), 2)
+                pick_name = r["home"] if r["side"] == "H" else r["away"]
+                all_bets.append({
+                    "sport_cat": _league_to_sport_cat(r["league"]),
+                    "competition": LEAGUE_LABELS.get(r["league"], str(r["league"]).upper()),
+                    "date": r["kickoff"],
+                    "date_local": _format_local_time(r["kickoff"]),
+                    "announced_at_local": _format_local_time(r.get("logged_at") or r["kickoff"]),
+                    "match": f"{r['home']} vs {r['away']}",
+                    "pick_name": f"{pick_name} ({r['side']})",
+                    "tier": r.get("tier") or "HIGH-CONF",
+                    "win_prob": wp_v,
+                    "odds": odds_v,
+                    "odds_display": f"{odds_v:.2f} (Fair {fair_o:.2f})",
+                    "min_fair_odds": fair_o,
+                    "exact_score_pick": r.get("exact_score_pred") or "Moneyline Edge",
+                })
+        except Exception:
+            pass
+
     if not all_bets:
         return {"ok": False, "error": "No active picks available for teaser"}
 
-    teaser_pick = all_bets[0]
+    # Prefer a pick kicking off today (in Europe/Vienna) if available
+    today_ymd = datetime.now(ZoneInfo(DEFAULT_LOCAL_TZ)).strftime("%Y-%m-%d")
+    today_bets = [b for b in all_bets if str(b.get("date_local") or b.get("date") or "").startswith(today_ymd)]
+    teaser_pick = today_bets[0] if today_bets else all_bets[0]
     locked_cnt = max(0, len(all_bets) - 1)
     sp_cat = teaser_pick.get("sport_cat") or "soccer"
     sp_ico = SPORT_EMOJIS.get(sp_cat, "🎯")
     wp_pct = float(teaser_pick.get("win_prob") or 0.75) * 100.0
     esc_str = teaser_pick.get("exact_score_pick") or ""
-    esc_suffix = f" · 🎲 Score Target: **{esc_str}**" if (esc_str and esc_str != "—") else ""
+    esc_suffix = f" · 🎲 Score Target: **{esc_str}**" if (esc_str and esc_str not in ("—", "Moneyline Edge")) else ""
 
     lines = [
         "🔓 **BETSCOUT — FREE DAILY TEASER PICK & VERIFIED TRACK RECORD**",
@@ -1059,7 +1118,7 @@ def send_free_teaser_to_discord(
     except Exception:
         img_bytes = None
 
-    return send_discord_message(
+    res = send_discord_message(
         text=msg,
         webhook_url=target_wh,
         dry_run=dry_run,
@@ -1067,6 +1126,82 @@ def send_free_teaser_to_discord(
         image_filename="betscout_free_teaser.png",
         also_send_to_global=False,
     )
+    if not dry_run and res.get("ok") and db_path and db_path.exists():
+        try:
+            conn_t = sqlite3.connect(db_path, timeout=15.0)
+            conn_t.execute(
+                "CREATE TABLE IF NOT EXISTS daily_teaser_log (date_ymd TEXT PRIMARY KEY, match_name TEXT, sent_at TEXT, message_id TEXT)"
+            )
+            conn_t.execute(
+                "INSERT OR REPLACE INTO daily_teaser_log (date_ymd, match_name, sent_at, message_id) VALUES (?, ?, ?, ?)",
+                (
+                    today_ymd,
+                    str(teaser_pick.get("match") or ""),
+                    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    str(res.get("message_id") or ""),
+                ),
+            )
+            conn_t.commit()
+            conn_t.close()
+        except Exception:
+            pass
+    return res
+
+
+def ensure_daily_free_teaser_sent(
+    db_path: Path,
+    rec: dict[str, Any] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Ensure that 1 Free Daily Teaser pick has been sent to `DISCORD_WEBHOOK_URL_FREE_TEASER` for today's
+    local date (`Europe/Vienna`). Atomically claims today's date in `daily_teaser_log` to prevent duplicates."""
+    if not db_path.exists():
+        return {"ok": False, "error": "Database does not exist"}
+    load_dotenv(override=False)
+    target_wh = (os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER") or "").strip()
+    if not target_wh.startswith("https://discord"):
+        return {"ok": False, "error": "DISCORD_WEBHOOK_URL_FREE_TEASER not configured"}
+
+    today_ymd = datetime.now(ZoneInfo(DEFAULT_LOCAL_TZ)).strftime("%Y-%m-%d")
+    with _SETTLEMENT_NOTIFY_LOCK:
+        conn = sqlite3.connect(db_path, timeout=30.0, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS daily_teaser_log (date_ymd TEXT PRIMARY KEY, match_name TEXT, sent_at TEXT, message_id TEXT)"
+            )
+            existing = conn.execute("SELECT * FROM daily_teaser_log WHERE date_ymd = ?", (today_ymd,)).fetchone()
+            if existing:
+                conn.execute("COMMIT")
+                conn.close()
+                return {"ok": True, "already_sent": True, "date_ymd": today_ymd, "match": existing["match_name"]}
+            claim_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if not dry_run:
+                conn.execute(
+                    "INSERT INTO daily_teaser_log (date_ymd, match_name, sent_at, message_id) VALUES (?, ?, ?, ?)",
+                    (today_ymd, "CLAIMING", claim_iso, ""),
+                )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            conn.close()
+            raise
+        conn.close()
+
+        res = send_free_teaser_to_discord(rec=rec, db_path=db_path, webhook_url=target_wh, dry_run=dry_run)
+        if not dry_run and not res.get("ok"):
+            try:
+                c_rel = sqlite3.connect(db_path, timeout=15.0)
+                c_rel.execute("DELETE FROM daily_teaser_log WHERE date_ymd = ? AND match_name = 'CLAIMING'", (today_ymd,))
+                c_rel.commit()
+                c_rel.close()
+            except Exception:
+                pass
+        return {**res, "already_sent": False, "date_ymd": today_ymd}
 
 
 def notify_inplay_rebound_edges_to_discord(
