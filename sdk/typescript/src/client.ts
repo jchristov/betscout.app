@@ -1259,6 +1259,81 @@ export class BetScoutClient {
   }
 
   /**
+   * Query all participating teams/competitors in a season (`stats_season_teams2/{seasonId}`).
+   * Equivalent to Soccer v4 `Season Competitors`.
+   */
+  public async getSeasonCompetitors(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stats_season_teams2', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 3600,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the complete season schedule and results (`stats_season_fixtures2/{seasonId}`).
+   * Equivalent to Soccer v4 `Season Schedule` / `Season Summaries`.
+   */
+  public async getSeasonSchedule(
+    seasonId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stats_season_fixtures2', String(seasonId), {
+      channel: 'neutral',
+      ttlSec: 1800,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the last `limit` completed matches across an entire league season (`stats_season_lastx/{seasonId}/{limit}`).
+   */
+  public async getSeasonLastMatches(
+    seasonId: number | string,
+    limit = 20,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>(
+      'stats_season_lastx',
+      `${seasonId}/${limit}`,
+      { channel: 'neutral', ttlSec: 900, ...options },
+    );
+  }
+
+  /**
+   * Query the next `limit` upcoming scheduled fixtures across an entire league season (`stats_season_nextx/{seasonId}/{limit}`).
+   */
+  public async getSeasonNextMatches(
+    seasonId: number | string,
+    limit = 20,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>(
+      'stats_season_nextx',
+      `${seasonId}/${limit}`,
+      { channel: 'neutral', ttlSec: 900, ...options },
+    );
+  }
+
+  /**
+   * Query all historical and active seasons for a competition (`uniquetournament_seasons/{uniqueTournamentId}`).
+   * Equivalent to Soccer v4 `Competition Seasons`.
+   */
+  public async getCompetitionSeasons(
+    uniqueTournamentId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>(
+      'uniquetournament_seasons',
+      String(uniqueTournamentId),
+      { channel: 'neutral', ttlSec: 3600, ...options },
+    );
+  }
+
+  /**
    * Query the **Complete Historical Match Event Timeline** (`match_timeline/{matchId}`),
    * returning all chronological goals, cards, substitutions, period scores, and point-by-point events.
    */

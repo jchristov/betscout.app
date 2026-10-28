@@ -736,6 +736,40 @@ class BetScoutClient:
             "stats_season_referees", str(season_id), channel="neutral", ttl_sec=3600
         )
 
+    def get_season_competitors(self, season_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stats_season_teams2", str(season_id), channel="neutral", ttl_sec=3600
+        )
+
+    def get_season_schedule(self, season_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stats_season_fixtures2", str(season_id), channel="neutral", ttl_sec=1800
+        )
+
+    def get_season_last_matches(
+        self, season_id: int | str, limit: int = 20
+    ) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stats_season_lastx", f"{season_id}/{limit}", channel="neutral", ttl_sec=900
+        )
+
+    def get_season_next_matches(
+        self, season_id: int | str, limit: int = 20
+    ) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stats_season_nextx", f"{season_id}/{limit}", channel="neutral", ttl_sec=900
+        )
+
+    def get_competition_seasons(
+        self, unique_tournament_id: int | str
+    ) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "uniquetournament_seasons",
+            str(unique_tournament_id),
+            channel="neutral",
+            ttl_sec=3600,
+        )
+
     def get_match_full_timeline(self, match_id: int | str) -> dict[str, Any] | None:
         return self.fetch_feed("match_timeline", str(match_id), channel="neutral", ttl_sec=60)
 
@@ -1584,6 +1618,11 @@ class BetScoutClient:
     getSeasonMeta = get_season_meta
     getCupBrackets = get_cup_brackets
     getSeasonReferees = get_season_referees
+    getSeasonCompetitors = get_season_competitors
+    getSeasonSchedule = get_season_schedule
+    getSeasonLastMatches = get_season_last_matches
+    getSeasonNextMatches = get_season_next_matches
+    getCompetitionSeasons = get_competition_seasons
     getMatchFullTimeline = get_match_full_timeline
     getRefereeSeasonStats = get_referee_season_stats
     getTeamLogoUrl = get_team_logo_url
