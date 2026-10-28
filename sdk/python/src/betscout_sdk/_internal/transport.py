@@ -88,7 +88,9 @@ def build_upstream_country_flag_url(
     image_base_url: str | None = None,
 ) -> str:
     base = (image_base_url or DEFAULT_UPSTREAM_IMAGE_BASE_URL).rstrip("/")
-    clean_iso = str(country_iso2 or "").strip().lower()
+    clean_iso = str(country_iso2 or "int").strip().lower()
+    if clean_iso == "int":
+        return f"{base}/ls/crest/{size}/int.png"
     if fmt == "svg":
         mapped = _UK_HOME_NATION_SVG_MAP.get(clean_iso, clean_iso)
         return f"{base}/ls/crest/{ratio}/{mapped}.svg"

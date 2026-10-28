@@ -25,7 +25,10 @@ import {
   mergePrimaryAndConsensusMarkets,
   parsePrematchMarkets,
   parseVenueCoordinates,
+  renderMonogramCrestDataUri,
   renderTeamJerseySvg,
+  resolveCompetitionCrestUrl,
+  resolvePlayerHeadshotUrl,
 } from '../src/index.js';
 import type { BetScoutUniqueTournament } from '../src/index.js';
 
@@ -73,25 +76,30 @@ async function buildSportLeaguesPayload(sportId: number) {
     }
   }
 
-  const featured = normalizeTournamentArray(featuredRaw).map((t) => {
-    const cat = t._rcid ? categoryById.get(t._rcid) : undefined;
-    const iso = t.a2 ?? cat?.a2;
-    return {
-      ...t,
-      categoryName: cat?.name ?? null,
-      a2: iso,
-      flagSvgUrl: iso ? getCountryFlagUrl(String(iso), { format: 'svg', ratio: '4x3' }) : null,
-    };
-  });
+  const featured = await Promise.all(
+    normalizeTournamentArray(featuredRaw).map(async (t) => {
+      const cat = t._rcid ? categoryById.get(t._rcid) : undefined;
+      const iso = t.a2 ?? cat?.a2 ?? 'int';
+      const crestUrl = await resolveCompetitionCrestUrl(t.name);
+      return {
+        ...t,
+        categoryName: cat?.name ?? null,
+        a2: iso,
+        flagSvgUrl: getCountryFlagUrl(String(iso), { format: 'svg', ratio: '4x3' }),
+        crestUrl,
+      };
+    }),
+  );
 
   const allLeagues = normalizeTournamentArray(allRaw).map((t) => {
     const cat = t._rcid ? categoryById.get(t._rcid) : undefined;
-    const iso = t.a2 ?? cat?.a2;
+    const iso = t.a2 ?? cat?.a2 ?? 'int';
     return {
       ...t,
       categoryName: cat?.name ?? null,
       a2: iso,
-      flagSvgUrl: iso ? getCountryFlagUrl(String(iso), { format: 'svg', ratio: '4x3' }) : null,
+      flagSvgUrl: getCountryFlagUrl(String(iso), { format: 'svg', ratio: '4x3' }),
+      crestUrl: renderMonogramCrestDataUri(t.name, 32),
     };
   });
 
@@ -186,7 +194,11 @@ async function buildSeasonIntelPayload(
       championLogo: s.champion?._id ? getTeamLogoUrl(s.champion._id, { size: 'small' }) : null,
       runnerUp: s.runnerup?.mediumname ?? s.runnerup?.name ?? null,
       runnerUpId: s.runnerup?._id ?? null,
+      runnerUpLogo: s.runnerup?._id ? getTeamLogoUrl(s.runnerup._id, { size: 'small' }) : null,
     })),
+    leagueCrestUrl: await resolveCompetitionCrestUrl(
+      utInfo?.uniquetournament?.name ?? table.season_name,
+    ),
   };
 }
 
@@ -204,11 +216,13 @@ async function buildTeamIntelPayload(teamId: number | string, seasonId?: number 
       (typeof tnBundle.profile?.cc === 'string'
         ? tnBundle.profile.cc
         : tnBundle.profile?.countrycode?.a2) ?? 'rs';
+    const headshotUrl = await resolvePlayerHeadshotUrl(tnBundle.profile?.team?.name);
     return {
       ok: true,
       kind: 'tennis_player' as const,
       tennisIntelligence: {
         ...tnBundle,
+        headshotUrl,
         countryFlagSvgUrl: getCountryFlagUrl(ccIso, { format: 'svg', ratio: '4x3' }),
       },
     };
@@ -237,13 +251,23 @@ async function buildTeamIntelPayload(teamId: number | string, seasonId?: number 
 
   const enrichedSquad = (clubBundle.squad ?? []).map((p) => {
     const f = squadFacts?.[String(p._id)];
+    const natIso = p.nationality?.a2 ?? 'int';
     return {
       ...p,
       marketvalue: f?.player?.marketvalue ?? p.marketvalue ?? null,
       shirtnumber: f?.player?.shirtnumber ?? p.shirtnumber ?? null,
       seasonTotals: f?.stats?.total ?? null,
+      flagSvgUrl: getCountryFlagUrl(natIso, { format: 'svg', ratio: '4x3' }),
+      avatarUrl: renderMonogramCrestDataUri(p.fullname ?? p.name, 32),
     };
   });
+
+  const enrichedMissing = await Promise.all(
+    (clubBundle.missing_players ?? []).map(async (mp) => ({
+      ...mp,
+      headshotUrl: await resolvePlayerHeadshotUrl(mp.name),
+    })),
+  );
 
   return {
     ok: true,
@@ -251,6 +275,7 @@ async function buildTeamIntelPayload(teamId: number | string, seasonId?: number 
     clubIntelligence: {
       ...clubBundle,
       squad: enrichedSquad,
+      missing_players: enrichedMissing,
       logoBigUrl: getTeamLogoUrl(teamId, { size: 'big' }),
       countryFlagSvgUrl: getCountryFlagUrl(ccIso, { format: 'svg', ratio: '4x3' }),
       homeJerseySvg: renderTeamJerseySvg(clubBundle.profile?.homejersey, {
@@ -296,6 +321,7 @@ async function buildPlayerIntelPayload(
       : teamProfile?.homejersey;
   const shirtNum = factEntry?.player?.shirtnumber ?? playerObj?.shirtnumber ?? 10;
   const ccIso = playerObj?.nationality?.a2 ?? 'fr';
+  const headshotUrl = await resolvePlayerHeadshotUrl(playerObj?.fullname ?? playerObj?.name);
 
   return {
     ok: true,
@@ -303,11 +329,15 @@ async function buildPlayerIntelPayload(
       player: playerObj,
       teamId,
       seasonId,
+      headshotUrl,
       marketValueEur: factEntry?.player?.marketvalue ?? playerObj?.marketvalue ?? null,
       shirtNumber: shirtNum,
       memberSince: factEntry?.player?.membersince?.date ?? null,
       seasonTotals: factEntry?.stats?.total ?? seasonMatches?.total ?? null,
-      clubs: Object.values(career?.uniqueteams ?? facts?.teams ?? {}),
+      clubs: Object.values(career?.uniqueteams ?? facts?.teams ?? {}).map((c) => ({
+        ...c,
+        logoUrl: c._id ? getTeamLogoUrl(c._id, { size: 'small' }) : null,
+      })),
       seasonMatchesCount: seasonMatches?.matches?.length ?? 0,
       recentMatches: (seasonMatches?.matches ?? []).slice(0, 10),
       flagSvgUrl: getCountryFlagUrl(ccIso, { format: 'svg', ratio: '4x3' }),
@@ -552,10 +582,24 @@ const server = http.createServer(async (req, res) => {
         (typeof hTeam?.cc === 'object' && hTeam?.cc?.a2 ? hTeam.cc.a2 : dossier.home_profile?.countrycode?.a2) ?? 'us';
       const aIso =
         (typeof aTeam?.cc === 'object' && aTeam?.cc?.a2 ? aTeam.cc.a2 : dossier.away_profile?.countrycode?.a2) ?? 'au';
+      const tourIso =
+        (dossier.match_info?.tournament as { tennisinfo?: { a2?: string } } | undefined)?.tennisinfo?.a2 ??
+        dossier.match_info?.realcategory?.cc?.a2 ??
+        'ch';
+      const seasonObj = dossier.match_info?.season as { name?: string } | undefined;
+      const [homeHeadshotUrl, awayHeadshotUrl, tournamentCrestUrl] = await Promise.all([
+        resolvePlayerHeadshotUrl(hTeam?.name),
+        resolvePlayerHeadshotUrl(aTeam?.name),
+        resolveCompetitionCrestUrl(seasonObj?.name ?? dossier.match_info?.tournament?.name),
+      ]);
       return sendJson(res, 200, {
         ...dossier,
         home_flag_url: getCountryFlagUrl(hIso, { format: 'svg', ratio: '4x3' }),
         away_flag_url: getCountryFlagUrl(aIso, { format: 'svg', ratio: '4x3' }),
+        home_headshot_url: homeHeadshotUrl,
+        away_headshot_url: awayHeadshotUrl,
+        tournament_flag_url: getCountryFlagUrl(tourIso, { format: 'svg', ratio: '4x3' }),
+        tournament_crest_url: tournamentCrestUrl,
       });
     }
 
@@ -576,21 +620,43 @@ const server = http.createServer(async (req, res) => {
         sportId: Number(sportId),
         dateYmd,
         count: entries.length,
-        matches: entries.slice(0, 60).map((e) => ({
-          matchId: e.match_obj._id,
-          seasonId: e.match_obj._seasonid,
-          utId: e.match_obj._utid,
-          tournament: e.tournament,
-          home: e.home,
-          homeUid: e.match_obj.teams?.home?.uid ?? e.match_obj.teams?.home?._id,
-          away: e.away,
-          awayUid: e.match_obj.teams?.away?.uid ?? e.match_obj.teams?.away?._id,
-          status: e.match_obj.status?.name ?? 'Scheduled',
-          score:
-            e.match_obj.result?.home != null
-              ? `${e.match_obj.result.home} - ${e.match_obj.result.away}`
-              : 'vs',
-        })),
+        matches: entries.slice(0, 60).map((e) => {
+          const hTeam = e.match_obj.teams?.home;
+          const aTeam = e.match_obj.teams?.away;
+          const hUid = hTeam?.uid ?? hTeam?._id;
+          const aUid = aTeam?.uid ?? aTeam?._id;
+          const hIso = typeof hTeam?.cc === 'object' && hTeam?.cc?.a2 ? hTeam.cc.a2 : null;
+          const aIso = typeof aTeam?.cc === 'object' && aTeam?.cc?.a2 ? aTeam.cc.a2 : null;
+          return {
+            matchId: e.match_obj._id,
+            seasonId: e.match_obj._seasonid,
+            utId: e.match_obj._utid,
+            tournament: e.tournament,
+            tournamentCrestUrl: renderMonogramCrestDataUri(e.tournament, 24),
+            tournamentFlagUrl: getCountryFlagUrl(hIso ?? 'int', { format: 'svg', ratio: '4x3' }),
+            home: e.home,
+            homeUid: hUid,
+            homeCrestUrl:
+              hTeam?.haslogo && hUid
+                ? getTeamLogoUrl(hUid, { size: 'small' })
+                : hIso
+                  ? getCountryFlagUrl(hIso, { format: 'svg', ratio: '4x3' })
+                  : renderMonogramCrestDataUri(e.home, 24),
+            away: e.away,
+            awayUid: aUid,
+            awayCrestUrl:
+              aTeam?.haslogo && aUid
+                ? getTeamLogoUrl(aUid, { size: 'small' })
+                : aIso
+                  ? getCountryFlagUrl(aIso, { format: 'svg', ratio: '4x3' })
+                  : renderMonogramCrestDataUri(e.away, 24),
+            status: e.match_obj.status?.name ?? 'Scheduled',
+            score:
+              e.match_obj.result?.home != null
+                ? `${e.match_obj.result.home} - ${e.match_obj.result.away}`
+                : 'vs',
+          };
+        }),
       });
     }
 

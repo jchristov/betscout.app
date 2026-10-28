@@ -22,6 +22,8 @@ from .types import (
     TeamMissingPlayerEntry,
 )
 from .utils import (
+    format_player_full_name,
+    formatPlayerFullName,
     get_adaptive_refetch_interval_ms,
     get_country_flag_url,
     get_team_logo_url,
@@ -40,8 +42,14 @@ from .utils import (
     parse_venue_coordinates,
     parsePrematchMarkets,
     parseVenueCoordinates,
+    render_monogram_crest_data_uri,
     render_team_jersey_svg,
+    renderMonogramCrestDataUri,
     renderTeamJerseySvg,
+    resolve_competition_crest_url,
+    resolve_player_headshot_url,
+    resolveCompetitionCrestUrl,
+    resolvePlayerHeadshotUrl,
     team_tokens,
     teamTokens,
 )

@@ -92,9 +92,13 @@ export function buildUpstreamCountryFlagUrl(
   options: CountryFlagOptions = {},
 ): string {
   const base = (options.imageBaseUrl ?? DEFAULT_UPSTREAM_IMAGE_BASE_URL).replace(/\/+$/, '');
-  const cleanIso = String(countryIso2 || '')
+  const cleanIso = String(countryIso2 || 'int')
     .trim()
     .toLowerCase();
+  if (cleanIso === 'int') {
+    const size = options.size ?? 'medium';
+    return `${base}/ls/crest/${size}/int.png`;
+  }
   const format = options.format ?? 'svg';
   if (format === 'svg') {
     const ratio = options.ratio ?? '4x3';

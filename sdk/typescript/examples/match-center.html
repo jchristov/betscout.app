@@ -437,7 +437,10 @@
       <div class="scoreboard-grid">
         <!-- Home Player / Team -->
         <div class="competitor-side home">
-          <img id="home-flag-img" class="competitor-flag" src="" alt="Home" />
+          <div style="position:relative;flex-shrink:0;">
+            <img id="home-headshot-img" src="" alt="Home Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:2px solid rgba(56,189,248,0.5);" />
+            <img id="home-flag-img" src="" alt="Home Flag" style="position:absolute;bottom:-2px;right:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
+          </div>
           <div>
             <div class="competitor-name">
               <span id="home-name">Fritz, Taylor</span>
@@ -471,7 +474,10 @@
 
         <!-- Away Player / Team -->
         <div class="competitor-side away">
-          <img id="away-flag-img" class="competitor-flag" src="" alt="Away" />
+          <div style="position:relative;flex-shrink:0;">
+            <img id="away-headshot-img" src="" alt="Away Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:2px solid rgba(245,158,11,0.5);" />
+            <img id="away-flag-img" src="" alt="Away Flag" style="position:absolute;bottom:-2px;left:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
+          </div>
           <div>
             <div class="competitor-name">
               <span id="away-serve-ball" style="display:none;" title="Active Server">🎾</span>
@@ -812,12 +818,20 @@
       const roundName = mi.match?.roundname?.name || '';
       const groundName = mi.tournament?.ground?.name || '';
       const stadiumName = mi.stadium ? `${mi.stadium.name} (${mi.stadium.city || ''})` : '';
+      const tFlagHtml = d.tournament_flag_url
+        ? `<img src="${d.tournament_flag_url}" width="18" height="13" alt="" style="vertical-align:middle;margin-right:0.3rem;" />`
+        : '';
+      const tCrestHtml = d.tournament_crest_url
+        ? `<img src="${d.tournament_crest_url}" width="20" height="20" alt="" style="vertical-align:middle;margin-right:0.35rem;" />`
+        : '';
       document.getElementById('hero-breadcrumbs').innerHTML =
-        `<span>${d.sport_name}</span> · <span>${mi.realcategory?.name || ''}</span> · <strong>${tourName}</strong> ${roundName ? `· <span class="pill">${roundName}</span>` : ''}`;
+        `<span>${d.sport_name}</span> · <span>${mi.realcategory?.name || ''}</span> · <span style="display:inline-flex;align-items:center;">${tFlagHtml}${tCrestHtml}<strong>${tourName}</strong></span> ${roundName ? `· <span class="pill">${roundName}</span>` : ''}`;
       document.getElementById('hero-venue-meta').innerHTML =
         `${groundName ? `<span>Surface: <strong>${groundName}</strong></span>` : ''} ${stadiumName ? `· <span>Venue: <strong>${stadiumName}</strong></span>` : ''}`;
 
-      // Flags & Names
+      // Headshots, Flags & Names
+      document.getElementById('home-headshot-img').src = d.home_headshot_url || d.home_flag_url || '';
+      document.getElementById('away-headshot-img').src = d.away_headshot_url || d.away_flag_url || '';
       document.getElementById('home-flag-img').src = d.home_flag_url || '';
       document.getElementById('away-flag-img').src = d.away_flag_url || '';
       document.getElementById('home-name').textContent = hTeam.name || 'Home';

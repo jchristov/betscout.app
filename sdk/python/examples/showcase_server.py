@@ -30,7 +30,10 @@ from betscout_sdk import (
     merge_primary_and_consensus_markets,
     parse_prematch_markets,
     parse_venue_coordinates,
+    render_monogram_crest_data_uri,
     render_team_jersey_svg,
+    resolve_competition_crest_url,
+    resolve_player_headshot_url,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -67,15 +70,14 @@ def _build_sport_leagues_payload(sport_id: int) -> dict[str, Any]:
             if not isinstance(t, dict) or not t.get("_id") or not t.get("name"):
                 continue
             cat = cat_map.get(t.get("_rcid") or -1, {})
-            iso = t.get("a2") or cat.get("a2")
+            iso = t.get("a2") or cat.get("a2") or "int"
             out.append(
                 {
                     **t,
                     "categoryName": cat.get("name"),
                     "a2": iso,
-                    "flagSvgUrl": get_country_flag_url(str(iso), fmt="svg", ratio="4x3")
-                    if iso
-                    else None,
+                    "flagSvgUrl": get_country_flag_url(str(iso), fmt="svg", ratio="4x3"),
+                    "crestUrl": render_monogram_crest_data_uri(t.get("name"), 32),
                 }
             )
         return out
@@ -107,10 +109,17 @@ def _build_match_center_payload(match_id: int | str) -> dict[str, Any]:
     a_iso = (a_team.get("cc") or {}).get("a2") or (
         ((dossier.get("away_profile") or {}).get("countrycode") or {}).get("a2")
     ) or "au"
+    tour_obj = (dossier.get("match_info") or {}).get("tournament") or {}
+    tour_iso = (tour_obj.get("tennisinfo") or {}).get("a2") or "ch"
+    tour_name = ((dossier.get("match_info") or {}).get("season") or {}).get("name") or tour_obj.get("name")
     return {
         **dossier,
         "home_flag_url": get_country_flag_url(h_iso, fmt="svg", ratio="4x3"),
         "away_flag_url": get_country_flag_url(a_iso, fmt="svg", ratio="4x3"),
+        "home_headshot_url": resolve_player_headshot_url(h_team.get("name")),
+        "away_headshot_url": resolve_player_headshot_url(a_team.get("name")),
+        "tournament_flag_url": get_country_flag_url(tour_iso, fmt="svg", ratio="4x3"),
+        "tournament_crest_url": resolve_competition_crest_url(tour_name),
     }
 
 

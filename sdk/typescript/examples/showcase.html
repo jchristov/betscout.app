@@ -948,6 +948,7 @@
         <div class="tab-stage-header">
           <div>
             <div class="tab-stage-title">
+              <img id="djokovic-headshot" src="" alt="" width="40" height="40" style="border-radius:50%;object-fit:cover;" />
               <img id="djokovic-flag" src="" alt="Serbia" width="26" height="20" />
               <span id="tennis-stage-title">Tennis Competitor Profile &amp; Multi-Season Surface Matrix (ID: 14882 — Novak Djokovic)</span>
             </div>
@@ -1038,9 +1039,10 @@
         <div class="grid-2">
           <div class="card">
             <div class="card-header">
-              <div class="card-title"><span>Player Bio, Dynamic Kit Avatar SVG &amp; Season Totals</span></div>
+              <div class="card-title"><span>Player Bio, Headshot Portrait, Dynamic Kit Avatar SVG &amp; Season Totals</span></div>
             </div>
-            <div style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.2rem;">
+            <div style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.2rem; flex-wrap: wrap;">
+              <img id="maignan-headshot" src="" alt="" width="76" height="76" style="border-radius: 50%; object-fit: cover; border: 2px solid rgba(56, 189, 248, 0.45);" />
               <div id="maignan-kit-avatar"></div>
               <div id="maignan-bio-summary" style="font-size: 0.88rem; color: var(--text-secondary);"></div>
             </div>
@@ -1339,12 +1341,16 @@
       grid.innerHTML = list.slice(0, 120).map((l) => {
         const sid = l.currentseason || l.seasonid || '';
         const flagHtml = l.flagSvgUrl
-          ? `<img src="${l.flagSvgUrl}" width="18" height="14" alt="" />`
+          ? `<img src="${l.flagSvgUrl}" width="18" height="14" alt="" title="Country Flag" />`
+          : '';
+        const crestHtml = l.crestUrl
+          ? `<img src="${l.crestUrl}" width="22" height="22" alt="" style="object-fit:contain;" title="League Crest" />`
           : '';
         return `<button class="league-card-btn" onclick="inspectSeason('${sid}', '${l._id}', '${(l.name || '').replace(/'/g, "\\'")}')">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;width:100%;">
-            <span style="display:flex;align-items:center;gap:0.4rem;font-weight:700;font-size:0.84rem;">
+            <span style="display:flex;align-items:center;gap:0.45rem;font-weight:700;font-size:0.84rem;">
               ${flagHtml}
+              ${crestHtml}
               <span>${l.name}</span>
             </span>
             <span class="pill">#${l._id}</span>
@@ -1372,10 +1378,26 @@
         tbody.innerHTML = matches.map((m) => `
           <tr>
             <td><button class="entity-link" onclick="inspectMatch(${m.matchId})"><code>#${m.matchId}</code></button></td>
-            <td>${m.tournament}</td>
-            <td><button class="entity-link" onclick="inspectTeam(${m.homeUid}, ${m.seasonId || ''})">${m.home}</button></td>
+            <td>
+              <span style="display:inline-flex;align-items:center;gap:0.4rem;">
+                ${m.tournamentFlagUrl ? `<img src="${m.tournamentFlagUrl}" width="16" height="12" alt="" />` : ''}
+                ${m.tournamentCrestUrl ? `<img src="${m.tournamentCrestUrl}" width="18" height="18" alt="" />` : ''}
+                <span>${m.tournament}</span>
+              </span>
+            </td>
+            <td>
+              <button class="entity-link" onclick="inspectTeam(${m.homeUid}, ${m.seasonId || ''})">
+                ${m.homeCrestUrl ? `<img src="${m.homeCrestUrl}" width="18" height="18" alt="" />` : ''}
+                <span>${m.home}</span>
+              </button>
+            </td>
             <td><strong>${m.score}</strong> <span style="font-size:0.73rem;color:var(--text-secondary);">(${m.status})</span></td>
-            <td><button class="entity-link" onclick="inspectTeam(${m.awayUid}, ${m.seasonId || ''})">${m.away}</button></td>
+            <td>
+              <button class="entity-link" onclick="inspectTeam(${m.awayUid}, ${m.seasonId || ''})">
+                ${m.awayCrestUrl ? `<img src="${m.awayCrestUrl}" width="18" height="18" alt="" />` : ''}
+                <span>${m.away}</span>
+              </button>
+            </td>
             <td><button class="btn-action" style="height:28px;padding:0 0.55rem;" onclick="inspectMatch(${m.matchId})">Markets &amp; Info →</button></td>
           </tr>
         `).join('');
@@ -1568,6 +1590,7 @@
         <tr>
           <td>
             <button class="entity-link" onclick="inspectPlayer(${p.player_id}, ${club.team_id}, '${club.active_season_id || 130971}')">
+              ${p.headshotUrl ? `<img src="${p.headshotUrl}" width="24" height="24" style="border-radius:50%;object-fit:cover;" alt="" />` : ''}
               <span>${p.name}</span>
             </button>
           </td>
@@ -1585,9 +1608,19 @@
         const aUid = m.teams?.away?.uid || m.teams?.away?._id;
         return `<tr>
           <td><button class="entity-link" onclick="inspectMatch(${m._id})"><code>#${m._id}</code></button></td>
-          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${hUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${hUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.home?.name || ''}</span>
+            </button>
+          </td>
           <td><strong>${m.result?.home ?? ''} - ${m.result?.away ?? ''}</strong></td>
-          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${aUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${aUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.away?.name || ''}</span>
+            </button>
+          </td>
         </tr>`;
       }).join('');
 
@@ -1597,11 +1630,17 @@
           <td><strong>#${p.shirtnumber || '—'}</strong></td>
           <td>
             <button class="entity-link" onclick="inspectPlayer(${p._id}, ${club.team_id}, '${club.active_season_id || 130971}')">
+              ${p.avatarUrl ? `<img src="${p.avatarUrl}" width="22" height="22" style="border-radius:50%;" alt="" />` : ''}
               <span>${p.fullname || p.name}</span>
             </button>
           </td>
           <td><span class="pill">${p.position?.shortname || p.position?.name || '—'}</span></td>
-          <td>${p.nationality?.name || '—'}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+              ${p.flagSvgUrl ? `<img src="${p.flagSvgUrl}" width="16" height="12" alt="" />` : ''}
+              <span>${p.nationality?.name || '—'}</span>
+            </span>
+          </td>
           <td>${p.height ? `${p.height} cm` : '—'} / ${p.weight ? `${p.weight} kg` : '—'}</td>
           <td>${p.foot || '—'}</td>
           <td>${p.marketvalue ? `<span class="pill pill-emerald">€${Number(p.marketvalue).toLocaleString()}</span>` : '—'}</td>
@@ -1611,6 +1650,9 @@
 
     function renderTennisSection(tn) {
       document.getElementById('djokovic-flag').src = tn.countryFlagSvgUrl;
+      if (tn.headshotUrl) {
+        document.getElementById('djokovic-headshot').src = tn.headshotUrl;
+      }
       const tp = tn.profile || {};
       const pName = tp.team?.name || `Player #${tn.player_id}`;
       document.getElementById('tennis-stage-title').textContent =
@@ -1678,6 +1720,9 @@
 
     function renderPlayerSection(ps) {
       document.getElementById('maignan-flag').src = ps.flagSvgUrl;
+      if (ps.headshotUrl) {
+        document.getElementById('maignan-headshot').src = ps.headshotUrl;
+      }
       if (ps.kitAvatarSvg) {
         document.getElementById('maignan-kit-avatar').innerHTML = ps.kitAvatarSvg;
       }
@@ -1704,8 +1749,9 @@
       document.getElementById('maignan-clubs-list').innerHTML =
         `<span style="font-size:0.82rem;color:var(--text-secondary);margin-right:0.5rem;">Career Clubs (Click to Inspect):</span>` +
         (ps.clubs || []).map((c) => `
-          <button class="btn-action" style="margin-right:0.4rem;height:28px;" onclick="inspectTeam(${c._id})">
-            ${c.mediumname || c.name} (#${c._id})
+          <button class="btn-action" style="margin-right:0.4rem;height:30px;display:inline-flex;align-items:center;gap:0.35rem;" onclick="inspectTeam(${c._id})">
+            ${c.logoUrl ? `<img src="${c.logoUrl}" width="16" height="16" alt="" />` : ''}
+            <span>${c.mediumname || c.name} (#${c._id})</span>
           </button>
         `).join('');
 
@@ -1715,9 +1761,19 @@
         return `<tr>
           <td><button class="entity-link" onclick="inspectMatch(${m._id})"><code>#${m._id}</code></button></td>
           <td>${m.time?.date || '—'}</td>
-          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${hUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${hUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.home?.name || ''}</span>
+            </button>
+          </td>
           <td><strong>${m.result?.home ?? ''} - ${m.result?.away ?? ''}</strong></td>
-          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${aUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${aUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.away?.name || ''}</span>
+            </button>
+          </td>
         </tr>`;
       }).join('');
     }
@@ -1807,7 +1863,10 @@
             </button>` : (s.champion || '—')}
           </td>
           <td>
-            ${s.runnerUpId ? `<button class="entity-link" onclick="inspectTeam(${s.runnerUpId})">${s.runnerUp}</button>` : (s.runnerUp || '—')}
+            ${s.runnerUpId ? `<button class="entity-link" onclick="inspectTeam(${s.runnerUpId})">
+              ${s.runnerUpLogo ? `<img src="${s.runnerUpLogo}" width="18" height="18" alt="" />` : `<img src="https://img.sportradar.com/ls/crest/small/${s.runnerUpId}.png" width="18" height="18" alt="" />`}
+              <span>${s.runnerUp}</span>
+            </button>` : (s.runnerUp || '—')}
           </td>
         </tr>
       `).join('');
@@ -1934,9 +1993,19 @@
         const hUid = m.teams?.home?.uid || m.teams?.home?._id;
         const aUid = m.teams?.away?.uid || m.teams?.away?._id;
         return `<tr>
-          <td><button class="entity-link" onclick="inspectTeam(${hUid})">${m.teams?.home?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${hUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${hUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.home?.name || ''}</span>
+            </button>
+          </td>
           <td><button class="entity-link" onclick="inspectMatch(${m._id})"><strong>${m.result?.home ?? ''} : ${m.result?.away ?? ''}</strong></button></td>
-          <td><button class="entity-link" onclick="inspectTeam(${aUid})">${m.teams?.away?.name || ''}</button></td>
+          <td>
+            <button class="entity-link" onclick="inspectTeam(${aUid})">
+              <img src="https://img.sportradar.com/ls/crest/small/${aUid}.png" width="18" height="18" alt="" />
+              <span>${m.teams?.away?.name || ''}</span>
+            </button>
+          </td>
           <td style="font-size:0.78rem;color:var(--text-secondary);">${m.comment || '—'}</td>
         </tr>`;
       }).join('');

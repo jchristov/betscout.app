@@ -371,6 +371,149 @@ def parse_venue_coordinates(googlecoords: str | None = None) -> dict[str, float]
         return None
 
 
+def format_player_full_name(raw_name: str | None = None) -> str:
+    """Convert 'Lastname, Firstname' (e.g. 'Djokovic, Novak') to 'Firstname Lastname'."""
+    s = str(raw_name or "").strip()
+    if not s:
+        return ""
+    if "," in s:
+        parts = [p.strip() for p in s.split(",", 1)]
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return f"{parts[1]} {parts[0]}"
+    return s
+
+
+def render_monogram_crest_data_uri(label: str | None = None, size_px: int = 36) -> str:
+    """Generate a deterministic SVG monogram shield crest data URI."""
+    from urllib.parse import quote
+
+    clean = str(label or "BS").strip()
+    words = [w for w in re.sub(r"[^a-zA-Z0-9\s]", " ", clean).split() if w]
+    if len(words) >= 2:
+        initials = f"{words[0][0]}{words[1][0]}".upper()
+    else:
+        initials = (clean[:2] or "BS").upper()
+
+    h = 0
+    for ch in clean:
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    palettes = [
+        ("#0ea5e9", "#10b981"),
+        ("#6366f1", "#ec4899"),
+        ("#f59e0b", "#ef4444"),
+        ("#14b8a6", "#3b82f6"),
+        ("#8b5cf6", "#06b6d4"),
+    ]
+    c1, c2 = palettes[h % len(palettes)]
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size_px}" height="{size_px}" viewBox="0 0 40 40">'
+        f'<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">'
+        f'<stop offset="0%" stop-color="{c1}"/><stop offset="100%" stop-color="{c2}"/></linearGradient></defs>'
+        f'<rect x="2" y="2" width="36" height="36" rx="10" fill="#0f172a" stroke="url(#g)" stroke-width="2.2"/>'
+        f'<text x="20" y="25" text-anchor="middle" fill="#f8fafc" '
+        f'font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="13">{initials}</text></svg>'
+    )
+    return f"data:image/svg+xml;utf8,{quote(svg)}"
+
+
+_HEADSHOT_CACHE: dict[str, str] = {}
+
+_CURATED_COMPETITION_WIKI_TITLES: dict[str, str] = {
+    "serie a": "Serie_A",
+    "premier league": "Premier_League",
+    "la liga": "La_Liga",
+    "laliga": "La_Liga",
+    "bundesliga": "Bundesliga",
+    "ligue 1": "Ligue_1",
+    "uefa champions league": "UEFA_Champions_League",
+    "champions league": "UEFA_Champions_League",
+    "uefa europa league": "UEFA_Europa_League",
+    "coppa italia": "Coppa_Italia",
+    "fa cup": "FA_Cup",
+    "nba": "National_Basketball_Association",
+    "nhl": "National_Hockey_League",
+    "nfl": "National_Football_League",
+    "mlb": "Major_League_Baseball",
+}
+
+
+def resolve_player_headshot_url(player_name: str | None = None) -> str:
+    """Resolve an individual player's photographic headshot URL via Wikimedia REST API with monogram fallback."""
+    import json
+    import ssl
+    import urllib.request
+    from urllib.parse import quote
+
+    full_name = format_player_full_name(player_name)
+    if not full_name:
+        return render_monogram_crest_data_uri("PL", 64)
+
+    cache_key = f"player:{full_name.lower()}"
+    if cache_key in _HEADSHOT_CACHE:
+        return _HEADSHOT_CACHE[cache_key]
+
+    wiki_title = quote(full_name.replace(" ", "_"))
+    try:
+        ctx = ssl.create_default_context()
+        if hasattr(ssl, "VERIFY_X509_STRICT"):
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+        req = urllib.request.Request(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{wiki_title}",
+            headers={"User-Agent": "Mozilla/5.0 (compatible; BetScoutSDK/1.1)"},
+        )
+        with urllib.request.urlopen(req, timeout=6.0, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            src = (data.get("thumbnail") or {}).get("source")
+            if src:
+                _HEADSHOT_CACHE[cache_key] = str(src)
+                return str(src)
+    except Exception:
+        pass
+
+    fallback = render_monogram_crest_data_uri(full_name, 64)
+    _HEADSHOT_CACHE[cache_key] = fallback
+    return fallback
+
+
+def resolve_competition_crest_url(competition_name: str | None = None) -> str:
+    """Resolve a league / competition crest image URL with monogram shield fallback."""
+    import json
+    import ssl
+    import urllib.request
+
+    clean = str(competition_name or "").strip()
+    if not clean:
+        return render_monogram_crest_data_uri("LG", 36)
+
+    key = clean.lower()
+    cache_key = f"comp:{key}"
+    if cache_key in _HEADSHOT_CACHE:
+        return _HEADSHOT_CACHE[cache_key]
+
+    wiki_title = _CURATED_COMPETITION_WIKI_TITLES.get(key)
+    if wiki_title:
+        try:
+            ctx = ssl.create_default_context()
+            if hasattr(ssl, "VERIFY_X509_STRICT"):
+                ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            req = urllib.request.Request(
+                f"https://en.wikipedia.org/api/rest_v1/page/summary/{wiki_title}",
+                headers={"User-Agent": "Mozilla/5.0 (compatible; BetScoutSDK/1.1)"},
+            )
+            with urllib.request.urlopen(req, timeout=6.0, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                src = (data.get("thumbnail") or {}).get("source")
+                if src:
+                    _HEADSHOT_CACHE[cache_key] = str(src)
+                    return str(src)
+        except Exception:
+            pass
+
+    fallback = render_monogram_crest_data_uri(clean, 36)
+    _HEADSHOT_CACHE[cache_key] = fallback
+    return fallback
+
+
 # CamelCase aliases for 1:1 parity with TypeScript @betscout/sdk
 normalizeTeamName = normalize_team_name
 teamTokens = team_tokens
@@ -383,3 +526,7 @@ getTeamLogoUrl = get_team_logo_url
 getCountryFlagUrl = get_country_flag_url
 renderTeamJerseySvg = render_team_jersey_svg
 parseVenueCoordinates = parse_venue_coordinates
+formatPlayerFullName = format_player_full_name
+renderMonogramCrestDataUri = render_monogram_crest_data_uri
+resolvePlayerHeadshotUrl = resolve_player_headshot_url
+resolveCompetitionCrestUrl = resolve_competition_crest_url
