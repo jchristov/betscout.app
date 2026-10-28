@@ -255,8 +255,8 @@ def format_telegram_digest(
             lines.append(
                 f"  <b>Combo #{idx_d} ({html.escape(c_lbl)})</b> — Odds: <b>{d['combined_odds']:.2f}</b> "
                 f"(WinProb {d['combined_prob']*100:.1f}%, Fair {d['min_fair_odds']:.2f})\n"
-                f"   1️⃣ {e1} {html.escape(l1['match'])}{html.escape(m1_str)} &rarr; <b>{html.escape(l1['pick'])}</b> @ {l1['odds']:.2f} ({l1['prob']*100:.0f}%)\n"
-                f"   2️⃣ {e2} {html.escape(l2['match'])}{html.escape(m2_str)} &rarr; <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f} ({l2['prob']*100:.0f}%)"
+                f"   1️⃣ {e1} {html.escape(l1['match'])}{html.escape(m1_str)} → <b>{html.escape(l1['pick'])}</b> @ {l1['odds']:.2f} ({l1['prob']*100:.0f}%)\n"
+                f"   2️⃣ {e2} {html.escape(l2['match'])}{html.escape(m2_str)} → <b>{html.escape(l2['pick'])}</b> @ {l2['odds']:.2f} ({l2['prob']*100:.0f}%)"
             )
 
     has_unconfirmed_time = any(b.get("time_valid") is False or "*" in str(b.get("date_local") or "") for b in best_bets[:max_picks])
@@ -1366,6 +1366,14 @@ def send_telegram_message(
     load_dotenv(env_path=env_path, override=True)
     token = (bot_token or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
     target_chat = (chat_id or os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+    # Telegram HTML parse_mode only supports &lt;, &gt;, &amp;, and &quot; — convert named arrow/dash entities to direct Unicode
+    text = (
+        str(text or "")
+        .replace("&rarr;", "→")
+        .replace("&ndash;", "–")
+        .replace("&mdash;", "—")
+        .replace("&middot;", "·")
+    )
 
     if dry_run or not token or not target_chat:
         return {
