@@ -601,6 +601,8 @@ def scan_upcoming_tennis(
                             all_elo_diff=round(sgn * d_elo_all * 400.0, 1),
                             h2h_n=n_p,
                             open_odds=open_book_odds,
+                            decider_diff=decider_diff_pick,
+                            tourn_wins_diff=t_wins_diff_pick,
                         )
                         if not t_passed:
                             continue
@@ -1635,8 +1637,16 @@ def scan_upcoming_other_sports(
             sh_d = float((r["home_shots"] or 0) - (r["away_shots"] or 0))
             co_d = float((r["home_corners"] or 0) - (r["away_corners"] or 0))
             fo_d = float((r["home_fouls"] or 0) - (r["away_fouls"] or 0))
-            box_hist[hk].append({"sot_d": sot_d, "sh_d": sh_d, "co_d": co_d, "fo_d": fo_d, "s_m": s_m})
-            box_hist[ak].append({"sot_d": -sot_d, "sh_d": -sh_d, "co_d": -co_d, "fo_d": -fo_d, "s_m": -s_m})
+            hs_f = float(r["home_score"])
+            as_f = float(r["away_score"])
+            box_hist[hk].append({
+                "sot_d": sot_d, "sh_d": sh_d, "co_d": co_d, "fo_d": fo_d, "s_m": s_m,
+                "won": 1.0 if r["outcome"] == "H" else 0.0, "gf": hs_f, "ga": as_f,
+            })
+            box_hist[ak].append({
+                "sot_d": -sot_d, "sh_d": -sh_d, "co_d": -co_d, "fo_d": -fo_d, "s_m": -s_m,
+                "won": 1.0 if r["outcome"] == "A" else 0.0, "gf": as_f, "ga": hs_f,
+            })
 
     scalers_by_lg = {
         lg: StandardScaler().fit(np.array(feats))
@@ -1690,23 +1700,24 @@ def scan_upcoming_other_sports(
                 dt = datetime.fromisoformat(ko.replace("Z", "+00:00"))
                 s_url = f"{BASE}/{lg_obj.sport}/{lg_obj.league}/summary?event={eid}"
                 summary = _fetch_live_json(s_url)
-                # Prefer Sportradar daily odds (`Tipico` + `UOF` bulk feed) first, with ESPN summary as fallback
-                prices: dict[str, Any] = {"odds_home": None, "odds_away": None, "line_total": None}
+                # For 2-way US sports (NHL, NBA, NFL, MLB, Volleyball), use true 2-way Moneyline odds (never overwrite with 3-way regulation 1X2!)
+                espn_pr = _two_way_team_odds(summary, lg_obj.sport)
+                prices: dict[str, Any] = {
+                    "odds_home": espn_pr.get("odds_home"),
+                    "odds_away": espn_pr.get("odds_away"),
+                    "line_total": espn_pr.get("line_total"),
+                }
                 try:
                     from .sportradar_statshub import lookup_sportradar_daily_odds
 
                     sr_pr = lookup_sportradar_daily_odds(home, away, sport=lg_obj.sport, date_ymd=ko[:10])
-                    if sr_pr.get("odds_home") and sr_pr.get("odds_away"):
-                        prices["odds_home"] = sr_pr["odds_home"]
-                        prices["odds_away"] = sr_pr["odds_away"]
+                    if sr_pr.get("odds_home") and sr_pr.get("odds_away") and not sr_pr.get("odds_draw"):
+                        prices["odds_home"] = max(float(prices["odds_home"] or 0.0), float(sr_pr["odds_home"]))
+                        prices["odds_away"] = max(float(prices["odds_away"] or 0.0), float(sr_pr["odds_away"]))
+                    if sr_pr.get("line_total") and not prices["line_total"]:
                         prices["line_total"] = sr_pr.get("line_total")
                 except Exception:
                     pass
-                if not (prices["odds_home"] and prices["odds_away"]):
-                    espn_pr = _two_way_team_odds(summary, lg_obj.sport)
-                    prices["odds_home"] = prices["odds_home"] or espn_pr.get("odds_home")
-                    prices["odds_away"] = prices["odds_away"] or espn_pr.get("odds_away")
-                    prices["line_total"] = prices["line_total"] or espn_pr.get("line_total")
                 if not (prices["odds_home"] and prices["odds_away"]):
                     continue
                 oh, oa = prices["odds_home"], prices["odds_away"]
@@ -1749,6 +1760,22 @@ def scan_upcoming_other_sports(
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
+                pick_dq = oh_dq if side == "H" else oa_dq
+                pick_win_rate_5 = (
+                    float(np.mean([x["won"] for x in list(pick_dq)[-5:]]))
+                    if pick_dq and len(pick_dq) >= 3 and "won" in pick_dq[0]
+                    else None
+                )
+                pick_ga_5 = (
+                    float(np.mean([x["ga"] for x in list(pick_dq)[-5:]]))
+                    if pick_dq and len(pick_dq) >= 3 and "ga" in pick_dq[0]
+                    else None
+                )
+                pick_goal_diff = (
+                    float(np.mean([x["gf"] - x["ga"] for x in pick_dq]))
+                    if pick_dq and len(pick_dq) >= 3 and "gf" in pick_dq[0]
+                    else None
+                )
                 from .sport_models import route_major_league_gate
 
                 if not route_major_league_gate(
@@ -1765,6 +1792,9 @@ def scan_upcoming_other_sports(
                     min_prob=min_prob,
                     co_f=co_f,
                     tov_f=tov_f,
+                    pick_win_rate_5=pick_win_rate_5,
+                    pick_ga_5=pick_ga_5,
+                    pick_goal_diff=pick_goal_diff,
                 ):
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(
@@ -2511,7 +2541,7 @@ def scan_upcoming_and_log_paper_bets(
             continue
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
-        elif lg_p in ("nba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
+        elif lg_p in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
@@ -3199,10 +3229,18 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             return "Hockey (NHL)"
         if l == "nfl":
             return "American Football (NFL)"
-        if l == "nba":
+        if l in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba"):
             return "Basketball (NBA)"
         if l == "mlb":
             return "Baseball (MLB)"
+        if l in ("wvolleyball", "mvolleyball", "volleyball"):
+            return "Volleyball"
+        if l == "table_tennis":
+            return "Table Tennis"
+        if l == "handball":
+            return "Handball"
+        if l == "darts":
+            return "Darts"
         return "Football (UEFA & Domestic)"
 
     by_sport_map: dict[str, list[float]] = defaultdict(list)
@@ -3231,7 +3269,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         t_wins = sum(1 for v in t_pnls if v > 0)
         # Expected win prob: p_mkt for tennis/other (stored in p_mkt/composite_score), or 1/logged_primary_odds fallback
         t_exp_probs = [
-            float(x["composite_score"]) if x["league"].lower() in ("atp", "wta", "nba", "nhl", "nfl", "mlb") and 0.45 <= float(x["composite_score"]) <= 0.99
+            float(x["composite_score"])
+            if x["league"].lower() in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts")
+            and 0.45 <= float(x["composite_score"]) <= 0.99
             else min(max(float(x["p_mkt"] or 0.60), 0.35), 0.95)
             for x in t_rows
         ]

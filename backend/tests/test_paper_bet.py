@@ -974,22 +974,115 @@ def test_monetization_api_keys_subscribers_and_redaction(tmp_path: Path):
     assert build_openapi_v1_spec()["openapi"] == "3.1.0"
 
 
+def test_nhl_table_tennis_and_tennis_loss_veto_gates():
+    from betscout.sport_models import (
+        evaluate_european_sport_gate,
+        evaluate_nhl_gate,
+        evaluate_tennis_gate,
+        route_major_league_gate,
+    )
 
+    # 1. NHL Leaky-Defense & Slumping-Form Veto (Anaheim Ducks vs Vancouver Canucks: 1W-4L last 5, GA5=4.00, GoalDiff=-0.50, EV=-6.58%)
+    assert (
+        evaluate_nhl_gate(
+            p_mod=0.6579,
+            comp_score=0.12,
+            save_pct_diff=8.0,
+            shots_diff=5.0,
+            rest_for_pick=0.33,
+            side="H",
+            odds_pick=1.42,
+            p_elo=0.52,
+            p_mkt=0.6468,
+            pick_win_rate_5=0.20,
+            pick_ga_5=4.00,
+            pick_goal_diff=-0.50,
+        )
+        is False
+    )
+    assert (
+        route_major_league_gate(
+            league="nhl",
+            p_mod=0.6579,
+            p_mkt=0.6468,
+            p_elo=0.62,
+            comp_score=0.18,
+            sot_f=8.0,
+            vol_f=5.0,
+            rest_for_pick=0.33,
+            side="H",
+            odds_pick=1.42,
+            pick_win_rate_5=0.60,
+            pick_ga_5=2.40,
+            pick_goal_diff=1.20,
+        )
+        is False  # EV = (0.6579 * 1.42 - 1) * 100 = -6.58% < -3.5%
+    )
+    # Strong NHL favorite with solid defense & fair 2-way price passes
+    assert (
+        route_major_league_gate(
+            league="nhl",
+            p_mod=0.66,
+            p_mkt=0.64,
+            p_elo=0.62,
+            comp_score=0.18,
+            sot_f=8.0,
+            vol_f=5.0,
+            rest_for_pick=0.33,
+            side="H",
+            odds_pick=1.52,
+            pick_win_rate_5=0.60,
+            pick_ga_5=2.40,
+            pick_goal_diff=1.20,
+        )
+        is True
+    )
 
+    # 2. Table Tennis Session Workload (>=13 sets in 3.5h) & 5-Set Decider Hangover Veto (Machelski vs Nocun 22:05Z)
+    passed_tt_loss, _, _ = evaluate_european_sport_gate(
+        sport_slug="table_tennis",
+        p_mkt=0.7524,
+        p_elo_fav=0.55,
+        form_diff_fav=0.30,
+        best_odds=1.30,
+        is_tipico=True,
+        n_form_home=10,
+        n_form_away=10,
+        recent3_diff_fav=0.0,
+        fav_wr=0.60,
+        fav_session_sets_3h=14,
+        fav_last_lost_5set=True,
+    )
+    assert passed_tt_loss is False
 
+    # Rested next-session rematch (9 sets in 3.5h, no 5-set decider loss, positive Last-3 form) passes
+    passed_tt_win, _, _ = evaluate_european_sport_gate(
+        sport_slug="table_tennis",
+        p_mkt=0.762,
+        p_elo_fav=0.55,
+        form_diff_fav=0.25,
+        best_odds=1.29,
+        is_tipico=True,
+        n_form_home=10,
+        n_form_away=10,
+        recent3_diff_fav=0.333,
+        fav_wr=0.60,
+        fav_session_sets_3h=9,
+        fav_last_lost_5set=False,
+    )
+    assert passed_tt_win is True
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # 3. Tennis Court-Acclimatization Veto (Griekspoor vs Lehecka: win_prob=0.754 < 0.80, tourn_wins_diff=-1)
+    t_ok, _, _, t_reason = evaluate_tennis_gate(
+        win_prob=0.7542,
+        book_odds=1.372,
+        opp_book_odds=3.10,
+        game_win_pct_diff=0.102,
+        form_6m_diff=0.333,
+        game_elo_diff=72.6,
+        all_elo_diff=182.1,
+        h2h_n=0,
+        decider_diff=0.0,
+        tourn_wins_diff=-1,
+    )
+    assert t_ok is False and "COURT_ACCLIMATIZATION" in t_reason

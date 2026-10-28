@@ -85,11 +85,15 @@ def evaluate_tennis_gate(
     all_elo_diff: float | None = None,
     h2h_n: int = 0,
     open_odds: float | None = None,
+    decider_diff: float | None = None,
+    tourn_wins_diff: int | None = None,
 ) -> tuple[bool, float, float | None, str]:
     """Evaluate ATP/WTA Tennis specific gates and market-blend calibration.
     Returns `(passed, blended_win_prob, ev_pct, reason)`:
-    1. **Court-Acclimatization & Short-Turnaround Gate:**
-       Vetoes sub-80% favorites arriving from a different city/tournament with <= 38h rest against a rested opponent.
+    1. **Court-Acclimatization, Decider Resilience & Short-Turnaround Gate:**
+       Vetoes sub-80% favorites arriving from a different city/tournament with <= 38h rest against a rested opponent,
+       or trailing by >=1 current-tournament court win (`tourn_wins_diff <= -1`) or >=20pp in 3-set decider win rate
+       (`decider_diff < -0.20`, e.g. `Tallon Griekspoor vs Jiri Lehecka`).
     2. **Stale-Elo / Zero-Recent-Form Veto:**
        Vetoes favorites whose rolling 6-month Game-Win% diff (`game_win_pct_diff <= 0.0`) AND 6-month Match-Win% diff
        (`form_6m_diff <= 0.0`) are both non-positive (e.g. `Samsonova vs Watson`).
@@ -105,6 +109,13 @@ def evaluate_tennis_gate(
        Blends 75% model + 25% devigged bookmaker probability, vetoing >=15pp market disagreements (`p_mkt_devig < 0.60`)
        or negative EV (`ev_pct < -1.5` when `win_prob < 0.80`).
     """
+    # 0. Court-Acclimatization & 3-Set Decider Resilience Veto (e.g. Griekspoor vs Lehecka)
+    if win_prob < 0.80:
+        if decider_diff is not None and decider_diff < -0.20:
+            return False, win_prob, None, "VETO_WEAK_DECIDER_RESILIENCE"
+        if tourn_wins_diff is not None and tourn_wins_diff <= -1:
+            return False, win_prob, None, "VETO_COURT_ACCLIMATIZATION deficit"
+
     # 1. Stale Career-Elo & Sub-72.5% Weak Game-Dominance Veto:
     # - Career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
     # - Or sub-72.5% favorite has zero 6m match-win edge (form_6m_diff <= 0.0), minimal game-win edge (game_win_pct_diff < 0.03), and game_elo_diff < 75 (e.g. Tereza Valentova vs Mia Pohankova 1-6, 4-6)
@@ -208,14 +219,32 @@ def evaluate_nhl_gate(
     side: str,
     odds_pick: float,
     min_prob: float = 0.58,
+    p_elo: float | None = None,
+    p_mkt: float | None = None,
+    pick_win_rate_5: float | None = None,
+    pick_ga_5: float | None = None,
+    pick_goal_diff: float | None = None,
 ) -> bool:
-    """NHL Rested + Save% & Shot-Volume Alignment Gate (`100%` `6W-0L` live ledger record).
-    Requires positive Goalie Save% diff (`save_pct_diff > 0`), positive Shot-Volume diff (`shots_diff > 0`),
-    non-negative rest (`rest_for_pick >= 0`), and for Road (`A`) picks Dual-Dominance (`shots_diff >= 12.0` & `save_pct_diff >= 12.0`).
+    """NHL Rested + Save%, Shot-Volume, Defensive Integrity & Elo Confirmation Gate.
+    Requires:
+      - Positive Goalie Save% diff (`save_pct_diff > 0`), positive Shot-Volume diff (`shots_diff > 0`), and `rest_for_pick >= 0`
+      - `comp_score >= 0.05` and Elo confirmation `p_elo >= p_mkt - 0.08`
+      - Defensive Integrity & Form Gate: vetoes leaky-defense favorites conceding `>= 3.70` goals/game over their last 5 games
+        (`pick_ga_5 >= 3.70`), slumping favorites with `< 40%` last-5 win rate (`pick_win_rate_5 < 0.40`), or Home favorites with
+        negative rolling goal differential (`pick_goal_diff < -0.30`, e.g. `Anaheim Ducks vs Vancouver Canucks` `1W-4L`, `GA5=4.00`, `GoalDiff=-0.50`)
+      - Road (`A`) picks require Dual-Dominance (`shots_diff >= 12.0` & `save_pct_diff >= 12.0`).
     """
-    if p_mod < min_prob or odds_pick <= 1.10 or comp_score < -0.05:
+    if p_mod < min_prob or odds_pick <= 1.10 or comp_score < 0.05:
+        return False
+    if p_elo is not None and p_mkt is not None and p_elo < (p_mkt - 0.08):
         return False
     if save_pct_diff <= 0.0 or shots_diff <= 0.0 or rest_for_pick < 0.0:
+        return False
+    if pick_win_rate_5 is not None and pick_win_rate_5 < 0.40:
+        return False
+    if pick_ga_5 is not None and pick_ga_5 >= 3.70:
+        return False
+    if side == "H" and pick_goal_diff is not None and pick_goal_diff < -0.30:
         return False
     if side == "A" and (shots_diff < 12.0 or save_pct_diff < 12.0):
         return False
@@ -286,9 +315,16 @@ def route_major_league_gate(
     min_prob: float = 0.58,
     co_f: float = 0.0,
     tov_f: float = 0.0,
+    pick_win_rate_5: float | None = None,
+    pick_ga_5: float | None = None,
+    pick_goal_diff: float | None = None,
 ) -> bool:
     """Dispatch to the isolated per-sport gate for `nhl`, `nba`, `nfl`, `mlb`, or `volleyball`."""
     lg = (league or "").lower().strip()
+    # Universal EV Floor for 2-way US Major Sports: veto heavily over-juiced negative-EV lines (< -3.5% EV unless ultra-high >=78% banker)
+    ev_pct = (p_mod * odds_pick - 1.0) * 100.0
+    if ev_pct < -3.5 and p_mod < 0.78:
+        return False
     if lg == "nfl":
         return evaluate_nfl_gate(
             p_mod=p_mod,
@@ -310,6 +346,11 @@ def route_major_league_gate(
             side=side,
             odds_pick=odds_pick,
             min_prob=min_prob,
+            p_elo=p_elo,
+            p_mkt=p_mkt,
+            pick_win_rate_5=pick_win_rate_5,
+            pick_ga_5=pick_ga_5,
+            pick_goal_diff=pick_goal_diff,
         )
     if lg in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba"):
         return evaluate_nba_gate(
@@ -351,35 +392,47 @@ def evaluate_european_sport_gate(
     dog_win_streak: int = 0,
     fav_hours_since_last: float | None = None,
     dog_hours_since_last: float | None = None,
+    fav_wr: float | None = None,
+    fav_session_sets_3h: int | None = None,
+    fav_last_lost_5set: bool = False,
 ) -> tuple[bool, float, float]:
     """Sport-specific calibration & gating for European high-frequency sports
     (`table_tennis`, `handball`, `darts`, `snooker`, `mma`).
     Returns `(passed, p_model, ev_pct)`.
 
     - **Immediate Last-3 Session Momentum & Streak Gate (All European Sports):**
-      Sportradar's `stats_match_form` lists `form[-1]` as the most recent match (or `stats_team_lastx` `matches[0]`) and provides `streak: {type, value}`.
+      Sportradar's `stats_match_form` lists `form[0]` as the most recent match (`form[:3]` are the 3 most recent matches,
+      verified against `streak: {type, value}` and `stats_team_lastx` timestamps).
       Vetoes any favorite currently on a >=2 match losing streak (`fav_loss_streak >= 2`), facing an underdog on a
-      >=3 match winning streak (`dog_win_streak >= 3`), or trailing in Last-3 session form (`recent3_diff_fav < 0.0`)
-      (e.g. `Klocek vs Rudomina`).
-    - **Table Tennis Cold-Session / Rust Veto (`table_tennis`):**
-      In daily studio Table Tennis series (TT Star / TT Elite), players compete in multi-match daily sessions.
-      Vetoes any favorite who has not played a match in the last `48.0` hours (`fav_hours_since_last > 48.0`), or who has been
-      inactive `>=18.0` hours longer than a warmed-up opponent (`fav_hours_since_last - dog_hours_since_last >= 18.0` when `fav_hours_since_last > 24.0`),
-      catching cold session-opening upsets like `Warzecha, Miroslaw vs Pyrek, Dawid` (`107.8h` rusty layoff vs `83.5h`).
+      >=3 match winning streak (`dog_win_streak >= 3`), or trailing in Last-3 session form (`recent3_diff_fav < 0.0`).
+    - **Table Tennis Cold-Session Rust + Session Workload & 5-Set Decider Hangover Veto (`table_tennis`):**
+      1. Vetoes any favorite who has not played a match in the last `48.0` hours (`fav_hours_since_last > 48.0`), or who has been
+         inactive `>=18.0` hours longer than a warmed-up opponent (`fav_hours_since_last - dog_hours_since_last >= 18.0` when `fav_hours_since_last > 24.0`).
+      2. Vetoes any favorite who has already played `>= 13` sets in the current 3.5-hour session (`fav_session_sets_3h >= 13`)
+         or who just lost a grueling 5-set decider (`2-3`, `fav_last_lost_5set == True`) in their immediately preceding match
+         (catches session-fatigue collapses like `Machelski, Michal vs Nocun, Zbigniew` `22:05Z` where Nocun had played `14 sets`
+         in 3h and just lost `2-3` to Brunner 45m prior, while allowing Nocun's rested `04:05Z` `3-1` win).
+      3. Requires absolute favorite 10-match win rate `fav_wr >= 0.55` when available (preventing a `.500` player from being backed as heavy chalk).
     """
     sp = (sport_slug or "").lower().strip()
     if n_form_home >= 4 and n_form_away >= 4 and form_diff_fav < 0.0:
         return False, 0.0, -100.0
-    # Immediate session momentum & streak veto (catches Klocek vs Rudomina where fav_loss_streak=3 & dog_win_streak=4)
     if fav_loss_streak >= 2 or dog_win_streak >= 3:
         return False, 0.0, -100.0
     if recent3_diff_fav is not None and recent3_diff_fav < 0.0:
         return False, 0.0, -100.0
-    if sp == "table_tennis" and fav_hours_since_last is not None:
-        if fav_hours_since_last > 48.0:
+    if sp == "table_tennis":
+        if fav_wr is not None and fav_wr < 0.55:
             return False, 0.0, -100.0
-        if dog_hours_since_last is not None and fav_hours_since_last > 24.0 and (fav_hours_since_last - dog_hours_since_last) >= 18.0:
+        if fav_last_lost_5set:
             return False, 0.0, -100.0
+        if fav_session_sets_3h is not None and fav_session_sets_3h >= 13:
+            return False, 0.0, -100.0
+        if fav_hours_since_last is not None:
+            if fav_hours_since_last > 48.0:
+                return False, 0.0, -100.0
+            if dog_hours_since_last is not None and fav_hours_since_last > 24.0 and (fav_hours_since_last - dog_hours_since_last) >= 18.0:
+                return False, 0.0, -100.0
 
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
     elo_edge = (p_elo_fav - 0.50) if abs(p_elo_fav - 0.50) > 0.01 else 0.0

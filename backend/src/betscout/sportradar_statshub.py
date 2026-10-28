@@ -929,36 +929,55 @@ def scan_sportradar_european_sports(
             a_f_list = a_f_obj.get("form") or []
             h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
             a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
+            fav_wr = h_wr if cand["side"] == "H" else a_wr
             form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
-            # In Sportradar `stats_match_form`, `form` is chronological (`form[-3:]` are the 3 most recent matches)
-            h_r3 = (sum(1.0 for x in h_f_list[-3:] if x.get("type") == "W") / len(h_f_list[-3:])) if len(h_f_list) >= 3 else 0.5
-            a_r3 = (sum(1.0 for x in a_f_list[-3:] if x.get("type") == "W") / len(a_f_list[-3:])) if len(a_f_list) >= 3 else 0.5
+            # In Sportradar `stats_match_form`, `form[0]` is the most recent match (`form[:3]` are the 3 most recent matches, matching `streak`)
+            h_r3 = (sum(1.0 for x in h_f_list[:3] if x.get("type") == "W") / len(h_f_list[:3])) if len(h_f_list) >= 3 else 0.5
+            a_r3 = (sum(1.0 for x in a_f_list[:3] if x.get("type") == "W") / len(a_f_list[:3])) if len(a_f_list) >= 3 else 0.5
             recent3_diff_fav = ((h_r3 - a_r3) if cand["side"] == "H" else (a_r3 - h_r3)) if (len(h_f_list) >= 3 and len(a_f_list) >= 3) else None
             fav_st_obj = (h_f_obj.get("streak") if cand["side"] == "H" else a_f_obj.get("streak")) or {}
             dog_st_obj = (a_f_obj.get("streak") if cand["side"] == "H" else h_f_obj.get("streak")) or {}
             fav_loss_streak = int(fav_st_obj.get("value") or 0) if fav_st_obj.get("type") == "L" else 0
             dog_win_streak = int(dog_st_obj.get("value") or 0) if dog_st_obj.get("type") == "W" else 0
 
-            # For Table Tennis, check `stats_team_lastx/{uid}/5` to measure hours since each player's last match (Cold-Session Rust Veto)
+            # For Table Tennis, check `stats_team_lastx/{uid}/10` to measure hours since last match, 3.5h session set workload, and 5-set decider hangover
             fav_hours_since_last: float | None = None
             dog_hours_since_last: float | None = None
+            fav_session_sets_3h: int | None = None
+            fav_last_lost_5set: bool = False
             if sp_slug == "table_tennis" and cand.get("ko_uts"):
                 fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
                 dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
                 for is_fav_u, p_uid in ((True, fav_uid), (False, dog_uid)):
                     if not p_uid:
                         continue
-                    lx_d = fetch_statshub_gismo(f"stats_team_lastx/{p_uid}/6", ttl_sec=1800.0) or {}
-                    prev_uts = [
-                        int(((m_x.get("time") or {}).get("uts")) or 0)
+                    lx_d = fetch_statshub_gismo("stats_team_lastx", f"{p_uid}/10", ttl_sec=1800.0) or {}
+                    prior_ms = [
+                        m_x
                         for m_x in (lx_d.get("matches") or [])
                         if int(((m_x.get("time") or {}).get("uts")) or 0) < int(cand["ko_uts"])
                         and str(m_x.get("_id")) != str(cand["mid"])
                     ]
-                    if prev_uts:
-                        hrs_gap = round((int(cand["ko_uts"]) - max(prev_uts)) / 3600.0, 2)
+                    prior_ms.sort(key=lambda m_x: int(((m_x.get("time") or {}).get("uts")) or 0), reverse=True)
+                    if prior_ms:
+                        max_prev_uts = int(((prior_ms[0].get("time") or {}).get("uts")) or 0)
+                        hrs_gap = round((int(cand["ko_uts"]) - max_prev_uts) / 3600.0, 2)
                         if is_fav_u:
                             fav_hours_since_last = hrs_gap
+                            sess_sets = 0
+                            for idx_m, m_x in enumerate(prior_ms):
+                                m_uts = int(((m_x.get("time") or {}).get("uts")) or 0)
+                                tms_x = m_x.get("teams") or {}
+                                is_h_x = ((tms_x.get("home") or {}).get("uid") == p_uid)
+                                rh_x = int(((m_x.get("result") or {}).get("home")) or 0)
+                                ra_x = int(((m_x.get("result") or {}).get("away")) or 0)
+                                my_s = rh_x if is_h_x else ra_x
+                                op_s = ra_x if is_h_x else rh_x
+                                if idx_m == 0 and my_s < op_s and (my_s + op_s) == 5:
+                                    fav_last_lost_5set = True
+                                if (int(cand["ko_uts"]) - m_uts) <= int(3.5 * 3600):
+                                    sess_sets += (my_s + op_s)
+                            fav_session_sets_3h = sess_sets
                         else:
                             dog_hours_since_last = hrs_gap
 
@@ -981,6 +1000,9 @@ def scan_sportradar_european_sports(
                 dog_win_streak=dog_win_streak,
                 fav_hours_since_last=fav_hours_since_last,
                 dog_hours_since_last=dog_hours_since_last,
+                fav_wr=fav_wr,
+                fav_session_sets_3h=fav_session_sets_3h,
+                fav_last_lost_5set=fav_last_lost_5set,
             )
             if not passed:
                 continue

@@ -268,7 +268,7 @@
         </span>
         <b class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap">
           <span class="text-emerald-400">{{ settledWins }}W</span> –
-          <span :class="settledLosses > 0 ? 'text-rose-400' : 'text-slate-200'">{{ settledLosses }}L</span>
+          <span class="text-rose-400">{{ settledLosses }}L</span>
           (<span class="text-emerald-300">{{ winRatePct.toFixed(1) }}%</span>)
         </b>
         <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
@@ -506,10 +506,16 @@
           <Icon :icon="tab.icon" class="w-4 h-4 shrink-0" :class="tab.iconColor" />
           <span class="truncate">{{ tab.label }}</span>
           <span
-            class="hidden sm:inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
+            class="hidden sm:inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
             :class="tab.badgeClass"
           >
-            {{ tab.badge }}
+            <template v-if="tab.id === 'ledger'">
+              <span class="text-emerald-300">{{ settledWins }}W</span>
+              <span class="text-slate-400 mx-0.5">–</span>
+              <span class="text-rose-400">{{ settledLosses }}L</span>
+              <span class="ml-1 text-amber-200">({{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(1) }}u)</span>
+            </template>
+            <template v-else>{{ tab.badge }}</template>
           </span>
         </button>
       </nav>
@@ -1383,9 +1389,9 @@
     <!-- TAB 3: PAPER-BET LEDGER & ROI -->
     <div v-else-if="activeTab === 'ledger'">
       <h2 class="text-sm font-bold text-sky-300 mb-2">
-        Settled Paper-Bets (Completed Results: {{ settledCount }} · Wins:
-        <b class="text-emerald-300">{{ settledWins }}</b> · Losses:
-        <b :class="settledLosses > 0 ? 'text-rose-400' : ''">{{ settledLosses }}</b> · Realized Profit:
+        Settled Paper-Bets (Completed Results: <b class="text-white">{{ settledCount }}</b> · Wins:
+        <b class="text-emerald-300">{{ settledWins }}W</b> · Losses:
+        <b class="text-rose-400">{{ settledLosses }}L</b> · Realized Profit:
         <b class="text-emerald-300">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u</b>)
       </h2>
 
@@ -1490,13 +1496,19 @@
                 <td class="py-2 font-bold text-white">{{ s.sport }}</td>
                 <td class="py-2 font-mono tabular-nums">
                   {{ s.settled }} (<b class="text-emerald-300">{{ s.wins }}W</b> –
-                  <b :class="s.losses > 0 ? 'text-rose-400' : ''">{{ s.losses }}L</b>)
+                  <b class="text-rose-400">{{ s.losses }}L</b>)
                 </td>
                 <td class="py-2 font-mono tabular-nums font-bold">{{ Number(s.win_rate_pct || 0).toFixed(1) }}%</td>
-                <td class="py-2 font-mono tabular-nums text-emerald-300 font-bold">
+                <td
+                  class="py-2 font-mono tabular-nums font-bold"
+                  :class="Number(s.profit_u || 0) >= 0 ? 'text-emerald-300' : 'text-rose-400'"
+                >
                   {{ Number(s.profit_u || 0) >= 0 ? '+' : '' }}{{ Number(s.profit_u || 0).toFixed(2) }}u
                 </td>
-                <td class="py-2 font-mono tabular-nums text-cyan-300 font-bold">
+                <td
+                  class="py-2 font-mono tabular-nums font-bold"
+                  :class="Number(s.roi_pct || 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'"
+                >
                   {{ Number(s.roi_pct || 0) >= 0 ? '+' : '' }}{{ Number(s.roi_pct || 0).toFixed(1) }}%
                 </td>
               </tr>
@@ -1513,7 +1525,7 @@
             <thead>
               <tr class="text-left text-[11px] uppercase text-slate-300 border-b border-slate-700">
                 <th class="py-2">Tier</th>
-                <th class="py-2">Settled</th>
+                <th class="py-2">Settled (W–L)</th>
                 <th class="py-2">Exp Win%</th>
                 <th class="py-2">Realized Win%</th>
                 <th class="py-2">ROI%</th>
@@ -1530,12 +1542,18 @@
                     {{ t.tier }}
                   </span>
                 </td>
-                <td class="py-2 font-mono tabular-nums">{{ t.settled }} ({{ t.wins }}W–{{ t.losses }}L)</td>
+                <td class="py-2 font-mono tabular-nums">
+                  {{ t.settled }} (<b class="text-emerald-300">{{ t.wins }}W</b> –
+                  <b class="text-rose-400">{{ t.losses }}L</b>)
+                </td>
                 <td class="py-2 font-mono tabular-nums">{{ Number(t.expected_win_pct || 0).toFixed(1) }}%</td>
                 <td class="py-2 font-mono tabular-nums font-bold text-emerald-300">
                   {{ Number(t.realized_win_pct || 0).toFixed(1) }}%
                 </td>
-                <td class="py-2 font-mono tabular-nums font-bold text-cyan-300">
+                <td
+                  class="py-2 font-mono tabular-nums font-bold"
+                  :class="Number(t.roi_pct || 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'"
+                >
                   {{ Number(t.roi_pct || 0) >= 0 ? '+' : '' }}{{ Number(t.roi_pct || 0).toFixed(1) }}%
                 </td>
               </tr>

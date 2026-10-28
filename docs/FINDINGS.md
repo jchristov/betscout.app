@@ -380,3 +380,35 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
      - **Court-Acclimatization (`tourn_wins_diff`) & 3-Set Decider Resilience (`decider_diff`) Gate**: Tracks current-week tournament wins on court and rolling `>=26`-game decider win rates, lifting Post-2025 out-of-sample `>=70%` accuracy across `2,468` picks to **`78.06%` on ATP** (`+1.14%`) and **`78.83%` on WTA** (`+0.80%`).
      - **Indoor Hard vs. Outdoor Hard Surface Split (`hard_indoor` vs `hard`) & Retroactive Pending Re-Validation**: Splits indoor hard-court tournaments (`Basel`, `Vienna`, `Paris`, `ATP Finals`, etc.) into their own `elo_surf` bucket and automatically prunes any pre-match `PENDING` bet that no longer passes upgraded gates.
 
+---
+
+## 13. Post-Mortem #3 (Oct 27–28, 2026 Overnight Events): Table Tennis Session Fatigue & NHL 2-Way / Defensive Integrity Upgrades
+
+Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+22.72u` Flat-Unit Profit, `+33.9%` ROI, `+34.53%` ¼-Kelly Growth)**, we audited every settled result and recent loss to harden the per-sport gates in [`backend/src/betscout/sport_models.py`](../backend/src/betscout/sport_models.py), [`backend/src/betscout/sportradar_statshub.py`](../backend/src/betscout/sportradar_statshub.py), and [`backend/src/betscout/paper_bet.py`](../backend/src/betscout/paper_bet.py):
+
+### 1. By-Sport Settled Attribution (`67` Graded Picks)
+
+| Sport Group | Settled (`W–L`) | Win Rate | Flat-Unit Profit (`u`) | Realized ROI (`%`) |
+| :--- | :---: | :---: | :---: | :---: |
+| **🎾 Tennis (`ATP / WTA`)** | `32` (`30W – 2L`) | **`93.8%`** | **`+7.13u`** | **`+22.3%`** |
+| **⚽ Football (`UEFA & Domestic`)** | `10` (`10W – 0L`) | **`100.0%`** | **`+5.37u`** | **`+53.7%`** |
+| **🏒 Ice Hockey (`NHL`)** | `8` (`8W – 0L`) | **`100.0%`** | **`+4.87u`** | **`+60.9%`** |
+| **🏈 American Football (`NFL`)** | `6` (`6W – 0L`) | **`100.0%`** | **`+3.17u`** | **`+52.8%`** |
+| **🏓 Table Tennis (`TT Elite`)** | `7` (`6W – 1L`) | **`85.7%`** | **`+1.05u`** | **`+15.0%`** |
+| **⚾ Baseball (`MLB`)** | `1` (`1W – 0L`) | **`100.0%`** | **`+0.62u`** | **`+62.1%`** |
+| **🏀 Basketball (`NBA`)** | `3` (`3W – 0L`) | **`100.0%`** | **`+0.51u`** | **`+17.0%`** |
+| **TOTAL (`All Sports`)** | **`67` (`64W – 3L`)** | **`95.5%`** | **`+22.72u`** | **`+33.9%`** |
+
+### 2. Root-Cause Loss Analysis & Permanent Model Fixes
+
+1. **Table Tennis (`2026-10-27T22:05Z`): `Machelski, Michal vs Nocun, Zbigniew` (`Pick: Nocun (A) @ 1.30`, Score `3-0`, `-1.00u`)**:
+   - **Root Cause A (`stats_match_form` Chronological Ordering):** In Sportradar's `stats_match_form` payload, `form[0]` is the **most recent** match (matching `streak`) and `form[-1]` is the oldest match (`10` games ago). Previously, `sportradar_statshub.py` sliced `form[-3:]` instead of `form[:3]`. On the true most recent 3 matches (`form[:3]`), `Machelski` was `2W–1L` (`66.7%`) while `Nocun` was `1W–2L` (`33.3%`, `recent3_diff_fav = -0.333 < 0.0`).
+   - **Root Cause B (3.5-Hour Session Set Workload & 5-Set Decider Hangover):** Reconstructing point-in-time `stats_team_lastx` history strictly prior to `22:05 UTC` revealed that `Nocun` had already played **3 matches totaling `14 sets` (`5 + 4 + 5 = 14` out of `15` possible sets) in the preceding 3 hours** and had **just lost a grueling 5-set decider (`2-3` to Brunner) 45 minutes earlier (`fav_last_lost_5set = True`)**. Six hours later (`2026-10-28T04:05Z`), in the next session with a normal `9-set` workload and no 5-set hangover, `Nocun` defeated `Machelski` `3-1` (`+0.29u`).
+   - **Fix Shipped:** Fixed `h_f_list[:3]` / `a_f_list[:3]` in `sportradar_statshub.py` and added a **Session Set Workload (`fav_session_sets_3h >= 13`), 5-Set Decider Hangover (`fav_last_lost_5set == True`), and Absolute Favorite Form Floor (`fav_wr >= 0.55`)** veto in `evaluate_european_sport_gate`.
+
+2. **Ice Hockey (`2026-10-28T02:00Z`): `Anaheim Ducks vs Vancouver Canucks` (`5-6` OT/SO after Ducks led `4-1`) & US Major Sports 2-Way Pricing**:
+   - **Root Cause A (3-Way Regulation Odds Polluting 2-Way US Sports):** `lookup_sportradar_daily_odds` returned 3-way 60-minute regulation odds (`odds_home: 1.40, odds_draw: 4.50, odds_away: 2.70`) for NHL matchups, overwriting ESPN's true 2-way Moneyline (`1.459 / 2.80`) and producing negative-EV signals (`ev_pct = -6.58%` on Ducks, `-8.99%` on Capitals).
+   - **Root Cause B (Leaky-Defense & Slumping-Form Home Chalk):** All `8` settled NHL wins (`8W–0L`) had `Last-5 Win Rate >= 40%` (`>= 60%` on all Home wins) and rolling `Last-5 Goals Against <= 3.20` per game. By contrast, `Anaheim Ducks` entered at `1W–4L` (`20%` Last-5 win rate), conceding **`4.00 Goals Against Per Game`** (`GoalDiff = -0.50`), and collapsed for 5 goals in the 3rd period + OT (`5-6`).
+   - **Fix Shipped:** Restricted `lookup_sportradar_daily_odds` on 2-way US sports to true 2-way markets (`odds_draw is None`) with best-price line-shopping against ESPN's 2-way Moneyline, enforced a universal `ev_pct >= -3.5%` floor in `route_major_league_gate`, and added **NHL Defensive Integrity (`pick_ga_5 < 3.70`), Last-5 Form (`pick_win_rate_5 >= 0.40`), Goal Differential (`pick_goal_diff >= -0.30`), and Elo Confirmation (`p_elo >= p_mkt - 0.08`)** gates in `evaluate_nhl_gate`.
+
+
