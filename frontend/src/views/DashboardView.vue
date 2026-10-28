@@ -499,21 +499,34 @@
           type="button"
           role="tab"
           :aria-selected="activeTab === tab.id"
-          class="workspace-tab flex-1 min-w-[165px] whitespace-nowrap"
-          :class="activeTab === tab.id ? 'workspace-tab-active' : 'workspace-tab-inactive'"
+          :title="tab.label"
+          class="workspace-tab whitespace-nowrap"
+          :class="
+            activeTab === tab.id
+              ? 'workspace-tab-active flex-1 min-w-0'
+              : 'workspace-tab-inactive shrink-0 lg:flex-1 px-3 lg:px-4'
+          "
           @click="activeTab = tab.id"
         >
           <Icon :icon="tab.icon" class="w-4 h-4 shrink-0" :class="tab.iconColor" />
-          <span class="truncate">{{ tab.label }}</span>
           <span
-            class="hidden sm:inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
-            :class="tab.badgeClass"
+            class="truncate"
+            :class="activeTab === tab.id ? 'inline' : 'hidden lg:inline'"
+          >
+            {{ tab.label }}
+          </span>
+          <span
+            class="items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums border"
+            :class="[
+              tab.badgeClass,
+              activeTab === tab.id ? 'hidden sm:inline-flex' : 'hidden xl:inline-flex',
+            ]"
           >
             <template v-if="tab.id === 'ledger'">
               <span class="text-emerald-300">{{ settledWins }}W</span>
               <span class="text-slate-400 mx-0.5">–</span>
               <span class="text-rose-400">{{ settledLosses }}L</span>
-              <span class="ml-1 text-amber-200">({{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(1) }}u)</span>
+              <span class="ml-1 text-amber-200">({{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(1)}}{{ 'u)' }}</span>
             </template>
             <template v-else>{{ tab.badge }}</template>
           </span>
@@ -560,10 +573,15 @@
         >
           <div class="flex justify-between items-center gap-2 mb-1.5">
             <span
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
               :class="getSportBadgeTheme(tr.sport_cat)"
             >
-              <Icon :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5" />
+              <Icon
+                v-if="getCompetitionFlagIconify(tr.league_label, tr.league)"
+                :icon="getCompetitionFlagIconify(tr.league_label, tr.league)!"
+                class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+              />
+              <Icon :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
               <span>{{ tr.league_label || tr.league }}</span>
             </span>
             <span class="font-mono tabular-nums text-[11px] text-slate-300">{{ tr.kickoff_local || tr.kickoff }}</span>
@@ -628,10 +646,15 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  class="inline-flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
                   :class="getSportBadgeTheme(tr.sport_cat)"
                 >
-                  {{ tr.league_label || tr.league }}
+                  <Icon
+                    v-if="getCompetitionFlagIconify(tr.league_label, tr.league)"
+                    :icon="getCompetitionFlagIconify(tr.league_label, tr.league)!"
+                    class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                  />
+                  <span>{{ tr.league_label || tr.league }}</span>
                 </span>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap text-slate-400">
@@ -747,10 +770,15 @@
                 @change="store.toggleCustomMatch(b.match)"
               />
               <span
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
                 :class="getSportBadgeTheme(b.sport_cat)"
               >
-                <Icon :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5" />
+                <Icon
+                  v-if="getCompetitionFlagIconify(b.competition, b.sport_league)"
+                  :icon="getCompetitionFlagIconify(b.competition, b.sport_league)!"
+                  class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                />
+                <Icon :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
                 <span>{{ b.competition || b.sport_league }}</span>
               </span>
             </label>
@@ -862,10 +890,15 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  class="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border"
                   :class="getSportBadgeTheme(b.sport_cat)"
                 >
-                  {{ b.competition || b.sport_league }}
+                  <Icon
+                    v-if="getCompetitionFlagIconify(b.competition, b.sport_league)"
+                    :icon="getCompetitionFlagIconify(b.competition, b.sport_league)!"
+                    class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                  />
+                  <span>{{ b.competition || b.sport_league }}</span>
                 </span>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400 whitespace-nowrap">
@@ -1424,10 +1457,15 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <span
-                  class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                  class="inline-flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
                   :class="getSportBadgeTheme(tr.sport_cat)"
                 >
-                  {{ tr.league_label || tr.league }}
+                  <Icon
+                    v-if="getCompetitionFlagIconify(tr.league_label, tr.league)"
+                    :icon="getCompetitionFlagIconify(tr.league_label, tr.league)!"
+                    class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                  />
+                  <span>{{ tr.league_label || tr.league }}</span>
                 </span>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">{{ tr.kickoff_local || tr.kickoff }}</td>
@@ -1964,6 +2002,7 @@ import {
   SPORT_ICONIFY_NAMES,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
+  getCompetitionFlagIconify,
   getSportBadgeTheme,
   getSportEmoji,
   getSportIconColor,

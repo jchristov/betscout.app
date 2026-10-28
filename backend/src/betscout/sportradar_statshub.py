@@ -865,10 +865,6 @@ def scan_sportradar_european_sports(
                     tip_entry = mkt_tip.get(mid) or {}
                     uof_entry = mkt_uof.get(mid) or {}
                     is_tipico_src = bool(tip_entry.get("markets"))
-                    # For Handball (or any sport where Tipico's bookmaker feed is active), strictly require
-                    # Tipico market availability so we never recommend unbettable UOF-only minor leagues (e.g. Swedish Handbollsligan)
-                    if (sp_slug == "handball" or mkt_tip) and not is_tipico_src:
-                        continue
                     raw_mkts = (tip_entry.get("markets") or []) or (uof_entry.get("markets") or [])
                     if not raw_mkts:
                         continue
@@ -927,8 +923,9 @@ def scan_sportradar_european_sports(
 
         sport_cands.sort(key=lambda x: (1 if x["is_tipico"] else 0, x["p_mkt"]), reverse=True)
         lg_elo = (elo_by_lg or {}).get(sp_slug)
-        for cand in sport_cands[: max_picks_per_sport * 3]:
-            if len([p for p in picks_out if p["sport"] == sp_slug]) >= max_picks_per_sport:
+        sp_cap = max(max_picks_per_sport, 7) if sp_slug == "handball" else max_picks_per_sport
+        for cand in sport_cands[: sp_cap * 4]:
+            if len([p for p in picks_out if p["sport"] == sp_slug]) >= sp_cap:
                 break
             mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
             t_forms = mf.get("teams") or {}

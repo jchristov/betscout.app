@@ -243,10 +243,154 @@ const BETSCOUT_SPORT_SUBSET = {
   },
 };
 
+const FLAG_SUBSET = {
+  prefix: "flag",
+  width: 28,
+  height: 20,
+  icons: {
+    "gb-eng": {
+      body: `<rect width="28" height="20" rx="3" fill="#ffffff" stroke="#334155" stroke-width="1"/>
+             <rect x="11.5" y="0" width="5" height="20" fill="#ce1124"/>
+             <rect x="0" y="7.5" width="28" height="5" fill="#ce1124"/>`,
+    },
+    gb: {
+      body: `<rect width="28" height="20" rx="3" fill="#012169"/>
+             <path d="M0,0 L28,20 M28,0 L0,20" stroke="#ffffff" stroke-width="4"/>
+             <path d="M0,0 L28,20 M28,0 L0,20" stroke="#c8102e" stroke-width="2"/>
+             <rect x="11" y="0" width="6" height="20" fill="#ffffff"/>
+             <rect x="0" y="7" width="28" height="6" fill="#ffffff"/>
+             <rect x="12.2" y="0" width="3.6" height="20" fill="#c8102e"/>
+             <rect x="0" y="8.2" width="28" height="3.6" fill="#c8102e"/>`,
+    },
+    es: {
+      body: `<rect width="28" height="20" rx="3" fill="#aa151b"/>
+             <rect x="0" y="5" width="28" height="10" fill="#f1bf00"/>`,
+    },
+    de: {
+      body: `<rect width="28" height="20" rx="3" fill="#000000"/>
+             <rect x="0" y="6.6" width="28" height="6.8" fill="#dd0000"/>
+             <rect x="0" y="13.3" width="28" height="6.7" rx="1" fill="#ffce00"/>`,
+    },
+    it: {
+      body: `<rect width="28" height="20" rx="3" fill="#ffffff"/>
+             <rect x="0" y="0" width="9.4" height="20" rx="1" fill="#009246"/>
+             <rect x="18.6" y="0" width="9.4" height="20" rx="1" fill="#ce2b37"/>`,
+    },
+    fr: {
+      body: `<rect width="28" height="20" rx="3" fill="#ffffff"/>
+             <rect x="0" y="0" width="9.4" height="20" rx="1" fill="#002395"/>
+             <rect x="18.6" y="0" width="9.4" height="20" rx="1" fill="#ed2939"/>`,
+    },
+    at: {
+      body: `<rect width="28" height="20" rx="3" fill="#ed2939"/>
+             <rect x="0" y="6.6" width="28" height="6.8" fill="#ffffff"/>`,
+    },
+    nl: {
+      body: `<rect width="28" height="20" rx="3" fill="#21468b"/>
+             <rect x="0" y="0" width="28" height="6.7" rx="1" fill="#ae1c28"/>
+             <rect x="0" y="6.6" width="28" height="6.8" fill="#ffffff"/>`,
+    },
+    pt: {
+      body: `<rect width="28" height="20" rx="3" fill="#ff0000"/>
+             <rect x="0" y="0" width="11" height="20" rx="1" fill="#006600"/>
+             <circle cx="11" cy="10" r="3.6" fill="#ffcc00"/>`,
+    },
+    se: {
+      body: `<rect width="28" height="20" rx="3" fill="#006aa7"/>
+             <rect x="8" y="0" width="4" height="20" fill="#fecc02"/>
+             <rect x="0" y="8" width="28" height="4" fill="#fecc02"/>`,
+    },
+    ch: {
+      body: `<rect width="28" height="20" rx="3" fill="#d52b1e"/>
+             <rect x="12" y="4" width="4" height="12" fill="#ffffff"/>
+             <rect x="8" y="8" width="12" height="4" fill="#ffffff"/>`,
+    },
+    pl: {
+      body: `<rect width="28" height="20" rx="3" fill="#dc143c"/>
+             <rect x="0" y="0" width="28" height="10" rx="1" fill="#ffffff"/>`,
+    },
+    cz: {
+      body: `<rect width="28" height="20" rx="3" fill="#d7141a"/>
+             <rect x="0" y="0" width="28" height="10" rx="1" fill="#ffffff"/>
+             <polygon points="0,0 14,10 0,20" fill="#11457e"/>`,
+    },
+    eu: {
+      body: `<rect width="28" height="20" rx="3" fill="#003399"/>
+             <circle cx="14" cy="10" r="6" fill="none" stroke="#ffcc00" stroke-width="2" stroke-dasharray="1.6 1.55"/>`,
+    },
+    us: {
+      body: `<rect width="28" height="20" rx="3" fill="#b22234"/>
+             <rect x="0" y="2.8" width="28" height="2.4" fill="#ffffff"/>
+             <rect x="0" y="7.6" width="28" height="2.4" fill="#ffffff"/>
+             <rect x="0" y="12.4" width="28" height="2.4" fill="#ffffff"/>
+             <rect x="0" y="17.2" width="28" height="2.4" fill="#ffffff"/>
+             <rect x="0" y="0" width="13" height="11" rx="1" fill="#3c3b6e"/>`,
+    },
+    au: {
+      body: `<rect width="28" height="20" rx="3" fill="#00008b"/>
+             <path d="M0,0 L14,10 M14,0 L0,10" stroke="#ffffff" stroke-width="2"/>
+             <rect x="5.5" y="0" width="3" height="10" fill="#ffffff"/>
+             <rect x="0" y="3.5" width="14" height="3" fill="#ffffff"/>
+             <rect x="6.2" y="0" width="1.6" height="10" fill="#ef4444"/>
+             <rect x="0" y="4.2" width="14" height="1.6" fill="#ef4444"/>
+             <circle cx="7" cy="15" r="2" fill="#ffffff"/>
+             <circle cx="21" cy="6" r="1.4" fill="#ffffff"/>
+             <circle cx="21" cy="14" r="1.4" fill="#ffffff"/>
+             <circle cx="17.5" cy="10" r="1.3" fill="#ffffff"/>
+             <circle cx="24" cy="9.5" r="1.3" fill="#ffffff"/>`,
+    },
+    jp: {
+      body: `<rect width="28" height="20" rx="3" fill="#ffffff" stroke="#334155" stroke-width="1"/>
+             <circle cx="14" cy="10" r="5.5" fill="#bc002d"/>`,
+    },
+    cn: {
+      body: `<rect width="28" height="20" rx="3" fill="#de2910"/>
+             <circle cx="6.5" cy="6.5" r="3" fill="#ffde00"/>
+             <circle cx="11.5" cy="3.5" r="1" fill="#ffde00"/>
+             <circle cx="13" cy="6" r="1" fill="#ffde00"/>
+             <circle cx="12.5" cy="9" r="1" fill="#ffde00"/>
+             <circle cx="10.5" cy="11" r="1" fill="#ffde00"/>`,
+    },
+    hk: {
+      body: `<rect width="28" height="20" rx="3" fill="#de2910"/>
+             <circle cx="14" cy="10" r="4.8" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-dasharray="3.2 2.8"/>`,
+    },
+    mx: {
+      body: `<rect width="28" height="20" rx="3" fill="#ffffff"/>
+             <rect x="0" y="0" width="9.4" height="20" rx="1" fill="#006847"/>
+             <rect x="18.6" y="0" width="9.4" height="20" rx="1" fill="#ce1126"/>
+             <circle cx="14" cy="10" r="2.2" fill="#92400e"/>`,
+    },
+    br: {
+      body: `<rect width="28" height="20" rx="3" fill="#009c3b"/>
+             <polygon points="14,2.5 25,10 14,17.5 3,10" fill="#ffdf00"/>
+             <circle cx="14" cy="10" r="4" fill="#002776"/>`,
+    },
+    co: {
+      body: `<rect width="28" height="20" rx="3" fill="#fcd116"/>
+             <rect x="0" y="10" width="28" height="5" fill="#003893"/>
+             <rect x="0" y="15" width="28" height="5" rx="1" fill="#ce1126"/>`,
+    },
+    dk: {
+      body: `<rect width="28" height="20" rx="3" fill="#c8102e"/>
+             <rect x="8" y="0" width="3.5" height="20" fill="#ffffff"/>
+             <rect x="0" y="8.2" width="28" height="3.5" fill="#ffffff"/>`,
+    },
+    no: {
+      body: `<rect width="28" height="20" rx="3" fill="#ba0c2f"/>
+             <rect x="7.5" y="0" width="5" height="20" fill="#ffffff"/>
+             <rect x="0" y="7.5" width="28" height="5" fill="#ffffff"/>
+             <rect x="8.8" y="0" width="2.4" height="20" fill="#00205b"/>
+             <rect x="0" y="8.8" width="28" height="2.4" fill="#00205b"/>`,
+    },
+  },
+};
+
 let initialized = false;
 export function setupIconifyCollections(): void {
   if (initialized) return;
   initialized = true;
   addCollection(FA6_SUBSET as any);
   addCollection(BETSCOUT_SPORT_SUBSET as any);
+  addCollection(FLAG_SUBSET as any);
 }

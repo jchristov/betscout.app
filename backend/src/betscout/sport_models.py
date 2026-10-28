@@ -465,7 +465,9 @@ def evaluate_european_sport_gate(
         if p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
     elif sp == "handball":
-        if not is_tipico or best_odds < 1.15 or best_odds > 1.65 or form_diff_fav < 0.10 or p_elo_fav < 0.50:
+        if best_odds < 1.15 or best_odds > 1.65 or form_diff_fav < 0.0 or p_elo_fav < 0.50:
+            return False, round(p_model, 4), ev_pct
+        if is_tipico and form_diff_fav < 0.10:
             return False, round(p_model, 4), ev_pct
         if fav_wr is not None and fav_wr < 0.60:
             return False, round(p_model, 4), ev_pct

@@ -241,7 +241,12 @@
                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border"
                 :class="getSportBadgeTheme(freeTeaser.sport_cat)"
               >
-                <Icon :icon="getSportIconify(freeTeaser.sport_cat)" class="w-3.5 h-3.5" />
+                <Icon
+                  v-if="getCompetitionFlagIconify(freeTeaser.competition, freeTeaser.sport_league)"
+                  :icon="getCompetitionFlagIconify(freeTeaser.competition, freeTeaser.sport_league)!"
+                  class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                />
+                <Icon :icon="getSportIconify(freeTeaser.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
                 <span>{{ freeTeaser.competition || freeTeaser.sport_league }}</span>
               </span>
               <span
@@ -586,10 +591,14 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-sky-400">
-            <div class="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="fa6-solid:shield-halved" class="w-5 h-5 text-sky-300" />
+            <div class="flex items-center gap-3.5 mb-3">
+              <div class="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/45 flex items-center justify-center shrink-0">
+                <Icon icon="fa6-solid:shield-halved" class="w-5 h-5 text-sky-300" />
+              </div>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">
+                Fine-Tuned AI Decision Model &amp; Safety Gates
+              </h3>
             </div>
-            <h3 class="text-base font-extrabold text-white mb-2">Fine-Tuned AI Decision Model &amp; Safety Gates</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Powered by an ultra-fast, fine-tuned AI decision model paired with isolated safety gates for Football
               (7-factor composite + T-60m Starting XI gate), Tennis (Surface Elo + 6m Game-Win%), NBA, NFL, NHL &amp;
@@ -597,30 +606,42 @@
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-amber-400">
-            <div class="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="fa6-solid:dice" class="w-5 h-5 text-amber-300" />
+            <div class="flex items-center gap-3.5 mb-3">
+              <div class="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-400/45 flex items-center justify-center shrink-0">
+                <Icon icon="fa6-solid:dice" class="w-5 h-5 text-amber-300" />
+              </div>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">
+                Dixon-Coles 28-Score Dutching
+              </h3>
             </div>
-            <h3 class="text-base font-extrabold text-white mb-2">Dixon-Coles 28-Score Dutching</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Bivariate Poisson &amp; Markov set-score matrices price all 28 exact football scores and tennis set
               outcomes, splitting your stake across 2 or 3 scores for an identical net payout.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-emerald-400">
-            <div class="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="fa6-solid:rocket" class="w-5 h-5 text-emerald-300" />
+            <div class="flex items-center gap-3.5 mb-3">
+              <div class="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/45 flex items-center justify-center shrink-0">
+                <Icon icon="fa6-solid:rocket" class="w-5 h-5 text-emerald-300" />
+              </div>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">
+                Banker Profitability Booster Combos
+              </h3>
             </div>
-            <h3 class="text-base font-extrabold text-white mb-2">Banker Profitability Booster Combos</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Automatically pairs high-probability (&ge;72%), lower-odds bankers into uncorrelated 2-Leg Doubles
               (1.35x–1.75x) and 3-Leg Trebles (1.60x–2.15x) to multiply net return.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-rose-400">
-            <div class="w-11 h-11 rounded-xl bg-rose-500/20 border border-rose-400/45 flex items-center justify-center mb-3.5">
-              <Icon icon="fa6-solid:tower-broadcast" class="w-5 h-5 text-rose-300" />
+            <div class="flex items-center gap-3.5 mb-3">
+              <div class="w-11 h-11 rounded-xl bg-rose-500/20 border border-rose-400/45 flex items-center justify-center shrink-0">
+                <Icon icon="fa6-solid:tower-broadcast" class="w-5 h-5 text-rose-300" />
+              </div>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">
+                6-Second In-Play Dominance Stream
+              </h3>
             </div>
-            <h3 class="text-base font-extrabold text-white mb-2">6-Second In-Play Dominance Stream</h3>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Real-time match timeline delta tracking detects when a pre-match favorite is level or trailing despite
               dominating Shots-on-Target (SoT) or 76–90m late-goal pressure.
@@ -667,7 +688,12 @@
                     class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-bold border whitespace-nowrap"
                     :class="getSportBadgeTheme(r.sport_cat || r.league)"
                   >
-                    <Icon :icon="getSportIconify(r.sport_cat || r.league)" class="w-3.5 h-3.5" />
+                    <Icon
+                      v-if="getCompetitionFlagIconify(r.league_label, r.league)"
+                      :icon="getCompetitionFlagIconify(r.league_label, r.league)!"
+                      class="w-3.5 h-2.5 rounded-[2px] shrink-0"
+                    />
+                    <Icon :icon="getSportIconify(r.sport_cat || r.league)" class="w-3.5 h-3.5 shrink-0" />
                     <span>{{ r.league_label || r.league }}</span>
                   </span>
                 </td>
@@ -724,30 +750,36 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-sky-400">
-            <span class="font-mono text-xs font-bold text-sky-300 px-2.5 py-1 rounded-md bg-sky-500/20 border border-sky-400/40">
-              STEP 01
-            </span>
-            <h3 class="text-base font-extrabold text-white mt-3.5 mb-2">Select Your Membership Tier</h3>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="font-mono text-xs font-bold text-sky-300 px-2.5 py-1 rounded-md bg-sky-500/20 border border-sky-400/40 shrink-0 whitespace-nowrap">
+                STEP 01
+              </span>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">Select Your Membership Tier</h3>
+            </div>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Choose Pro WebApp (€49/mo), VIP Picks + Pro App (€79/mo), or Quant API (€199/mo) and send your Google
               account email.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-emerald-400">
-            <span class="font-mono text-xs font-bold text-emerald-300 px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40">
-              STEP 02
-            </span>
-            <h3 class="text-base font-extrabold text-white mt-3.5 mb-2">Instant Account Whitelisting</h3>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="font-mono text-xs font-bold text-emerald-300 px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40 shrink-0 whitespace-nowrap">
+                STEP 02
+              </span>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">Instant Account Whitelisting</h3>
+            </div>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               We whitelist your Google email in the BetScout Pro subscriber database and send your private VIP
               Discord/Telegram invite or live API key.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-amber-400">
-            <span class="font-mono text-xs font-bold text-amber-300 px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-400/40">
-              STEP 03
-            </span>
-            <h3 class="text-base font-extrabold text-white mt-3.5 mb-2">Sign In &amp; Execute With Edge</h3>
+            <div class="flex items-center gap-3 mb-3">
+              <span class="font-mono text-xs font-bold text-amber-300 px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-400/40 shrink-0 whitespace-nowrap">
+                STEP 03
+              </span>
+              <h3 class="text-base font-extrabold text-white leading-snug m-0">Sign In &amp; Execute With Edge</h3>
+            </div>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
               Click <b>Sign In</b> on the Live Quant Desk with Google. All locked picks, exact-score dutching splits,
               and banker booster combos unlock immediately.
@@ -862,6 +894,7 @@ import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
+  getCompetitionFlagIconify,
   getSportBadgeTheme,
   getSportIconColor,
   getSportIconify,

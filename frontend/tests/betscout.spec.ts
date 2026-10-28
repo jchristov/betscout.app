@@ -8,6 +8,7 @@ import {
   computeBankerBoosterCombos,
   computeEqualPayoutDutchSplit,
   getBadgeTooltipText,
+  getCompetitionFlagIconify,
   getSportBadgeTheme,
   getSportEmoji,
   getSportIconify,
@@ -64,6 +65,11 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(getSportBadgeTheme('soccer')).toContain('emerald');
     expect(getSportBadgeTheme('tennis')).toContain('lime');
     expect(getSportBadgeTheme('table_tennis')).toContain('fuchsia');
+    expect(getCompetitionFlagIconify('Serie A', 'ita.1')).toBe('flag:it');
+    expect(getCompetitionFlagIconify('Premier League', 'eng.1')).toBe('flag:gb-eng');
+    expect(getCompetitionFlagIconify('Handball · Sweden · Handbollsligan')).toBe('flag:se');
+    expect(getCompetitionFlagIconify('UEFA Champions League', 'uefa.champions')).toBe('flag:eu');
+    expect(getCompetitionFlagIconify('NBA', 'nba')).toBe('flag:us');
     expect(getTierBadgeClass('top_8pct')).toContain('violet');
     expect(getTierBadgeClass('banker_70pct')).toContain('amber');
     expect(getTierBadgeClass('high_conf')).toContain('cyan');

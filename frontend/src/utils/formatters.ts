@@ -90,6 +90,105 @@ export function getSportIconify(catOrLeague?: string | null): string {
   return 'betscout-sport:soccer';
 }
 
+/**
+ * Resolve a country / federation Flag Iconify name (`flag:*`) for a competition or league string
+ * when a country/region can be identified. Returns `null` when international / tour-wide without a country.
+ */
+export function getCompetitionFlagIconify(compOrLeague?: string | null, secondaryHint?: string | null): string | null {
+  const raw = `${compOrLeague || ''} ${secondaryHint || ''}`.toLowerCase().trim();
+  if (!raw) return null;
+
+  // Football / European domestic & continental leagues
+  if (raw.includes('eng.1') || raw.includes('eng.2') || raw.includes('premier league') || raw.includes('english championship') || raw.includes('england')) {
+    return 'flag:gb-eng';
+  }
+  if (raw.includes('esp.1') || raw.includes('laliga') || raw.includes('la liga') || raw.includes('copa del rey') || raw.includes('spain') || raw.includes('madrid') || raw.includes('barcelona')) {
+    return 'flag:es';
+  }
+  if (raw.includes('ger.1') || (raw.includes('bundesliga') && !raw.includes('austria') && !raw.includes('aut.1')) || raw.includes('germany')) {
+    return 'flag:de';
+  }
+  if (raw.includes('ita.1') || raw.includes('serie a') || raw.includes('italy') || raw.includes('vienna') === false && raw.includes('rome')) {
+    return 'flag:it';
+  }
+  if (raw.includes('fra.1') || raw.includes('ligue 1') || raw.includes('france') || raw.includes('paris') || raw.includes('montpellier') || raw.includes('brest') || raw.includes('roland garros')) {
+    return 'flag:fr';
+  }
+  if (raw.includes('aut.1') || raw.includes('austria') || raw.includes('hla meisterliga') || raw.includes('vienna')) {
+    return 'flag:at';
+  }
+  if (raw.includes('ned.1') || raw.includes('eredivisie') || raw.includes('netherlands') || raw.includes('dutch')) {
+    return 'flag:nl';
+  }
+  if (raw.includes('por.1') || raw.includes('primeira liga') || raw.includes('portugal')) {
+    return 'flag:pt';
+  }
+  if (raw.includes('sweden') || raw.includes('handbollsligan') || raw.includes('allsvenskan')) {
+    return 'flag:se';
+  }
+  if (raw.includes('switzerland') || raw.includes('basel') || raw.includes('swiss')) {
+    return 'flag:ch';
+  }
+  if (raw.includes('poland') || raw.includes('tt elite') || raw.includes('superliga')) {
+    return 'flag:pl';
+  }
+  if (raw.includes('czech') || raw.includes('tt star') || raw.includes('extraliga')) {
+    return 'flag:cz';
+  }
+  if (raw.includes('denmark')) return 'flag:dk';
+  if (raw.includes('norway')) return 'flag:no';
+  if (raw.includes('modus') || raw.includes('pdc') || raw.includes('wimbledon') || raw.includes('united kingdom')) {
+    return 'flag:gb';
+  }
+  if (
+    raw.includes('uefa') ||
+    raw.includes('champions league') ||
+    raw.includes('europa league') ||
+    raw.includes('conference league') ||
+    raw.includes('nations league') ||
+    raw.includes('ehf') ||
+    raw.includes('euroleague')
+  ) {
+    return 'flag:eu';
+  }
+
+  // US & North American Major Sports + ATP/WTA Tour Stops
+  if (
+    raw.includes('nba') ||
+    raw.includes('wnba') ||
+    raw.includes('nfl') ||
+    raw.includes('nhl') ||
+    raw.includes('mlb') ||
+    raw.includes('ncaa') ||
+    raw.includes('wvolleyball') ||
+    raw.includes('mvolleyball') ||
+    raw.includes('us open') ||
+    raw.includes('indian wells') ||
+    raw.includes('miami') ||
+    raw.includes('cincinnati')
+  ) {
+    return 'flag:us';
+  }
+  if (raw.includes('nbl') || raw.includes('australia') || raw.includes('australian open')) {
+    return 'flag:au';
+  }
+  if (raw.includes('tokyo') || raw.includes('japan')) return 'flag:jp';
+  if (raw.includes('hong kong')) return 'flag:hk';
+  if (raw.includes('guangzhou') || raw.includes('jiujiang') || raw.includes('shanghai') || raw.includes('beijing') || raw.includes('wuhan') || raw.includes('china')) {
+    return 'flag:cn';
+  }
+  if (raw.includes('tampico') || raw.includes('guadalajara') || raw.includes('acapulco') || raw.includes('monterrey') || raw.includes('mexico')) {
+    return 'flag:mx';
+  }
+  if (raw.includes('florianopolis') || raw.includes('rio') || raw.includes('sao paulo') || raw.includes('brazil')) {
+    return 'flag:br';
+  }
+  if (raw.includes('cali') || raw.includes('bogota') || raw.includes('colombia')) {
+    return 'flag:co';
+  }
+  return null;
+}
+
 export function getSportIconColor(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (low.includes('table tennis') || low.includes('table_tennis')) return 'text-fuchsia-400';

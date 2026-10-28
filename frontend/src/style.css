@@ -249,7 +249,7 @@
 /* Flush Full-Width Folder-Style Tab Bar (No outer surrounding box around tabs, bordered content container below) */
 .workspace-tablist {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
   gap: 6px;
   padding: 0;
