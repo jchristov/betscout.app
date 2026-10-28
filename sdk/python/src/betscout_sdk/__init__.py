@@ -22,7 +22,13 @@ from .types import (
     TeamMissingPlayerEntry,
 )
 from .utils import (
+    compute_form_wdl_segments,
+    compute_h2h_edge_summary,
+    computeFormWdlSegments,
+    computeH2HEdgeSummary,
+    format_market_placeholders,
     format_player_full_name,
+    formatMarketPlaceholders,
     formatPlayerFullName,
     get_adaptive_refetch_interval_ms,
     get_country_flag_url,

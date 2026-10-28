@@ -438,17 +438,16 @@
         <!-- Home Player / Team -->
         <div class="competitor-side home">
           <div style="position:relative;flex-shrink:0;">
-            <img id="home-headshot-img" src="" alt="Home Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:2px solid rgba(56,189,248,0.5);" />
+            <img id="home-headshot-img" src="" alt="Home Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid rgba(56,189,248,0.5);" />
             <img id="home-flag-img" src="" alt="Home Flag" style="position:absolute;bottom:-2px;right:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
           </div>
           <div>
             <div class="competitor-name">
               <span id="home-name">Fritz, Taylor</span>
               <span class="pill" id="home-seed-pill">Seed #6</span>
-              <span id="home-serve-ball" style="display:none;" title="Active Server">🎾</span>
             </div>
             <div class="competitor-meta" id="home-rank-meta">ATP Rank #13 (2,995 pts) · USA</div>
-            <div style="margin-top: 0.45rem;" id="home-form-strip"></div>
+            <div style="margin-top: 0.5rem;" id="home-form-strip"></div>
           </div>
         </div>
 
@@ -461,7 +460,7 @@
           <table class="period-scores-table">
             <thead>
               <tr id="period-headers-tr">
-                <th>Player</th>
+                <th style="text-align:left;">Player</th>
                 <th>S1</th>
                 <th>S2</th>
                 <th>S3</th>
@@ -475,17 +474,16 @@
         <!-- Away Player / Team -->
         <div class="competitor-side away">
           <div style="position:relative;flex-shrink:0;">
-            <img id="away-headshot-img" src="" alt="Away Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:2px solid rgba(245,158,11,0.5);" />
+            <img id="away-headshot-img" src="" alt="Away Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid rgba(245,158,11,0.5);" />
             <img id="away-flag-img" src="" alt="Away Flag" style="position:absolute;bottom:-2px;left:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
           </div>
           <div>
             <div class="competitor-name">
-              <span id="away-serve-ball" style="display:none;" title="Active Server">🎾</span>
               <span class="pill pill-amber" id="away-seed-pill">LL</span>
               <span id="away-name">Hijikata, Rinky</span>
             </div>
             <div class="competitor-meta" id="away-rank-meta">ATP Rank #85 · Australia</div>
-            <div style="margin-top: 0.45rem;" id="away-form-strip"></div>
+            <div style="margin-top: 0.5rem;" id="away-form-strip"></div>
           </div>
         </div>
       </div>
@@ -574,12 +572,13 @@
             </div>
           </div>
 
-          <!-- Head-to-Head Last Meetings -->
+          <!-- Head-to-Head Last Meetings + Color-Coded H2H Edge Progress Bar -->
           <div class="card">
             <div class="card-header">
-              <div class="card-title"><span>Head-to-Head Meetings (<code>getTeamVersus</code>)</span></div>
-              <span class="code-tag">stats_team_versus/136042/299130/10</span>
+              <div class="card-title"><span>Head-to-Head Edge &amp; Past Meetings (<code>getTeamVersus</code>)</span></div>
+              <span class="code-tag">computeH2HEdgeSummary()</span>
             </div>
+            <div id="h2h-edge-bar-box" style="margin-bottom: 1rem;"></div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -724,12 +723,54 @@
       });
     });
 
-    function renderFormStrip(entries) {
-      if (!Array.isArray(entries) || !entries.length) return '';
-      return '<div class="form-strip">' + entries.slice(0, 6).map((e) => {
-        const t = e.type || e.value || 'W';
-        return `<span class="form-dot form-${t}">${t}</span>`;
-      }).join('') + '</div>';
+    function toOrdinal(n) {
+      const num = parseInt(String(n), 10);
+      if (isNaN(num)) return String(n);
+      const rem100 = num % 100;
+      if (rem100 >= 11 && rem100 <= 13) return num + 'th';
+      switch (num % 10) {
+        case 1: return num + 'st';
+        case 2: return num + 'nd';
+        case 3: return num + 'rd';
+        default: return num + 'th';
+      }
+    }
+
+    function formatMarketText(rawText, homeName, awayName, specifiers) {
+      let out = String(rawText ?? '');
+      if (!out) return '';
+      const spec = specifiers || {};
+      out = out.replace(/\{!(\w+)\}/g, (_m, k) => (spec[k] !== undefined ? toOrdinal(spec[k]) : k));
+      out = out.replace(/\{\$competitor1\}/gi, homeName || 'Home');
+      out = out.replace(/\{\$competitor2\}/gi, awayName || 'Away');
+      out = out.replace(/\{(\w+)\}/g, (_m, k) => (spec[k] !== undefined ? String(spec[k]) : k));
+      return out;
+    }
+
+    function renderFormWdlStrip(segments, formPct, alignRight = false) {
+      if (!Array.isArray(segments) || !segments.length) return '';
+      const itemsHtml = segments.map((seg) => {
+        if (seg.wdl === 'empty') {
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span class="form-dot" style="background:rgba(148,163,184,0.1);color:var(--text-muted);">—</span>
+            <span style="font-size:0.64rem;color:var(--text-muted);height:12px;"></span>
+          </div>`;
+        }
+        const scoreColor = seg.wdl === 'W' ? '#34d399' : seg.wdl === 'L' ? '#fb7185' : '#fbbf24';
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;" title="${seg.opponent_name ? 'vs ' + seg.opponent_name : ''}">
+          <span class="form-dot form-${seg.wdl}">${seg.wdl}</span>
+          <span style="font-size:0.65rem;font-weight:700;line-height:1;color:${scoreColor};">${seg.score_label || ''}</span>
+        </div>`;
+      }).join('');
+
+      const badgeColor = formPct >= 65 ? 'pill-emerald' : formPct >= 40 ? 'pill-amber' : 'pill-rose';
+      const pctBadge = `<span class="pill ${badgeColor}" style="font-size:0.72rem;padding:0.18rem 0.55rem;" title="Last 5 Matches Form Rating">Form: <strong>${formPct} / 100</strong></span>`;
+
+      return `<div style="display:inline-flex;align-items:center;gap:0.55rem;flex-wrap:wrap;${alignRight ? 'justify-content:flex-end;' : ''}">
+        ${alignRight ? pctBadge : ''}
+        <div class="form-strip" style="gap:0.32rem;">${itemsHtml}</div>
+        ${!alignRight ? pctBadge : ''}
+      </div>`;
     }
 
     function parseLeadingNumber(val) {
@@ -846,12 +887,8 @@
       aSeedEl.textContent = aSeed;
       aSeedEl.style.display = aSeed ? 'inline-flex' : 'none';
 
-      // Active server
+      // Active server & Rank meta & Form
       const srv = String(m.gamescore?.service ?? '');
-      document.getElementById('home-serve-ball').style.display = srv === '1' ? 'inline' : 'none';
-      document.getElementById('away-serve-ball').style.display = srv === '2' ? 'inline' : 'none';
-
-      // Rank meta & Form
       const hp = d.home_profile || {};
       const ap = d.away_profile || {};
       const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
@@ -861,32 +898,39 @@
       document.getElementById('away-rank-meta').textContent =
         `${aRank ? `Rank #${aRank}` : ''} ${ap.ranking?.points ? `(${ap.ranking.points} pts)` : ''} · ${ap.nationality || aTeam.cc?.name || ''}`;
 
-      document.getElementById('home-form-strip').innerHTML = renderFormStrip(d.match_form?.teams?.home?.form);
-      document.getElementById('away-form-strip').innerHTML = renderFormStrip(d.match_form?.teams?.away?.form);
+      const fw = d.form_wdl || { home: [], away: [], home_form_pct: 0, away_form_pct: 0 };
+      document.getElementById('home-form-strip').innerHTML =
+        renderFormWdlStrip(fw.home, fw.home_form_pct, false);
+      document.getElementById('away-form-strip').innerHTML =
+        renderFormWdlStrip(fw.away, fw.away_form_pct, true);
 
-      // Scoreboard center
+      // Scoreboard center: keep player names vertically aligned, put ball in front/back of main score above
       document.getElementById('match-status-badge').textContent = m.status?.name || 'Live';
-      document.getElementById('main-sets-score').textContent =
-        `${m.result?.home ?? 0} - ${m.result?.away ?? 0}`;
+      const hSets = m.result?.home ?? 0;
+      const aSets = m.result?.away ?? 0;
+      const hBallAbove = srv === '1' ? '<span title="Active Server" style="font-size:1.35rem;vertical-align:middle;margin-right:0.35rem;">🎾</span>' : '';
+      const aBallAbove = srv === '2' ? '<span title="Active Server" style="font-size:1.35rem;vertical-align:middle;margin-left:0.35rem;">🎾</span>' : '';
+      document.getElementById('main-sets-score').innerHTML =
+        `${hBallAbove}<span>${hSets} - ${aSets}</span>${aBallAbove}`;
 
       const periods = m.periods || {};
       const pKeys = ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => periods[k]);
       document.getElementById('period-headers-tr').innerHTML =
-        `<th>Competitor</th>` + pKeys.map((k, idx) => `<th>S${idx + 1}</th>`).join('') + (m.gamescore ? `<th>Pts</th>` : '');
+        `<th style="text-align:left;">Competitor</th>` + pKeys.map((k, idx) => `<th>S${idx + 1}</th>`).join('') + (m.gamescore ? `<th>Pts</th>` : '');
       document.getElementById('period-scores-tbody').innerHTML = `
         <tr>
-          <td style="text-align:left;font-weight:700;">${srv === '1' ? '🎾 ' : ''}${hTeam.abbr || hTeam.name}</td>
+          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${hTeam.abbr || hTeam.name}</td>
           ${pKeys.map((k) => `<td><strong>${periods[k]?.home ?? '—'}</strong></td>`).join('')}
           ${m.gamescore ? `<td style="color:var(--accent-cyan);font-weight:800;">${m.gamescore.home ?? 0}</td>` : ''}
         </tr>
         <tr>
-          <td style="text-align:left;font-weight:700;">${srv === '2' ? '🎾 ' : ''}${aTeam.abbr || aTeam.name}</td>
+          <td style="text-align:left;font-weight:700;padding-left:0.5rem;">${aTeam.abbr || aTeam.name}</td>
           ${pKeys.map((k) => `<td><strong>${periods[k]?.away ?? '—'}</strong></td>`).join('')}
           ${m.gamescore ? `<td style="color:var(--accent-amber);font-weight:800;">${m.gamescore.away ?? 0}</td>` : ''}
         </tr>
       `;
 
-      // Win Probability & Markets
+      // Win Probability & Markets (with placeholder interpolation!)
       const mm = d.merged_markets || {};
       const rawM = d.raw_markets || [];
       const winM = rawM.find((x) => x._marketId === 186 || x._marketId === 1);
@@ -912,11 +956,13 @@
 
       document.getElementById('overview-markets-tbody').innerHTML = rawM.slice(0, 8).map((mk) => {
         const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';
-        const outStr = (mk.outcomes || []).map((o) =>
-          `<span class="pill" style="margin-right:0.35rem;">${o.name}: <strong>${o.odds}</strong> ${o.probability ? `(${Math.round(o.probability * 100)}%)` : ''}</span>`
-        ).join('');
+        const mkTitle = formatMarketText(mk.name || `Market #${mk._marketId}`, hTeam.name, aTeam.name, mk.specifiers);
+        const outStr = (mk.outcomes || []).map((o) => {
+          const oLabel = formatMarketText(o.name, hTeam.name, aTeam.name, mk.specifiers);
+          return `<span class="pill" style="margin-right:0.35rem;">${oLabel}: <strong>${o.odds}</strong> ${o.probability ? `(${Math.round(o.probability * 100)}%)` : ''}</span>`;
+        }).join('');
         return `<tr>
-          <td><strong>${mk.name || `Market #${mk._marketId}`}</strong></td>
+          <td><strong>${mkTitle}</strong></td>
           <td><code>${specStr}</code></td>
           <td>${outStr}</td>
         </tr>`;
@@ -959,7 +1005,26 @@
         </tr>
       `).join('');
 
-      // H2H Meetings
+      // H2H Edge Progress Bar & Meetings
+      const h2hEdge = d.h2h_edge || { total_meetings: 0, home_wins: 0, draws: 0, away_wins: 0, home_win_pct: 50, draw_pct: 0, away_win_pct: 50 };
+      const h2hBox = document.getElementById('h2h-edge-bar-box');
+      if (h2hEdge.total_meetings > 0) {
+        h2hBox.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;font-weight:700;margin-bottom:0.4rem;">
+            <span style="color:var(--accent-emerald);">${hTeam.name}: ${h2hEdge.home_wins}W (${h2hEdge.home_win_pct}%)</span>
+            <span style="color:var(--text-secondary);font-size:0.75rem;">${h2hEdge.total_meetings} Direct Meetings ${h2hEdge.since_year ? `since ${h2hEdge.since_year}` : ''} ${h2hEdge.draws > 0 ? `· ${h2hEdge.draws}D (${h2hEdge.draw_pct}%)` : ''}</span>
+            <span style="color:var(--accent-rose);">${aTeam.name}: ${h2hEdge.away_wins}W (${h2hEdge.away_win_pct}%)</span>
+          </div>
+          <div style="height:12px;border-radius:999px;background:var(--bg-surface);overflow:hidden;display:flex;gap:2px;">
+            <div style="width:${h2hEdge.home_win_pct}%;background:linear-gradient(90deg,#10b981,#34d399);height:100%;"></div>
+            ${h2hEdge.draw_pct > 0 ? `<div style="width:${h2hEdge.draw_pct}%;background:#f59e0b;height:100%;"></div>` : ''}
+            <div style="width:${h2hEdge.away_win_pct}%;background:linear-gradient(90deg,#fb7185,#f43f5e);height:100%;"></div>
+          </div>
+        `;
+      } else {
+        h2hBox.innerHTML = `<div style="font-size:0.8rem;color:var(--text-secondary);">No prior H2H meetings recorded.</div>`;
+      }
+
       const vsMatches = d.versus?.matches || [];
       document.getElementById('h2h-meetings-tbody').innerHTML = vsMatches.map((vm) => {
         const pStr = vm.periods
@@ -991,7 +1056,7 @@
       // Tab 2: Match Statistics
       renderMatchStatistics(d);
 
-      // Tab 3: Point-by-Point Timeline & Raw Markets
+      // Tab 3: Point-by-Point Timeline & Raw Markets (with placeholder interpolation!)
       const events = (d.full_timeline?.events || []).filter((e) =>
         e.type === 'score_change_tennis' || e.type === 'periodscore' || e.type === 'goal' || e.type === 'card'
       ).reverse().slice(0, 80);
@@ -1007,12 +1072,14 @@
 
       document.getElementById('all-raw-markets-tbody').innerHTML = rawM.map((mk) => {
         const specStr = mk.specifiers ? Object.entries(mk.specifiers).map(([k, v]) => `${k}=${v}`).join(', ') : '—';
-        const outStr = (mk.outcomes || []).map((o) =>
-          `<span class="pill" style="margin:0.15rem;">${o.name}: <strong>${o.odds}</strong></span>`
-        ).join('');
+        const mkTitle = formatMarketText(mk.name || `Market #${mk._marketId}`, hTeam.name, aTeam.name, mk.specifiers);
+        const outStr = (mk.outcomes || []).map((o) => {
+          const oLabel = formatMarketText(o.name, hTeam.name, aTeam.name, mk.specifiers);
+          return `<span class="pill" style="margin:0.15rem;">${oLabel}: <strong>${o.odds}</strong></span>`;
+        }).join('');
         return `<tr>
           <td><code>#${mk._marketId}</code></td>
-          <td><strong>${mk.name || ''}</strong></td>
+          <td><strong>${mkTitle}</strong></td>
           <td><code>${specStr}</code></td>
           <td>${outStr}</td>
         </tr>`;

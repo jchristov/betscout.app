@@ -20,6 +20,9 @@ from ._internal.transport import (
 )
 from .constants import SPORTS_CATALOG, resolve_sport_id
 from .utils import (
+    compute_form_wdl_segments,
+    compute_h2h_edge_summary,
+    get_adaptive_refetch_interval_ms,
     get_country_flag_url,
     get_team_logo_url,
     merge_primary_and_consensus_markets,
@@ -1292,6 +1295,12 @@ class BetScoutClient:
             else ((mm_primary or {}).get("markets") or [])
         )
 
+        home_last_list = (home_last or {}).get("matches") or []
+        away_last_list = (away_last or {}).get("matches") or []
+        home_form_wdl = compute_form_wdl_segments(home_last_list, h_uid, 5)
+        away_form_wdl = compute_form_wdl_segments(away_last_list, a_uid, 5)
+        h2h_edge = compute_h2h_edge_summary((versus or {}).get("matches"), h_uid, a_uid)
+
         return {
             "ok": bool(match_info or timeline_delta),
             "match_id": int(match_id),
@@ -1307,7 +1316,7 @@ class BetScoutClient:
             "versus": versus,
             "primary_markets": primary_parsed,
             "consensus_markets": consensus_parsed,
-            "merged_markets": merged_markets,
+            "merged_markets": mergedMarkets if "mergedMarkets" in locals() else merged_markets,
             "raw_markets": raw_markets,
             "home_profile": home_profile,
             "away_profile": away_profile,
@@ -1315,15 +1324,204 @@ class BetScoutClient:
             "away_surface_stats": away_surface,
             "home_streaks": home_streaks,
             "away_streaks": away_streaks,
-            "home_last_matches": (home_last or {}).get("matches") or [],
-            "away_last_matches": (away_last or {}).get("matches") or [],
+            "home_last_matches": home_last_list,
+            "away_last_matches": away_last_list,
             "home_next_matches": (home_next or {}).get("matches") or [],
             "away_next_matches": (away_next or {}).get("matches") or [],
             "fun_facts": (fun_facts_resp or {}).get("funfacts") or [],
             "commentary_phrases": (phrases_resp or {}).get("phrases") or [],
             "squads": squads,
             "table_slice": table_slice,
+            "form_wdl": {
+                "home": home_form_wdl["segments"],
+                "away": away_form_wdl["segments"],
+                "home_form_pct": home_form_wdl["formPct"],
+                "away_form_pct": away_form_wdl["formPct"],
+            },
+            "h2h_edge": h2h_edge,
         }
+
+    def build_insights_push_url(
+        self,
+        *,
+        league: str = "nba",
+        provider: str = "sportradar",
+        insight_type: str | None = None,
+        subject_type: str | None = None,
+        game_id: str | int | None = None,
+        team_id: str | int | None = None,
+        player_id: str | int | None = None,
+    ) -> str:
+        from urllib.parse import urlencode
+
+        q: dict[str, str] = {}
+        if insight_type:
+            q["insight_type"] = insight_type
+        if subject_type:
+            q["subject_type"] = subject_type
+        if game_id is not None:
+            q["game_id"] = str(game_id)
+        if team_id is not None:
+            q["team_id"] = str(team_id)
+        if player_id is not None:
+            q["player_id"] = str(player_id)
+        qs = urlencode(q)
+        return f"https://api.sportradar.com/insights/production/stream/{league}/{provider}/subscribe{f'?{qs}' if qs else ''}"
+
+    def stream_insights(
+        self,
+        *,
+        api_key: str | None = None,
+        league: str = "nba",
+        provider: str = "sportradar",
+        insight_type: str | None = None,
+        subject_type: str | None = None,
+        game_id: str | int | None = None,
+        team_id: str | int | None = None,
+        player_id: str | int | None = None,
+        sport_or_id: str | int | None = None,
+        max_events: int | None = None,
+    ):
+        """Dual-Mode Real-Time Insights & Live Delta Stream generator."""
+        emitted = 0
+        if api_key:
+            url = self.build_insights_push_url(
+                league=league,
+                provider=provider,
+                insight_type=insight_type,
+                subject_type=subject_type,
+                game_id=game_id,
+                team_id=team_id,
+                player_id=player_id,
+            )
+            req = urllib.request.Request(
+                url,
+                headers={"x-api-key": api_key, "Accept": "application/json"},
+            )
+            ctx = ssl.create_default_context()
+            if hasattr(ssl, "VERIFY_X509_STRICT"):
+                ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            with urllib.request.urlopen(req, timeout=30.0, context=ctx) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        parsed = json.loads(line)
+                        is_hb = "heartbeat" in parsed or parsed.get("type") == "heartbeat"
+                        yield {
+                            "mode": "push_stream",
+                            "event_type": "heartbeat" if is_hb else "raw_insight",
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "match_id": parsed.get("subject_id") or game_id,
+                            "summary": parsed.get("text"),
+                            "payload": parsed,
+                        }
+                        emitted += 1
+                        if max_events and emitted >= max_events:
+                            return
+                    except Exception:
+                        continue
+            return
+
+        seen_ids: set[str] = set()
+        numeric_mid = (
+            str(game_id).replace("sr:match:", "") if game_id is not None else None
+        )
+        sid = resolve_sport_id(sport_or_id or league or "soccer")
+
+        while True:
+            sleep_ms = 5000
+            if numeric_mid:
+                delta_doc = self.fetch_document(
+                    "match_timelinedelta", numeric_mid, channel="global", bypass_cache=True
+                )
+                phrases_delta = self.get_match_commentary_delta(numeric_mid)
+                fun_facts = self.get_match_insights(numeric_mid) if not seen_ids else None
+                sleep_ms = get_adaptive_refetch_interval_ms(delta_doc)
+
+                for fact in (fun_facts or {}).get("funfacts") or []:
+                    fid = f"fact:{fact}"
+                    if fid not in seen_ids:
+                        seen_ids.add(fid)
+                        yield {
+                            "mode": "tokenless_delta",
+                            "event_type": "funfact",
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "match_id": numeric_mid,
+                            "summary": fact,
+                            "payload": {"sentence": fact},
+                        }
+                        emitted += 1
+                        if max_events and emitted >= max_events:
+                            return
+
+                delta_data = (delta_doc or {}).get("data") or {}
+                for ev in delta_data.get("events") or []:
+                    eid = f"ev:{ev.get('_id') or ev.get('uts')}"
+                    if eid not in seen_ids:
+                        seen_ids.add(eid)
+                        yield {
+                            "mode": "tokenless_delta",
+                            "event_type": "scoring",
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "match_id": numeric_mid,
+                            "summary": str(ev.get("name") or ev.get("type") or "score_change"),
+                            "payload": ev,
+                        }
+                        emitted += 1
+                        if max_events and emitted >= max_events:
+                            return
+
+                for ph in (phrases_delta or {}).get("phrases") or []:
+                    pid = f"ph:{ph.get('_id')}"
+                    if pid not in seen_ids:
+                        seen_ids.add(pid)
+                        yield {
+                            "mode": "tokenless_delta",
+                            "event_type": "commentary",
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "match_id": numeric_mid,
+                            "summary": ph.get("text"),
+                            "payload": ph,
+                        }
+                        emitted += 1
+                        if max_events and emitted >= max_events:
+                            return
+            else:
+                ev_doc = self.fetch_document(
+                    "event_get", str(sid), channel="global", bypass_cache=True
+                )
+                sleep_ms = get_adaptive_refetch_interval_ms(ev_doc)
+                ev_data = (ev_doc or {}).get("data") or {}
+                for ev in (ev_data.get("events") or [])[:15]:
+                    eid = f"sp:{ev.get('_id') or ev.get('uts')}"
+                    if eid not in seen_ids:
+                        seen_ids.add(eid)
+                        yield {
+                            "mode": "tokenless_delta",
+                            "event_type": "sport_event",
+                            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                            "match_id": ev.get("matchid"),
+                            "summary": str(ev.get("type") or "live_event"),
+                            "payload": ev,
+                        }
+                        emitted += 1
+                        if max_events and emitted >= max_events:
+                            return
+
+            yield {
+                "mode": "tokenless_delta",
+                "event_type": "heartbeat",
+                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                "match_id": numeric_mid,
+                "summary": f"Heartbeat (next poll in {sleep_ms}ms)",
+                "payload": {"nextPollMs": sleep_ms},
+            }
+            emitted += 1
+            if max_events and emitted >= max_events:
+                return
+            time.sleep(sleep_ms / 1000.0)
 
     # CamelCase aliases for 1:1 parity with TypeScript BetScoutClient
     clearCache = clear_cache
@@ -1411,3 +1609,5 @@ class BetScoutClient:
     getTeamIntelligenceBundle = get_team_intelligence_bundle
     getTennisPlayerIntelligenceBundle = get_tennis_player_intelligence_bundle
     getMatchCenterDossier = get_match_center_dossier
+    buildInsightsPushUrl = build_insights_push_url
+    streamInsights = stream_insights

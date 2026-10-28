@@ -7,6 +7,9 @@ import {
   MARKET_IDS,
   SERVICE_PROFILES,
   SPORTS_CATALOG,
+  computeFormWdlSegments,
+  computeH2HEdgeSummary,
+  formatMarketPlaceholders,
   getAdaptiveRefetchIntervalMs,
   getCountryFlagUrl,
   getTeamLogoUrl,
@@ -970,5 +973,80 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
 
     const brackets = await client.getCupBrackets(110232);
     expect(brackets?.cup?.name).toContain('Champions League');
+  });
+
+  it('formats market placeholders, computes Form WDL segments (with scores & XX/100 rating), H2H edge bar, and Insights Push URLs', () => {
+    expect(
+      formatMarketPlaceholders('{!setnr} set - winner', {
+        homeName: 'Fritz, Taylor',
+        awayName: 'Hijikata, Rinky',
+        specifiers: { setnr: '2' },
+      }),
+    ).toBe('2nd set - winner');
+
+    expect(
+      formatMarketPlaceholders('{$competitor1}', {
+        homeName: 'Fritz, Taylor',
+        awayName: 'Hijikata, Rinky',
+      }),
+    ).toBe('Fritz, Taylor');
+
+    const form = computeFormWdlSegments(
+      [
+        {
+          _id: 1,
+          teams: {
+            home: { _id: 1, uid: 136042, name: 'Fritz' },
+            away: { _id: 2, uid: 200, name: 'Opp1' },
+          },
+          result: { home: 2, away: 0, winner: 'home' },
+        },
+        {
+          _id: 2,
+          teams: {
+            home: { _id: 3, uid: 201, name: 'Opp2' },
+            away: { _id: 1, uid: 136042, name: 'Fritz' },
+          },
+          result: { home: 2, away: 1, winner: 'home' },
+        },
+      ],
+      136042,
+      5,
+    );
+    expect(form.formPct).toBe(50);
+    expect(form.segments[4]?.wdl).toBe('W');
+    expect(form.segments[4]?.score_label).toBe('2:0');
+    expect(form.segments[3]?.wdl).toBe('L');
+    expect(form.segments[3]?.score_label).toBe('1:2');
+
+    const h2h = computeH2HEdgeSummary(
+      [
+        {
+          _id: 10,
+          time: { uts: 1708131600 },
+          teams: {
+            home: { _id: 1, uid: 136042, name: 'Fritz' },
+            away: { _id: 4, uid: 299130, name: 'Hijikata' },
+          },
+          result: { home: 2, away: 0, winner: 'home' },
+        },
+      ],
+      136042,
+      299130,
+    );
+    expect(h2h.total_meetings).toBe(1);
+    expect(h2h.home_wins).toBe(1);
+    expect(h2h.home_win_pct).toBe(100);
+
+    const client = new BetScoutClient();
+    expect(
+      client.buildInsightsPushUrl({
+        league: 'nba',
+        provider: 'sportradar',
+        insightType: 'scoring',
+      }),
+    ).toBe(
+      'https://api.sportradar.com/insights/production/stream/nba/sportradar/subscribe?insight_type=scoring',
+    );
   });
 });

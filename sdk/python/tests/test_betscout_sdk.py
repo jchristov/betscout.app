@@ -23,6 +23,9 @@ from betscout_sdk import (
     parse_venue_coordinates,
     render_team_jersey_svg,
     resolve_sport_id,
+    format_market_placeholders,
+    compute_form_wdl_segments,
+    compute_h2h_edge_summary,
 )
 
 
@@ -228,3 +231,37 @@ def test_enriched_league_table_and_match_center_dossier():
     assert dossier["ok"] is True
     assert dossier["sport_id"] == 5
     assert dossier["match_details"]["values"]["130"]["value"]["home"] == 18
+    assert client.build_insights_push_url(league="nba", provider="sportradar", insight_type="scoring") == (
+        "https://api.sportradar.com/insights/production/stream/nba/sportradar/subscribe?insight_type=scoring"
+    )
+    assert format_market_placeholders(
+        "{!setnr} set - winner",
+        home_name="Fritz, Taylor",
+        away_name="Hijikata, Rinky",
+        specifiers={"setnr": "2"},
+    ) == "2nd set - winner"
+    form = compute_form_wdl_segments(
+        [
+            {
+                "_id": 1,
+                "teams": {"home": {"uid": 136042, "name": "Fritz"}, "away": {"uid": 200, "name": "Opp"}},
+                "result": {"home": 2, "away": 0, "winner": "home"},
+            }
+        ],
+        136042,
+        5,
+    )
+    assert form["formPct"] == 100
+    assert form["segments"][-1]["score_label"] == "2:0"
+    h2h = compute_h2h_edge_summary(
+        [
+            {
+                "_id": 1,
+                "teams": {"home": {"uid": 136042, "name": "Fritz"}, "away": {"uid": 299130, "name": "Hijikata"}},
+                "result": {"home": 2, "away": 0, "winner": "home"},
+            }
+        ],
+        136042,
+        299130,
+    )
+    assert h2h["home_win_pct"] == 100

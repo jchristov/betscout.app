@@ -514,6 +514,164 @@ def resolve_competition_crest_url(competition_name: str | None = None) -> str:
     return fallback
 
 
+def _to_ordinal(val: Any) -> str:
+    try:
+        num = int(val)
+    except (ValueError, TypeError):
+        return str(val)
+    rem100 = num % 100
+    if 11 <= rem100 <= 13:
+        return f"{num}th"
+    return f"{num}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(num % 10, 'th') }"
+
+
+def format_market_placeholders(
+    raw_text: str | None = None,
+    *,
+    home_name: str | None = None,
+    away_name: str | None = None,
+    specifiers: dict[str, Any] | None = None,
+) -> str:
+    """Interpolate {!setnr}, {total}, {hcp}, {$competitor1}, {$competitor2} into human-readable names."""
+    out = str(raw_text or "")
+    if not out:
+        return ""
+    spec = specifiers or {}
+    out = re.sub(
+        r"\{!(\w+)\}",
+        lambda m: _to_ordinal(spec[m.group(1)]) if m.group(1) in spec else m.group(1),
+        out,
+    )
+    out = re.sub(r"\{\$competitor1\}", home_name or "Home", out, flags=re.IGNORECASE)
+    out = re.sub(r"\{\$competitor2\}", away_name or "Away", out, flags=re.IGNORECASE)
+    out = re.sub(
+        r"\{(\w+)\}",
+        lambda m: str(spec[m.group(1)]) if m.group(1) in spec else m.group(1),
+        out,
+    )
+    return out
+
+
+def compute_form_wdl_segments(
+    matches: list[dict[str, Any]] | None = None,
+    team_uid: int | str | None = None,
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Extract last `limit` completed match W/D/L segments with exact score labels and 0-100 formPct."""
+    items = matches if isinstance(matches, list) else []
+    target_uid = int(team_uid or 0)
+    completed: list[dict[str, Any]] = []
+
+    for m in items:
+        res = m.get("result") or {}
+        if res.get("home") is None or res.get("away") is None:
+            continue
+        if (m.get("walkover") or m.get("retired")) and not res.get("winner"):
+            continue
+        teams = m.get("teams") or {}
+        h_team = teams.get("home") or {}
+        a_team = teams.get("away") or {}
+        h_uid = int(h_team.get("uid") or h_team.get("_id") or 0)
+        is_home = h_uid == target_uid
+        my_score = int(res["home"] if is_home else res["away"])
+        opp_score = int(res["away"] if is_home else res["home"])
+        opp_name = str((a_team if is_home else h_team).get("name") or "")
+
+        wdl = "D"
+        if res.get("winner") == "home":
+            wdl = "W" if is_home else "L"
+        elif res.get("winner") == "away":
+            wdl = "L" if is_home else "W"
+        elif my_score > opp_score:
+            wdl = "W"
+        elif my_score < opp_score:
+            wdl = "L"
+
+        completed.append(
+            {
+                "match_id": m.get("_id"),
+                "wdl": wdl,
+                "score_label": f"{my_score}:{opp_score}",
+                "opponent_name": opp_name or None,
+            }
+        )
+        if len(completed) >= limit:
+            break
+
+    chronological = list(reversed(completed))
+    pts = sum(3 if s["wdl"] == "W" else (1 if s["wdl"] == "D" else 0) for s in chronological)
+    max_pts = len(chronological) * 3
+    form_pct = round((pts / max_pts) * 100) if max_pts > 0 else 0
+
+    while len(chronological) < limit:
+        chronological.insert(
+            0,
+            {"match_id": None, "wdl": "empty", "score_label": None, "opponent_name": None},
+        )
+    return {"segments": chronological, "formPct": form_pct}
+
+
+def compute_h2h_edge_summary(
+    matches: list[dict[str, Any]] | None = None,
+    home_uid: int | str | None = None,
+    away_uid: int | str | None = None,
+) -> dict[str, Any]:
+    """Compute direct H2H win/draw/loss counts and color-coded progress bar percentages."""
+    items = matches if isinstance(matches, list) else []
+    h_target = int(home_uid or 0)
+    a_target = int(away_uid or 0)
+    home_wins = 0
+    away_wins = 0
+    draws = 0
+    oldest_uts: int | None = None
+
+    for m in items:
+        res = m.get("result") or {}
+        if res.get("home") is None or res.get("away") is None:
+            continue
+        uts = (m.get("time") or {}).get("uts") or (m.get("_dt") or {}).get("uts")
+        if isinstance(uts, (int, float)) and uts > 0:
+            if oldest_uts is None or int(uts) < oldest_uts:
+                oldest_uts = int(uts)
+
+        teams = m.get("teams") or {}
+        mh = int((teams.get("home") or {}).get("uid") or (teams.get("home") or {}).get("_id") or 0)
+        ma = int((teams.get("away") or {}).get("uid") or (teams.get("away") or {}).get("_id") or 0)
+        hs, as_ = int(res["home"]), int(res["away"])
+
+        winner_uid = 0
+        if res.get("winner") == "home" or hs > as_:
+            winner_uid = mh
+        elif res.get("winner") == "away" or as_ > hs:
+            winner_uid = ma
+
+        if winner_uid == h_target and h_target > 0:
+            home_wins += 1
+        elif winner_uid == a_target and a_target > 0:
+            away_wins += 1
+        elif winner_uid == 0:
+            draws += 1
+
+    total = home_wins + draws + away_wins
+    from datetime import datetime, timezone
+
+    since_year = (
+        str(datetime.fromtimestamp(oldest_uts, tz=timezone.utc).year)
+        if oldest_uts is not None
+        else None
+    )
+    return {
+        "total_meetings": total,
+        "since_year": since_year,
+        "home_wins": home_wins,
+        "draws": draws,
+        "away_wins": away_wins,
+        "home_win_pct": round((home_wins / total) * 100) if total > 0 else 0,
+        "draw_pct": round((draws / total) * 100) if total > 0 else 0,
+        "away_win_pct": round((away_wins / total) * 100) if total > 0 else 0,
+    }
+
+
 # CamelCase aliases for 1:1 parity with TypeScript @betscout/sdk
 normalizeTeamName = normalize_team_name
 teamTokens = team_tokens
@@ -530,3 +688,6 @@ formatPlayerFullName = format_player_full_name
 renderMonogramCrestDataUri = render_monogram_crest_data_uri
 resolvePlayerHeadshotUrl = resolve_player_headshot_url
 resolveCompetitionCrestUrl = resolve_competition_crest_url
+formatMarketPlaceholders = format_market_placeholders
+computeFormWdlSegments = compute_form_wdl_segments
+computeH2HEdgeSummary = compute_h2h_edge_summary

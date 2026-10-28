@@ -9,11 +9,14 @@ import {
 } from './internal/transport.js';
 import type {
   BetScoutDocument,
+  BetScoutHistoricalMatchItem,
   BetScoutJerseyColors,
   BetScoutMarket,
   BetScoutMatchSummary,
   BetScoutMatchTimelineDeltaResponse,
   CountryFlagOptions,
+  FormWdlSegment,
+  H2HEdgeSummary,
   JerseySvgOptions,
   ParsedPrematchMarkets,
   TeamLogoOptions,
@@ -502,4 +505,173 @@ export async function resolveCompetitionCrestUrl(
   const fallback = renderMonogramCrestDataUri(clean, 36);
   HEADSHOT_CACHE.set(`comp:${key}`, fallback);
   return fallback;
+}
+
+function toOrdinal(n: number | string): string {
+  const num = Number.parseInt(String(n), 10);
+  if (Number.isNaN(num)) return String(n);
+  const rem100 = num % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${num}th`;
+  switch (num % 10) {
+    case 1:
+      return `${num}st`;
+    case 2:
+      return `${num}nd`;
+    case 3:
+      return `${num}rd`;
+    default:
+      return `${num}th`;
+  }
+}
+
+/**
+ * Interpolate raw market/outcome template placeholders (`{!setnr}`, `{total}`, `{hcp}`,
+ * `{$competitor1}`, `{$competitor2}`) into human-readable market & outcome names.
+ */
+export function formatMarketPlaceholders(
+  rawText?: string | null,
+  context: {
+    homeName?: string | null;
+    awayName?: string | null;
+    specifiers?: Record<string, string | undefined> | null;
+  } = {},
+): string {
+  let out = String(rawText ?? '');
+  if (!out) return '';
+
+  const spec = context.specifiers ?? {};
+  // Replace {!key} with ordinal (e.g. {!setnr} -> 2nd)
+  out = out.replace(/\{!(\w+)\}/g, (_m, key: string) => {
+    const val = spec[key];
+    return val !== undefined ? toOrdinal(val) : key;
+  });
+  // Replace {$competitor1} and {$competitor2}
+  out = out.replace(/\{\$competitor1\}/gi, context.homeName || 'Home');
+  out = out.replace(/\{\$competitor2\}/gi, context.awayName || 'Away');
+  // Replace {total}, {hcp}, {setnr}, etc.
+  out = out.replace(/\{(\w+)\}/g, (_m, key: string) => {
+    const val = spec[key];
+    return val !== undefined ? String(val) : key;
+  });
+
+  return out;
+}
+
+/**
+ * Extract the last `limit` (default `5`) completed match W/D/L segments with exact score labels
+ * (`"2:0"`, `"1:2"`, etc.) and compute the overall `0`–`100` Form Index (`home_form_pct` / `away_form_pct`).
+ */
+export function computeFormWdlSegments(
+  matches: BetScoutHistoricalMatchItem[] | undefined | null,
+  teamUid: number | string | undefined | null,
+  limit = 5,
+): { segments: FormWdlSegment[]; formPct: number } {
+  const list = Array.isArray(matches) ? matches : [];
+  const targetUid = Number(teamUid ?? 0);
+  const completed: FormWdlSegment[] = [];
+
+  for (const m of list) {
+    const res = m.result;
+    if (!res || res.home == null || res.away == null) continue;
+    if ((m.walkover || m.retired) && !res.winner) continue;
+
+    const hTeam = m.teams?.home;
+    const aTeam = m.teams?.away;
+    const hUid = Number(hTeam?.uid ?? hTeam?._id ?? 0);
+    const isHome = hUid === targetUid;
+    const myScore = Number(isHome ? res.home : res.away);
+    const oppScore = Number(isHome ? res.away : res.home);
+    const oppName = String((isHome ? aTeam?.name : hTeam?.name) ?? '');
+
+    let wdl: 'W' | 'D' | 'L' = 'D';
+    if (res.winner === 'home') wdl = isHome ? 'W' : 'L';
+    else if (res.winner === 'away') wdl = isHome ? 'L' : 'W';
+    else if (myScore > oppScore) wdl = 'W';
+    else if (myScore < oppScore) wdl = 'L';
+
+    completed.push({
+      match_id: m._id ?? null,
+      wdl,
+      score_label: `${myScore}:${oppScore}`,
+      opponent_name: oppName || null,
+    });
+    if (completed.length >= limit) break;
+  }
+
+  // Chronological order (oldest -> newest from left to right, matching Sportradar's reverse())
+  const chronological = [...completed].reverse();
+  let pointsEarned = 0;
+  let maxPoints = 0;
+  for (const seg of chronological) {
+    maxPoints += 3;
+    if (seg.wdl === 'W') pointsEarned += 3;
+    else if (seg.wdl === 'D') pointsEarned += 1;
+  }
+  const formPct = maxPoints > 0 ? Math.round((pointsEarned / maxPoints) * 100) : 0;
+
+  while (chronological.length < limit) {
+    chronological.unshift({
+      match_id: null,
+      wdl: 'empty',
+      score_label: null,
+      opponent_name: null,
+    });
+  }
+
+  return { segments: chronological, formPct };
+}
+
+/**
+ * Compute the direct Head-to-Head win/draw/loss summary and color-coded progress bar percentages
+ * between `homeUid` and `awayUid`.
+ */
+export function computeH2HEdgeSummary(
+  matches: BetScoutHistoricalMatchItem[] | undefined | null,
+  homeUid: number | string | undefined | null,
+  awayUid: number | string | undefined | null,
+): H2HEdgeSummary {
+  const list = Array.isArray(matches) ? matches : [];
+  const hTarget = Number(homeUid ?? 0);
+  const aTarget = Number(awayUid ?? 0);
+  let homeWins = 0;
+  let awayWins = 0;
+  let draws = 0;
+  let oldestUts: number | null = null;
+
+  for (const m of list) {
+    const res = m.result;
+    if (!res || res.home == null || res.away == null) continue;
+    const uts = m.time?.uts ?? m._dt?.uts ?? null;
+    if (typeof uts === 'number' && uts > 0 && (oldestUts === null || uts < oldestUts)) {
+      oldestUts = uts;
+    }
+
+    const mHomeUid = Number(m.teams?.home?.uid ?? m.teams?.home?._id ?? 0);
+    const mAwayUid = Number(m.teams?.away?.uid ?? m.teams?.away?._id ?? 0);
+    const hScore = Number(res.home);
+    const aScore = Number(res.away);
+
+    let winnerUid = 0;
+    if (res.winner === 'home' || hScore > aScore) winnerUid = mHomeUid;
+    else if (res.winner === 'away' || aScore > hScore) winnerUid = mAwayUid;
+
+    if (winnerUid === hTarget && hTarget > 0) homeWins += 1;
+    else if (winnerUid === aTarget && aTarget > 0) awayWins += 1;
+    else if (winnerUid === 0) draws += 1;
+  }
+
+  const total = homeWins + draws + awayWins;
+  const sinceYear =
+    oldestUts !== null ? String(new Date(oldestUts * 1000).getUTCFullYear()) : null;
+
+  return {
+    total_meetings: total,
+    since_year: sinceYear,
+    home_wins: homeWins,
+    draws,
+    away_wins: awayWins,
+    home_win_pct: total > 0 ? Math.round((homeWins / total) * 100) : 0,
+    draw_pct: total > 0 ? Math.round((draws / total) * 100) : 0,
+    away_win_pct: total > 0 ? Math.round((awayWins / total) * 100) : 0,
+  };
 }

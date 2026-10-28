@@ -89,6 +89,8 @@ import type {
   FeedTimezone,
   GoalIntervalBucketSummary,
   InjuryGateEvaluation,
+  InsightsPushStreamOptions,
+  InsightsStreamEvent,
   JerseySvgOptions,
   LiveMatchSituationsPressure,
   LiveTimelineDeltaSummary,
@@ -105,6 +107,9 @@ import type {
   TennisSurfaceSummary,
 } from './types.js';
 import {
+  computeFormWdlSegments,
+  computeH2HEdgeSummary,
+  getAdaptiveRefetchIntervalMs,
   getCountryFlagUrl,
   getTeamLogoUrl,
   mergePrimaryAndConsensusMarkets,
@@ -2413,6 +2418,12 @@ export class BetScoutClient {
     const rawMarkets =
       (mmConsensus?.markets?.length ? mmConsensus.markets : mmPrimary?.markets) ?? [];
 
+    const homeLastList = homeLast?.matches ?? [];
+    const awayLastList = awayLast?.matches ?? [];
+    const homeFormWdl = computeFormWdlSegments(homeLastList, hUid, 5);
+    const awayFormWdl = computeFormWdlSegments(awayLastList, aUid, 5);
+    const h2hEdge = computeH2HEdgeSummary(versus?.matches, hUid, aUid);
+
     return {
       ok: Boolean(matchInfo || timelineDelta),
       match_id: Number(matchId),
@@ -2436,14 +2447,200 @@ export class BetScoutClient {
       away_surface_stats: awaySurface,
       home_streaks: homeStreaks,
       away_streaks: awayStreaks,
-      home_last_matches: homeLast?.matches ?? [],
-      away_last_matches: awayLast?.matches ?? [],
+      home_last_matches: homeLastList,
+      away_last_matches: awayLastList,
       home_next_matches: homeNext?.matches ?? [],
       away_next_matches: awayNext?.matches ?? [],
       fun_facts: funFactsResp?.funfacts ?? [],
       commentary_phrases: phrasesResp?.phrases ?? [],
       squads,
       table_slice: tableSlice,
+      form_wdl: {
+        home: homeFormWdl.segments,
+        away: awayFormWdl.segments,
+        home_form_pct: homeFormWdl.formPct,
+        away_form_pct: awayFormWdl.formPct,
+      },
+      h2h_edge: h2hEdge,
     };
+  }
+
+  /**
+   * Build the official Insights Push Stream URL (`https://api.sportradar.com/insights/production/stream/{league}/{provider}/subscribe?...`).
+   */
+  public buildInsightsPushUrl(options: InsightsPushStreamOptions = {}): string {
+    const league = options.league ?? 'nba';
+    const provider = options.provider ?? 'sportradar';
+    const params = new URLSearchParams();
+    if (options.insightType) params.set('insight_type', options.insightType);
+    if (options.subjectType) params.set('subject_type', options.subjectType);
+    if (options.gameId !== undefined) params.set('game_id', String(options.gameId));
+    if (options.teamId !== undefined) params.set('team_id', String(options.teamId));
+    if (options.playerId !== undefined) params.set('player_id', String(options.playerId));
+    const qs = params.toString();
+    return `https://api.sportradar.com/insights/production/stream/${league}/${provider}/subscribe${qs ? `?${qs}` : ''}`;
+  }
+
+  /**
+   * Dual-Mode **Real-Time Insights & Live Delta Stream** (`streamInsights(options)`):
+   * - **Commercial Push Mode (`options.apiKey` provided):** Opens a persistent chunked HTTP stream to
+   *   `https://api.sportradar.com/insights/production/stream/{league}/{provider}/subscribe` with `x-api-key`,
+   *   yielding real-time `scoring`, `milestones`, `player_betting_trends`, `lineup_changes`, and 5s `heartbeat` frames.
+   * - **Tokenless Adaptive Delta Mode (`options.apiKey` omitted):** Automatically streams tokenless live deltas
+   *   via `match_timelinedelta/{gameId}` (`_maxage: 3`), `match_phrasesdelta/{gameId}` (`_maxage: 5`),
+   *   `match_funfacts/{gameId}`, and `event_get/{sportId}` (`_maxage: 10`), deduplicating events by ID.
+   */
+  public async *streamInsights(
+    options: InsightsPushStreamOptions = {},
+  ): AsyncGenerator<InsightsStreamEvent, void, unknown> {
+    if (options.apiKey) {
+      const url = this.buildInsightsPushUrl(options);
+      const resp = await this.fetchFn(url, {
+        headers: {
+          'x-api-key': options.apiKey,
+          Accept: 'application/json',
+        },
+        signal: options.signal,
+      });
+
+      if (!resp.ok || !resp.body) {
+        throw new Error(`Insights Push Stream HTTP ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!options.signal?.aborted) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+            const isHeartbeat = 'heartbeat' in parsed || parsed.type === 'heartbeat';
+            yield {
+              mode: 'push_stream',
+              event_type: isHeartbeat ? 'heartbeat' : 'raw_insight',
+              timestamp_utc: new Date().toISOString(),
+              match_id: (parsed.subject_id as string | undefined) ?? options.gameId ?? null,
+              summary: (parsed.text as string | undefined) ?? null,
+              payload: parsed,
+            };
+          } catch {
+            // Partial JSON chunk
+          }
+        }
+      }
+      return;
+    }
+
+    // Tokenless Adaptive Delta Stream Mode
+    const seenIds = new Set<string>();
+    const numericMatchId =
+      options.gameId !== undefined
+        ? String(options.gameId).replace(/^sr:match:/i, '')
+        : null;
+    const sportId = resolveSportId(options.sportOrId ?? options.league ?? 'soccer');
+
+    while (!options.signal?.aborted) {
+      let sleepMs = 5000;
+
+      if (numericMatchId) {
+        const [deltaDoc, phrasesDelta, funFacts] = await Promise.all([
+          this.fetchDocument('match_timelinedelta', numericMatchId, {
+            channel: 'global',
+            bypassCache: true,
+          }),
+          this.getMatchCommentaryDelta(numericMatchId, { bypassCache: true }),
+          seenIds.size === 0 ? this.getMatchInsights(numericMatchId) : Promise.resolve(null),
+        ]);
+
+        sleepMs = getAdaptiveRefetchIntervalMs(deltaDoc);
+
+        for (const fact of funFacts?.funfacts ?? []) {
+          const fid = `fact:${fact}`;
+          if (!seenIds.has(fid)) {
+            seenIds.add(fid);
+            yield {
+              mode: 'tokenless_delta',
+              event_type: 'funfact',
+              timestamp_utc: new Date().toISOString(),
+              match_id: numericMatchId,
+              summary: fact,
+              payload: { sentence: fact },
+            };
+          }
+        }
+
+        const deltaData = deltaDoc?.data as { events?: Array<Record<string, unknown>> } | undefined;
+        for (const ev of deltaData?.events ?? []) {
+          const eid = `ev:${ev._id ?? ev.uts ?? JSON.stringify(ev)}`;
+          if (!seenIds.has(eid)) {
+            seenIds.add(eid);
+            yield {
+              mode: 'tokenless_delta',
+              event_type: 'scoring',
+              timestamp_utc: new Date().toISOString(),
+              match_id: numericMatchId,
+              summary: String(ev.name ?? ev.type ?? 'score_change'),
+              payload: ev,
+            };
+          }
+        }
+
+        for (const ph of phrasesDelta?.phrases ?? []) {
+          const pid = `ph:${ph._id}`;
+          if (!seenIds.has(pid)) {
+            seenIds.add(pid);
+            yield {
+              mode: 'tokenless_delta',
+              event_type: 'commentary',
+              timestamp_utc: new Date().toISOString(),
+              match_id: numericMatchId,
+              summary: ph.text,
+              payload: ph,
+            };
+          }
+        }
+      } else {
+        const evDoc = await this.fetchDocument('event_get', String(sportId), {
+          channel: 'global',
+          bypassCache: true,
+        });
+        sleepMs = getAdaptiveRefetchIntervalMs(evDoc);
+        const evData = evDoc?.data as { events?: Array<Record<string, unknown>> } | undefined;
+        for (const ev of (evData?.events ?? []).slice(0, 15)) {
+          const eid = `sp:${ev._id ?? ev.uts}`;
+          if (!seenIds.has(eid)) {
+            seenIds.add(eid);
+            yield {
+              mode: 'tokenless_delta',
+              event_type: 'sport_event',
+              timestamp_utc: new Date().toISOString(),
+              match_id: (ev.matchid as number | undefined) ?? null,
+              summary: String(ev.type ?? 'live_event'),
+              payload: ev,
+            };
+          }
+        }
+      }
+
+      yield {
+        mode: 'tokenless_delta',
+        event_type: 'heartbeat',
+        timestamp_utc: new Date().toISOString(),
+        match_id: numericMatchId,
+        summary: `Heartbeat (next poll in ${sleepMs}ms)`,
+        payload: { nextPollMs: sleepMs },
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, sleepMs));
+    }
   }
 }

@@ -1713,6 +1713,76 @@ export interface MatchCenterDossier {
   commentary_phrases: BetScoutMatchPhraseItem[];
   squads: BetScoutMatchSquadsResponse | null;
   table_slice: BetScoutLeagueTable | null;
+  form_wdl: {
+    home: FormWdlSegment[];
+    away: FormWdlSegment[];
+    home_form_pct: number;
+    away_form_pct: number;
+  };
+  h2h_edge: H2HEdgeSummary;
+}
+
+export interface FormWdlSegment {
+  match_id: number | null;
+  wdl: 'W' | 'D' | 'L' | 'empty';
+  score_label: string | null;
+  opponent_name: string | null;
+}
+
+export interface H2HEdgeSummary {
+  total_meetings: number;
+  since_year: string | null;
+  home_wins: number;
+  draws: number;
+  away_wins: number;
+  home_win_pct: number;
+  draw_pct: number;
+  away_win_pct: number;
+}
+
+export type InsightsPushLeague = 'nba' | 'nfl' | 'mlb' | 'nhl' | 'ncaamb' | 'ncaafb';
+export type InsightsPushProvider = 'sportradar' | 'fansure' | 'tallysight' | 'fairplay';
+export type InsightsPushType =
+  | 'scoring'
+  | 'milestones'
+  | 'leaderboards'
+  | 'highs'
+  | 'expert_picks'
+  | 'player_betting_trends'
+  | 'team_betting_trends'
+  | 'lineup_changes'
+  | 'predictions';
+
+export interface InsightsPushStreamOptions {
+  /** Commercial API key (`x-api-key`) when subscribing to the official `api.sportradar.com` push stream */
+  apiKey?: string;
+  /** Target US sport league (`'nba'` | `'nfl'` | `'mlb'` | `'nhl'` | `'ncaamb'` | `'ncaafb'`) */
+  league?: InsightsPushLeague;
+  /** Insights provider (`'sportradar'` | `'fansure'` | `'tallysight'` | `'fairplay'`) */
+  provider?: InsightsPushProvider;
+  /** Optional insight category filter */
+  insightType?: InsightsPushType;
+  /** Optional subject scope (`'game'` | `'team'` | `'player'`) */
+  subjectType?: 'game' | 'team' | 'player';
+  /** Optional game ID (`sr:match:...` or numeric match ID for tokenless adaptive delta stream) */
+  gameId?: string | number;
+  /** Optional team ID (`sr:competitor:...` or numeric team ID) */
+  teamId?: string | number;
+  /** Optional player ID (`sr:player:...` or numeric player ID) */
+  playerId?: string | number;
+  /** Optional sport ID or slug when using the tokenless adaptive delta stream fallback */
+  sportOrId?: string | number;
+  /** Optional AbortSignal to stop streaming */
+  signal?: AbortSignal;
+}
+
+export interface InsightsStreamEvent {
+  mode: 'push_stream' | 'tokenless_delta';
+  event_type: 'heartbeat' | 'scoring' | 'commentary' | 'funfact' | 'sport_event' | 'raw_insight';
+  timestamp_utc: string;
+  match_id?: number | string | null;
+  summary?: string | null;
+  payload: unknown;
 }
 
 
