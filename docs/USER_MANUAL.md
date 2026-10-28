@@ -1,4 +1,4 @@
-# <img src="../frontend/public/betscout-logo.svg" width="32" height="32" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — User Manual & Feature Reference Guide
+# <img src="../app/public/betscout-logo.svg" width="32" height="32" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — User Manual & Feature Reference Guide
 
 **BetScout** (`betscout.app` · `https://github.com/jchristov/betscout.app`) is an out-of-sample validated multi-sport prediction, exact-score projection, 2-leg combo/parlay, and prospective paper-betting intelligence platform covering:
 - **⚽ 14 Football Competitions (`11,582` matches):** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`), and `fifa.world`.
@@ -71,7 +71,7 @@ All historical and live records are stored in a single canonical SQLite database
 ### Launch the Interactive BetScout WebApp Server (Recommended)
 ```bash
 make dev
-# (or directly: cd backend && uv run betscout --port 8090)
+# (or directly: cd api && uv run betscout --port 8090)
 ```
 Then open **`http://127.0.0.1:8090`** (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `/api/docs` Swagger UI, and `/docs/png-notification-cards.html` PNG Notification Cards Catalog) in your browser.
 

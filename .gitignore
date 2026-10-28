@@ -1,17 +1,35 @@
+# Python environments & caches
 .venv/
-backend/.venv/
-.env
-data/
+**/.venv/
 __pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+**/*.egg-info/
 .pytest_cache/
-backend/.pytest_cache/
-frontend/node_modules/
-frontend/dist/
-sdk/node_modules/
-sdk/dist/
+**/.pytest_cache/
+.ruff_cache/
+**/.ruff_cache/
+.mypy_cache/
+**/.mypy_cache/
+build/
+**/build/
+
+# Node / TypeScript / Vite build & dependency artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.tsbuildinfo
+
+# Local secrets, OS & runtime data
+.env
+.env.*
+!.env.example
+data/
 .firebase/
+.DS_Store
+**/.DS_Store
+*.log
 
-
-sdk/**/node_modules/
-sdk/**/dist/

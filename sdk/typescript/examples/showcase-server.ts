@@ -532,7 +532,7 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (p === '/betscout-logo.svg') {
-      const logoSvgPath = path.resolve(__dirname, '../../../frontend/public/betscout-logo.svg');
+      const logoSvgPath = path.resolve(__dirname, '../../../app/public/betscout-logo.svg');
       if (fs.existsSync(logoSvgPath)) {
         res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8' });
         res.end(fs.readFileSync(logoSvgPath, 'utf8'));

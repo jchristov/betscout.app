@@ -20,14 +20,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install Python dependencies first for layer caching (resolve from public PyPI in Cloud Build)
-COPY backend/pyproject.toml README.md ./
-COPY backend/src ./src
+COPY sdk/python ./sdk/python
+COPY api/pyproject.toml README.md ./
+COPY api/src ./src
 RUN uv sync --no-dev --default-index https://pypi.org/simple
 
 # Copy static assets, CLI scripts, Vue 3 SPA bundle & ingestion config
-COPY backend/ingestion_config.json frontend/public/betscout-logo.svg frontend/public/betscout-logo.png ./
-COPY backend/scripts ./scripts
-COPY frontend/dist ./frontend/dist
+COPY api/ingestion_config.json app/public/betscout-logo.svg app/public/betscout-logo.png ./
+COPY api/scripts ./scripts
+COPY app/dist ./app/dist
 RUN mkdir -p /app/data && chmod +x /app/scripts/cloud_entrypoint.sh
 
 EXPOSE 8080

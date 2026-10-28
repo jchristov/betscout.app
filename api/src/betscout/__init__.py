@@ -6,20 +6,21 @@ import os
 import sys
 from pathlib import Path
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
+API_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = API_ROOT
 MODEL_ROOT = (
-    BACKEND_ROOT.parent
-    if ((BACKEND_ROOT.parent / "data").exists() or (BACKEND_ROOT.parent / "frontend").exists())
-    else BACKEND_ROOT
+    API_ROOT.parent
+    if ((API_ROOT.parent / "data").exists() or (API_ROOT.parent / "app").exists())
+    else API_ROOT
 )
 
 
 def load_dotenv(env_path: Path | None = None, override: bool = False) -> dict[str, str]:
-    """Load key=value pairs from `.env` (in repo root, `backend/`, or custom `env_path`) into `os.environ`."""
+    """Load key=value pairs from `.env` (in repo root, `api/`, or custom `env_path`) into `os.environ`."""
     candidates = (
         [env_path]
         if env_path
-        else [MODEL_ROOT / ".env", BACKEND_ROOT / ".env", MODEL_ROOT.parent / ".env"]
+        else [MODEL_ROOT / ".env", API_ROOT / ".env", MODEL_ROOT.parent / ".env"]
     )
     loaded: dict[str, str] = {}
     for path in candidates:

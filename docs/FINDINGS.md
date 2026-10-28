@@ -10,7 +10,7 @@ Across **52,410 finished matches** (`9,292` soccer matches across 6 European lea
 
 ### Key Takeaways
 1. **Single-feature models and raw goal-based Elo do not beat closing bookmaker prices**: A single bookmaker's closing 1X2 line carries a ~`5.6%` overround and already prices in team Elo, recent W/D/L form, and rest days.
-2. **Data hygiene is critical before any edge claim**: Auditing the raw ESPN payloads uncovered four major data anomalies that created false edges in naive backtests—most notably **90th-minute in-play closing-whistle odds** stored in `Bet 365`'s top-level `homeTeamOdds.odds.value` slot (`746` rows), **in-play pollution in secondary European feeds** (`BetfairSportsbook`, `Unibet`, `Titanbets`), **1,336 duplicate same-day tennis competition IDs**, and **Asian push/quarter-line settlement bugs** on `2.0`, `2.25`, `2.75`, and `3.0` goal lines. All four have been fixed and locked down with automated checks in [`backend/src/betscout/quality.py`](../backend/src/betscout/quality.py).
+2. **Data hygiene is critical before any edge claim**: Auditing the raw ESPN payloads uncovered four major data anomalies that created false edges in naive backtests—most notably **90th-minute in-play closing-whistle odds** stored in `Bet 365`'s top-level `homeTeamOdds.odds.value` slot (`746` rows), **in-play pollution in secondary European feeds** (`BetfairSportsbook`, `Unibet`, `Titanbets`), **1,336 duplicate same-day tennis competition IDs**, and **Asian push/quarter-line settlement bugs** on `2.0`, `2.25`, `2.75`, and `3.0` goal lines. All four have been fixed and locked down with automated checks in [`api/src/betscout/quality.py`](../api/src/betscout/quality.py).
 3. **Multi-book execution & synthetic Dutching cut the bookmaker margin nearly in half**:
    - Line-shopping across verified pre-match providers (`Bet 365`, `Bet365`, `DraftKings`, `ESPN BET`, `Caesars`, `SugarHouse`, `PointsBet`) reduces the 1X2 overround from **`1.0561` (`+5.61%` vig)** to **`1.0371` (`+3.71%` vig)** across `8,203` multi-book matches.
    - Constructing a **Synthetic Double Chance** (`1X`, `X2`, `12`) by proportionally dutching the best pre-match 1X2 prices reduces Double Chance vig from **`+6.30%`** (official DC market) to **`+3.80%`**, beating the official DC price on **83%–89%** of matches.
@@ -384,7 +384,7 @@ We audited all 4 early paper-bet losses and upgraded both the Tennis and UEFA Fo
 
 ## 13. Post-Mortem #3 (Oct 27–28, 2026 Overnight Events): Table Tennis Session Fatigue & NHL 2-Way / Defensive Integrity Upgrades
 
-Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+22.72u` Flat-Unit Profit, `+33.9%` ROI, `+34.53%` ¼-Kelly Growth)**, we audited every settled result and recent loss to harden the per-sport gates in [`backend/src/betscout/sport_models.py`](../backend/src/betscout/sport_models.py), [`backend/src/betscout/sportradar_statshub.py`](../backend/src/betscout/sportradar_statshub.py), and [`backend/src/betscout/paper_bet.py`](../backend/src/betscout/paper_bet.py):
+Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+22.72u` Flat-Unit Profit, `+33.9%` ROI, `+34.53%` ¼-Kelly Growth)**, we audited every settled result and recent loss to harden the per-sport gates in [`api/src/betscout/sport_models.py`](../api/src/betscout/sport_models.py), [`api/src/betscout/sportradar_statshub.py`](../api/src/betscout/sportradar_statshub.py), and [`api/src/betscout/paper_bet.py`](../api/src/betscout/paper_bet.py):
 
 ### 1. By-Sport Settled Attribution (`67` Graded Picks)
 

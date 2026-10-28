@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = (
     Path(__file__).resolve().parents[2]
-    if ((Path(__file__).resolve().parents[2] / "data").exists() or (Path(__file__).resolve().parents[2] / "frontend").exists())
+    if ((Path(__file__).resolve().parents[2] / "data").exists() or (Path(__file__).resolve().parents[2] / "app").exists())
     else Path(__file__).resolve().parents[1]
 )
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))

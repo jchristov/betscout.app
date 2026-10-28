@@ -197,7 +197,7 @@ const FA6_SUBSET = {
 
 /**
  * Multi-color Vector Sport Icon Collection (`betscout-sport:*`) matching the notification card
- * sport emblems in `backend/src/betscout/pick_card.py` (`_render_sport_icon_rgba`).
+ * sport emblems in `api/src/betscout/pick_card.py` (`_render_sport_icon_rgba`).
  * Rendered via `@iconify/vue` (`<Icon />`) for 100% cross-platform consistency (no OS-specific emoji font glyphs).
  * Note: The monochrome FontAwesome 6 Solid sport icons (`fa6-solid:*`) remain registered in `FA6_SUBSET` above
  * and documented in `SPORT_FA6_ICONIFY_NAMES` (`formatters.ts`) if we ever want to switch back.

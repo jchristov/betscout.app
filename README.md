@@ -1,4 +1,4 @@
-# <img src="./frontend/public/betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
+# <img src="./app/public/betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
 
 Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-leg combo/parlay, and live paper-betting intelligence platform (`https://github.com/jchristov/betscout.app`) across **7 Core Database Sports & 27 Championships (`59,062` verified matches in `data/betscout.db`)** plus **56 Live Sportradar StatsHub & Tipico Sports**:
 - **⚽ 14 Football Competitions (`11,582` matches):** `eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`, `aut.1`, `ned.1`, `por.1`, `eng.2`, `uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`, `fifa.world`
@@ -16,21 +16,21 @@ See **[docs/USER_MANUAL.md](./docs/USER_MANUAL.md)** for the complete interactiv
 # Show all available Makefile targets
 make help
 
-# Build Vue 3 + Tailwind SPA (frontend/dist) and start local BetScout server on http://127.0.0.1:8090
+# Build Vue 3 + Tailwind SPA (app/dist) and start local BetScout server on http://127.0.0.1:8090
 make dev
 
-# Run all frontend (Vitest) and backend (Pytest) unit & component test suites
+# Run all app (Vitest), SDK (Vitest + Pytest), and api (Pytest) unit & component test suites
 make test
 
 # Regenerate Option 7.3 SVG & PNG logo assets in all sizes and PNG notification cards design catalog
 make logos
 make cards-gallery
 
-# Test, build frontend/dist, and deploy to Google Cloud Run + Firebase Hosting
+# Test, build app/dist, and deploy to Google Cloud Run + Firebase Hosting
 make deploy
 
 # Launch the live BetScout WebApp, SSE Stream & Background Auto-Poller directly via uv (http://127.0.0.1:8090)
-cd backend && uv run betscout --port 8090
+cd api && uv run betscout --port 8090
 
 # 0. Run the complete 4-stage daily pipeline (Config-driven incremental sync -> Quality check -> Multi-sport scanner -> HTML Dashboard)
 uv run betscout pipeline
@@ -80,11 +80,12 @@ uv run pytest -q
 ## Project Structure
 
 - `Makefile` — Root monorepo task runner (`make help`, `make install`, `make dev`, `make serve`, `make test`, `make logos`, `make cards-gallery`, `make sync`, `make rescan`, `make pipeline`, `make deploy`)
-- `frontend/` — **Vue 3 + TypeScript + Tailwind CSS + Pinia + Vue Router + Vitest** single-domain SPA (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `@iconify/vue` FontAwesome 6 Solid icons, PWA Service Worker & LocalStorage sync, and `canvasCard.ts` client-side PNG card preview)
+- `app/` — **Vue 3 + TypeScript + Tailwind CSS + Pinia + Vue Router + Vitest** single-domain SPA (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `@iconify/vue` FontAwesome 6 Solid icons, PWA Service Worker & LocalStorage sync, and `canvasCard.ts` client-side PNG card preview)
+- `sdk/typescript/` & `sdk/python/` — White-labeled **`@betscout/sdk` (TypeScript/Node.js)** and **`betscout-sdk` / `betscout_sdk` (Python)** SDKs with 1:1 parity across 56 sports, multi-bookmaker odds, betting splits, stage sports, and match center dossiers
 - `docs/` — Comprehensive documentation & design catalogs (`USER_MANUAL.md`, `FINDINGS.md`, `LAYA_DECISION_MODEL_EVALUATION.md`, `MONETIZATION_PLAN.md`, `CLOUD_ARCHITECTURE_OPTIONS.md`, `FIREBASE_CLOUD_RUN_SETUP.md`, `SPORTRADAR_STATSHUB.md`, `png-notification-cards.html`, and `logo-studio.html`)
-- `backend/ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
-- `backend/deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
-- `backend/src/betscout/`
+- `api/ingestion_config.json` — Descriptor of all 20 configured sports/leagues with automatic watermark & record-count tracking (`56,450` total matches)
+- `api/deploy/com.betscout.daily.plist` — macOS `launchd` two-pass daily scheduler (`08:00` morning settlement & scan, `18:15` T-60m Starting XI confirmation pass)
+- `api/src/betscout/`
   - `espn.py` — Cached ESPN scoreboard & summary client (`curl --compressed` with retry/backoff and 15m live refresh for recent days)
   - `ingest.py` — Pre-match 3-way & 2-way odds validators (`_valid_1x2`, `_valid_2way`, `_valid_dc`, `_valid_totals`), American-odds fallback, and same-day deduplication
   - `universal_ingest.py` — Config-driven universal ingestion engine (`ingest_universal`) with watermark skipping and on-the-fly normalization

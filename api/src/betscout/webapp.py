@@ -1047,9 +1047,17 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             sport = (qs.get("sport") or ["all"])[0]
 
             spa_dist_dir = (
-                (root_dir / "frontend" / "dist")
-                if (root_dir / "frontend" / "dist").is_dir()
-                else (root_dir.parent / "frontend" / "dist")
+                (root_dir / "app" / "dist")
+                if (root_dir / "app" / "dist").is_dir()
+                else (
+                    (root_dir.parent / "app" / "dist")
+                    if (root_dir.parent / "app" / "dist").is_dir()
+                    else (
+                        (root_dir / "frontend" / "dist")
+                        if (root_dir / "frontend" / "dist").is_dir()
+                        else (root_dir.parent / "frontend" / "dist")
+                    )
+                )
             )
             spa_index = spa_dist_dir / "index.html"
 
@@ -1198,10 +1206,10 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                 pkg_icon = Path(__file__).resolve().parent / "assets" / "sport_icons" / sp_fname
                 sp_candidates = [
                     pkg_icon,
-                    root_dir / "frontend" / "dist" / "sport-icons" / sp_fname,
-                    root_dir / "frontend" / "public" / "sport-icons" / sp_fname,
-                    root_dir.parent / "frontend" / "dist" / "sport-icons" / sp_fname,
-                    root_dir.parent / "frontend" / "public" / "sport-icons" / sp_fname,
+                    root_dir / "app" / "dist" / "sport-icons" / sp_fname,
+                    root_dir / "app" / "public" / "sport-icons" / sp_fname,
+                    root_dir.parent / "app" / "dist" / "sport-icons" / sp_fname,
+                    root_dir.parent / "app" / "public" / "sport-icons" / sp_fname,
                 ]
                 sp_file = next((p for p in sp_candidates if p.is_file()), None)
                 if sp_file:
@@ -1219,10 +1227,10 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
 
                 sz = 192 if "192" in parsed.path else (180 if "apple" in parsed.path else 512)
                 logo_candidates = [
-                    root_dir / "frontend" / "dist" / "betscout-logo.png",
-                    root_dir / "frontend" / "public" / "betscout-logo.png",
-                    root_dir.parent / "frontend" / "dist" / "betscout-logo.png",
-                    root_dir.parent / "frontend" / "public" / "betscout-logo.png",
+                    root_dir / "app" / "dist" / "betscout-logo.png",
+                    root_dir / "app" / "public" / "betscout-logo.png",
+                    root_dir.parent / "app" / "dist" / "betscout-logo.png",
+                    root_dir.parent / "app" / "public" / "betscout-logo.png",
                     root_dir / "betscout-logo.png",
                     root_dir.parent / "betscout-logo.png",
                 ]
@@ -1238,10 +1246,10 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
 
             if parsed.path in ("/betscout-logo.svg", "/favicon.svg"):
                 svg_candidates = [
-                    root_dir / "frontend" / "dist" / "betscout-logo.svg",
-                    root_dir / "frontend" / "public" / "betscout-logo.svg",
-                    root_dir.parent / "frontend" / "dist" / "betscout-logo.svg",
-                    root_dir.parent / "frontend" / "public" / "betscout-logo.svg",
+                    root_dir / "app" / "dist" / "betscout-logo.svg",
+                    root_dir / "app" / "public" / "betscout-logo.svg",
+                    root_dir.parent / "app" / "dist" / "betscout-logo.svg",
+                    root_dir.parent / "app" / "public" / "betscout-logo.svg",
                     root_dir / "betscout-logo.svg",
                     root_dir.parent / "betscout-logo.svg",
                 ]
@@ -1838,7 +1846,7 @@ self.addEventListener('fetch', (event) => {{
                         cfg_p = (
                             (root_dir / "ingestion_config.json")
                             if (root_dir / "ingestion_config.json").exists()
-                            else (root_dir / "backend" / "ingestion_config.json")
+                            else (root_dir / "api" / "ingestion_config.json")
                         )
                         ing_res = ingest_universal(
                             db_path=db_path,

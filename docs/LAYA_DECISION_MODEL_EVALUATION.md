@@ -82,5 +82,5 @@ BetScout's three structured player-availability gates operate on exact athlete I
 
 ## 5. Conclusion & Action Taken
 
-1. **Preserved Laya on Dedicated Branch**: The complete Laya-enabled codebase (`decision_signal.py`, `distill_laya_sports.py`, `compare_decision_models.py`, `backend/deploy/firebase_laya/`) is preserved on branch **`feat/laya-decision-model`**.
+1. **Preserved Laya on Dedicated Branch**: The complete Laya-enabled codebase (`decision_signal.py`, `distill_laya_sports.py`, `compare_decision_models.py`, `api/deploy/firebase_laya/`) is preserved on branch **`feat/laya-decision-model`**.
 2. **Removed Laya from Active Production Stack (`main`)**: Removed the unstructured Laya decision model from the active `main` pipeline, eliminating false-positive headline vetoes, reducing scan latency, and freeing `804 MB` of checkpoint storage while retaining 100% of BetScout's quantitative and structured-lineup alpha.

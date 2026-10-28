@@ -1,13 +1,13 @@
 .git
 .venv
-backend/.venv
+api/.venv
 __pycache__
 *.pyc
 .pytest_cache
-backend/.pytest_cache
+api/.pytest_cache
 .env
 data/cache
-frontend/node_modules
+app/node_modules
 sdk/node_modules
 sdk/dist
 .firebase

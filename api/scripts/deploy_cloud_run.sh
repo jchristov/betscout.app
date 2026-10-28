@@ -42,8 +42,8 @@ for f in recommendations.json webapp_settings.json best_bets.json best_bets.csv 
   fi
 done
 
-echo "🧪 [3/6] Running Vitest unit tests & building Vue 3 + Tailwind SPA (frontend/dist)..."
-(cd frontend && npm run test && npm run build)
+echo "🧪 [3/6] Running Vitest unit tests & building Vue 3 + Tailwind SPA (app/dist)..."
+(cd app && npm run test && npm run build)
 
 echo "🐳 [4/6] Building & deploying Cloud Run service ${SERVICE_NAME} (${REGION})..."
 gcloud run deploy "${SERVICE_NAME}" \
