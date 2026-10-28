@@ -1339,6 +1339,98 @@ export class BetScoutClient {
     );
   }
 
+  // ==========================================================================
+  // J. Stage Sports (Formula 1, MotoGP, NASCAR, IndyCar, Rally, Cycling, Winter Sports) & Cricket
+  // ==========================================================================
+
+  /**
+   * Query all seasons/stages for a Stage Sport category (`stage_seasons/{realCategoryId}`),
+   * such as Formula 1 (`rcId=36`), Cycling (`rcId=96`), MotoGP (`rcId=498`), or Biathlon (`rcId=141`).
+   */
+  public async getStageSeasons(
+    realCategoryId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stage_seasons', String(realCategoryId), {
+      channel: 'global',
+      ttlSec: 3600,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the driver/rider/team championship standings and season summary for a Stage Sport season (`stage_seasonsummary/{stageId}`).
+   */
+  public async getStageSeasonSummary(
+    stageId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stage_seasonsummary', String(stageId), {
+      channel: 'global',
+      ttlSec: 1800,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the full race/stage hierarchy, child sessions (Practice, Qualifying, Sprint, Race), and results (`stage_get/{stageId}`).
+   */
+  public async getStageDetails(
+    stageId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stage_get', String(stageId), {
+      channel: 'global',
+      ttlSec: 900,
+      ...options,
+    });
+  }
+
+  /**
+   * Query the race/event calendar for a Stage Sport season (`stats_stage_calendar/{stageId}`).
+   */
+  public async getStageCalendar(
+    stageId: number | string,
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    return this.fetchFeed<Record<string, unknown>>('stats_stage_calendar', String(stageId), {
+      channel: 'global',
+      ttlSec: 3600,
+      ...options,
+    });
+  }
+
+  /**
+   * Query all Stage Sport events scheduled on a specific date (`stage_day/{sportId}/{dateYmd}`).
+   */
+  public async getStageDayEvents(
+    sportOrId: string | number = 40,
+    dateYmd: string = todayYmdUtc(),
+    options?: BetScoutRequestOptions,
+  ): Promise<Record<string, unknown> | null> {
+    const sportId = resolveSportId(sportOrId);
+    return this.fetchFeed<Record<string, unknown>>(
+      'stage_day',
+      `${sportId}/${dateYmd}`,
+      { channel: 'global', ttlSec: 600, ...options },
+    );
+  }
+
+  /**
+   * Query the dedicated global **Cricket** live & scheduled match feed (`cricket/get_events`, `420+` T20/ODI/Test fixtures).
+   */
+  public async getCricketEvents(): Promise<Record<string, unknown> | null> {
+    const url = `${this.baseUrl}/common/en/Etc:UTC/cricket/get_events`;
+    try {
+      const resp = await this.fetchWithTimeout(url, { headers: DEFAULT_HEADERS });
+      if (!resp.ok) return null;
+      const payload = (await resp.json()) as BetScoutEnvelope<Record<string, unknown>>;
+      return payload?.doc?.[0]?.data ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Query the **Complete Historical Match Event Timeline** (`match_timeline/{matchId}`),
    * returning all chronological goals, cards, substitutions, period scores, and point-by-point events.

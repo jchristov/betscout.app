@@ -326,3 +326,27 @@ def test_betting_splits_v3_and_tokenless_divergence():
     assert s0["stake_percentage"] == 87.86
     assert s0["sharp_divergence_pct"] > 3.0
     assert s0["direction"] == "steam_toward"
+
+
+def test_stage_sports_and_cricket_events():
+    def mock_fetch(url: str, headers: dict[str, str], timeout: float) -> dict[str, Any] | None:
+        if "stage_seasons/36" in url:
+            return _envelope({"seasons": [{"_id": 1385080, "name": "Formula 1 2027"}]})
+        if "stage_seasonsummary/1385080" in url:
+            return _envelope({"_id": 1385080, "name": "Formula 1 2027"})
+        if "cricket/get_events" in url:
+            return _envelope(
+                {
+                    "action": "get_events",
+                    "sportEvents": [{"eventId": "sr:match:75797492"}],
+                }
+            )
+        return _envelope({})
+
+    client = BetScoutClient(fetch_fn=mock_fetch)
+    f1 = client.get_stage_seasons(36)
+    assert f1["seasons"][0]["name"] == "Formula 1 2027"
+    f1_sum = client.get_stage_season_summary(1385080)
+    assert f1_sum["name"] == "Formula 1 2027"
+    cr = client.get_cricket_events()
+    assert cr["sportEvents"][0]["eventId"] == "sr:match:75797492"

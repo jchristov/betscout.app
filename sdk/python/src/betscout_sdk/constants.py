@@ -45,6 +45,33 @@ TENNIS_SURFACE_IDS: dict[str, int] = {
     "GRASS": 4,
 }
 
+STAGE_SPORT_IDS: tuple[int, ...] = (
+    17,
+    40,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    101,
+    129,
+    131,
+    188,
+    190,
+    191,
+)
+
+
+def is_stage_sport(sport_or_id: str | int) -> bool:
+    return resolve_sport_id(sport_or_id) in STAGE_SPORT_IDS
+
+
+isStageSport = is_stage_sport
+
 PLAYER_STATUS_TYPES: dict[str, int] = {
     "OTHER": 0,
     "INJURED": 1,

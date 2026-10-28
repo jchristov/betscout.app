@@ -1131,4 +1131,43 @@ describe('@betscout/sdk — Visual Assets, Insights, Venues & Team Futures Marke
     expect(m0.selections[0]?.sharp_divergence_pct).toBeGreaterThan(3);
     expect(m0.selections[0]?.direction).toBe('steam_toward');
   });
+
+  it('fetches Stage Sports (Formula 1, MotoGP, Cycling, Winter Sports) and Cricket events', async () => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (urlInput) => {
+      const url = String(urlInput);
+      if (url.includes('stage_seasons/36')) {
+        return jsonResponse({
+          seasons: [{ _id: 1385080, name: 'Formula 1 2027' }],
+        });
+      }
+      if (url.includes('stage_seasonsummary/1385080')) {
+        return jsonResponse({
+          _id: 1385080,
+          name: 'Formula 1 2027',
+          competitors: [{ _id: 1, name: 'Verstappen, Max' }],
+        });
+      }
+      if (url.includes('cricket/get_events')) {
+        return jsonResponse({
+          action: 'get_events',
+          sportEvents: [
+            { eventId: 'sr:match:75797492', eventName: 'Toronto Kings vs Montreal Warriors' },
+          ],
+        });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    const client = new BetScoutClient({ fetchFn: mockFetch });
+    const f1Seasons = await client.getStageSeasons(36);
+    expect((f1Seasons?.seasons as Array<{ name: string }>)?.[0]?.name).toBe('Formula 1 2027');
+
+    const f1Summary = await client.getStageSeasonSummary(1385080);
+    expect(f1Summary?.name).toBe('Formula 1 2027');
+
+    const cricket = await client.getCricketEvents();
+    expect((cricket?.sportEvents as Array<{ eventId: string }>)?.[0]?.eventId).toBe(
+      'sr:match:75797492',
+    );
+  });
 });

@@ -87,6 +87,29 @@
     .pill-amber { background: rgba(245, 158, 11, 0.14); color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.32); }
     .pill-rose { background: rgba(244, 63, 94, 0.14); color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.32); }
 
+    @keyframes pulseDot {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 8px 2px rgba(16, 185, 129, 0.8);
+      }
+      50% {
+        opacity: 0.45;
+        transform: scale(0.82);
+        box-shadow: 0 0 2px 0 rgba(16, 185, 129, 0.3);
+      }
+    }
+
+    .live-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      flex-shrink: 0;
+      animation: pulseDot 1.6s ease-in-out infinite;
+    }
+
     .btn-action {
       height: 34px;
       padding: 0 0.85rem;
@@ -487,7 +510,7 @@
           <div class="brand-title">
             <span>BetScout Match Center Replica</span>
             <span class="pill" id="match-id-pill">Match #76034538</span>
-            <span class="pill pill-emerald" id="live-poll-pill">3s Live Delta Stream Active</span>
+            <span class="pill pill-emerald" id="live-poll-pill"><span class="live-pulse-dot"></span><span>3s Live Delta Stream Active</span></span>
           </div>
           <div style="font-size: 0.78rem; color: var(--text-secondary);">
             1:1 SDK Replica of <code>/match/76034538</code> powered by <code>client.getMatchCenterDossier(76034538)</code>
@@ -846,12 +869,11 @@
       }).join('');
 
       const badgeColor = formPct >= 65 ? 'pill-emerald' : formPct >= 40 ? 'pill-amber' : 'pill-rose';
-      const pctBadge = `<span class="pill ${badgeColor}" style="font-size:0.72rem;padding:0.18rem 0.55rem;" title="Last 5 Matches Form Rating">Form: <strong>${formPct} / 100</strong></span>`;
+      const pctBadge = `<span class="pill ${badgeColor}" style="font-size:0.71rem;padding:0.15rem 0.55rem;" title="Last 5 Matches Form Rating">Form: <strong>${formPct} / 100</strong></span>`;
 
-      return `<div style="display:inline-flex;align-items:center;gap:0.55rem;flex-wrap:wrap;${alignRight ? 'justify-content:flex-end;' : ''}">
-        ${alignRight ? pctBadge : ''}
+      return `<div style="display:flex;flex-direction:column;align-items:${alignRight ? 'flex-end' : 'flex-start'};gap:0.32rem;">
+        ${pctBadge}
         <div class="form-strip" style="gap:0.32rem;">${itemsHtml}</div>
-        ${!alignRight ? pctBadge : ''}
       </div>`;
     }
 

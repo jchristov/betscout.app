@@ -771,6 +771,52 @@ class BetScoutClient:
             ttl_sec=3600,
         )
 
+    # ==========================================================================
+    # J. Stage Sports (Formula 1, MotoGP, NASCAR, IndyCar, Rally, Cycling, Winter Sports) & Cricket
+    # ==========================================================================
+
+    def get_stage_seasons(self, real_category_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stage_seasons", str(real_category_id), channel="global", ttl_sec=3600
+        )
+
+    def get_stage_season_summary(self, stage_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stage_seasonsummary", str(stage_id), channel="global", ttl_sec=1800
+        )
+
+    def get_stage_details(self, stage_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed("stage_get", str(stage_id), channel="global", ttl_sec=900)
+
+    def get_stage_calendar(self, stage_id: int | str) -> dict[str, Any] | None:
+        return self.fetch_feed(
+            "stats_stage_calendar", str(stage_id), channel="global", ttl_sec=3600
+        )
+
+    def get_stage_day_events(
+        self, sport_or_id: str | int = 40, date_ymd: str | None = None
+    ) -> dict[str, Any] | None:
+        sid = resolve_sport_id(sport_or_id)
+        ymd = date_ymd or _today_ymd_utc()
+        return self.fetch_feed("stage_day", f"{sid}/{ymd}", channel="global", ttl_sec=600)
+
+    def get_cricket_events(self) -> dict[str, Any] | None:
+        url = f"{self.base_url}/common/en/Etc:UTC/cricket/get_events"
+        try:
+            if self._fetch_fn is not None:
+                payload = self._fetch_fn(url, _DEFAULT_HEADERS, self.timeout_sec)
+            else:
+                req = urllib.request.Request(url, headers=_DEFAULT_HEADERS)
+                ctx = ssl.create_default_context()
+                if hasattr(ssl, "VERIFY_X509_STRICT"):
+                    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+                with urllib.request.urlopen(req, timeout=self.timeout_sec, context=ctx) as resp:
+                    payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+            doc0 = (payload or {}).get("doc", [None])[0] if isinstance(payload, dict) else None
+            return doc0.get("data") if isinstance(doc0, dict) else None
+        except Exception:
+            return None
+
     def get_match_full_timeline(self, match_id: int | str) -> dict[str, Any] | None:
         return self.fetch_feed("match_timeline", str(match_id), channel="neutral", ttl_sec=60)
 
@@ -1841,6 +1887,12 @@ class BetScoutClient:
     getSeasonLastMatches = get_season_last_matches
     getSeasonNextMatches = get_season_next_matches
     getCompetitionSeasons = get_competition_seasons
+    getStageSeasons = get_stage_seasons
+    getStageSeasonSummary = get_stage_season_summary
+    getStageDetails = get_stage_details
+    getStageCalendar = get_stage_calendar
+    getStageDayEvents = get_stage_day_events
+    getCricketEvents = get_cricket_events
     getMatchFullTimeline = get_match_full_timeline
     getRefereeSeasonStats = get_referee_season_stats
     getTeamLogoUrl = get_team_logo_url

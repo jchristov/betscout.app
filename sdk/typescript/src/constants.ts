@@ -68,6 +68,19 @@ export const TENNIS_SURFACE_IDS = {
 } as const;
 
 /**
+ * Sport IDs that use the Stage/Race/Winter-Sports hierarchy (`stage_seasons`, `stage_seasonsummary`, `stage_get`, `stats_stage_calendar`, `stage_day`).
+ * Includes Formula 1 (`40`), Cycling (`17`), Motorcycle Racing / MotoGP (`190`), Stock Car Racing / NASCAR (`191`),
+ * Indy Racing (`129`), Rally (`101`), Touring Car Racing (`188`), Speedway (`131`), and Winter Sports (`43`–`51`).
+ */
+export const STAGE_SPORT_IDS: ReadonlyArray<number> = [
+  17, 40, 43, 44, 45, 46, 47, 48, 49, 50, 51, 101, 129, 131, 188, 190, 191,
+];
+
+export function isStageSport(sportOrId: string | number): boolean {
+  return STAGE_SPORT_IDS.includes(resolveSportId(sportOrId));
+}
+
+/**
  * Canonical player absence / availability status codes (`status._id` in `getSeasonInjuries` / `getTeamMissingPlayers`).
  */
 export const PLAYER_STATUS_TYPES = {
