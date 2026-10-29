@@ -581,7 +581,7 @@
                 :icon="getCompetitionFlagIconify(formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away), `${tr.league} ${tr.home} ${tr.away}`)!"
                 class="w-3.5 h-2.5 rounded-[2px] shrink-0"
               />
-              <Icon :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
+              <Icon v-else :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
               <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
             </span>
             <span class="font-mono tabular-nums text-[11px] text-slate-300">{{ tr.kickoff_local || tr.kickoff }}</span>
@@ -654,7 +654,7 @@
                     :icon="getCompetitionFlagIconify(formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away), `${tr.league} ${tr.home} ${tr.away}`)!"
                     class="w-3.5 h-2.5 rounded-[2px] shrink-0"
                   />
-                  <Icon :icon="getSportIconify(tr.sport_cat || tr.league)" class="w-3.5 h-3.5 shrink-0" />
+                  <Icon v-else :icon="getSportIconify(tr.sport_cat || tr.league)" class="w-3.5 h-3.5 shrink-0" />
                   <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
                 </span>
               </td>
@@ -779,7 +779,7 @@
                   :icon="getCompetitionFlagIconify(b.competition, b.sport_league)!"
                   class="w-3.5 h-2.5 rounded-[2px] shrink-0"
                 />
-                <Icon :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
+                <Icon v-else :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
                 <span>{{ b.competition || b.sport_league }}</span>
               </span>
             </label>
@@ -824,7 +824,7 @@
             </div>
             <div>
               <span class="text-slate-400 block text-[10px]">FAIR ODDS</span>
-              <b class="text-slate-200">@{{ Number(b.min_fair_odds || 1.35).toFixed(2) }}</b>
+              <b class="text-slate-200">{{ Number(b.min_fair_odds || 1.35).toFixed(2) }}</b>
             </div>
             <div>
               <span class="text-slate-400 block text-[10px]">MARKET ODDS</span>
@@ -902,6 +902,7 @@
                     :icon="getCompetitionFlagIconify(b.competition, b.sport_league)!"
                     class="w-3.5 h-2.5 rounded-[2px] shrink-0"
                   />
+                  <Icon v-else :icon="getSportIconify(b.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
                   <span>{{ b.competition || b.sport_league }}</span>
                 </span>
               </td>
@@ -1079,7 +1080,7 @@
                     <span class="text-slate-300">({{ leg.match }})</span>
                   </span>
                   <span class="font-mono tabular-nums whitespace-nowrap">
-                    <b class="text-amber-300">@{{ leg.odds.toFixed(2) }}</b>
+                    <b class="text-amber-300">{{ leg.odds.toFixed(2) }}</b>
                     <span class="text-emerald-300 ml-1">({{ (leg.win_prob * 100).toFixed(1) }}%)</span>
                   </span>
                 </div>
@@ -1171,7 +1172,7 @@
                     <b>{{ l.pick_name || l.pick }}</b>
                     <span class="text-slate-300">({{ l.match }})</span>
                   </span>
-                  <b class="font-mono tabular-nums text-amber-300">@{{ l.odds.toFixed(2) }}</b>
+                  <b class="font-mono tabular-nums text-amber-300">{{ l.odds.toFixed(2) }}</b>
                 </div>
               </div>
             </div>
@@ -1213,7 +1214,7 @@
                       :class="getSportIconColor(s.item.sport_cat)"
                     />
                     <b>{{ s.item.pick_name || s.item.pick }}</b>
-                    <span class="text-slate-300">(@{{ s.item.odds.toFixed(2) }})</span>
+                    <span class="text-slate-300">({{ s.item.odds.toFixed(2) }})</span>
                   </span>
                   <span class="font-mono tabular-nums">
                     Stake <b class="text-sky-300">€{{ s.stake.toFixed(2) }}</b> &rarr;
@@ -1266,7 +1267,7 @@
                   </span>
                 </div>
                 <div class="flex justify-between py-1">
-                  <span>2-Leg Combo Booster (@{{ slipComboOdds.toFixed(2) }}x)</span>
+                  <span>2-Leg Combo Booster ({{ slipComboOdds.toFixed(2) }}x)</span>
                   <span class="font-mono tabular-nums">
                     €{{ (betBudget * 0.35).toFixed(2) }} &rarr;
                     <b class="text-emerald-300">€{{ (betBudget * 0.35 * slipComboOdds).toFixed(2) }}</b>
@@ -1332,7 +1333,7 @@
                 class="py-1.5 flex justify-between items-center text-xs font-mono tabular-nums"
               >
                 <span>
-                  Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> (@{{ leg.odds.toFixed(2) }})
+                  Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> ({{ leg.odds.toFixed(2) }})
                 </span>
                 <span>
                   Place <b class="text-emerald-300">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
@@ -1362,7 +1363,7 @@
                 class="py-1.5 flex justify-between items-center text-xs font-mono tabular-nums"
               >
                 <span>
-                  Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> (@{{ leg.odds.toFixed(2) }})
+                  Score #{{ idx + 1 }}: <b>{{ leg.label }}</b> ({{ leg.odds.toFixed(2) }})
                 </span>
                 <span>
                   Place <b class="text-emerald-300">€{{ leg.stake.toFixed(2) }}</b> &rarr; Payout
@@ -1415,7 +1416,7 @@
                   :class="getSportIconColor(d.leg_1?.sport_cat || d.leg_1?.league)"
                 />
                 <b>{{ d.leg_1?.match }}</b> &rarr;
-                <b class="text-emerald-300">{{ d.leg_1?.pick }}</b> @
+                <b class="text-emerald-300">{{ d.leg_1?.pick }}</b>
                 <b class="font-mono tabular-nums text-amber-300">{{ Number(d.leg_1?.odds || 1).toFixed(2) }}</b>
               </div>
               <div class="inline-flex items-center gap-1.5 w-full">
@@ -1426,7 +1427,7 @@
                   :class="getSportIconColor(d.leg_2?.sport_cat || d.leg_2?.league)"
                 />
                 <b>{{ d.leg_2?.match }}</b> &rarr;
-                <b class="text-emerald-300">{{ d.leg_2?.pick }}</b> @
+                <b class="text-emerald-300">{{ d.leg_2?.pick }}</b>
                 <b class="font-mono tabular-nums text-amber-300">{{ Number(d.leg_2?.odds || 1).toFixed(2) }}</b>
               </div>
             </div>
@@ -1481,7 +1482,7 @@
                     :icon="getCompetitionFlagIconify(formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away), `${tr.league} ${tr.home} ${tr.away}`)!"
                     class="w-3.5 h-2.5 rounded-[2px] shrink-0"
                   />
-                  <Icon :icon="getSportIconify(tr.sport_cat || tr.league)" class="w-3.5 h-3.5 shrink-0" />
+                  <Icon v-else :icon="getSportIconify(tr.sport_cat || tr.league)" class="w-3.5 h-3.5 shrink-0" />
                   <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
                 </span>
               </td>
@@ -1505,8 +1506,12 @@
                   {{ tr.tier }}
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums font-bold text-white">
-                {{ tr.score_str || tr.settled_score || '—' }}
+              <td class="py-2.5 px-2.5 font-mono tabular-nums">
+                <b class="text-white font-bold">{{ splitScoreAndInterim(tr.score_str || tr.settled_score || '—').main }}</b>
+                <span
+                  v-if="splitScoreAndInterim(tr.score_str || tr.settled_score || '').interim"
+                  class="text-slate-400 font-normal ml-1 text-[11px]"
+                >{{ splitScoreAndInterim(tr.score_str || tr.settled_score || '').interim }}</span>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums">
                 <b class="text-amber-300">{{ Number(tr.logged_best_odds || 1.3).toFixed(2) }}</b>
@@ -1705,7 +1710,19 @@
             <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
           </button>
         </div>
-        <div v-if="inspectorLoading" class="py-6 text-slate-300">Loading H2H, Last-6 Form &amp; Score Matrix...</div>
+        <div v-if="inspectorLoading" class="py-8 px-4 flex flex-col items-center justify-center gap-3 text-slate-300">
+          <div class="inline-flex items-center gap-2 text-xs font-semibold text-sky-300">
+            <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 animate-spin text-sky-400" />
+            <span>Loading H2H, Last-6 Form &amp; Score Matrix...</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Loading match details"
+            class="w-full max-w-[300px] h-1.5 rounded-full bg-slate-900/95 border border-slate-700/80 overflow-hidden"
+          >
+            <div class="modal-loading-bar"></div>
+          </div>
+        </div>
         <div v-else-if="inspectorLockedPro" class="p-4 bg-slate-900 border border-sky-400/40 rounded-xl text-center">
           <div class="inline-flex items-center gap-1.5 text-base font-extrabold text-white mb-1.5">
             <Icon icon="fa6-solid:lock" class="w-4 h-4 text-amber-400" />
@@ -1758,11 +1775,17 @@
             </div>
             <div class="font-mono tabular-nums">
               <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Odds</span>
-              <b class="text-amber-300 text-sm">@{{ Number(inspectorData.pick_detail.best_odds || inspectorData.pick_detail.odds || 1.3).toFixed(2) }}</b>
+              <b class="text-amber-300 text-sm">{{ Number(inspectorData.pick_detail.best_odds || inspectorData.pick_detail.odds || 1.3).toFixed(2) }}</b>
             </div>
             <div v-if="inspectorData.pick_detail.settled_score" class="font-mono tabular-nums">
               <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Final Score</span>
-              <b class="text-white text-sm">{{ inspectorData.pick_detail.settled_score }}</b>
+              <span class="text-sm">
+                <b class="text-white font-bold">{{ splitScoreAndInterim(inspectorData.pick_detail.settled_score).main }}</b>
+                <span
+                  v-if="splitScoreAndInterim(inspectorData.pick_detail.settled_score).interim"
+                  class="text-slate-400 font-normal ml-1 text-xs"
+                >{{ splitScoreAndInterim(inspectorData.pick_detail.settled_score).interim }}</span>
+              </span>
             </div>
             <div v-if="inspectorData.pick_detail.pnl_best !== undefined && inspectorData.pick_detail.pnl_best !== null">
               <span
@@ -1789,15 +1812,20 @@
               <div
                 v-for="(m, i) in inspectorData.form_home"
                 :key="i"
-                class="flex justify-between py-1 border-b border-slate-800"
+                class="flex justify-between items-center py-1.5 border-b border-slate-800"
               >
-                <span>
-                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
-                    {{ m.result }}
-                  </b>
-                  {{ m.venue }} vs <b>{{ m.opp }}</b>
+                <span class="inline-flex items-center gap-1.5">
+                  <span
+                    class="w-[22px] h-[22px] rounded-[5px] inline-grid place-items-center text-[11px] font-bold border shrink-0 font-mono"
+                    :class="getFormOutcomeSquareClass(m.result)"
+                  >{{ m.result }}</span>
+                  <span>{{ m.venue }} <span class="text-slate-400 font-normal">vs</span> <b>{{ m.opp }}</b></span>
                 </span>
-                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
+                <span class="font-mono tabular-nums text-slate-300">
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">{{ splitScoreAndInterim(m.score).main }}</b>
+                  <span v-if="splitScoreAndInterim(m.score).interim" class="text-slate-400 ml-0.5">{{ splitScoreAndInterim(m.score).interim }}</span>
+                  <span class="text-slate-400 ml-1">({{ m.date }})</span>
+                </span>
               </div>
             </div>
             <div>
@@ -1806,15 +1834,20 @@
               <div
                 v-for="(m, i) in inspectorData.form_away"
                 :key="i"
-                class="flex justify-between py-1 border-b border-slate-800"
+                class="flex justify-between items-center py-1.5 border-b border-slate-800"
               >
-                <span>
-                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
-                    {{ m.result }}
-                  </b>
-                  {{ m.venue }} vs <b>{{ m.opp }}</b>
+                <span class="inline-flex items-center gap-1.5">
+                  <span
+                    class="w-[22px] h-[22px] rounded-[5px] inline-grid place-items-center text-[11px] font-bold border shrink-0 font-mono"
+                    :class="getFormOutcomeSquareClass(m.result)"
+                  >{{ m.result }}</span>
+                  <span>{{ m.venue }} <span class="text-slate-400 font-normal">vs</span> <b>{{ m.opp }}</b></span>
                 </span>
-                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
+                <span class="font-mono tabular-nums text-slate-300">
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">{{ splitScoreAndInterim(m.score).main }}</b>
+                  <span v-if="splitScoreAndInterim(m.score).interim" class="text-slate-400 ml-0.5">{{ splitScoreAndInterim(m.score).interim }}</span>
+                  <span class="text-slate-400 ml-1">({{ m.date }})</span>
+                </span>
               </div>
             </div>
           </div>
@@ -1825,10 +1858,20 @@
             <div
               v-for="(h, idx) in inspectorData.h2h"
               :key="idx"
-              class="flex justify-between py-1 border-b border-slate-800"
+              class="flex justify-between items-center py-1.5 border-b border-slate-800"
             >
-              <span><b>{{ h.home }}</b> vs <b>{{ h.away }}</b></span>
-              <span class="font-mono tabular-nums"><b class="text-emerald-300">{{ h.score }}</b> ({{ h.date }})</span>
+              <span>
+                <b v-if="getH2HWinnerSide(h) === 'H'" class="font-bold text-white">{{ h.home }}</b>
+                <span v-else class="text-slate-300 font-normal">{{ h.home }}</span>
+                <span class="text-slate-400 font-normal mx-1">vs</span>
+                <b v-if="getH2HWinnerSide(h) === 'A'" class="font-bold text-white">{{ h.away }}</b>
+                <span v-else class="text-slate-300 font-normal">{{ h.away }}</span>
+              </span>
+              <span class="font-mono tabular-nums">
+                <b :class="getH2HScoreColorClass(h, inspectorData)">{{ splitScoreAndInterim(h.score).main }}</b>
+                <span v-if="splitScoreAndInterim(h.score).interim" class="text-slate-400 font-normal ml-1">{{ splitScoreAndInterim(h.score).interim }}</span>
+                <span class="text-slate-400 font-normal ml-1">({{ h.date }})</span>
+              </span>
             </div>
           </div>
         </div>
@@ -2076,6 +2119,9 @@ import {
   formatLeagueBadgeLabel,
   getBadgeTooltipText,
   getCompetitionFlagIconify,
+  getFormOutcomeSquareClass,
+  getH2HScoreColorClass,
+  getH2HWinnerSide,
   getSportBadgeTheme,
   getSportEmoji,
   getSportIconColor,
@@ -2083,6 +2129,7 @@ import {
   getTierBadgeClass,
   getWinProbBarColor,
   parseScorePredictionSegments,
+  splitScoreAndInterim,
 } from '../utils/formatters';
 import { setupIconifyCollections } from '../utils/iconifySetup';
 import { type PickCardMeta, renderCanvasPickCard } from '../utils/canvasCard';

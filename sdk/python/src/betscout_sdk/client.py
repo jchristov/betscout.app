@@ -58,6 +58,70 @@ def _format_utc_iso_minutes(uts_seconds: int | float) -> str:
     )
 
 
+_STATIC_LONG_TTL_ENDPOINTS: set[str] = {
+    "config_sports",
+    "config_tree_mini",
+    "config_uniquetournaments",
+    "config_uniquetournamentsall",
+    "tennis_calendar",
+    "stats_team_info",
+    "tennis_team_surfacestats",
+    "stats_team_versus",
+    "stats_h2h_versus",
+    "stats_season_meta",
+    "stats_season_venues",
+    "stats_tournament_seasons_winners",
+    "stats_uniquetournament_info",
+}
+
+_HISTORICAL_MEDIUM_TTL_ENDPOINTS: set[str] = {
+    "stats_team_lastx",
+    "stats_team_lastxextended",
+    "stats_season_tables",
+    "stats_season_goals",
+    "stats_season_overunder",
+    "stats_season_injuries",
+    "stats_team_streaks",
+    "stats_team_scoringconceding",
+    "stats_team_squad",
+    "stats_team_usuallineup",
+    "stats_team_transfers",
+    "stats_team_seasonstats",
+    "stats_player_careerstats",
+}
+
+_LIVE_SHORT_TTL_ENDPOINTS: set[str] = {
+    "match_timelinedelta",
+    "match_detailsextended",
+    "match_timeline",
+    "match_situations",
+    "match_phrases",
+    "match_phrasesdelta",
+}
+
+
+def _resolve_smart_endpoint_ttl_sec(
+    endpoint: str,
+    params_path: str,
+    explicit_ttl_sec: float | None,
+    default_ttl_sec: float,
+) -> float:
+    if explicit_ttl_sec is not None:
+        return explicit_ttl_sec
+    ep = endpoint.strip("/").lower()
+    if ep in _LIVE_SHORT_TTL_ENDPOINTS:
+        return 5.0
+    if ep == "match_markets" and str(params_path).lower().endswith("/live"):
+        return 8.0
+    if ep in _STATIC_LONG_TTL_ENDPOINTS:
+        return 3600.0
+    if ep in _HISTORICAL_MEDIUM_TTL_ENDPOINTS:
+        return 1200.0
+    if ep in ("unified_sport_matches", "match_info_statshub", "match_markets"):
+        return 600.0
+    return default_ttl_sec
+
+
 class BetScoutClient:
     """Unified Sports Data, Live Scores, Player/Team Historical Analytics & Multi-Bookmaker Odds Client."""
 
@@ -69,6 +133,8 @@ class BetScoutClient:
         default_language: str = "en",
         default_timezone: str = "Europe:Berlin",
         default_ttl_sec: float = 300.0,
+        negative_ttl_sec: float = 120.0,
+        max_cache_entries: int = 2000,
         timeout_sec: float = 12.0,
         fetch_fn: Callable[[str, dict[str, str], float], dict[str, Any] | None] | None = None,
     ) -> None:
@@ -77,9 +143,16 @@ class BetScoutClient:
         self.default_language = default_language
         self.default_timezone = default_timezone
         self.default_ttl_sec = default_ttl_sec
+        self.negative_ttl_sec = negative_ttl_sec
+        self.max_cache_entries = max_cache_entries
         self.timeout_sec = timeout_sec
         self._fetch_fn = fetch_fn
-        self._cache: dict[str, tuple[float, Any, dict[str, Any]]] = {}
+        # cache_key -> (expires_at, data, doc0, is_negative)
+        self._cache: dict[str, tuple[float, Any, dict[str, Any] | None, bool]] = {}
+        self._hits = 0
+        self._misses = 0
+        self._negative_hits = 0
+        self._stale_fallbacks = 0
 
     @property
     def cache_size(self) -> int:
@@ -89,8 +162,34 @@ class BetScoutClient:
     def cacheSize(self) -> int:
         return len(self._cache)
 
+    def get_cache_stats(self) -> dict[str, int]:
+        return {
+            "size": len(self._cache),
+            "hits": self._hits,
+            "misses": self._misses,
+            "negativeHits": self._negative_hits,
+            "staleFallbacks": self._stale_fallbacks,
+        }
+
+    getCacheStats = get_cache_stats
+
     def clear_cache(self) -> None:
         self._cache.clear()
+
+    def _set_cache_entry(
+        self,
+        key: str,
+        expires_at: float,
+        data: Any,
+        doc0: dict[str, Any] | None,
+        is_negative: bool = False,
+    ) -> None:
+        if key in self._cache:
+            del self._cache[key]
+        elif len(self._cache) >= self.max_cache_entries:
+            oldest = next(iter(self._cache))
+            del self._cache[oldest]
+        self._cache[key] = (expires_at, data, doc0, is_negative)
 
     def build_relative_path(
         self,
@@ -124,15 +223,22 @@ class BetScoutClient:
         bypass_cache: bool = False,
     ) -> dict[str, Any] | None:
         resolved_channel = resolve_upstream_channel(channel or self.default_channel)
-        ttl = self.default_ttl_sec if ttl_sec is None else ttl_sec
+        ttl = _resolve_smart_endpoint_ttl_sec(
+            endpoint, params_path, ttl_sec, self.default_ttl_sec
+        )
         cache_key = f"{resolved_channel}:{endpoint}:{params_path}"
         now = time.time()
+        existing = self._cache.get(cache_key)
 
-        if not bypass_cache and ttl > 0:
-            hit = self._cache.get(cache_key)
-            if hit and hit[0] > now:
-                return hit[2]
+        if not bypass_cache and ttl > 0 and existing and existing[0] > now:
+            if existing[3]:
+                self._negative_hits += 1
+                return None
+            if existing[2] is not None:
+                self._hits += 1
+                return existing[2]
 
+        self._misses += 1
         url = build_upstream_feed_url(
             self.base_url,
             resolved_channel,
@@ -157,11 +263,26 @@ class BetScoutClient:
             if isinstance(doc0, dict) and doc0.get("event") != "exception":
                 data = doc0.get("data")
                 if not (isinstance(data, dict) and data.get("_doc") == "exception"):
-                    self._cache[cache_key] = (now + ttl, data, doc0)
+                    maxage = doc0.get("_maxage")
+                    eff_ttl = (
+                        ttl
+                        if ttl_sec is not None
+                        else (float(maxage) if isinstance(maxage, (int, float)) and maxage > ttl else ttl)
+                    )
+                    if eff_ttl > 0:
+                        self._set_cache_entry(cache_key, now + eff_ttl, data, doc0, False)
                     return doc0
-        except Exception:
+
+            if ttl > 0 and self.negative_ttl_sec > 0:
+                self._set_cache_entry(
+                    cache_key, now + min(ttl, self.negative_ttl_sec), None, None, True
+                )
             return None
-        return None
+        except Exception:
+            if existing and existing[2] is not None and not existing[3]:
+                self._stale_fallbacks += 1
+                return existing[2]
+            return None
 
     def fetch_feed(
         self,

@@ -1,0 +1,76 @@
+<evals>
+  <!-- Happy Path (Questions 1-3) -->
+  <eval id="1">
+    <question>What are BetScout's highest-probability football banker picks today with odds at least 1.25, and how should I split a €30 exact-score dutching stake on the top football pick?</question>
+    <expected>1. Call `get_daily_banker_picks` with `{"sport": "soccer", "min_odds": 1.25, "min_win_prob": 0.70}`.
+2. Select the highest `win_prob_pct` football pick from the returned `picks` list.
+3. Call `calculate_exact_score_dutching` with `{"query": "<Home> vs <Away>", "stake_eur": 30}`.
+4. Report the main pick, win probability, bookmaker odds, and the 3-score equal-payout EUR stake split (`stake_eur` and `equal_payout_return_eur` per score).</expected>
+  </eval>
+
+  <eval id="2">
+    <question>Compare Tommy Paul vs Luciano Darderi and Daniil Medvedev vs Cameron Norrie for a straight-sets (2:0 / 0:2) result today, and tell me if either player has a turnaround/rest warning.</question>
+    <expected>1. Call `analyze_matchup` with `{"query": "Tommy Paul vs Luciano Darderi"}`.
+2. Call `analyze_matchup` with `{"query": "Daniil Medvedev vs Cameron Norrie"}`.
+3. Compare `model_win_prob_pct`, `market_recommendations.handicap_shield` (straight sets probability and fair odds), `h2h_summary`, and `warnings` (specifically noting Medvedev's 24h short-turnaround warning vs Paul's clean 48h rest).</expected>
+  </eval>
+
+  <eval id="3">
+    <question>I have €120 to allocate across high-probability 2-leg Banker Profit Booster combos today. Which tickets should I play and what is the projected return on each?</question>
+    <expected>1. Call `get_banker_profit_boosters` with `{"budget_eur": 120, "max_combos": 4}`.
+2. Inspect the returned `combos` array and report each 2-leg ticket's legs (`leg_1`, `leg_2`), `combined_odds`, `combined_win_prob_pct`, `recommended_stake_eur`, and `projected_return_eur`.</expected>
+  </eval>
+
+  <!-- Error Recovery (Questions 4-5) -->
+  <eval id="4">
+    <question>Fetch the Match Center dossier for match_id 999999999; if that ID is invalid, find today's ATP Vienna match between Tommy Paul and Luciano Darderi and fetch its real dossier.</question>
+    <expected>1. Call `get_match_center_dossier` with `{"match_id": 999999999}` -> receives actionable `isError: true` message instructing to call `search_daily_fixtures`.
+2. Recover by calling `search_daily_fixtures` with `{"sport": "tennis", "date_ymd": "2026-10-29", "query": "Paul"}` (or `get_match_center_dossier` with `{"home": "Tommy Paul", "away": "Luciano Darderi", "sport": "tennis"}`).
+3. Call `get_match_center_dossier` with the discovered `match_id` (`75837638`) and report the surface, H2H edge, and merged markets.</expected>
+  </eval>
+
+  <eval id="5">
+    <question>Try to fetch settled paper-bet ledger results using cursor "corrupted_cursor_xyz"; when that fails, recover by fetching the first page of settled results properly.</question>
+    <expected>1. Call `get_paper_ledger_roi` with `{"status": "settled", "cursor": "corrupted_cursor_xyz"}` -> receives `isError: true` explaining that the pagination cursor is invalid and instructing to omit `cursor`.
+2. Call `get_paper_ledger_roi` with `{"status": "settled", "limit": 10}` (no `cursor`) and report the summary win rate, ROI%, and latest resolved bets.</expected>
+  </eval>
+
+  <!-- Opaque Cursor Pagination (Question 6) -->
+  <eval id="6">
+    <question>Retrieve the first 10 settled bets from the Paper-Betting Ledger, then use the returned opaque cursor to fetch the next 10 settled bets and list the 20th settled matchup.</question>
+    <expected>1. Call `get_paper_ledger_roi` with `{"status": "settled", "limit": 10}`.
+2. Read `pagination.next_cursor` from the first response.
+3. Call `get_paper_ledger_roi` with `{"status": "settled", "limit": 10, "cursor": "<next_cursor>"}`.
+4. Identify and report the 10th item of the second batch (the 20th settled bet overall) along with its final score and PnL.</expected>
+  </eval>
+
+  <!-- Decision Under Partial Information (Questions 7-8) -->
+  <eval id="7">
+    <question>A user wants to bet €50 on Lilli Tagger to beat Magda Linette 2:0 in straight sets. Check the matchup model and decide whether to approve the 2:0 bet or recommend a safer alternative.</question>
+    <expected>1. Call `analyze_matchup` with `{"query": "Lilli Tagger vs Magda Linette"}`.
+2. Observe that Tagger's model win probability (`62.4%`) is significantly below market implied probability (`71.1%`, `-8.67pp` negative edge) and the matchup has a 3-set dogfight profile (`43%` decider rate).
+3. Advise against naked Tagger 2:0 (`38.4%`) and recommend either `Magda Linette +1.5 Sets`, `Over 21.5 Total Games`, or a 2-score set dutch via `calculate_exact_score_dutching`.</expected>
+  </eval>
+
+  <eval id="8">
+    <question>Which sport has delivered the highest out-of-sample ROI% in BetScout's settled paper-betting ledger, and what are the active picks for that top-performing sport today?</question>
+    <expected>1. Call `get_paper_ledger_roi` with `{"status": "settled", "limit": 5}`.
+2. Inspect `by_sport` to determine which sport group has the highest `roi_pct` / `profit_u`.
+3. Call `get_daily_banker_picks` filtered to that sport (`{"sport": "<top_sport>"}`) and present today's qualifying picks.</expected>
+  </eval>
+
+  <!-- Cross-Tool Composition (Questions 9-10) -->
+  <eval id="9">
+    <question>Find Genoa vs Juventus in the Match Center (match_id 71945350), check how many missing/injured players each club has, and run `analyze_matchup` to see how BetScout prices the fixture.</question>
+    <expected>1. Call `get_match_center_dossier` with `{"match_id": 71945350}`.
+2. Extract `missing_players.home` (Genoa) and `missing_players.away` (Juventus) and `h2h_edge` (`33` meetings).
+3. Call `analyze_matchup` with `{"query": "Genoa vs Juventus"}` and synthesize the squad depletion context with the quantitative model output.</expected>
+  </eval>
+
+  <eval id="10">
+    <question>Search today's tennis fixtures on 2026-10-29 in Basel, analyze Valentin Vacherot vs Rafael Jodar, and compute a €40 equal-payout set-score dutching split for the favorite.</question>
+    <expected>1. Call `search_daily_fixtures` with `{"sport": "tennis", "date_ymd": "2026-10-29", "query": "Basel"}` to locate `Vacherot vs Jodar` (`match_id: 75837596`).
+2. Call `analyze_matchup` with `{"query": "Valentin Vacherot vs Rafael Jodar"}` to confirm Rafael Jodar is the favorite (`66.1%` model win prob).
+3. Call `calculate_exact_score_dutching` with `{"query": "Valentin Vacherot vs Rafael Jodar", "stake_eur": 40}` to compute the exact EUR stakes on `Sets 0:2` and `Sets 1:2`.</expected>
+  </eval>
+</evals>

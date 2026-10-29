@@ -339,3 +339,24 @@ INPLAY_ALERTS_ENABLED="false"
 # Optional: Remote Firebase / GCP Cloud Function URL for laya-sports checkpoint
 # LAYA_REMOTE_URL="https://..."
 ```
+
+---
+
+## 17. Remote MCP Server (`https://betscout.app/mcp`) & Multi-Tier API Caching
+
+### A. Hosted Model Context Protocol (MCP) Server
+Tier 3 subscribers can connect **Claude**, **VS Code GitHub Copilot**, **Cursor**, **Windsurf**, or any MCP-compatible AI agent directly to `https://betscout.app/mcp` over **Streamable HTTP JSON-RPC 2.0**:
+- **Interactive Docs & Tabbed Client Configs:** `https://betscout.app/api/docs` (`/mcp/docs`)
+- **Discovery & Tool Schemas:** `GET https://betscout.app/mcp`
+- **7 Registered Quantitative Tools:**
+  1. `get_daily_banker_picks` — Active multi-sport banker slate & mispriced edges (opaque cursor pagination)
+  2. `get_banker_profit_boosters` — 2-leg & 3-leg high-probability (`>=72%`) combo tickets & ¼-Kelly stakes
+  3. `analyze_matchup` — On-demand live Football / Tennis Elo + set-score & turnaround analysis
+  4. `calculate_exact_score_dutching` — Equal-payout EUR stake split across top Exact Scores / Set Scores
+  5. `get_match_center_dossier` — Full 56-sport Match Center dossier (Win Prob, 28 Correct Scores, H2H, Injuries)
+  6. `search_daily_fixtures` — Search daily schedules & match IDs across 56 sports (opaque cursor pagination)
+  7. `get_paper_ledger_roi` — Audited Paper-Betting Ledger (`75W–1L`, ROI%, CLV%, by-sport breakdown)
+
+### B. 2-Tier L1 In-Memory + L2 Persistent SQLite Caching (`gismo_http_cache`)
+All upstream Gismo requests pass through a 2-tier cache (`_RESPONSE_CACHE` in memory + `gismo_http_cache` table in `data/betscout.db`) with endpoint-aware smart minimum TTLs (`3,600s` static/career, `1,200s` season/historical aggregates, `600s` pre-match schedules/odds, `120s` negative caching for missing feeds) and live hit/miss telemetry at `GET /api/cache-stats`.
+

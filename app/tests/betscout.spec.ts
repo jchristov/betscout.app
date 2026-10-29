@@ -7,15 +7,20 @@ import {
   SPORT_FA6_ICONIFY_NAMES,
   computeBankerBoosterCombos,
   computeEqualPayoutDutchSplit,
+  formatHeaderTimestamp,
   formatLeagueBadgeLabel,
   getBadgeTooltipText,
   getCompetitionFlagIconify,
+  getFormOutcomeSquareClass,
+  getH2HScoreColorClass,
+  getH2HWinnerSide,
   getSportBadgeTheme,
   getSportEmoji,
   getSportIconify,
   getTierBadgeClass,
   getWinProbBarColor,
   parseScorePredictionSegments,
+  splitScoreAndInterim,
 } from '../src/utils/formatters';
 import { useBetscoutStore } from '../src/stores/betscoutStore';
 import LandingView from '../src/views/LandingView.vue';
@@ -102,6 +107,43 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(segsLow.length).toBe(2);
     expect(segsLow[0].isOver60).toBe(false);
     expect(segsLow[1].isOver60).toBe(false);
+
+    expect(getFormOutcomeSquareClass('W')).toContain('emerald');
+    expect(getFormOutcomeSquareClass('L')).toContain('rose');
+    expect(getFormOutcomeSquareClass('D')).toContain('amber');
+
+    expect(splitScoreAndInterim('2-0 (6-2, 6-1)')).toEqual({
+      main: '2-0',
+      interim: '(6-2, 6-1)',
+    });
+    expect(splitScoreAndInterim('3-1')).toEqual({
+      main: '3-1',
+      interim: '',
+    });
+
+    expect(getH2HWinnerSide({ outcome: 'H', score: '2-0' })).toBe('H');
+    expect(getH2HWinnerSide({ outcome: 'A', score: '1-2' })).toBe('A');
+    expect(getH2HWinnerSide({ score: '0-2 (4-6, 2-6)' })).toBe('A');
+    expect(getH2HWinnerSide({ score: '1-1' })).toBe('D');
+
+    const romaCtx = {
+      home: 'AS Roma',
+      away: 'Cagliari',
+      pick_detail: { side: 'H', pick: 'AS Roma' },
+    };
+    expect(
+      getH2HScoreColorClass({ home: 'AS Roma', away: 'Cagliari', score: '4-2', outcome: 'H' }, romaCtx),
+    ).toBe('text-emerald-300');
+    expect(
+      getH2HScoreColorClass({ home: 'Cagliari', away: 'AS Roma', score: '1-0', outcome: 'H' }, romaCtx),
+    ).toBe('text-rose-400');
+    expect(
+      getH2HScoreColorClass({ home: 'Cagliari', away: 'AS Roma', score: '0-0', outcome: 'D' }, romaCtx),
+    ).toBe('text-amber-300');
+
+    expect(formatHeaderTimestamp('2026-10-29 11:02 CET', 'Europe/Vienna', 'local')).toBe('2026-10-29 11:02 CET');
+    expect(formatHeaderTimestamp('2026-10-29T10:02:00Z', 'Europe/Vienna', 'local')).toBe('2026-10-29 11:02 CET');
+    expect(formatHeaderTimestamp('2026-10-29T10:02:00Z', 'Europe/Vienna', 'utc')).toBe('2026-10-29 10:02 UTC');
   });
 
   it('builds 2-Leg and 3-Leg Banker Profitability Booster Combos when >=2 low-odds bankers exist', () => {

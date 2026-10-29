@@ -252,6 +252,23 @@
   flex-shrink: 0;
 }
 
+@keyframes modalIndeterminateProgress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+.modal-loading-bar {
+  width: 42%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #38bdf8 0%, #34d399 55%, #38bdf8 100%);
+  animation: modalIndeterminateProgress 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 .stagger-1 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.04s both; }
 .stagger-2 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.10s both; }
 .stagger-3 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.16s both; }

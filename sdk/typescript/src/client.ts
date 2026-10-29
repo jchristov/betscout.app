@@ -13,6 +13,7 @@ import {
 } from './internal/transport.js';
 import type {
   BetScoutBatchMarketsResponse,
+  BetScoutCacheStats,
   BetScoutCategoryTreeMini,
   BetScoutClientOptions,
   BetScoutCupBracketsResponse,
@@ -126,8 +127,68 @@ import {
 
 interface CacheEntry<T = unknown> {
   expiresAtMs: number;
-  value: T;
-  doc?: BetScoutDocument<T>;
+  value: T | null;
+  doc?: BetScoutDocument<T> | null;
+  isNegative?: boolean;
+}
+
+const STATIC_LONG_TTL_ENDPOINTS = new Set([
+  'config_sports',
+  'config_tree_mini',
+  'config_uniquetournaments',
+  'config_uniquetournamentsall',
+  'tennis_calendar',
+  'stats_team_info',
+  'tennis_team_surfacestats',
+  'stats_team_versus',
+  'stats_h2h_versus',
+  'stats_season_meta',
+  'stats_season_venues',
+  'stats_tournament_seasons_winners',
+  'stats_uniquetournament_info',
+]);
+
+const HISTORICAL_MEDIUM_TTL_ENDPOINTS = new Set([
+  'stats_team_lastx',
+  'stats_team_lastxextended',
+  'stats_season_tables',
+  'stats_season_goals',
+  'stats_season_overunder',
+  'stats_season_injuries',
+  'stats_team_streaks',
+  'stats_team_scoringconceding',
+  'stats_team_squad',
+  'stats_team_usuallineup',
+  'stats_team_transfers',
+  'stats_team_seasonstats',
+  'stats_player_careerstats',
+]);
+
+const LIVE_SHORT_TTL_ENDPOINTS = new Set([
+  'match_timelinedelta',
+  'match_detailsextended',
+  'match_timeline',
+  'match_situations',
+  'match_phrases',
+  'match_phrasesdelta',
+]);
+
+function resolveSmartEndpointTtlSec(
+  endpoint: string,
+  paramsPath: string,
+  explicitTtlSec: number | undefined,
+  defaultTtlSec: number,
+): number {
+  if (explicitTtlSec !== undefined) return explicitTtlSec;
+  const ep = endpoint.replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (LIVE_SHORT_TTL_ENDPOINTS.has(ep)) return 5;
+  if (ep === 'match_markets' && paramsPath.toLowerCase().endsWith('/live')) return 8;
+  if (STATIC_LONG_TTL_ENDPOINTS.has(ep)) return 3600;
+  if (HISTORICAL_MEDIUM_TTL_ENDPOINTS.has(ep)) return 1200;
+  if (ep === 'unified_sport_matches' || ep === 'match_info_statshub' || ep === 'match_markets') {
+    return 600;
+  }
+  return defaultTtlSec;
 }
 
 const DEFAULT_HEADERS: Readonly<Record<string, string>> = {
@@ -158,9 +219,17 @@ export class BetScoutClient {
   private readonly defaultLanguage: FeedLanguage;
   private readonly defaultTimezone: FeedTimezone;
   private readonly defaultTtlSec: number;
+  private readonly negativeTtlSec: number;
+  private readonly maxCacheEntries: number;
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof fetch;
   private readonly cache = new Map<string, CacheEntry<any>>();
+  private readonly inFlight = new Map<string, Promise<BetScoutDocument<any> | null>>();
+  private cacheHits = 0;
+  private cacheMisses = 0;
+  private negativeCacheHits = 0;
+  private coalescedRequestHits = 0;
+  private staleFallbackHits = 0;
 
   constructor(options: BetScoutClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_UPSTREAM_BASE_URL).replace(/\/+$/, '');
@@ -168,6 +237,8 @@ export class BetScoutClient {
     this.defaultLanguage = options.defaultLanguage ?? 'en';
     this.defaultTimezone = options.defaultTimezone ?? 'Europe:Berlin';
     this.defaultTtlSec = options.defaultTtlSec ?? 300;
+    this.negativeTtlSec = options.negativeTtlSec ?? 120;
+    this.maxCacheEntries = options.maxCacheEntries ?? 2000;
     this.timeoutMs = options.timeoutMs ?? 12000;
     this.fetchFn = options.fetchFn ?? globalThis.fetch.bind(globalThis);
   }
@@ -177,9 +248,34 @@ export class BetScoutClient {
     return this.cache.size;
   }
 
-  /** Clear all cached responses. */
+  /** Inspect cache hit/miss, negative-cache, coalescing, and stale-fallback telemetry. */
+  public getCacheStats(): BetScoutCacheStats {
+    return {
+      size: this.cache.size,
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      negativeHits: this.negativeCacheHits,
+      coalescedHits: this.coalescedRequestHits,
+      staleFallbacks: this.staleFallbackHits,
+    };
+  }
+
+  /** Clear all cached responses and reset counters. */
   public clearCache(): void {
     this.cache.clear();
+    this.inFlight.clear();
+  }
+
+  private setCacheEntry<T>(key: string, entry: CacheEntry<T>): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxCacheEntries) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, entry);
   }
 
   /**
@@ -202,6 +298,8 @@ export class BetScoutClient {
 
   /**
    * Low-level feed query returning the full `BetScoutDocument<T>` (`{ event, _dob, _maxage, data }`).
+   * Includes smart endpoint TTLs, negative caching for missing/exception feeds, in-flight request
+   * coalescing, and stale-while-error fallback.
    */
   public async fetchDocument<T = unknown>(
     endpoint: string,
@@ -209,16 +307,36 @@ export class BetScoutClient {
     options: BetScoutRequestOptions = {},
   ): Promise<BetScoutDocument<T> | null> {
     const channel = resolveUpstreamChannel(options.channel ?? this.defaultChannel);
-    const ttlSec = options.ttlSec ?? this.defaultTtlSec;
+    const ttlSec = resolveSmartEndpointTtlSec(
+      endpoint,
+      paramsPath,
+      options.ttlSec,
+      this.defaultTtlSec,
+    );
     const cacheKey = `${channel}:${endpoint}:${paramsPath}`;
     const now = Date.now();
+    const existing = this.cache.get(cacheKey);
 
-    if (!options.bypassCache && ttlSec > 0) {
-      const hit = this.cache.get(cacheKey);
-      if (hit && hit.expiresAtMs > now && hit.doc) {
-        return hit.doc as BetScoutDocument<T>;
+    if (!options.bypassCache && ttlSec > 0 && existing && existing.expiresAtMs > now) {
+      if (existing.isNegative) {
+        this.negativeCacheHits += 1;
+        return null;
+      }
+      if (existing.doc) {
+        this.cacheHits += 1;
+        return existing.doc as BetScoutDocument<T>;
       }
     }
+
+    if (!options.bypassCache) {
+      const pending = this.inFlight.get(cacheKey);
+      if (pending) {
+        this.coalescedRequestHits += 1;
+        return (await pending) as BetScoutDocument<T> | null;
+      }
+    }
+
+    this.cacheMisses += 1;
 
     const directUrl = buildUpstreamFeedUrl(
       this.baseUrl,
@@ -229,30 +347,66 @@ export class BetScoutClient {
       paramsPath,
     );
 
-    try {
-      const resp = await this.fetchWithTimeout(directUrl, { headers: DEFAULT_HEADERS });
-      if (resp.ok) {
-        const payload = (await resp.json()) as BetScoutEnvelope<T>;
-        const doc0 = payload?.doc?.[0];
-        if (
-          doc0 &&
-          typeof doc0 === 'object' &&
-          doc0.event !== 'exception' &&
-          (doc0.data as Record<string, unknown> | undefined)?._doc !== 'exception'
-        ) {
-          this.cache.set(cacheKey, {
-            expiresAtMs: now + ttlSec * 1000,
-            value: doc0.data,
-            doc: doc0,
-          });
-          return doc0;
+    const requestPromise = (async (): Promise<BetScoutDocument<T> | null> => {
+      try {
+        const resp = await this.fetchWithTimeout(directUrl, { headers: DEFAULT_HEADERS });
+        if (resp.ok) {
+          const payload = (await resp.json()) as BetScoutEnvelope<T>;
+          const doc0 = payload?.doc?.[0];
+          if (
+            doc0 &&
+            typeof doc0 === 'object' &&
+            doc0.event !== 'exception' &&
+            (doc0.data as Record<string, unknown> | undefined)?._doc !== 'exception'
+          ) {
+            const effectiveTtlSec =
+              options.ttlSec !== undefined
+                ? ttlSec
+                : typeof doc0._maxage === 'number' && doc0._maxage > ttlSec
+                  ? doc0._maxage
+                  : ttlSec;
+            if (effectiveTtlSec > 0) {
+              this.setCacheEntry(cacheKey, {
+                expiresAtMs: Date.now() + effectiveTtlSec * 1000,
+                value: doc0.data,
+                doc: doc0,
+                isNegative: false,
+              });
+            }
+            return doc0;
+          }
+          // Exception / non-existent feed: cache negative entry briefly to avoid repeated remote hits
+          if (ttlSec > 0 && this.negativeTtlSec > 0) {
+            this.setCacheEntry(cacheKey, {
+              expiresAtMs: Date.now() + Math.min(ttlSec, this.negativeTtlSec) * 1000,
+              value: null,
+              doc: null,
+              isNegative: true,
+            });
+          }
+          return null;
         }
+      } catch {
+        if (existing && existing.doc && !existing.isNegative) {
+          this.staleFallbackHits += 1;
+          return existing.doc as BetScoutDocument<T>;
+        }
+        return null;
+      } finally {
+        this.inFlight.delete(cacheKey);
       }
-    } catch {
-      return null;
-    }
 
-    return null;
+      if (existing && existing.doc && !existing.isNegative) {
+        this.staleFallbackHits += 1;
+        return existing.doc as BetScoutDocument<T>;
+      }
+      return null;
+    })();
+
+    if (!options.bypassCache) {
+      this.inFlight.set(cacheKey, requestPromise);
+    }
+    return await requestPromise;
   }
 
   /**

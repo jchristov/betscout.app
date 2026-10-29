@@ -35,6 +35,13 @@
         }
       },
       {
+        "source": "/mcp{,/**}",
+        "run": {
+          "serviceId": "betscout-app",
+          "region": "europe-west3"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

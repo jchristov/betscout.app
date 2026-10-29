@@ -309,6 +309,165 @@ export function getWinProbBarColor(prob?: number): string {
   return 'bg-gradient-to-r from-indigo-400 to-violet-300';
 }
 
+export function formatHeaderTimestamp(
+  input?: Date | string | number | null,
+  tz = 'Europe/Vienna',
+  mode: 'local' | 'utc' = 'local',
+): string {
+  if (!input) return '—';
+  if (
+    typeof input === 'string' &&
+    /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+[A-Z0-9+-]+$/.test(input.trim()) &&
+    mode === 'local'
+  ) {
+    return input.trim();
+  }
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) {
+    return typeof input === 'string' ? input : '—';
+  }
+  const targetTz = mode === 'utc' ? 'UTC' : tz || 'Europe/Vienna';
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: targetTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZoneName: 'short',
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value || '';
+    const yr = get('year');
+    const mo = get('month');
+    const da = get('day');
+    const hr = get('hour') === '24' ? '00' : get('hour');
+    const mi = get('minute');
+    let tzAbbr = get('timeZoneName') || (mode === 'utc' ? 'UTC' : 'CET');
+    if (tzAbbr === 'GMT+1') tzAbbr = 'CET';
+    else if (tzAbbr === 'GMT+2') tzAbbr = 'CEST';
+    else if (tzAbbr === 'GMT') tzAbbr = 'UTC';
+    return `${yr}-${mo}-${da} ${hr}:${mi} ${tzAbbr}`;
+  } catch {
+    return `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+  }
+}
+
+export function getFormOutcomeSquareClass(result?: string | null): string {
+  const r = String(result ?? '').trim().toUpperCase();
+  if (r === 'W') {
+    return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35';
+  }
+  if (r === 'L') {
+    return 'bg-rose-500/20 text-rose-400 border-rose-500/35';
+  }
+  return 'bg-amber-500/20 text-amber-300 border-amber-500/35';
+}
+
+export function splitScoreAndInterim(rawScore?: string | null): { main: string; interim: string } {
+  const s = String(rawScore ?? '').trim();
+  if (!s) return { main: '', interim: '' };
+  const idx = s.indexOf('(');
+  if (idx === -1) return { main: s, interim: '' };
+  return {
+    main: s.slice(0, idx).trim(),
+    interim: s.slice(idx).trim(),
+  };
+}
+
+export function getH2HWinnerSide(
+  h?: { outcome?: string | null; score?: string | null } | null,
+): 'H' | 'A' | 'D' {
+  if (!h) return 'D';
+  const out = String(h.outcome ?? '').trim().toUpperCase();
+  if (out === 'H') return 'H';
+  if (out === 'A') return 'A';
+  if (out === 'D') return 'D';
+  const main = splitScoreAndInterim(h.score).main;
+  const m = main.match(/^(\d+)\s*[-:]\s*(\d+)/);
+  if (m) {
+    const s1 = Number(m[1]);
+    const s2 = Number(m[2]);
+    if (s1 > s2) return 'H';
+    if (s2 > s1) return 'A';
+  }
+  return 'D';
+}
+
+function normalizeEntityTokens(name?: string | null): string[] {
+  return String(name ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+}
+
+function isSameEntityName(a?: string | null, b?: string | null): boolean {
+  const s1 = String(a ?? '').trim().toLowerCase();
+  const s2 = String(b ?? '').trim().toLowerCase();
+  if (!s1 || !s2) return false;
+  if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+  const t1 = normalizeEntityTokens(s1);
+  const t2 = normalizeEntityTokens(s2);
+  if (!t1.length || !t2.length) return false;
+  return t1.every((tok) => t2.includes(tok)) || t2.every((tok) => t1.includes(tok));
+}
+
+export function getH2HScoreColorClass(
+  h?: { home?: string | null; away?: string | null; outcome?: string | null; score?: string | null } | null,
+  context?: {
+    home?: string | null;
+    away?: string | null;
+    pick_detail?: { side?: string | null; pick?: string | null; pick_name?: string | null } | null;
+  } | null,
+): string {
+  const winnerSide = getH2HWinnerSide(h);
+  if (winnerSide === 'D') {
+    return 'text-amber-300';
+  }
+  const pd = context?.pick_detail;
+  if (!pd || !h) {
+    return 'text-emerald-300';
+  }
+  const rawSide = String(pd.side || (pd.pick === 'H' || pd.pick === 'A' ? pd.pick : ''))
+    .trim()
+    .toUpperCase();
+  const rawPickName = String(
+    pd.pick_name || (pd.pick && !['H', 'A', 'D'].includes(String(pd.pick).toUpperCase()) ? pd.pick : ''),
+  ).trim();
+  const pickedEntity =
+    rawPickName ||
+    (rawSide === 'H' ? String(context?.home ?? '') : rawSide === 'A' ? String(context?.away ?? '') : '');
+
+  if (!pickedEntity) {
+    return 'text-emerald-300';
+  }
+
+  const pickedIsH2HHome = isSameEntityName(h.home, pickedEntity);
+  const pickedIsH2HAway = isSameEntityName(h.away, pickedEntity);
+
+  if (pickedIsH2HHome && !pickedIsH2HAway) {
+    return winnerSide === 'H' ? 'text-emerald-300' : 'text-rose-400';
+  }
+  if (pickedIsH2HAway && !pickedIsH2HHome) {
+    return winnerSide === 'A' ? 'text-emerald-300' : 'text-rose-400';
+  }
+
+  const oppEntity =
+    rawSide === 'H' ? String(context?.away ?? '') : rawSide === 'A' ? String(context?.home ?? '') : '';
+  if (oppEntity) {
+    if (isSameEntityName(h.home, oppEntity)) {
+      return winnerSide === 'A' ? 'text-emerald-300' : 'text-rose-400';
+    }
+    if (isSameEntityName(h.away, oppEntity)) {
+      return winnerSide === 'H' ? 'text-emerald-300' : 'text-rose-400';
+    }
+  }
+
+  return 'text-emerald-300';
+}
+
 export const BADGE_TOOLTIPS: Record<string, string> = {
   tier_0_96:
     'Tier 0 Ultra-Banker (≥96% Calibration Confidence): Highest-conviction quantitative tier passing all sport-specific safety gates.',

@@ -5,6 +5,7 @@ import {
   SPORT_EMOJIS,
   SPORT_ICONIFY_NAMES,
   computeBankerBoosterCombos,
+  formatHeaderTimestamp,
 } from '../utils/formatters';
 
 export const BETSCOUT_SNAPSHOT_CACHE_KEY = 'betscout_snapshot_cache_v2';
@@ -169,7 +170,11 @@ export const useBetscoutStore = defineStore('betscout', () => {
         const cached = JSON.parse(rawSnap);
         if (cached && cached.snapshot) {
           applySnapshot(cached.snapshot, false);
-          lastLocalCacheTime.value = cached.cachedAtLocal || 'Cached';
+          lastLocalCacheTime.value = formatHeaderTimestamp(
+            cached.cachedAtIso || cached.cachedAtLocal,
+            timezone.value,
+            tzMode.value,
+          );
           loading.value = false;
           hydrated = true;
         }
@@ -181,6 +186,18 @@ export const useBetscoutStore = defineStore('betscout', () => {
   watch(
     [sportFilter, dayFilter, minOdds, tzMode],
     () => {
+      if (generatedAt.value) {
+        generatedAtLocal.value = formatHeaderTimestamp(generatedAt.value, timezone.value, tzMode.value);
+      }
+      const rawSnap = safeStorageGet(BETSCOUT_SNAPSHOT_CACHE_KEY);
+      if (rawSnap) {
+        try {
+          const cached = JSON.parse(rawSnap);
+          if (cached?.cachedAtIso) {
+            lastLocalCacheTime.value = formatHeaderTimestamp(cached.cachedAtIso, timezone.value, tzMode.value);
+          }
+        } catch (_) {}
+      }
       savePrefsToLocalStorage();
     },
   );
@@ -190,9 +207,17 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (snap.server_time_local) serverTimeLocal.value = `Live Sync: ${snap.server_time_local}`;
     if (snap.total_matches) totalMatches.value = Number(snap.total_matches);
     if (snap.vetoed_bets !== undefined) vetoedBets.value = Number(snap.vetoed_bets);
-    if (snap.generated_at) generatedAt.value = String(snap.generated_at);
-    if (snap.generated_at_local) generatedAtLocal.value = String(snap.generated_at_local);
     if (snap.timezone) timezone.value = String(snap.timezone);
+    if (snap.generated_at) generatedAt.value = String(snap.generated_at);
+    if (snap.generated_at_local) {
+      generatedAtLocal.value = formatHeaderTimestamp(
+        tzMode.value === 'utc' && snap.generated_at ? snap.generated_at : String(snap.generated_at_local),
+        timezone.value,
+        tzMode.value,
+      );
+    } else if (snap.generated_at) {
+      generatedAtLocal.value = formatHeaderTimestamp(String(snap.generated_at), timezone.value, tzMode.value);
+    }
     if (snap.role) {
       role.value = snap.role;
       isAdmin.value = snap.role === 'admin';
@@ -222,12 +247,16 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (snap.backtest_risk) backtestRisk.value = snap.backtest_risk;
 
     if (persistCache) {
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const nowIso = new Date().toISOString();
+      const nowStr =
+        tzMode.value === 'local' && snap.server_time_local
+          ? formatHeaderTimestamp(String(snap.server_time_local), timezone.value, 'local')
+          : formatHeaderTimestamp(nowIso, timezone.value, tzMode.value);
       lastLocalCacheTime.value = nowStr;
       safeStorageSet(
         BETSCOUT_SNAPSHOT_CACHE_KEY,
         JSON.stringify({
-          cachedAtIso: new Date().toISOString(),
+          cachedAtIso: nowIso,
           cachedAtLocal: nowStr,
           snapshot: {
             server_time_local: snap.server_time_local,

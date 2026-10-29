@@ -673,14 +673,18 @@ export function computeH2HEdgeSummary(
   const sinceYear =
     oldestUts !== null ? String(new Date(oldestUts * 1000).getUTCFullYear()) : null;
 
+  const homeWinPct = total > 0 ? Math.round((homeWins / total) * 100) : 0;
+  const drawPct = total > 0 ? Math.round((draws / total) * 100) : 0;
+  const awayWinPct = total > 0 ? Math.max(0, 100 - homeWinPct - drawPct) : 0;
+
   return {
     total_meetings: total,
     since_year: sinceYear,
     home_wins: homeWins,
     draws,
     away_wins: awayWins,
-    home_win_pct: total > 0 ? Math.round((homeWins / total) * 100) : 0,
-    draw_pct: total > 0 ? Math.round((draws / total) * 100) : 0,
-    away_win_pct: total > 0 ? Math.round((awayWins / total) * 100) : 0,
+    home_win_pct: homeWinPct,
+    draw_pct: drawPct,
+    away_win_pct: awayWinPct,
   };
 }

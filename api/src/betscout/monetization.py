@@ -567,6 +567,7 @@ def build_openapi_v1_spec() -> dict[str, Any]:
             ),
         },
         "tags": [
+            {"name": "Model Context Protocol (MCP) Server", "description": "Remote Streamable HTTP JSON-RPC 2.0 MCP endpoint (https://betscout.app/mcp) exposing 7 quantitative tools for Claude, GitHub Copilot, Cursor & Windsurf"},
             {"name": "Quant Desk & Live Feed", "description": "Endpoints powering the BetScout WebApp Desk & real-time SSE stream"},
             {"name": "Commercial Syndicate API (v1)", "description": "Metered B2B REST endpoints authenticated via X-API-Key or Bearer token"},
             {"name": "Admin & Pipeline Operations", "description": "Protected settlement, rescan, and Discord/Telegram publishing endpoints"},
@@ -579,6 +580,51 @@ def build_openapi_v1_spec() -> dict[str, Any]:
         },
         "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
         "paths": {
+            "/mcp": {
+                "get": {
+                    "tags": ["Model Context Protocol (MCP) Server"],
+                    "summary": "Discover BetScout MCP Server metadata, protocol version (2024-11-05) & all 7 registered tools",
+                    "responses": {"200": {"description": "MCP server capabilities & 7 tool JSON schemas"}},
+                },
+                "post": {
+                    "tags": ["Model Context Protocol (MCP) Server"],
+                    "summary": "Execute MCP JSON-RPC 2.0 requests (initialize, ping, tools/list, tools/call)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "jsonrpc": {"type": "string", "default": "2.0"},
+                                        "id": {"type": "integer", "default": 1},
+                                        "method": {
+                                            "type": "string",
+                                            "enum": ["initialize", "ping", "tools/list", "tools/call"],
+                                            "default": "tools/call",
+                                        },
+                                        "params": {
+                                            "type": "object",
+                                            "example": {
+                                                "name": "analyze_matchup",
+                                                "arguments": {"query": "Tommy Paul vs Luciano Darderi"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "JSON-RPC 2.0 MCP response"}},
+                },
+            },
+            "/api/cache-stats": {
+                "get": {
+                    "tags": ["Quant Desk & Live Feed"],
+                    "summary": "Inspect 2-tier L1 In-Memory + L2 SQLite (gismo_http_cache) hit/miss & negative-cache telemetry",
+                    "responses": {"200": {"description": "Cache telemetry and hit rate %"}},
+                }
+            },
             "/api/snapshot": {
                 "get": {
                     "tags": ["Quant Desk & Live Feed"],
@@ -697,13 +743,13 @@ def build_openapi_v1_spec() -> dict[str, Any]:
 
 
 def build_swagger_ui_html() -> str:
-    """Return a themed interactive Swagger UI page for `/api/docs`."""
+    """Return a themed interactive Swagger UI + Remote MCP Server Documentation page for `/api/docs` and `/mcp/docs`."""
     return """<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BetScout — Interactive API Documentation (Swagger UI)</title>
+  <title>BetScout — Quant API &amp; Remote MCP Server Documentation</title>
   <link rel="icon" type="image/svg+xml" href="/betscout-logo.svg" />
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
   <style>
@@ -719,7 +765,35 @@ def build_swagger_ui_html() -> str:
       text-decoration: none; color: #e2e8f0; background: #131c2e; border: 1px solid #334155;
     }
     .bs-btn:hover { border-color: #38bdf8; color: #38bdf8; }
-    #swagger-ui { max-width: 1280px; margin: 0 auto; padding: 16px; background: #f8fafc; border-radius: 14px; margin-top: 18px; margin-bottom: 32px; }
+    .mcp-banner {
+      max-width: 1280px; margin: 18px auto 0; padding: 20px 24px;
+      background: linear-gradient(145deg, rgba(30,43,68,0.85), rgba(14,21,36,0.92));
+      border: 1px solid rgba(56,189,248,0.35); border-radius: 14px; box-sizing: border-box;
+    }
+    .mcp-banner h2 { margin: 0 0 8px; font-size: 18px; color: #38bdf8; }
+    .mcp-banner p { margin: 0 0 12px; font-size: 13.5px; color: #cbd5e1; line-height: 1.5; }
+    .mcp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin-top: 12px; align-items: stretch; }
+    .mcp-box { background: #090e1a; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; font-size: 12.5px; display: flex; flex-direction: column; }
+    .mcp-box pre { margin: 8px 0 0; padding: 12px; background: #050811; border: 1px solid #162033; border-radius: 8px; overflow-x: auto; color: #34d399; font-size: 11.5px; line-height: 1.5; flex: 1; }
+    .mcp-tools-list { margin: 8px 0 0; padding-left: 18px; color: #e2e8f0; line-height: 1.72; }
+    .mcp-tools-list code { color: #fde047; font-weight: 700; }
+    .mcp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .mcp-tab-btn {
+      padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+      background: #111a2e; color: #94a3b8; border: 1px solid #263552; transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+    }
+    .mcp-tab-btn:hover { color: #e2e8f0; border-color: #38bdf8; }
+    .mcp-tab-btn.active { background: rgba(56,189,248,0.18); color: #38bdf8; border-color: #38bdf8; }
+    .mcp-cfg-pane { display: none; flex-direction: column; flex: 1; }
+    .mcp-cfg-pane.active { display: flex; }
+    .mcp-cfg-hint { font-size: 11.5px; color: #94a3b8; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .mcp-cfg-hint code { color: #7dd3fc; }
+    .mcp-copy-btn {
+      padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer;
+      background: #132038; color: #7dd3fc; border: 1px solid rgba(56,189,248,0.4);
+    }
+    .mcp-copy-btn:hover { background: rgba(56,189,248,0.2); }
+    #swagger-ui { max-width: 1280px; margin: 18px auto 32px; padding: 16px; background: #f8fafc; border-radius: 14px; box-sizing: border-box; }
     .swagger-ui .topbar { display: none; }
   </style>
 </head>
@@ -727,16 +801,157 @@ def build_swagger_ui_html() -> str:
   <header class="bs-topbar">
     <a href="/" class="bs-brand">
       <img src="/betscout-logo.svg" width="28" height="28" alt="BetScout" />
-      <span>BetScout · Interactive Swagger API Documentation</span>
+      <span>BetScout · Quant REST API &amp; Remote MCP Server Documentation</span>
     </a>
     <nav class="bs-links">
+      <a href="/mcp" class="bs-btn">Remote MCP Discovery (/mcp)</a>
       <a href="/" class="bs-btn">Home &amp; Membership Plans</a>
       <a href="/app" class="bs-btn">Open Live Quant Desk</a>
     </nav>
   </header>
+  <section class="mcp-banner">
+    <h2>🤖 Tier 3 Remote MCP Server (<code>https://betscout.app/mcp</code>)</h2>
+    <p>
+      Connect <strong>Claude</strong>, <strong>VS Code GitHub Copilot</strong>, <strong>Cursor</strong>, <strong>Windsurf</strong>, or any MCP-compatible AI agent directly to BetScout's hosted quantitative engine over <strong>Streamable HTTP JSON-RPC 2.0</strong> at <code>https://betscout.app/mcp</code> using your Tier 3 Quant API key.
+    </p>
+    <div class="mcp-grid">
+      <div class="mcp-box">
+        <strong>7 Registered Model-Oriented MCP Tools:</strong>
+        <ul class="mcp-tools-list">
+          <li><code>get_daily_banker_picks</code> — Active multi-sport banker slate &amp; mispriced edges (cursor paginated)</li>
+          <li><code>get_banker_profit_boosters</code> — 2-leg &amp; 3-leg high-prob (&ge;72%) combo tickets &amp; ¼-Kelly stakes</li>
+          <li><code>analyze_matchup</code> — On-demand live Football / Tennis Elo + set-score &amp; turnaround analysis</li>
+          <li><code>calculate_exact_score_dutching</code> — Equal-payout EUR stake split across top Exact Scores / Set Scores</li>
+          <li><code>get_match_center_dossier</code> — Full 56-sport Match Center dossier (Win Prob, 28 Correct Scores, H2H, Injuries)</li>
+          <li><code>search_daily_fixtures</code> — Search daily schedules &amp; match IDs across 56 sports (cursor paginated)</li>
+          <li><code>get_paper_ledger_roi</code> — Audited Paper-Betting Ledger (75W–1L, ROI%, CLV%, by-sport breakdown)</li>
+        </ul>
+      </div>
+      <div class="mcp-box">
+        <strong>Remote MCP Quick Configuration:</strong>
+        <div class="mcp-tabs" role="tablist" aria-label="Agentic Tool MCP Configurations">
+          <button type="button" class="mcp-tab-btn active" onclick="switchMcpTab('claude', this)">Claude</button>
+          <button type="button" class="mcp-tab-btn" onclick="switchMcpTab('copilot', this)">VS Code Copilot</button>
+          <button type="button" class="mcp-tab-btn" onclick="switchMcpTab('cursor', this)">Cursor</button>
+          <button type="button" class="mcp-tab-btn" onclick="switchMcpTab('windsurf', this)">Windsurf / Cline</button>
+          <button type="button" class="mcp-tab-btn" onclick="switchMcpTab('curl', this)">cURL / HTTP</button>
+        </div>
+
+        <div id="mcp-pane-claude" class="mcp-cfg-pane active">
+          <div class="mcp-cfg-hint">
+            <span>Claude Code CLI or <code>.mcp.json</code></span>
+            <button type="button" class="mcp-copy-btn" onclick="copyMcpSnippet('mcp-code-claude', this)">Copy</button>
+          </div>
+          <pre id="mcp-code-claude"># Option 1 — Claude Code CLI:
+claude mcp add --transport http betscout https://betscout.app/mcp \\
+  --header "Authorization: Bearer bs_live_YOUR_API_KEY"
+
+# Option 2 — .mcp.json:
+{
+  "mcpServers": {
+    "betscout": {
+      "type": "http",
+      "url": "https://betscout.app/mcp",
+      "headers": {
+        "Authorization": "Bearer bs_live_YOUR_API_KEY"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <div id="mcp-pane-copilot" class="mcp-cfg-pane">
+          <div class="mcp-cfg-hint">
+            <span>VS Code <code>.vscode/mcp.json</code> or User Settings</span>
+            <button type="button" class="mcp-copy-btn" onclick="copyMcpSnippet('mcp-code-copilot', this)">Copy</button>
+          </div>
+          <pre id="mcp-code-copilot">{
+  "servers": {
+    "betscout": {
+      "type": "http",
+      "url": "https://betscout.app/mcp",
+      "headers": {
+        "Authorization": "Bearer bs_live_YOUR_API_KEY"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <div id="mcp-pane-cursor" class="mcp-cfg-pane">
+          <div class="mcp-cfg-hint">
+            <span>Cursor <code>.cursor/mcp.json</code> or Global MCP Settings</span>
+            <button type="button" class="mcp-copy-btn" onclick="copyMcpSnippet('mcp-code-cursor', this)">Copy</button>
+          </div>
+          <pre id="mcp-code-cursor">{
+  "mcpServers": {
+    "betscout": {
+      "url": "https://betscout.app/mcp",
+      "headers": {
+        "Authorization": "Bearer bs_live_YOUR_API_KEY"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <div id="mcp-pane-windsurf" class="mcp-cfg-pane">
+          <div class="mcp-cfg-hint">
+            <span>Windsurf / Cline <code>mcp_config.json</code></span>
+            <button type="button" class="mcp-copy-btn" onclick="copyMcpSnippet('mcp-code-windsurf', this)">Copy</button>
+          </div>
+          <pre id="mcp-code-windsurf">{
+  "mcpServers": {
+    "betscout": {
+      "serverUrl": "https://betscout.app/mcp",
+      "headers": {
+        "X-API-Key": "bs_live_YOUR_API_KEY"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <div id="mcp-pane-curl" class="mcp-cfg-pane">
+          <div class="mcp-cfg-hint">
+            <span>Direct JSON-RPC 2.0 <code>POST https://betscout.app/mcp</code></span>
+            <button type="button" class="mcp-copy-btn" onclick="copyMcpSnippet('mcp-code-curl', this)">Copy</button>
+          </div>
+          <pre id="mcp-code-curl">curl -X POST https://betscout.app/mcp \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer bs_live_YOUR_API_KEY" \\
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "get_daily_banker_picks",
+      "arguments": { "sport": "all", "min_win_prob": 0.70 }
+    }
+  }'</pre>
+        </div>
+      </div>
+    </div>
+  </section>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
   <script>
+    function switchMcpTab(tabId, btnEl) {
+      document.querySelectorAll('.mcp-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.mcp-cfg-pane').forEach(function(p) { p.classList.remove('active'); });
+      if (btnEl) btnEl.classList.add('active');
+      var pane = document.getElementById('mcp-pane-' + tabId);
+      if (pane) pane.classList.add('active');
+    }
+    function copyMcpSnippet(preId, btnEl) {
+      var el = document.getElementById(preId);
+      if (!el || !navigator.clipboard) return;
+      navigator.clipboard.writeText(el.innerText).then(function() {
+        var orig = btnEl.textContent;
+        btnEl.textContent = 'Copied!';
+        setTimeout(function() { btnEl.textContent = orig; }, 1600);
+      });
+    }
     window.onload = function() {
       window.ui = SwaggerUIBundle({
         url: '/api/v1/openapi.json',

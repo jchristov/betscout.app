@@ -40,10 +40,23 @@ export interface BetScoutClientOptions {
   defaultTimezone?: FeedTimezone;
   /** Default in-memory cache TTL in seconds (default: `300`) */
   defaultTtlSec?: number;
+  /** Negative-cache TTL in seconds for exception / 404 responses (default: `120`) */
+  negativeTtlSec?: number;
+  /** Maximum number of entries in the LRU cache (default: `2000`) */
+  maxCacheEntries?: number;
   /** Request timeout in milliseconds (default: `12000`) */
   timeoutMs?: number;
   /** Custom `fetch` implementation (for testing, proxies, or custom runtimes) */
   fetchFn?: typeof fetch;
+}
+
+export interface BetScoutCacheStats {
+  size: number;
+  hits: number;
+  misses: number;
+  negativeHits: number;
+  coalescedHits: number;
+  staleFallbacks: number;
 }
 
 export interface BetScoutRequestOptions {

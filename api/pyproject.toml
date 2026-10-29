@@ -19,6 +19,7 @@ betscout-sdk = { path = "../sdk/python", editable = true }
 
 [project.scripts]
 betscout = "betscout:cli"
+betscout-mcp = "betscout.mcp_stdio:main"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

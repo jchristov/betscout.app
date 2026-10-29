@@ -675,15 +675,19 @@ def compute_h2h_edge_summary(
         if oldest_uts is not None
         else None
     )
+    home_win_pct = round((home_wins / total) * 100) if total > 0 else 0
+    draw_pct = round((draws / total) * 100) if total > 0 else 0
+    away_win_pct = max(0, 100 - home_win_pct - draw_pct) if total > 0 else 0
+
     return {
         "total_meetings": total,
         "since_year": since_year,
         "home_wins": home_wins,
         "draws": draws,
         "away_wins": away_wins,
-        "home_win_pct": round((home_wins / total) * 100) if total > 0 else 0,
-        "draw_pct": round((draws / total) * 100) if total > 0 else 0,
-        "away_win_pct": round((away_wins / total) * 100) if total > 0 else 0,
+        "home_win_pct": home_win_pct,
+        "draw_pct": draw_pct,
+        "away_win_pct": away_win_pct,
     }
 
 

@@ -45,6 +45,120 @@ def get_sdk_client() -> BetScoutClient:
 
 _TOKEN_CACHE: dict[str, Any] = {"token": None, "fetched_at": 0.0}
 _RESPONSE_CACHE: dict[str, tuple[float, Any]] = {}
+_NEGATIVE_SENTINEL = "__GISMO_NEGATIVE__"
+_CACHE_METRICS: dict[str, int] = {
+    "l1_hits": 0,
+    "l2_sqlite_hits": 0,
+    "negative_hits": 0,
+    "remote_fetches": 0,
+    "stale_fallbacks": 0,
+}
+_SQLITE_CACHE_INITIALIZED = False
+
+
+def _get_sqlite_cache_db_path() -> Path | None:
+    try:
+        # Resolve repo-root/data/betscout.db relative to api/src/betscout/sportradar_statshub.py
+        candidate = Path(__file__).resolve().parents[3] / "data" / "betscout.db"
+        if candidate.parent.exists():
+            return candidate
+    except Exception:
+        pass
+    return None
+
+
+def _ensure_sqlite_cache_table(conn: Any) -> None:
+    global _SQLITE_CACHE_INITIALIZED
+    if _SQLITE_CACHE_INITIALIZED:
+        return
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS gismo_http_cache (
+            cache_key TEXT PRIMARY KEY,
+            endpoint TEXT NOT NULL,
+            expires_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            is_negative INTEGER NOT NULL DEFAULT 0,
+            payload_json TEXT
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gismo_http_cache_expires ON gismo_http_cache(expires_at)"
+    )
+    _SQLITE_CACHE_INITIALIZED = True
+
+
+def _resolve_effective_gismo_ttl(endpoint_base: str, params_path: str, requested_ttl: float) -> float:
+    """Apply smart endpoint minimum TTLs so static/historical feeds reduce remote Gismo lookups."""
+    if requested_ttl <= 30.0:
+        return requested_ttl
+    ep = endpoint_base.lower().strip("/")
+    if ep in ("match_timelinedelta", "match_detailsextended", "match_timeline", "match_situations"):
+        return min(requested_ttl, 10.0)
+    if ep == "match_markets" and str(params_path).lower().endswith("/live"):
+        return min(requested_ttl, 10.0)
+    if ep in (
+        "config_sports",
+        "config_tree_mini",
+        "config_uniquetournaments",
+        "config_uniquetournamentsall",
+        "tennis_calendar",
+        "stats_team_info",
+        "tennis_team_surfacestats",
+        "stats_team_versus",
+        "stats_h2h_versus",
+        "stats_season_meta",
+        "stats_season_venues",
+    ):
+        return max(requested_ttl, 3600.0)
+    if ep in (
+        "stats_team_lastx",
+        "stats_team_lastxextended",
+        "stats_season_tables",
+        "stats_season_goals",
+        "stats_season_overunder",
+        "stats_season_injuries",
+        "stats_team_streaks",
+        "stats_team_scoringconceding",
+        "stats_team_squad",
+        "stats_team_usuallineup",
+    ):
+        return max(requested_ttl, 1200.0)
+    if ep in ("unified_sport_matches", "match_info_statshub", "match_markets"):
+        return max(requested_ttl, 600.0)
+    return requested_ttl
+
+
+def get_gismo_cache_stats() -> dict[str, Any]:
+    """Return L1 in-memory + L2 SQLite cache hit/miss telemetry and SDK cache metrics."""
+    l2_count = 0
+    db_path = _get_sqlite_cache_db_path()
+    if db_path and db_path.exists():
+        try:
+            import sqlite3
+
+            conn = sqlite3.connect(db_path, timeout=3.0)
+            _ensure_sqlite_cache_table(conn)
+            row = conn.execute("SELECT COUNT(*) FROM gismo_http_cache").fetchone()
+            l2_count = int(row[0]) if row else 0
+            conn.close()
+        except Exception:
+            pass
+    sdk_stats = _SDK_CLIENT.get_cache_stats()
+    total_hits = _CACHE_METRICS["l1_hits"] + _CACHE_METRICS["l2_sqlite_hits"] + _CACHE_METRICS["negative_hits"]
+    total_reqs = total_hits + _CACHE_METRICS["remote_fetches"]
+    return {
+        "l1_memory_entries": len(_RESPONSE_CACHE),
+        "l2_sqlite_entries": l2_count,
+        "l1_hits": _CACHE_METRICS["l1_hits"],
+        "l2_sqlite_hits": _CACHE_METRICS["l2_sqlite_hits"],
+        "negative_hits": _CACHE_METRICS["negative_hits"],
+        "remote_fetches": _CACHE_METRICS["remote_fetches"],
+        "stale_fallbacks": _CACHE_METRICS["stale_fallbacks"],
+        "hit_rate_pct": round((total_hits / total_reqs) * 100.0, 1) if total_reqs > 0 else 100.0,
+        "sdk_cache": sdk_stats,
+    }
 
 
 _CLUB_ALIASES: dict[str, str] = {
@@ -103,30 +217,124 @@ def fetch_statshub_gismo(
     tz: str = "Europe:Berlin",
     ttl_sec: float = 300.0,
 ) -> Any:
-    """Delegate feed requests through `betscout_sdk.BetScoutClient.fetch_feed` (with in-memory TTL cache and automatic fallback)."""
-    cache_key = f"{client_alias}:{endpoint}:{params_path}"
-    now = time.time()
-    if cache_key in _RESPONSE_CACHE:
-        ts, cached_val = _RESPONSE_CACHE[cache_key]
-        if now - ts < ttl_sec:
-            return cached_val
+    """Delegate feed requests through a 2-tier L1 In-Memory + L2 Persistent SQLite cache (`gismo_http_cache`)
+    backed by `betscout_sdk.BetScoutClient.fetch_feed` with smart endpoint TTLs and negative caching."""
+    import sqlite3
 
+    clean_ep = endpoint.strip("/")
+    clean_params = str(params_path or "").strip("/")
+    if not clean_params and "/" in clean_ep:
+        ep_base, clean_params = clean_ep.split("/", 1)
+    else:
+        ep_base = clean_ep
+
+    eff_ttl = _resolve_effective_gismo_ttl(ep_base, clean_params, ttl_sec)
     channel = _CLIENT_ALIAS_TO_CHANNEL.get(client_alias, "eu-retail")
+    cache_key = f"{channel}:{ep_base}:{clean_params}"
+    legacy_key = f"{client_alias}:{endpoint}:{params_path}"
+    now = time.time()
+
+    # 1. Check L1 In-Memory Cache (supports both canonical key and legacy key)
+    for k_probe in (cache_key, legacy_key):
+        if k_probe in _RESPONSE_CACHE:
+            ts, cached_val = _RESPONSE_CACHE[k_probe]
+            neg_ttl = min(eff_ttl, 120.0)
+            active_ttl = neg_ttl if cached_val is _NEGATIVE_SENTINEL else eff_ttl
+            if now - ts < active_ttl:
+                if cached_val is _NEGATIVE_SENTINEL:
+                    _CACHE_METRICS["negative_hits"] += 1
+                    return None
+                _CACHE_METRICS["l1_hits"] += 1
+                return cached_val
+
+    # 2. Check L2 Persistent SQLite Cache for non-ephemeral feeds (eff_ttl >= 60s)
+    db_path = _get_sqlite_cache_db_path() if eff_ttl >= 60.0 else None
+    stale_l2_val: Any = None
+    if db_path is not None and db_path.exists():
+        try:
+            conn = sqlite3.connect(db_path, timeout=3.0)
+            _ensure_sqlite_cache_table(conn)
+            row = conn.execute(
+                "SELECT expires_at, is_negative, payload_json FROM gismo_http_cache WHERE cache_key = ?",
+                (cache_key,),
+            ).fetchone()
+            conn.close()
+            if row is not None:
+                exp_at, is_neg, p_json = float(row[0]), bool(row[1]), row[2]
+                if exp_at > now:
+                    if is_neg:
+                        _RESPONSE_CACHE[cache_key] = (now, _NEGATIVE_SENTINEL)
+                        _CACHE_METRICS["negative_hits"] += 1
+                        return None
+                    if p_json:
+                        parsed = json.loads(p_json)
+                        _RESPONSE_CACHE[cache_key] = (now, parsed)
+                        _CACHE_METRICS["l2_sqlite_hits"] += 1
+                        return parsed
+                elif not is_neg and p_json:
+                    try:
+                        stale_l2_val = json.loads(p_json)
+                    except Exception:
+                        stale_l2_val = None
+        except Exception:
+            pass
+
+    # 3. Remote fetch via BetScout SDK
+    _CACHE_METRICS["remote_fetches"] += 1
     try:
         data = _SDK_CLIENT.fetch_feed(
-            endpoint=endpoint,
-            params_path=params_path,
+            endpoint=ep_base,
+            params_path=clean_params,
             channel=channel,
             language=lang,
             timezone_str=tz,
-            ttl_sec=ttl_sec,
+            ttl_sec=eff_ttl,
         )
         if data is not None:
             _RESPONSE_CACHE[cache_key] = (now, data)
+            if db_path is not None:
+                try:
+                    conn = sqlite3.connect(db_path, timeout=3.0)
+                    _ensure_sqlite_cache_table(conn)
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO gismo_http_cache
+                        (cache_key, endpoint, expires_at, updated_at, is_negative, payload_json)
+                        VALUES (?, ?, ?, ?, 0, ?)
+                        """,
+                        (cache_key, ep_base, now + eff_ttl, now, json.dumps(data)),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception:
+                    pass
             return data
+
+        # Cache negative miss briefly (120s) so missing markets/tables do not trigger repeated remote lookups
+        if eff_ttl > 0:
+            _RESPONSE_CACHE[cache_key] = (now, _NEGATIVE_SENTINEL)
+            if db_path is not None:
+                try:
+                    conn = sqlite3.connect(db_path, timeout=3.0)
+                    _ensure_sqlite_cache_table(conn)
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO gismo_http_cache
+                        (cache_key, endpoint, expires_at, updated_at, is_negative, payload_json)
+                        VALUES (?, ?, ?, ?, 1, NULL)
+                        """,
+                        (cache_key, ep_base, now + min(eff_ttl, 120.0), now),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception:
+                    pass
     except Exception:
-        pass
-    return None
+        if stale_l2_val is not None:
+            _CACHE_METRICS["stale_fallbacks"] += 1
+            _RESPONSE_CACHE[cache_key] = (now, stale_l2_val)
+            return stale_l2_val
+    return stale_l2_val
 
 
 def list_all_sportradar_sports(service_id: int = 69, client_alias: str = "sportradar") -> list[dict[str, Any]]:

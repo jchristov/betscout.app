@@ -1,0 +1,27 @@
+{
+  "name": "@betscout/mcp-server",
+  "version": "1.1.0",
+  "description": "BetScout Model Context Protocol (MCP) Server — Exposes multi-sport quantitative edge picks, 2-leg/3-leg banker boosters, on-demand matchup analysis, exact-score/set-score dutching, Match Center dossiers, and paper-betting ledger ROI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "betscout-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "start": "node ./dist/index.js"
+  },
+  "dependencies": {
+    "@betscout/sdk": "file:../sdk/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

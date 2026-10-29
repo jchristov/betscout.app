@@ -408,13 +408,13 @@
       background: var(--bg-surface);
       overflow: hidden;
       display: flex;
-      gap: 2px;
+      gap: 0;
     }
     .prob-fill-home { background: linear-gradient(90deg, #0ea5e9, #38bdf8); height: 100%; }
     .prob-fill-draw { background: linear-gradient(90deg, #64748b, #94a3b8); height: 100%; }
     .prob-fill-away { background: linear-gradient(90deg, #f59e0b, #f43f5e); height: 100%; }
 
-    /* Dual Comparison Stat Bars (Connected Inner Sides) */
+    /* Dual Comparison Stat Bars (Seamless Multi-Segment Indicator) */
     .stat-compare-row { margin-bottom: 0.85rem; }
     .stat-compare-header {
       display: flex;
@@ -423,27 +423,15 @@
       margin-bottom: 0.3rem;
     }
     .stat-compare-bars {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
       gap: 0;
       height: 8px;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .bar-left-bg {
+      border-radius: 999px;
       background: rgba(148, 163, 184, 0.14);
-      border-radius: 4px 0 0 4px;
-      display: flex;
-      justify-content: flex-end;
       overflow: hidden;
     }
-    .bar-right-bg {
-      background: rgba(148, 163, 184, 0.14);
-      border-radius: 0 4px 4px 0;
-      overflow: hidden;
-    }
-    .bar-left-fill { background: var(--accent-cyan); height: 100%; border-radius: 4px 0 0 4px; }
-    .bar-right-fill { background: var(--accent-amber); height: 100%; border-radius: 0 4px 4px 0; }
+    .bar-left-fill { background: linear-gradient(90deg, #0ea5e9, #38bdf8); height: 100%; }
+    .bar-right-fill { background: linear-gradient(90deg, #f59e0b, #f43f5e); height: 100%; }
 
     /* Tables */
     .table-wrap {
@@ -969,9 +957,10 @@
 
         const hNum = parseLeadingNumber(hVal);
         const aNum = parseLeadingNumber(aVal);
+        const hasAny = hNum + aNum > 0;
         const tot = Math.max(1, hNum + aNum);
-        const hPct = Math.round((hNum / tot) * 100);
-        const aPct = Math.round((aNum / tot) * 100);
+        const hPct = hasAny ? Math.round((hNum / tot) * 100) : 0;
+        const aPct = hasAny ? 100 - hPct : 0;
         const sfx = r.suffix && !String(hVal).includes('%') ? r.suffix : '';
 
         return `<div class="stat-compare-row">
@@ -981,8 +970,8 @@
             <strong style="color:var(--accent-amber);">${aVal}${sfx}</strong>
           </div>
           <div class="stat-compare-bars">
-            <div class="bar-left-bg"><div class="bar-left-fill" style="width:${hPct}%;"></div></div>
-            <div class="bar-right-bg"><div class="bar-right-fill" style="width:${aPct}%;"></div></div>
+            <div class="bar-left-fill" style="width:${hPct}%;"></div>
+            <div class="bar-right-fill" style="width:${aPct}%;"></div>
           </div>
         </div>`;
       }).filter(Boolean).join('');
@@ -1461,20 +1450,23 @@
         }
       }
 
-      // H2H Edge Progress Bar & Meetings (Matching Win Probability colors: Cyan for Home, Orange/Amber for Away)
+      // H2H Edge Progress Bar & Meetings (Matching Win Probability colors: Cyan for Home, Slate for Draw, Orange/Amber for Away)
       const h2hEdge = d.h2h_edge || { total_meetings: 0, home_wins: 0, draws: 0, away_wins: 0, home_win_pct: 50, draw_pct: 0, away_win_pct: 50 };
       const h2hBox = document.getElementById('h2h-edge-bar-box');
       if (h2hEdge.total_meetings > 0) {
+        const h2hHomeW = Number(h2hEdge.home_win_pct || 0);
+        const h2hDrawW = Number(h2hEdge.draw_pct || 0);
+        const h2hAwayW = Math.max(0, 100 - h2hHomeW - h2hDrawW);
         h2hBox.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;font-weight:700;margin-bottom:0.4rem;">
-            <span style="color:var(--accent-cyan);">${hTeam.name}: ${h2hEdge.home_wins}W (${h2hEdge.home_win_pct}%)</span>
-            <span style="color:var(--text-secondary);font-size:0.75rem;">${h2hEdge.total_meetings} Direct Meetings ${h2hEdge.since_year ? `since ${h2hEdge.since_year}` : ''} ${h2hEdge.draws > 0 ? `· ${h2hEdge.draws}D (${h2hEdge.draw_pct}%)` : ''}</span>
-            <span style="color:var(--accent-amber);">${aTeam.name}: ${h2hEdge.away_wins}W (${h2hEdge.away_win_pct}%)</span>
+            <span style="color:var(--accent-cyan);">${hTeam.name}: ${h2hEdge.home_wins}W (${h2hHomeW}%)</span>
+            <span style="color:var(--text-secondary);font-size:0.75rem;">${h2hEdge.total_meetings} Direct Meetings ${h2hEdge.since_year ? `since ${h2hEdge.since_year}` : ''} ${h2hEdge.draws > 0 ? `· ${h2hEdge.draws}D (${h2hDrawW}%)` : ''}</span>
+            <span style="color:var(--accent-amber);">${aTeam.name}: ${h2hEdge.away_wins}W (${h2hAwayW}%)</span>
           </div>
           <div class="prob-track" style="height:12px;">
-            <div class="prob-fill-home" style="width:${h2hEdge.home_win_pct}%;"></div>
-            ${h2hEdge.draw_pct > 0 ? `<div style="width:${h2hEdge.draw_pct}%;background:rgba(148,163,184,0.45);height:100%;"></div>` : ''}
-            <div class="prob-fill-away" style="width:${h2hEdge.away_win_pct}%;"></div>
+            <div class="prob-fill-home" style="width:${h2hHomeW}%;"></div>
+            ${h2hDrawW > 0 ? `<div class="prob-fill-draw" style="width:${h2hDrawW}%;"></div>` : ''}
+            <div class="prob-fill-away" style="width:${h2hAwayW}%;"></div>
           </div>
         `;
       } else {
@@ -1497,26 +1489,50 @@
               : (vm.periods.p1 ? `HT ${vm.periods.p1.home}-${vm.periods.p1.away}` : ''))
           : '';
         const roundOrComp = vm.roundname?.shortname || vm.roundname?.name || (vm.round ? `R${vm.round}` : '—');
+        const hScore = Number(vm.result?.home ?? 0);
+        const aScore = Number(vm.result?.away ?? 0);
+        const hWon = vm.result?.winner === 'home' || hScore > aScore;
+        const aWon = vm.result?.winner === 'away' || aScore > hScore;
+        const hCell = hWon
+          ? `<strong>${crestImg(vm.teams?.home, 16)}${vm.teams?.home?.name || hTeam.name}</strong>`
+          : `<span style="color:var(--text-secondary);">${crestImg(vm.teams?.home, 16)}${vm.teams?.home?.name || hTeam.name}</span>`;
+        const aCell = aWon
+          ? `<strong>${crestImg(vm.teams?.away, 16)}${vm.teams?.away?.name || aTeam.name}</strong>`
+          : `<span style="color:var(--text-secondary);">${crestImg(vm.teams?.away, 16)}${vm.teams?.away?.name || aTeam.name}</span>`;
         return `<tr>
           <td>${vm.time?.date || '—'}</td>
           <td>${roundOrComp}${vm.ground?.name ? ` · ${vm.ground.name}` : ''}</td>
-          <td><strong>${crestImg(vm.teams?.home, 16)}${vm.teams?.home?.name || hTeam.name}</strong></td>
-          <td><span class="pill">${vm.result?.home ?? 0}-${vm.result?.away ?? 0}</span> ${pStr ? `<span style="font-size:0.75rem;color:var(--text-secondary);">(${pStr})</span>` : ''}</td>
-          <td><strong>${crestImg(vm.teams?.away, 16)}${vm.teams?.away?.name || aTeam.name}</strong></td>
+          <td>${hCell}</td>
+          <td><span class="pill">${hScore}-${aScore}</span> ${pStr ? `<span style="font-size:0.75rem;color:var(--text-muted);">(${pStr})</span>` : ''}</td>
+          <td>${aCell}</td>
         </tr>`;
       }).join('') || '<tr><td colspan="5" style="color:var(--text-secondary);">First career meeting.</td></tr>';
 
       // Last Matches for Home & Away
       document.getElementById('last-home-title').innerHTML = `${crestImg(hTeam, 18)}${hTeam.name} — Last Completed Matches`;
       document.getElementById('last-away-title').innerHTML = `${crestImg(aTeam, 18)}${aTeam.name} — Last Completed Matches`;
-      const renderMatchList = (list) => (list || []).slice(0, 8).map((lm) => `
+      const renderMatchList = (list) => (list || []).slice(0, 8).map((lm) => {
+        const lhS = Number(lm.result?.home ?? 0);
+        const laS = Number(lm.result?.away ?? 0);
+        const lhWon = lm.result?.winner === 'home' || lhS > laS;
+        const laWon = lm.result?.winner === 'away' || laS > lhS;
+        const lhCell = lhWon
+          ? `<strong>${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</strong>`
+          : `<span style="color:var(--text-secondary);">${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</span>`;
+        const laCell = laWon
+          ? `<strong>${crestImg(lm.teams?.away, 16)}${lm.teams?.away?.name || ''}</strong>`
+          : `<span style="color:var(--text-secondary);">${crestImg(lm.teams?.away, 16)}${lm.teams?.away?.name || ''}</span>`;
+        const pList = ['p1', 'p2', 'p3', 'p4', 'p5'].filter((k) => lm.periods?.[k]).map((k) => `${lm.periods[k].home}-${lm.periods[k].away}`).join(', ');
+        const interimHtml = pList ? ` <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">(${pList})</span>` : '';
+        return `
         <tr>
           <td>${lm.time?.date || '—'}</td>
-          <td>${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</td>
-          <td><strong>${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong></td>
-          <td>${crestImg(lm.teams?.away, 16)}${lm.teams?.away?.name || ''}</td>
+          <td>${lhCell}</td>
+          <td><strong>${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong>${interimHtml}</td>
+          <td>${laCell}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
       document.getElementById('home-last-matches-tbody').innerHTML = renderMatchList(d.home_last_matches);
       document.getElementById('away-last-matches-tbody').innerHTML = renderMatchList(d.away_last_matches);
 

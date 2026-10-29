@@ -2928,16 +2928,36 @@ def generate_dashboard_html(
             '</div>'
           ).join('');
         }};
+        const pk = d.pick_detail || {{}};
+        const pickedSide = String(pk.side || (pk.pick === 'H' || pk.pick === 'A' ? pk.pick : '')).toUpperCase();
+        const pickedName = String(pk.pick_name || (pk.pick && !['H', 'A', 'D'].includes(String(pk.pick).toUpperCase()) ? pk.pick : (pickedSide === 'H' ? (d.home || home) : (pickedSide === 'A' ? (d.away || away) : '')))).trim().toLowerCase();
         const h2hHtml = (d.h2h && d.h2h.length)
-          ? d.h2h.map(m =>
-              '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.5);">' +
-                '<span><b>' + escHtml(m.home) + '</b> vs <b>' + escHtml(m.away) + '</b></span>' +
-                '<span><b class="num-pos">' + escHtml(m.score) + '</b> <span class="muted">(' + escHtml(m.date) + ')</span></span>' +
-              '</div>'
-            ).join('')
+          ? d.h2h.map(m => {{
+              const outStr = String(m.outcome || '').toUpperCase();
+              const scParts = String(m.score || '').split('(')[0].trim().match(/^(\\d+)\\s*[-:]\\s*(\\d+)/);
+              const hWin = outStr === 'H' || (!outStr && scParts && Number(scParts[1]) > Number(scParts[2]));
+              const aWin = outStr === 'A' || (!outStr && scParts && Number(scParts[2]) > Number(scParts[1]));
+              const hTag = hWin ? ('<b>' + escHtml(m.home) + '</b>') : ('<span class="muted">' + escHtml(m.home) + '</span>');
+              const aTag = aWin ? ('<b>' + escHtml(m.away) + '</b>') : ('<span class="muted">' + escHtml(m.away) + '</span>');
+              let scColor = 'var(--green)';
+              if (!hWin && !aWin) {{
+                scColor = 'var(--amber)';
+              }} else if (pickedName) {{
+                const mhLow = String(m.home || '').trim().toLowerCase();
+                const maLow = String(m.away || '').trim().toLowerCase();
+                if (mhLow === pickedName || mhLow.includes(pickedName) || pickedName.includes(mhLow)) {{
+                  scColor = hWin ? 'var(--green)' : 'var(--red)';
+                }} else if (maLow === pickedName || maLow.includes(pickedName) || pickedName.includes(maLow)) {{
+                  scColor = aWin ? 'var(--green)' : 'var(--red)';
+                }}
+              }}
+              return '<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(34,48,73,0.5);">' +
+                '<span>' + hTag + ' <span class="muted">vs</span> ' + aTag + '</span>' +
+                '<span><b style="color:' + scColor + ';">' + escHtml(m.score) + '</b> <span class="muted">(' + escHtml(m.date) + ')</span></span>' +
+              '</div>';
+            }}).join('')
           : '<div class="muted">First tracked meeting in current database window.</div>';
         let scHtml = '';
-        const pk = d.pick_detail || {{}};
         const sh = d.live_intel || {{}};
         const shMkts = sh.primary_markets || {{}};
         const bookCsOdds = shMkts.correct_score_odds || {{}};

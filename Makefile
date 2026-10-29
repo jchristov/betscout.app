@@ -5,7 +5,7 @@ export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 HOST ?= 127.0.0.1
 PORT ?= 8090
 
-.PHONY: help install dev serve app-dev app-build app-test sdk-build sdk-test api-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
+.PHONY: help install dev serve app-dev app-build app-test sdk-build sdk-test mcp-build mcp-test api-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
 
 help: ## Show all available Makefile commands
 	@echo "BetScout — Quantitative Sports Edge & Score Intelligence"
@@ -14,9 +14,10 @@ help: ## Show all available Makefile commands
 	@echo ""
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install app (npm), sdk (npm), and api (uv) dependencies
+install: ## Install app (npm), sdk (npm), mcp (npm), and api (uv) dependencies
 	cd app && npm install --no-audit --no-fund
 	cd sdk/typescript && npm install --no-audit --no-fund
+	cd mcp && npm install --no-audit --no-fund
 	cd api && uv sync
 
 app-dev: ## Run Vite app dev server with HMR
@@ -35,10 +36,16 @@ sdk-test: ## Run Vitest & uv Pytest suites for TypeScript and Python SDKs
 	cd sdk/typescript && npm run test
 	cd sdk/python && PYTHONPATH=src uv run --project ../../api pytest -q
 
+mcp-build: sdk-build ## Build BetScout MCP Server (@betscout/mcp-server) into mcp/dist
+	cd mcp && npm run build
+
+mcp-test: ## Run Vitest suite for BetScout MCP Server in mcp/
+	cd mcp && npm run test
+
 api-test: ## Run Pytest suite in api/ via uv
 	cd api && uv run pytest -q
 
-test: app-test sdk-test api-test ## Run all app (Vitest), SDK (Vitest + uv Pytest), and api (uv Pytest) test suites
+test: app-test sdk-test mcp-test api-test ## Run all app, SDK, MCP, and api test suites
 
 logos: ## Regenerate SVG and PNG logo assets (Option 7.3) in all sizes
 	cp -f app/public/betscout-logo.svg app/public/favicon.svg

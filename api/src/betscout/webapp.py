@@ -475,11 +475,21 @@ def _build_live_snapshot(
     }
 
 
+_MATCHUP_DETAIL_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_ANALYZE_LIVE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
 def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, league: str = "") -> dict[str, Any]:
     """Return H2H history, Last-6 form for both sides, and Exact-Score / Set-Score breakdown for the Matchup Inspector modal."""
     h = (home or "").strip()
     a = (away or "").strip()
     lg = (league or "").strip().lower()
+    cache_key = f"{db_path}:{h.lower()}:{a.lower()}:{lg}"
+    now_ts = time.time()
+    cached_hit = _MATCHUP_DETAIL_CACHE.get(cache_key)
+    if cached_hit and (now_ts - cached_hit[0] < 180.0):
+        return cached_hit[1]
+
     h2h_rows: list[dict[str, Any]] = []
     form_home: list[dict[str, Any]] = []
     form_away: list[dict[str, Any]] = []
@@ -585,6 +595,14 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         except Exception:
             pass
 
+    if model_pick_detail:
+        raw_pk = str(model_pick_detail.get("pick") or "").strip()
+        raw_side = str(model_pick_detail.get("side") or (raw_pk if raw_pk in ("H", "A", "D") else "")).strip()
+        if not raw_pk or raw_pk in ("H", "A", "D"):
+            model_pick_detail["pick"] = model_pick_detail.get("pick_name") or (h if raw_side == "H" else a)
+        if not model_pick_detail.get("side") and raw_side:
+            model_pick_detail["side"] = raw_side
+
     statshub_intel: dict[str, Any] = {}
     try:
         from .sportradar_statshub import (
@@ -604,12 +622,25 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
             if not form_away and sh_res.get("away_uid"):
                 form_away = fetch_player_lastx_form(sh_res["away_uid"], limit=6)
 
-        if sr_mid_hint and (not form_home or not form_away or not h2h_rows):
+        if sr_mid_hint and (not form_home or not form_away or not h2h_rows or model_pick_detail.get("settled_score")):
             info_sr = fetch_statshub_gismo("match_info_statshub", sr_mid_hint, client_alias="sportradar", ttl_sec=600) or {}
             m_sr = info_sr.get("match") or {}
             t_sr = m_sr.get("teams") or {}
             h_uid_sr = (t_sr.get("home") or {}).get("uid") or (t_sr.get("home") or {}).get("_id")
             a_uid_sr = (t_sr.get("away") or {}).get("uid") or (t_sr.get("away") or {}).get("_id")
+            # Enrich settled_score with interim period/set/half-time scores if not already present
+            cur_sc = str(model_pick_detail.get("settled_score") or "").strip()
+            periods_sr = m_sr.get("periods") or {}
+            if cur_sc and "(" not in cur_sc and isinstance(periods_sr, dict):
+                p_list = [
+                    f"{periods_sr[pk]['home']}-{periods_sr[pk]['away']}"
+                    for pk in ("p1", "p2", "p3", "p4", "p5")
+                    if isinstance(periods_sr.get(pk), dict)
+                    and periods_sr[pk].get("home") is not None
+                    and periods_sr[pk].get("away") is not None
+                ]
+                if p_list:
+                    model_pick_detail["settled_score"] = f"{cur_sc} ({', '.join(p_list)})"
             if h_uid_sr and not form_home:
                 form_home = fetch_player_lastx_form(h_uid_sr, limit=6)
             if a_uid_sr and not form_away:
@@ -623,18 +654,25 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
                     vh_n = ((vm.get("teams") or {}).get("home") or {}).get("name") or h
                     va_n = ((vm.get("teams") or {}).get("away") or {}).get("name") or a
                     v_dt = (vm.get("time") or {}).get("date") or ""
+                    vp = vm.get("periods") or {}
+                    vp_list = [
+                        f"{vp[pk]['home']}-{vp[pk]['away']}"
+                        for pk in ("p1", "p2", "p3", "p4", "p5")
+                        if isinstance(vp.get(pk), dict) and vp[pk].get("home") is not None and vp[pk].get("away") is not None
+                    ]
+                    v_sc_str = f"{res_v['home']}-{res_v['away']}" + (f" ({', '.join(vp_list)})" if vp_list else "")
                     h2h_rows.append({
                         "date": v_dt,
                         "league": lg or sp_hint,
                         "home": vh_n,
                         "away": va_n,
-                        "score": f"{res_v['home']}-{res_v['away']}",
+                        "score": v_sc_str,
                         "outcome": "H" if int(res_v["home"]) > int(res_v["away"]) else ("A" if int(res_v["away"]) > int(res_v["home"]) else "D"),
                     })
     except Exception:
         statshub_intel = {}
 
-    return {
+    result_payload = {
         "ok": True,
         "home": h,
         "away": a,
@@ -646,6 +684,8 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         "live_intel": statshub_intel,
         "statshub": statshub_intel,
     }
+    _MATCHUP_DETAIL_CACHE[cache_key] = (now_ts, result_payload)
+    return result_payload
 
 
 def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
@@ -660,6 +700,11 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     from .paper_bet import _fetch_sofascore_tennis_odds
 
     raw_q = (query or "").strip()
+    cache_key = f"{db_path}:{raw_q.lower()}"
+    now_ts = time.time()
+    cached_hit = _ANALYZE_LIVE_CACHE.get(cache_key)
+    if cached_hit and (now_ts - cached_hit[0] < 180.0):
+        return cached_hit[1]
     if " vs " in raw_q.lower():
         idx_v = raw_q.lower().index(" vs ")
         p1_q, p2_q = raw_q[:idx_v].strip(), raw_q[idx_v + 4:].strip()
@@ -678,23 +723,61 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     detected_league = "atp"
     if db_path.exists():
         conn = sqlite3.connect(db_path)
-        for idx_s, tok in ((0, p1_q), (1, p2_q)):
-            row_n = conn.execute(
-                "SELECT home, league FROM matches WHERE lower(home) LIKE ? ORDER BY kickoff DESC LIMIT 1",
-                (f"%{tok.lower()}%",),
-            ).fetchone()
-            if not row_n:
-                row_n = conn.execute(
-                    "SELECT away, league FROM matches WHERE lower(away) LIKE ? ORDER BY kickoff DESC LIMIT 1",
-                    (f"%{tok.lower()}%",),
-                ).fetchone()
-            if row_n and row_n[0]:
-                if idx_s == 0:
-                    h_name = str(row_n[0])
-                    detected_league = str(row_n[1] or "atp").lower()
-                    detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
-                else:
-                    a_name = str(row_n[0])
+
+        def _find_team_candidates(tok: str) -> list[tuple[str, str]]:
+            tl = tok.strip().lower()
+            # 1. Exact or word-boundary match first (e.g. "Paul" -> "Tommy Paul" before "Paula Badosa")
+            rows_wb = conn.execute(
+                """
+                SELECT name, league, MAX(kickoff) AS ko FROM (
+                    SELECT home AS name, league, kickoff FROM matches
+                    WHERE lower(home) = ? OR lower(home) LIKE ? OR lower(home) LIKE ? OR lower(home) LIKE ?
+                    UNION ALL
+                    SELECT away AS name, league, kickoff FROM matches
+                    WHERE lower(away) = ? OR lower(away) LIKE ? OR lower(away) LIKE ? OR lower(away) LIKE ?
+                ) GROUP BY name, league ORDER BY ko DESC LIMIT 5
+                """,
+                (tl, f"% {tl}", f"{tl} %", f"% {tl} %", tl, f"% {tl}", f"{tl} %", f"% {tl} %"),
+            ).fetchall()
+            if rows_wb:
+                return [(str(r[0]), str(r[1] or "atp").lower()) for r in rows_wb if r[0]]
+            # 2. Substring fallback
+            rows_sub = conn.execute(
+                """
+                SELECT name, league, MAX(kickoff) AS ko FROM (
+                    SELECT home AS name, league, kickoff FROM matches WHERE lower(home) LIKE ?
+                    UNION ALL
+                    SELECT away AS name, league, kickoff FROM matches WHERE lower(away) LIKE ?
+                ) GROUP BY name, league ORDER BY ko DESC LIMIT 5
+                """,
+                (f"%{tl}%", f"%{tl}%"),
+            ).fetchall()
+            return [(str(r[0]), str(r[1] or "atp").lower()) for r in rows_sub if r[0]]
+
+        cands_1 = _find_team_candidates(p1_q)
+        cands_2 = _find_team_candidates(p2_q)
+        if cands_1 and cands_2:
+            # Prefer a pair sharing the same league
+            matched_pair = None
+            for n1, lg1 in cands_1:
+                for n2, lg2 in cands_2:
+                    if lg1 == lg2:
+                        matched_pair = (n1, n2, lg1)
+                        break
+                if matched_pair:
+                    break
+            if matched_pair:
+                h_name, a_name, detected_league = matched_pair
+            else:
+                h_name, detected_league = cands_1[0]
+                a_name = cands_2[0][0]
+            detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
+        elif cands_1:
+            h_name, detected_league = cands_1[0]
+            detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
+        elif cands_2:
+            a_name, detected_league = cands_2[0]
+            detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
         conn.close()
 
     base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name, detected_league)
@@ -893,7 +976,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         verdict = f"⚖️ SOLID VALUE LEAN — {mkt_1}"
         verdict_level = "lean_bet"
 
-    return {
+    _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_res := {
         **base_detail,
         "ok": True,
         "sport": detected_sport,
@@ -930,7 +1013,8 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "warnings": warnings,
         "verdict": verdict,
         "verdict_level": verdict_level,
-    }
+    })
+    return out_res
 
 
 def _refresh_inplay_timelinedelta(db_path: Path) -> int:
@@ -1397,7 +1481,7 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(sw_bytes)
                 return
 
-            if parsed.path in ("/api/docs", "/api/v1/docs", "/docs"):
+            if parsed.path in ("/api/docs", "/api/v1/docs", "/docs", "/mcp/docs"):
                 from .monetization import build_swagger_ui_html
 
                 swagger_b = build_swagger_ui_html().encode("utf-8")
@@ -1565,13 +1649,30 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(png_data)
                 return
 
-            if parsed.path in ("/api/healthz", "/healthz"):
+            if parsed.path in ("/api/healthz", "/healthz", "/api/cache-stats"):
+                from .sportradar_statshub import get_gismo_cache_stats
+
                 self._send_json({
                     "ok": True,
                     "status": "healthy",
                     "db_exists": db_path.exists(),
                     "data_dir": str(data_dir),
                     "firebase_auth_enabled": get_firebase_auth_config()["enabled"],
+                    "gismo_cache": get_gismo_cache_stats(),
+                })
+                return
+
+            if parsed.path in ("/mcp", "/api/mcp"):
+                from .mcp_server import MCP_PROTOCOL_VERSION, MCP_SERVER_INFO, MCP_TOOLS_CATALOG
+
+                self._send_json({
+                    "ok": True,
+                    "protocolVersion": MCP_PROTOCOL_VERSION,
+                    "serverInfo": MCP_SERVER_INFO,
+                    "transport": "streamable-http",
+                    "endpoint": "/mcp",
+                    "toolsCount": len(MCP_TOOLS_CATALOG),
+                    "tools": MCP_TOOLS_CATALOG,
                 })
                 return
 
@@ -1706,6 +1807,31 @@ self.addEventListener('fetch', (event) => {{
             length = int(self.headers.get("Content-Length") or "0")
             raw_bytes = self.rfile.read(length) if length > 0 else b"{}"
             raw_body = raw_bytes.decode("utf-8", errors="replace")
+
+            if parsed.path in ("/mcp", "/api/mcp"):
+                from .mcp_server import handle_mcp_jsonrpc_request
+
+                try:
+                    rpc_payload = json.loads(raw_body) if raw_body.strip() else {}
+                except json.JSONDecodeError:
+                    self._send_json(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": None,
+                            "error": {"code": -32700, "message": "Parse error: invalid JSON payload."},
+                        },
+                        status=400,
+                    )
+                    return
+
+                rpc_resp = handle_mcp_jsonrpc_request(rpc_payload, db_path=db_path, rec_path=rec_path)
+                if rpc_resp is None:
+                    self.send_response(202)
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    return
+                self._send_json(rpc_resp, status=200)
+                return
 
             # Stripe Billing Webhook (authenticated via Stripe-Signature HMAC rather than Firebase Auth)
             if parsed.path == "/api/billing/webhook":
