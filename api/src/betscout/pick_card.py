@@ -720,18 +720,28 @@ def render_pick_card_png(
     draw.text((58, 128), comp_fit, font=f_comp, fill=c_text)
 
     # Build right-aligned timestamp pill(s) in muted slate matching app table Kickoff styling
-    time_parts: list[str] = []
-    if announced_str:
-        time_parts.append(f"Pick: {announced_str}")
-    time_parts.append(f"Start: {kickoff_str}")
+    max_ko_w = max(260, w - 88 - comp_box_w - 14)
     if ended_str:
-        time_parts.append(f"Ended: {ended_str}")
-    ko_label = "   |   ".join(time_parts)
-    max_ko_w = w - 88 - comp_box_w - 14
-    f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=max(260, max_ko_w), start_size=12, min_size=9, bold=False)
-    ko_w = int(_text_width(draw, ko_fit, f_ko)) + 24
-    draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(11, 17, 30), outline=(42, 58, 86), width=1)
-    draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(148, 163, 184))
+        # Upon resolution: show Pick date above Start and Ended dates
+        pick_line = f"Pick: {announced_str or kickoff_str}"
+        span_line = f"Start: {kickoff_str}   |   Ended: {ended_str}"
+        f_ko1, ko1_fit = _fit_font_and_text(draw, pick_line, max_width=max_ko_w, start_size=11, min_size=9, bold=False)
+        f_ko2, ko2_fit = _fit_font_and_text(draw, span_line, max_width=max_ko_w, start_size=11, min_size=9, bold=True)
+        ko_w = max(int(_text_width(draw, ko1_fit, f_ko1)), int(_text_width(draw, ko2_fit, f_ko2))) + 28
+        box_left = w - 44 - ko_w
+        draw.rounded_rectangle([(box_left, 114), (w - 44, 158)], radius=9, fill=(11, 17, 30), outline=(42, 58, 86), width=1)
+        draw.text((box_left + 14, 120), ko1_fit, font=f_ko1, fill=(148, 163, 184))
+        draw.text((box_left + 14, 137), ko2_fit, font=f_ko2, fill=(203, 213, 225))
+    else:
+        time_parts: list[str] = []
+        if announced_str:
+            time_parts.append(f"Pick: {announced_str}")
+        time_parts.append(f"Start: {kickoff_str}")
+        ko_label = "   |   ".join(time_parts)
+        f_ko, ko_fit = _fit_font_and_text(draw, ko_label, max_width=max_ko_w, start_size=12, min_size=9, bold=False)
+        ko_w = int(_text_width(draw, ko_fit, f_ko)) + 24
+        draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(11, 17, 30), outline=(42, 58, 86), width=1)
+        draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(148, 163, 184))
 
     # Matchup Title with Sport Emoji on the left (auto-scaled so long names never clip, with muted 'vs')
     match_raw = _strip_non_ascii_symbols(str(pick_data.get("match") or f"{pick_data.get('home', '')} vs {pick_data.get('away', '')}"))
@@ -878,7 +888,7 @@ def render_digest_slate_png(
     if len(rows) == 1:
         return render_pick_card_png(rows[0], output_path=output_path)
 
-    row_h = 68
+    row_h = 74
     w = 1180
     h = 195 + max(1, len(rows)) * row_h + 65
     img = Image.new("RGB", (w, h), (9, 13, 21))
@@ -983,7 +993,7 @@ def render_digest_slate_png(
         )
         tm_start = _compact_timestamp(str(p.get("date_local") or p.get("date") or ""))
         tm_end = _compact_timestamp(str(p.get("ended_at_local") or p.get("ended_at") or ""))
-        tm_ann = _compact_timestamp(str(p.get("announced_at_local") or p.get("announced_at") or ""))
+        tm_ann = _compact_timestamp(str(p.get("announced_at_local") or p.get("announced_at") or p.get("logged_at") or ""))
 
         mt_raw = _strip_non_ascii_symbols(str(p.get("match") or f"{p.get('home','')} vs {p.get('away','')}"))
         mt_score_sub = _strip_non_ascii_symbols(str(p.get("settled_score") or p.get("score_str") or ""))
@@ -1021,26 +1031,29 @@ def render_digest_slate_png(
         f_od, od_fit = _fit_font_and_text(draw, od_main, max_width=95, start_size=15, min_size=11, bold=True)
 
         if tm_end:
-            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=202, start_size=11, min_size=9, bold=True)
-            f_t2, t2_fit = _fit_font_and_text(draw, f"Ended: {tm_end}", max_width=202, start_size=11, min_size=9, bold=False)
-            draw.text((50, y_cur + 12), t1_fit, font=f_t1, fill=(203, 213, 225))
-            draw.text((50, y_cur + 33), t2_fit, font=f_t2, fill=(56, 189, 248))
+            pick_dt_str = tm_ann or tm_start
+            f_t0, t0_fit = _fit_font_and_text(draw, f"Pick: {pick_dt_str}", max_width=202, start_size=10, min_size=9, bold=False)
+            f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=202, start_size=10, min_size=9, bold=True)
+            f_t2, t2_fit = _fit_font_and_text(draw, f"Ended: {tm_end}", max_width=202, start_size=10, min_size=9, bold=False)
+            draw.text((50, y_cur + 8), t0_fit, font=f_t0, fill=(148, 163, 184))
+            draw.text((50, y_cur + 26), t1_fit, font=f_t1, fill=(203, 213, 225))
+            draw.text((50, y_cur + 44), t2_fit, font=f_t2, fill=(56, 189, 248))
         elif tm_ann:
+            f_t0, t0_fit = _fit_font_and_text(draw, f"Pick: {tm_ann}", max_width=202, start_size=11, min_size=9, bold=False)
             f_t1, t1_fit = _fit_font_and_text(draw, f"Start: {tm_start}", max_width=202, start_size=11, min_size=9, bold=True)
-            f_t2, t2_fit = _fit_font_and_text(draw, f"Pick: {tm_ann}", max_width=202, start_size=11, min_size=9, bold=False)
-            draw.text((50, y_cur + 12), t1_fit, font=f_t1, fill=(203, 213, 225))
-            draw.text((50, y_cur + 33), t2_fit, font=f_t2, fill=(148, 163, 184))
+            draw.text((50, y_cur + 14), t0_fit, font=f_t0, fill=(148, 163, 184))
+            draw.text((50, y_cur + 36), t1_fit, font=f_t1, fill=(203, 213, 225))
         else:
             f_tm, tm_fit = _fit_font_and_text(draw, tm_start, max_width=202, start_size=12, min_size=10, bold=True)
-            draw.text((50, y_cur + 22), tm_fit, font=f_tm, fill=(203, 213, 225))
+            draw.text((50, y_cur + 25), tm_fit, font=f_tm, fill=(203, 213, 225))
 
         # Dedicated Sport Emoji column spanning the height of both the Matchup row and the Score row (38x38px)
-        _paste_sport_icon(img, row_sp, 286, y_cur + 31, size=38)
+        _paste_sport_icon(img, row_sp, 286, y_cur + 34, size=38)
 
         if mt_score_sub:
             _draw_text_with_muted_vs(
                 draw,
-                (322, y_cur + 11),
+                (322, y_cur + 13),
                 mt_fit,
                 f_mt,
                 int(getattr(f_mt, "size", 15)),
@@ -1049,11 +1062,11 @@ def render_digest_slate_png(
             )
             score_line = f"Score: {mt_score_sub}" if not mt_score_sub.lower().startswith("score") else mt_score_sub
             f_ms, ms_fit = _fit_font_and_text(draw, score_line, max_width=310, start_size=12, min_size=9, bold=False)
-            draw.text((322, y_cur + 34), ms_fit, font=f_ms, fill=(148, 163, 184))
+            draw.text((322, y_cur + 37), ms_fit, font=f_ms, fill=(148, 163, 184))
         else:
             _draw_text_with_muted_vs(
                 draw,
-                (322, y_cur + 21),
+                (322, y_cur + 24),
                 mt_fit,
                 f_mt,
                 int(getattr(f_mt, "size", 15)),
@@ -1063,18 +1076,18 @@ def render_digest_slate_png(
 
         pk_col = (34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_raw else (244, 63, 94)
         if pk_sub:
-            draw.text((645, y_cur + 11), pk_fit, font=f_pk, fill=pk_col)
+            draw.text((645, y_cur + 13), pk_fit, font=f_pk, fill=pk_col)
             sub_col = (
                 (244, 63, 94)
                 if pk_sub.startswith("L ")
                 else ((52, 211, 153) if pk_sub.startswith("W ") else (148, 163, 184))
             )
             f_pks, pks_fit = _fit_font_and_text(draw, pk_sub, max_width=275, start_size=12, min_size=9, bold=False)
-            draw.text((645, y_cur + 34), pks_fit, font=f_pks, fill=sub_col)
+            draw.text((645, y_cur + 37), pks_fit, font=f_pks, fill=sub_col)
         else:
-            draw.text((645, y_cur + 21), pk_fit, font=f_pk, fill=pk_col)
-        draw.text((935, y_cur + 21), wp_fit, font=f_wp, fill=(56, 189, 248))
-        draw.text((1035, y_cur + 21), od_fit, font=f_od, fill=(245, 158, 11))
+            draw.text((645, y_cur + 24), pk_fit, font=f_pk, fill=pk_col)
+        draw.text((935, y_cur + 24), wp_fit, font=f_wp, fill=(56, 189, 248))
+        draw.text((1035, y_cur + 24), od_fit, font=f_od, fill=(245, 158, 11))
         y_cur += row_h
 
     draw.text(

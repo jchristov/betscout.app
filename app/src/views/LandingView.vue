@@ -406,7 +406,7 @@
                 }}
               </div>
               <p class="text-[13.5px] text-slate-300 pb-4 mb-4 border-b border-slate-700/60">
-                Real-time high-conviction pick alerts &amp; PNG cards delivered directly to Discord &amp; Telegram.
+                Real-time high-conviction pick alerts &amp; Notification Cards delivered directly to Discord &amp; Telegram.
               </p>
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
@@ -416,7 +416,7 @@
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>Instant High-Res PNG Pick Cards</b> with win probability, fair odds &amp; score targets</span>
+                  <span><b>Instant High-Res Notification Cards</b> with win probability, fair odds &amp; score targets</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
@@ -569,7 +569,7 @@
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    <b>Custom Webhook Fan-Out:</b> Automated PNG Pick Cards posted directly to your Discord or Telegram
+                    <b>Custom Webhook Fan-Out:</b> Automated Notification Cards posted directly to your Discord or Telegram
                   </span>
                 </li>
               </ul>

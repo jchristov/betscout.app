@@ -1001,7 +1001,7 @@
                   <button
                     type="button"
                     class="btn-press inline-flex items-center p-1 rounded-md bg-slate-900 border border-slate-700 hover:border-sky-400 text-sky-300"
-                    title="Share this pick + PNG Card to Discord / Telegram"
+                    title="Share this pick + Notification Card to Discord / Telegram"
                     @click="openShareSinglePickModal(b)"
                   >
                     <Icon icon="fa6-solid:bullhorn" class="w-3 h-3" />
@@ -2077,7 +2077,7 @@
       </div>
     </div>
 
-    <!-- MODAL 3: SHARE PICK & PNG CARD GENERATOR -->
+    <!-- MODAL 3: SHARE PICK & NOTIFICATION CARD GENERATOR -->
     <div
       v-if="shareModalOpen"
       class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
@@ -2087,7 +2087,7 @@
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
             <Icon icon="fa6-solid:share-nodes" class="w-4 h-4" />
-            <span>Share Pick &amp; High-Res PNG Card Publisher</span>
+            <span>Share Pick &amp; High-Res Notification Card Publisher</span>
           </b>
           <button
             type="button"
@@ -2101,14 +2101,14 @@
 
         <div class="bg-slate-950 border border-slate-700 rounded-xl p-2.5 mb-3">
           <div class="flex justify-between items-center mb-1.5">
-            <span class="text-[11px] font-bold text-sky-300">Generated Pick Card Image (1080×560 PNG)</span>
+            <span class="text-[11px] font-bold text-sky-300">Generated Notification Card (1080×560)</span>
             <button
               type="button"
               class="btn-press h-7 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-semibold leading-none"
               @click="downloadCanvasPng"
             >
               <Icon icon="fa6-solid:download" class="w-3 h-3 text-sky-400 shrink-0" />
-              <span>Download PNG Card</span>
+              <span>Download Notification Card</span>
             </button>
           </div>
           <canvas
@@ -2225,12 +2225,12 @@
 
           <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl flex flex-wrap justify-between items-center gap-2">
             <div>
-              <b class="text-cyan-300 block">PWA LocalStorage &amp; 2-Tier Gismo SQLite Cache</b>
+              <b class="text-cyan-300 block">Local Cache &amp; Multi-Tier Data Cache</b>
               <span class="text-[11px] text-slate-300">
                 Last cached snapshot: {{ store.lastLocalCacheTime || 'Active' }}
                 <template v-if="store.gismoCache?.hit_rate_pct !== undefined">
-                  · Gismo Cache Hit Rate: <b class="text-emerald-300">{{ store.gismoCache.hit_rate_pct }}%</b>
-                  (L1: {{ store.gismoCache.l1_memory_entries || 0 }}, L2 SQLite: {{ store.gismoCache.l2_sqlite_entries || 0 }})
+                  · Cache Hit Rate: <b class="text-emerald-300">{{ store.gismoCache.hit_rate_pct }}%</b>
+                  (L1: {{ store.gismoCache.l1_memory_entries || 0 }}, L2 Persistent: {{ store.gismoCache.l2_sqlite_entries || 0 }})
                 </template>
               </span>
             </div>
@@ -2852,7 +2852,7 @@ async function postShareToDiscord() {
     });
     const d = await resp.json();
     if (d.ok) {
-      store.showToast('Posted pick & PNG card to Discord!');
+      store.showToast('Posted pick & Notification Card to Discord!');
       shareModalOpen.value = false;
     } else {
       store.showToast(`Discord error: ${d.error || 'Failed'}`);

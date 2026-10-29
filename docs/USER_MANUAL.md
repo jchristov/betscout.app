@@ -4,7 +4,7 @@
 - **⚽ 14 Football Competitions (`11,582` matches):** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`), and `fifa.world`.
 - **🎾 ATP & WTA Tennis (`43,168` matches):** Outdoor Hard (`hard`), Indoor Hard (`hard_indoor`), Clay (`clay`), and Grass (`grass`) across Grand Slams, Masters 1000, ATP/WTA 500 & 250 Main Draws and Qualifying rounds.
 - **🏐🏀🏒🏈⚾ Volleyball, Basketball & US Major Sports (`4,312` matches):** `wvolleyball`, `mvolleyball`, `nba`, `ncaaw`, `ncaam`, `fiba`, `nbl`, `wnba`, `nhl`, `nfl`, and `mlb`.
-- **📡 Direct Sportradar StatsHub & Tipico API (`56` Sports):** Real-time **Tipico (`_bookmakerId: 176`)** + **Sportradar Main UOF (`_bookmakerId: 0`)** markets, 28-outcome Correct Score matrices, Player Injuries (`stats_season_injuries`), 15-Minute Goal Timing (`stats_season_teamscoringconceding`), Live Pitch Dangerous Attacks (`match_situations`), and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**). See **[SPORTRADAR_STATSHUB.md](./SPORTRADAR_STATSHUB.md)**.
+- **📡 Live Match Center & Market Feed (`56` Sports):** Real-time multi-bookmaker 1X2 / Moneyline, Asian Handicap, Over/Under, 28-outcome Correct Score matrices, Squad Availability & Injuries, 15-Minute Goal Timing, Live Pitch Dangerous Attacks, and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
 
 ---
 
@@ -31,9 +31,9 @@
 
 ## 0. Sports & Championships Covered in Database (`59,062` Matches)
 
-All historical and live records are stored in a single canonical SQLite database: **`data/betscout.db`** (`0` quality errors across `59,062` verified matches and `27` active championships across **7 sports**).
+All historical and live records are stored in a unified quantitative database (`0` quality errors across `59,062` verified matches and `27` active championships across **7 core sports** plus **56 live Match Center sports**).
 
-| Sport | League Key | ESPN Slug | Championship / Competition Name | Verified Matches | Date Range |
+| Sport | League Key | Feed Code | Championship / Competition Name | Verified Matches | Date Range |
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | **⚽ Football (Soccer)** | `esp.1` | `esp.1` | **Spanish La Liga** | `1,803` | `2022-01` – Present |
 | **⚽ Football (Soccer)** | `eng.1` | `eng.1` | **English Premier League** | `1,788` | `2022-01` – Present |
@@ -73,7 +73,7 @@ All historical and live records are stored in a single canonical SQLite database
 make dev
 # (or directly: cd api && uv run betscout --port 8090)
 ```
-Then open **`http://127.0.0.1:8090`** (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `/api/docs` Swagger UI, and `/docs/notification-cards.html` PNG Notification Cards Catalog) in your browser.
+Then open **`http://127.0.0.1:8090`** (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `/docs` User Guide, `/api/docs` Swagger UI, and `/notification-cards.html` Notification Cards Catalog) in your browser.
 
 Running the WebApp server enables:
 - **Real-time Server-Sent Events (SSE) streaming** (`/api/stream`) every 15 seconds.
@@ -97,12 +97,12 @@ At the top of the BetScout WebApp, the header displays system metadata and 5 glo
 | :--- | :--- |
 | **`📡 Live SSE Stream`** | Shows connection status (`Connected` with green pulse dot when connected to `uv run betscout`, or `Static File Mode` when opened via `file://`). |
 | **`🔕 Live Alerts: OFF` / `🔔 ON`** | **Global toggle** for automated Discord push alerts on Live In-Play Dominance Rebound (`⚽`) and Set-1 Deficit Rebound (`🎾`) edges. **Default is `OFF`** so your Discord channel is never spammed. Persists in `data/webapp_settings.json` and `localStorage`. |
-| **`🔄 Sync & Settle`** | Immediately polls ESPN & SofaScore to grade completed bets, update live in-play scores, and refresh the ledger without rescanning all future fixtures (~2–4 seconds). |
+| **`🔄 Sync & Settle`** | Immediately polls live sports feeds to grade completed bets, update live in-play scores, and refresh the ledger without rescanning all future fixtures (~2–4 seconds). |
 | **`⚡ Rescan Live`** | Re-runs the full multi-sport upcoming scanner (`scan_upcoming_and_log_paper_bets`), updates live bookmaker odds and CLV, and refreshes all recommendations (~25–40 seconds). |
 | **`🚀 Full Pipeline`** | Executes all 4 stages from the browser: `[1/4]` Incremental ingestion across all 20 leagues $\rightarrow$ `[2/4]` Quality check $\rightarrow$ `[3/4]` Multi-sport scan & settlement $\rightarrow$ `[4/4]` Dashboard rebuild. |
 | **`💬 Share Picks`** | Opens the **Discord & Telegram Social Publisher** panel with a pre-formatted Markdown digest of your currently filtered picks. |
 
-> **Note on Provisional Kickoff Times (`*`):** Any match whose official court/pitch time has not yet been confirmed by the tournament (`time_valid == False` or ESPN's `04:00Z` placeholder) is marked with an asterisk (`*`, e.g., `2026-10-26 05:00 CET* (TBD)`) and updates automatically as soon as the official Order of Play is released.
+> **Note on Provisional Kickoff Times (`*`):** Any match whose official court/pitch time has not yet been confirmed by the tournament (`time_valid == False` or `04:00Z` placeholder) is marked with an asterisk (`*`, e.g., `2026-10-26 05:00 CET* (TBD)`) and updates automatically as soon as the official Order of Play is released.
 
 ---
 
@@ -169,7 +169,7 @@ When you want to bet on **Exact Scores** (`1:0`, `2:0`, `2:1` in Football) or **
 Want to check a match that isn't in `best_bets.json` (for example, a 55/45 Tennis match or a derby that our model passed on)?
 
 - Type **any two players or teams** separated by `vs` into the **🔍 On-Demand Any-Matchup Live Analyzer** bar (e.g., `Medvedev vs Bublik`, `Bernet vs Altmaier`, `Chelsea vs Tottenham`) and click **`⚡ Analyze Matchup`**.
-- The server (`GET /api/analyze-live`) queries `betscout.db` + live SofaScore feeds on the fly to compute:
+- The server (`GET /api/analyze-live`) queries historical match records and live market feeds on the fly to compute:
   - **Live Elo & Game-Share Elo Differential** (Tennis) or **Club Elo & 6-Match Rolling Shots-on-Target Differential** (Football),
   - **All-Level Last-5 Win Rate** (including ATP/WTA Challenger & ITF matches),
   - **Rest & Turnaround Hours** since each player's previous match (and previous tournament city),
@@ -211,7 +211,7 @@ Click the collapsible **📈 Expanding-Window Monthly Forward-Walking Backtest A
 1. **⚽ Upcoming Football Picks Cards:**
    - Displays competition logo, team crests, tier (`top_8pct`, `top_10pct`, `top_15pct`, `top_25pct`), action badge (`PAPER_BET` or `VETOED_BY_...`), Quarter-Kelly stake (`%` and `€`), Best 1X2 odds, Synthetic Dutch Double-Chance (`1X`/`X2`) odds, Dixon-Coles Expected Goals ($\lambda/\mu$), Top Exact Score, 2-Score & 3-Score Dutching Clusters, 7-Factor horizontal `tanh(Z)` bars, **System-1 `laya-sports` News Gate**, and **T-60m Starting XI Gate**.
 2. **🎾 Upcoming Tennis Picks Table (ATP & WTA):**
-   - Displays player studio headshots (via ESPN Core v2 API with automatic country-flag fallback), tournament surface pill (`HARD`, `HARD_INDOOR`, `CLAY`, `GRASS`), calibrated Win Probability, Straight-Sets (`2:0`/`0:2`) vs Decider (`2:1`/`1:2`) projections, Recommended Total Games Over/Under (`21.5`/`22.5`), Min Fair Odds, Live SofaScore Bookmaker Odds, and Game/Surface Elo differentials.
+   - Displays player studio headshots (with automatic country-flag fallback), tournament surface pill (`HARD`, `HARD_INDOOR`, `CLAY`, `GRASS`), calibrated Win Probability, Straight-Sets (`2:0`/`0:2`) vs Decider (`2:1`/`1:2`) projections, Recommended Total Games Over/Under (`21.5`/`22.5`), Min Fair Odds, Live Bookmaker Odds, and Game/Surface Elo differentials.
 3. **🏀🏒🏈⚾ Upcoming Major League Picks Table (NBA · NHL · NFL · MLB):**
    - Displays team crests, injury availability pill (`Out: X vs Y`), calibrated Model vs Market Win Probability, Min Fair Odds, Bookmaker Odds, and EV%.
 
@@ -219,7 +219,7 @@ Click the collapsible **📈 Expanding-Window Monthly Forward-Walking Backtest A
 
 ## 10. 🔗 2-Leg High-Probability Combos & Parlay Engine
 
-BetScout automatically constructs up to **8 uncorrelated 2-leg parlays** across **4 strategic market archetypes** and tracks them prospectively in the `paper_combos` SQLite table:
+BetScout automatically constructs up to **8 uncorrelated 2-leg parlays** across **4 strategic market archetypes** and tracks them prospectively in the combo ledger:
 
 1. **`CROSS_SPORT_BANKER` (Cross-Sport Banker ML):** Pairs two high-probability Moneyline/1X2 favorites (`1.18 – 1.75` per leg) from different sports or leagues.
 2. **`DOUBLE_CHANCE_SHIELD` (Double-Chance / `+1.5 Sets` Shield):** Pairs Football Double Chance (`1X`/`X2`) with Tennis Set Handicap (`+1.5 Sets`, winning at least 1 set).
@@ -240,7 +240,7 @@ All three single-bet ledger tables share an identical, fixed-width **8-column so
    - Marks any settled bet whose final score matched our pre-match Top-1 Exact Score or 3-Score Cluster with **`🎯 Exact/Cluster HIT`**.
 2. **🔴 Live In-Play Paper-Bets Table:**
    - Active matches automatically move here during play (`15s` SSE updates), showing live scores, current virtual PnL (`LEADING`, `LEVEL`, `TRAILING`), live Football boxscore telemetry (`SoT`, `Possession %`), **`🔥 REBOUND EDGE`** badges, and a **per-match `🔕` / `🔔` alert toggle button** right next to each row.
-   - Includes automatic **SofaScore Live Tennis Scoreboard Fallback** for ATP/WTA Qualifying matches when ESPN leaves qualifying status in pre-match state.
+   - Includes automatic live tennis scoreboard synchronization for ATP/WTA Main Draw and Qualifying matches.
 3. **Pending Paper-Bets Awaiting Kickoff Table:**
    - Tracks opening vs latest closing odds and real-time **Closing Line Value (`CLV %`)** prior to kickoff.
 
@@ -270,7 +270,7 @@ Click on **any matchup name** in any table (or click **`🔍 Full H2H & Dutching
 
 Click **`💬 Share Picks`** in the header (or run `uv run betscout discord`) to publish formatted digests:
 - **Automatic Smart Chunking:** Long digests are split cleanly at match boundaries (`<= 1,900` chars) so Discord never truncates a message.
-- **Atomic Settlement Notifications (`notify_new_settlements_to_discord`):** Uses a thread lock + SQLite `BEGIN IMMEDIATE` transaction so each newly settled single bet or 2-leg combo is announced to Discord **at most once**.
+- **Atomic Settlement Notifications (`notify_new_settlements_to_discord`):** Uses an atomic claim lock so each newly settled single bet or 2-leg combo is announced to Discord **at most once**, with a Notification Card showing Pick Date above Start Date and End Date.
 - **Toggleable Live In-Play Rebound Alerts (`notify_inplay_rebound_edges_to_discord`):**
   - **Default: `OFF` globally.**
   - Can be toggled **globally** via the header button (`🔕 Live Alerts: OFF` / `🔔 ON`) or **individually per live match** via the `🔕` / `🔔` button on each row in the **🔴 Live In-Play** table.
@@ -285,16 +285,16 @@ Every pick in BetScout must pass a strict sequence of out-of-sample validated sa
    - **7-Factor Orthogonal Composite (`tanh(Z)`):** Combines de-vigged `p_mkt`, `vig_neg`, opponent-adjusted `sot_d` (Shots on Target diff), `discipline` (fouls diff), `h2h_adv`, `dom_rebound` (unlucky dominance rebound), and `recent_draws`.
    - **Secondary Domestic League Gate (`ned.1, por.1, eng.2, aut.1`):** Requires positive rolling Shots-on-Target dominance (`sot_z > 0.20`), positive `dom_rebound`, and `EV >= +1.5%` for `top_15pct` picks (`+5.23%` OOS ROI).
    - **System-1 `laya-sports` News Gate:** Vetoes picks with severe negative injury/rotation news (`net_edge_for_pick <= -0.25`).
-   - **Position-Specific T-60m Starting XI Gate:** Automatically checks official ESPN lineups within 60 minutes of kickoff and vetoes the bet if:
+   - **Position-Specific T-60m Starting XI Gate:** Automatically checks official pre-match lineups within 60 minutes of kickoff and vetoes the bet if:
      - Starting XI attacking share (`G + 0.7A + 0.2SoT` over last 6 matches) drops below `< 50%` (or `< 60%` without the top scorer), OR
      - Both the primary Goalkeeper (`GK`) is missing AND `< 50%` of the regular defensive spine starts (`VETOED_DEPLETED_DEFENSE`).
 2. **🎾 Tennis Gates:**
    - **8-Feature Surface + Indoor/Outdoor Hard + Game-Dominance Model:** Separate Elo ratings for `hard`, `hard_indoor`, `clay`, `grass`, plus `game_elo` and rolling 10-match game-win share.
    - **Form-Slump & Decider / Court-Acclimatization Gates:** Vetoes `<80%` favorites with worse 6-match form (`< -15pp`), worse 3-set decider record (`< -20pp`), or fewer current-week wins on court (`tourn_wins_diff <= -1`).
    - **Qualifying Game-Share & Form Alignment Gate:** In Qualifying rounds, vetoes `<82%` favorites with non-positive rolling game-share (`game_win_pct_diff <= 0`) or non-positive form (`form_6m_diff <= 0`).
-   - **All-Level Challenger/ATP Last-5 Form & Market-Divergence Gate:** Queries SofaScore's all-level match history (`ATP + Challenger + ITF`) and vetoes any pick at `<= 25%` (`1-4`) facing an opponent at `>= 60%` (`3-2+`), or where model probability diverges `>= 15pp` above a sub-60% market line.
+   - **All-Level Challenger/ATP Last-5 Form & Market-Divergence Gate:** Queries all-level match history (`ATP + Challenger + ITF`) and vetoes any pick at `<= 25%` (`1-4`) facing an opponent at `>= 60%` (`3-2+`), or where model probability diverges `>= 15pp` above a sub-60% market line.
    - **Cross-Tournament `<38h` Turnaround Gate:** Vetoes `<80%` favorites playing within `<= 38h` of finishing a match in a different tournament city against a rested opponent.
-   - **Automatic Draw-Change / Withdrawal Purge:** Automatically purges pending singles and combos if a player withdraws or ESPN redraws the competition slot.
+   - **Automatic Draw-Change / Withdrawal Purge:** Automatically purges pending singles and combos if a player withdraws or the tournament redraws the competition slot.
 3. **🏀🏒🏈⚾ US Major Sports Gates:**
    - **NBA Alignment Gate:** Requires Elo confirmation (`p_elo >= p_mkt - 0.02`), non-negative rest (`rest_adv >= 0`), and positive rolling FG% diff (`+14.49%` OOS ROI).
    - **NHL Alignment Gate:** Requires non-negative rest, positive Save% diff, and positive Shot-Volume diff (plus Dual-Dominance `>= 12.0` on road picks).
@@ -357,6 +357,6 @@ Tier 3 subscribers can connect **Claude**, **VS Code GitHub Copilot**, **Cursor*
   6. `search_daily_fixtures` — Search daily schedules & match IDs across 56 sports (opaque cursor pagination)
   7. `get_paper_ledger_roi` — Audited Paper-Betting Ledger (`75W–1L`, ROI%, CLV%, by-sport breakdown)
 
-### B. 2-Tier L1 In-Memory + L2 Persistent SQLite Caching (`gismo_http_cache`)
-All upstream Gismo requests pass through a 2-tier cache (`_RESPONSE_CACHE` in memory + `gismo_http_cache` table in `data/betscout.db`) with endpoint-aware smart minimum TTLs (`3,600s` static/career, `1,200s` season/historical aggregates, `600s` pre-match schedules/odds, `120s` negative caching for missing feeds) and live hit/miss telemetry at `GET /api/cache-stats`.
+### B. Multi-Tier In-Memory & Persistent Data Caching
+All match intelligence requests pass through a multi-tier cache with endpoint-aware smart minimum TTLs (`3,600s` static/career, `1,200s` season/historical aggregates, `600s` pre-match schedules/odds, `120s` negative caching for unavailable feeds) and live hit/miss telemetry at `GET /api/cache-stats`.
 

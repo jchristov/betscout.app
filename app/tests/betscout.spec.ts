@@ -296,7 +296,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('betscout.app');
     expect(wrapper.text()).not.toContain('/api/');
     expect(wrapper.text()).not.toContain('https://');
-    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore/);
+    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
   });
 
   it('renders DashboardView with 4 workspace tabs, sortable table, and custom slip dock', async () => {
@@ -335,7 +335,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('/api/');
     expect(wrapper.text()).not.toContain('https://');
 
-    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore/);
+    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
 
     // Select a match to trigger floating custom slip dock
     store.toggleCustomMatch('AS Roma vs Cagliari');
@@ -343,13 +343,14 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('1 Selected');
   });
 
-  it('renders DocsView (/docs) with all 5 documentation sections, 7 MCP tools, 4 prompts, and 4 resources', () => {
+  it('renders DocsView (/docs) with all 6 documentation sections, Notification Cards catalog, and zero proprietary terms', () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/', component: LandingView },
         { path: '/app', component: DashboardView },
         { path: '/docs', component: DocsView },
+        { path: '/docs/notification-cards', component: DocsView },
       ],
     });
     const wrapper = mount(DocsView, {
@@ -357,6 +358,8 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     });
 
     expect(wrapper.text()).toContain('BetScout Platform Manual');
+    expect(wrapper.text()).toContain('Notification Cards');
+    expect(wrapper.text()).not.toContain('PNG Notification Cards');
     expect(wrapper.text()).toContain('get_daily_banker_picks');
     expect(wrapper.text()).toContain('get_banker_profit_boosters');
     expect(wrapper.text()).toContain('analyze_matchup');
@@ -366,6 +369,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('get_paper_ledger_roi');
     expect(wrapper.text()).toContain('betscout://slate/today');
     expect(wrapper.text()).toContain('parlay-builder');
+    expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
   });
 
   it('renders MatchCenterView (/match/:id) with 2-way 100% win probability bar (0% draw for Tennis)', async () => {

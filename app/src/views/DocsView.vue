@@ -64,7 +64,7 @@
           <div class="max-w-3xl">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/45 mb-3">
               <Icon icon="fa6-solid:circle-check" class="w-3.5 h-3.5" />
-              <span>v{{ appVersion }} ({{ commitHash }}) · 56 Sports · 2-Tier SQLite Cache · Remote MCP Server</span>
+              <span>v{{ appVersion }} ({{ commitHash }}) · 56 Sports · Multi-Tier Smart Cache · Remote MCP Server</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2">
               BetScout Platform Manual, Quantitative Methodology &amp; Remote MCP Guide
@@ -118,10 +118,11 @@
               <Icon icon="fa6-solid:arrow-right" class="w-3 h-3 text-sky-400" />
             </a>
             <a
-              href="/docs/notification-cards.html"
+              href="/notification-cards.html"
               class="btn-press w-full py-2 px-3 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-emerald-400 text-slate-200 font-semibold flex items-center justify-between no-underline"
+              @click.prevent="activeSection = 'cards'"
             >
-              <span>PNG Notification Cards</span>
+              <span>Notification Cards</span>
               <Icon icon="fa6-solid:arrow-right" class="w-3 h-3 text-emerald-400" />
             </a>
           </div>
@@ -201,7 +202,7 @@
                   <b>7. <code>recent_draws</code></b> (anti-stalemate propensity).
                 </p>
                 <div class="text-slate-400">
-                  <b class="text-amber-300">Pre-Match Safety Gates:</b> Vetoes stalemate-prone favorites (<code class="text-slate-200">p_mkt &lt; 0.65</code> with high draw rate), weak-SoT favorites (<code class="text-slate-200">sot_d &lt; 0.35</code>), and severe squad depletion (<code class="text-slate-200">evaluate_sportradar_injury_gate</code> when missing players exceed the threshold or T-60m Starting XI drops key spine starters).
+                  <b class="text-amber-300">Pre-Match Safety Gates:</b> Vetoes stalemate-prone favorites (<code class="text-slate-200">p_mkt &lt; 0.65</code> with high draw rate), weak-SoT favorites (<code class="text-slate-200">sot_d &lt; 0.35</code>), and severe squad depletion (Pre-Match Squad Availability Gate when missing players exceed the threshold or T-60m Starting XI drops key spine starters).
                 </div>
               </div>
 
@@ -366,9 +367,9 @@ Equal Payout = Stake_i * O_i (identical if any leg hits)</pre>
                   <b class="text-emerald-300 block mb-1.5">4 Direct MCP Resources (<code>resources/list</code>)</b>
                   <ul class="space-y-1 text-slate-300 list-disc pl-4">
                     <li><code class="text-sky-300 font-bold">betscout://slate/today</code> — Active picks &amp; mispriced edges JSON</li>
-                    <li><code class="text-sky-300 font-bold">betscout://ledger/summary</code> — Verified 75W–1L ledger &amp; sport ROI</li>
+                    <li><code class="text-sky-300 font-bold">betscout://ledger/summary</code> — Verified 78W–1L ledger &amp; sport ROI</li>
                     <li><code class="text-sky-300 font-bold">betscout://boosters/today</code> — Today's 2-leg &amp; 3-leg profit boosters</li>
-                    <li><code class="text-sky-300 font-bold">betscout://cache/telemetry</code> — 2-tier L1/L2 SQLite Gismo cache stats</li>
+                    <li><code class="text-sky-300 font-bold">betscout://cache/telemetry</code> — Multi-tier real-time cache telemetry</li>
                   </ul>
                 </div>
               </div>
@@ -379,21 +380,51 @@ Equal Payout = Stake_i * O_i (identical if any leg hits)</pre>
           <section v-if="activeSection === 'ledger' || activeSection === 'all'" class="card-surface rounded-2xl p-6 space-y-4">
             <div class="flex items-center gap-2.5 border-b border-slate-700/70 pb-3">
               <Icon icon="fa6-solid:database" class="w-5 h-5 text-cyan-400" />
-              <h2 class="text-lg font-extrabold text-white">5. Paper-Betting Ledger, CLV &amp; 2-Tier SQLite Caching</h2>
+              <h2 class="text-lg font-extrabold text-white">5. Paper-Betting Ledger, CLV &amp; Multi-Tier Smart Caching</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div class="p-4 rounded-xl bg-slate-900/85 border border-slate-700/80 space-y-1.5">
                 <b class="text-amber-300 text-sm block">Prospective Ledger &amp; Closing Line Value (CLV)</b>
                 <p class="text-slate-300 leading-relaxed">
-                  Every qualifying pick is logged to <code class="text-sky-300">paper_bets</code> before kickoff with its opening odds, logged best odds, and exact-score projection. As kickoff approaches, closing odds are tracked to compute <b class="text-white">CLV% (`Logged Odds / Close Odds - 1`)</b>. After full time, official scores and interim period/set scores are graded automatically every 20 minutes via Cloud Scheduler.
+                  Every qualifying pick is logged to the immutable prospective ledger before kickoff with its opening odds, logged best odds, and exact-score projection. As kickoff approaches, closing odds are tracked to compute <b class="text-white">CLV% (`Logged Odds / Close Odds - 1`)</b>. After full time, official scores and interim period/set scores are graded automatically every 20 minutes.
                 </p>
               </div>
               <div class="p-4 rounded-xl bg-slate-900/85 border border-slate-700/80 space-y-1.5">
-                <b class="text-cyan-300 text-sm block">2-Tier L1 In-Memory + L2 Persistent SQLite Cache</b>
+                <b class="text-cyan-300 text-sm block">Multi-Tier In-Memory &amp; Persistent Data Cache</b>
                 <p class="text-slate-300 leading-relaxed">
-                  Upstream Gismo lookups pass through an L1 LRU cache plus a persistent SQLite table (<code class="text-sky-300">gismo_http_cache</code>) with smart endpoint TTLs (<code class="text-emerald-300">3,600s</code> static/career, <code class="text-emerald-300">1,200s</code> season/form, <code class="text-emerald-300">600s</code> pre-match odds, and <code class="text-emerald-300">120s</code> negative caching for missing feeds), cutting cold-start latency to &lt;1.3s.
+                  Match intelligence lookups pass through a two-tier cache architecture with smart endpoint TTLs (<code class="text-emerald-300">3,600s</code> static/career profiles, <code class="text-emerald-300">1,200s</code> season/form stats, <code class="text-emerald-300">600s</code> pre-match odds, and <code class="text-emerald-300">120s</code> negative caching for unavailable feeds), cutting cold-start latency to &lt;1.3s.
                 </p>
               </div>
+            </div>
+          </section>
+
+          <!-- SECTION 6: NOTIFICATION CARDS DESIGN CATALOG -->
+          <section v-if="activeSection === 'cards' || activeSection === 'all'" class="card-surface rounded-2xl p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/70 pb-3">
+              <div class="flex items-center gap-2.5">
+                <Icon icon="fa6-solid:images" class="w-5 h-5 text-emerald-400" />
+                <h2 class="text-lg font-extrabold text-white">6. Notification Cards Design Catalog (12 Archetypes)</h2>
+              </div>
+              <a
+                href="/notification-cards.html"
+                target="_blank"
+                rel="noopener"
+                class="btn-press h-8 px-3 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-semibold leading-none inline-flex items-center gap-1.5 no-underline"
+              >
+                <span>Open Fullscreen Catalog</span>
+                <Icon icon="fa6-solid:up-right-from-square" class="w-3 h-3 shrink-0" />
+              </a>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Every automated pick alert, morning slate digest, and settled result recap published to Discord &amp; Telegram includes a high-resolution Notification Card. Resolved cards display the <b class="text-white">Pick Date</b> directly above the match <b class="text-white">Start Date</b> and <b class="text-white">End Date</b>, along with the final score and realized unit PnL.
+            </p>
+            <div class="rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950">
+              <iframe
+                src="/notification-cards.html"
+                title="BetScout Notification Cards Design Catalog"
+                class="w-full h-[920px] border-0 block"
+                loading="lazy"
+              ></iframe>
             </div>
           </section>
         </div>
@@ -421,12 +452,14 @@ Equal Payout = Stake_i * O_i (identical if any leg hits)</pre>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import { setupIconifyCollections } from '../utils/iconifySetup';
 
 setupIconifyCollections();
 
+const route = useRoute();
 const currentYear = new Date().getFullYear();
 const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.5.0';
 const commitHash = typeof __COMMIT_HASH__ !== 'undefined' ? __APP_HASH_FALLBACK() : 'dev';
@@ -435,7 +468,24 @@ function __APP_HASH_FALLBACK() {
   return typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
 }
 
-const activeSection = ref<'all' | 'overview' | 'models' | 'dutching' | 'mcp' | 'ledger'>('all');
+const activeSection = ref<'all' | 'overview' | 'models' | 'dutching' | 'mcp' | 'ledger' | 'cards'>('all');
+
+function syncSectionFromRoute(pathStr: string) {
+  if (pathStr.includes('notification-cards') || pathStr === '/cards') {
+    activeSection.value = 'cards';
+  }
+}
+
+onMounted(() => {
+  syncSectionFromRoute(route.path);
+});
+
+watch(
+  () => route.path,
+  (newPath) => {
+    syncSectionFromRoute(newPath);
+  },
+);
 
 const sections = [
   { id: 'all' as const, title: 'All Documentation Sections', icon: 'fa6-solid:book-open', iconColor: 'text-sky-400' },
@@ -443,7 +493,8 @@ const sections = [
   { id: 'models' as const, title: '2. Quant Models & Safety Gates', icon: 'fa6-solid:shield-halved', iconColor: 'text-sky-400' },
   { id: 'dutching' as const, title: '3. Bet Slip, ¼-Kelly & Dutching', icon: 'fa6-solid:dice', iconColor: 'text-fuchsia-400' },
   { id: 'mcp' as const, title: '4. Remote MCP & Quant API', icon: 'fa6-solid:terminal', iconColor: 'text-amber-400' },
-  { id: 'ledger' as const, title: '5. Ledger, CLV & SQLite Cache', icon: 'fa6-solid:database', iconColor: 'text-cyan-400' },
+  { id: 'ledger' as const, title: '5. Ledger, CLV & Smart Cache', icon: 'fa6-solid:database', iconColor: 'text-cyan-400' },
+  { id: 'cards' as const, title: '6. Notification Cards', icon: 'fa6-solid:images', iconColor: 'text-emerald-400' },
 ];
 
 const activeMcpClient = ref<'copilot' | 'claude' | 'cursor' | 'windsurf' | 'curl'>('copilot');

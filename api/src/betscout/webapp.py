@@ -1483,9 +1483,14 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     return
 
             docs_dir = (root_dir / "docs") if (root_dir / "docs").is_dir() else (root_dir.parent / "docs")
-            if parsed.path in ("/docs/notification-cards.html", "/docs/png-notification-cards.html", "/cards"):
-                cards_f = docs_dir / "notification-cards.html"
-                if cards_f.is_file():
+            if parsed.path in ("/notification-cards.html", "/docs/notification-cards.html", "/docs/png-notification-cards.html", "/cards"):
+                cards_candidates = [
+                    docs_dir / "notification-cards.html",
+                    spa_dist_dir / "notification-cards.html",
+                    spa_dist_dir / "docs" / "notification-cards.html",
+                ]
+                cards_f = next((p for p in cards_candidates if p.is_file()), None)
+                if cards_f:
                     cb = cards_f.read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")

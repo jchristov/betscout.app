@@ -881,7 +881,7 @@ def build_openapi_v1_spec() -> dict[str, Any]:
             "/api/cache-stats": {
                 "get": {
                     "tags": ["Quant Desk & Live Feed"],
-                    "summary": "Inspect 2-tier L1 In-Memory + L2 SQLite (gismo_http_cache) hit/miss & negative-cache telemetry",
+                    "summary": "Inspect multi-tier L1 In-Memory + L2 Persistent Cache hit/miss & negative-cache telemetry",
                     "responses": {"200": {"description": "Cache telemetry and hit rate %"}},
                 }
             },

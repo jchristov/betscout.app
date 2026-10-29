@@ -31,6 +31,21 @@ const router = createRouter({
       component: DocsView,
     },
     {
+      path: '/docs/notification-cards',
+      name: 'docs-cards',
+      component: DocsView,
+    },
+    {
+      path: '/docs/notification-cards.html',
+      name: 'docs-cards-html',
+      component: DocsView,
+    },
+    {
+      path: '/cards',
+      name: 'cards-short',
+      component: DocsView,
+    },
+    {
       path: '/match/:id',
       name: 'match-center',
       component: MatchCenterView,

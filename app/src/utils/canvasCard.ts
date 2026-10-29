@@ -350,23 +350,46 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   ctx.fillStyle = cText;
   fillFittedCanvasText(ctx, compStr, 58, 140, compW - 26, 12, 9.5, '700', 'left');
 
-  const timeBits: string[] = [];
-  if (meta.announced_at_local) timeBits.push('📣 Pick: ' + compactCanvasTime(meta.announced_at_local));
-  timeBits.push('🕒 Start: ' + compactCanvasTime(meta.date_local || 'Today'));
-  if (meta.ended_at_local) timeBits.push('🏁 Ended: ' + compactCanvasTime(meta.ended_at_local));
-  const koStr = timeBits.join('   |   ');
   const maxKoW = Math.max(260, w - 88 - compW - 16);
-  ctx.font = '700 12px "Plus Jakarta Sans", -apple-system, sans-serif';
-  const koBoxW = Math.min(maxKoW, Math.max(190, Math.ceil(ctx.measureText(koStr).width) + 28));
-  ctx.fillStyle = '#0d1421';
-  ctx.strokeStyle = '#2d3e5c';
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(w - 44 - koBoxW, 118, koBoxW, 34, 9);
-  else ctx.rect(w - 44 - koBoxW, 118, koBoxW, 34);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#cbd5e1';
-  fillFittedCanvasText(ctx, koStr, w - 56, 140, koBoxW - 22, 12, 9, '700', 'right');
+  if (meta.ended_at_local) {
+    const pickLine = '📣 Pick: ' + compactCanvasTime(meta.announced_at_local || meta.date_local || 'Today');
+    const spanLine =
+      '🕒 Start: ' +
+      compactCanvasTime(meta.date_local || 'Today') +
+      '   |   🏁 Ended: ' +
+      compactCanvasTime(meta.ended_at_local);
+    ctx.font = '700 11px "Plus Jakarta Sans", -apple-system, sans-serif';
+    const w1 = Math.ceil(ctx.measureText(pickLine).width);
+    const w2 = Math.ceil(ctx.measureText(spanLine).width);
+    const koBoxW = Math.min(maxKoW, Math.max(210, Math.max(w1, w2) + 28));
+    ctx.fillStyle = '#0d1421';
+    ctx.strokeStyle = '#2d3e5c';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(w - 44 - koBoxW, 114, koBoxW, 44, 9);
+    else ctx.rect(w - 44 - koBoxW, 114, koBoxW, 44);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    fillFittedCanvasText(ctx, pickLine, w - 56, 131, koBoxW - 22, 11, 9, '600', 'right');
+    ctx.fillStyle = '#e2e8f0';
+    fillFittedCanvasText(ctx, spanLine, w - 56, 148, koBoxW - 22, 11, 9, '700', 'right');
+  } else {
+    const timeBits: string[] = [];
+    if (meta.announced_at_local) timeBits.push('📣 Pick: ' + compactCanvasTime(meta.announced_at_local));
+    timeBits.push('🕒 Start: ' + compactCanvasTime(meta.date_local || 'Today'));
+    const koStr = timeBits.join('   |   ');
+    ctx.font = '700 12px "Plus Jakarta Sans", -apple-system, sans-serif';
+    const koBoxW = Math.min(maxKoW, Math.max(190, Math.ceil(ctx.measureText(koStr).width) + 28));
+    ctx.fillStyle = '#0d1421';
+    ctx.strokeStyle = '#2d3e5c';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(w - 44 - koBoxW, 118, koBoxW, 34, 9);
+    else ctx.rect(w - 44 - koBoxW, 118, koBoxW, 34);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#cbd5e1';
+    fillFittedCanvasText(ctx, koStr, w - 56, 140, koBoxW - 22, 12, 9, '700', 'right');
+  }
 
   const matchTitle = `${spIcon}  ${String(meta.match || 'Daily High-Conviction Picks')}`;
   fillFittedMatchupCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '#ffffff', '#94a3b8');
