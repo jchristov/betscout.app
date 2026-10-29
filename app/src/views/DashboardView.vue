@@ -2470,7 +2470,7 @@ const pickCardCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 const settingsModalOpen = ref<boolean>(false);
 const apiKeyInput = ref<string>(store.customApiKey || '');
-const newKeyEmail = ref<string>('julian.christov@gmail.com');
+const newKeyEmail = ref<string>('support@betscout.app');
 const newKeyTier = ref<string>('enterprise');
 const newKeyLabel = ref<string>('');
 const newlyIssuedPlainKey = ref<string>('');

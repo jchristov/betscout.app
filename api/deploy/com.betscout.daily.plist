@@ -5,7 +5,7 @@
     <key>Label</key>
     <string>com.betscout.daily</string>
     <key>WorkingDirectory</key>
-    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app/api</string>
+    <string>./api</string>
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/uv</string>
@@ -35,9 +35,9 @@
         </dict>
     </array>
     <key>StandardOutPath</key>
-    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app/data/daily_pipeline.log</string>
+    <string>./data/daily_pipeline.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/yuliyan.hristov/Development/github.com/jchristov/betscout.app/data/daily_pipeline.err.log</string>
+    <string>./data/daily_pipeline.err.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

@@ -1,6 +1,6 @@
 # <img src="./app/public/betscout-logo.svg" width="34" height="34" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — Sports Edge, Exact-Score & Paper-Betting Intelligence
 
-Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-leg combo/parlay, and live paper-betting intelligence platform (`https://github.com/jchristov/betscout.app`) across **7 Core Database Sports & 27 Championships (`59,062` verified matches in `data/betscout.db`)** plus **56 Live Sportradar StatsHub & Tipico Sports**:
+Out-of-sample validated multi-sport quantitative edge, exact-score dutching, 2-leg combo/parlay, and live paper-betting intelligence platform (`https://betscout.app`) across **7 Core Database Sports & 27 Championships (`59,062` verified matches in `data/betscout.db`)** plus **56 Live Sportradar StatsHub & Tipico Sports**:
 - **⚽ 14 Football Competitions (`11,582` matches):** `eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`, `aut.1`, `ned.1`, `por.1`, `eng.2`, `uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`, `fifa.world`
 - **🎾 ATP & WTA Tennis (`43,168` matches):** `atp` (`18,392`), `wta` (`24,776`) across Outdoor Hard, Indoor Hard, Clay & Grass
 - **🏐 Volleyball (`2,013` matches):** `wvolleyball` (NCAA Women's Volleyball, `1,537`), `mvolleyball` (NCAA Men's Volleyball, `476`)

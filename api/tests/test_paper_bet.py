@@ -834,7 +834,7 @@ def test_per_sport_isolated_gates():
 
     # Cloud Run mode with FIREBASE_WEB_API_KEY + FIREBASE_ADMIN_EMAILS + BETSCOUT_CRON_SECRET
     os.environ["FIREBASE_WEB_API_KEY"] = "AIzaSy_test_key"
-    os.environ["FIREBASE_ADMIN_EMAILS"] = "julian.christ@gmail.com,julian.christov@gmail.com"
+    os.environ["FIREBASE_ADMIN_EMAILS"] = "support@betscout.app"
     os.environ["BETSCOUT_CRON_SECRET"] = "secret_scheduler_token_123"
     try:
         assert get_firebase_auth_config()["enabled"] is True

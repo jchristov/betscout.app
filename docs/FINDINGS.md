@@ -151,7 +151,7 @@ In [`src/betscout/quant_edges.py`](./src/betscout/quant_edges.py), we engineered
 
 ## 5. How to Run Tools On Demand
 
-All commands run inside `/Users/yuliyan.hristov/Development/github.com/jchristov/betscout/model`:
+All commands run inside `api/`:
 
 ```bash
 # 0. Run the complete 4-stage daily pipeline (Incremental config-driven ingest -> Quality check -> Paper bet + News/XI gates -> HTML Dashboard)

@@ -976,7 +976,7 @@ def render_landing_page_html(
               <span class="feat-text"><strong>Closing-Line Steam (<code>🔥 STEAM</code>)</strong> &amp; automated settled recap cards</span>
             </li>
           </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%201%20VIP%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20(VIP%20Notifications%20-%20%E2%82%AC39%2Fmo).%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-glass pc-cta">Activate VIP Notifications &rarr;</a>
+          <a href="mailto:support@betscout.app?subject=Activate%20BetScout%20Tier%201%20VIP%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20(VIP%20Notifications%20-%20%E2%82%AC39%2Fmo).%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-glass pc-cta">Activate VIP Notifications &rarr;</a>
         </div>
 
         <!-- Tier 2: Pro WebApp + Tier 1 Notifications (€79/mo) -->
@@ -1013,7 +1013,7 @@ def render_landing_page_html(
               <span class="feat-text"><strong>On-Demand Matchup Analyzer</strong> &amp; 6-second real-time In-Play SSE stream</span>
             </li>
           </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%202%20Pro%20WebApp%20%2B%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%202%20(Pro%20WebApp%20%2B%20VIP%20Notifications%20-%20%E2%82%AC79%2Fmo).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-emerald pc-cta">🚀 Get Pro WebApp + VIP Alerts &rarr;</a>
+          <a href="mailto:support@betscout.app?subject=Activate%20BetScout%20Tier%202%20Pro%20WebApp%20%2B%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%202%20(Pro%20WebApp%20%2B%20VIP%20Notifications%20-%20%E2%82%AC79%2Fmo).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-emerald pc-cta">🚀 Get Pro WebApp + VIP Alerts &rarr;</a>
         </div>
 
         <!-- Tier 3: Quant API + Bonus MCP Server (€199/mo) -->
@@ -1049,7 +1049,7 @@ def render_landing_page_html(
               <span class="feat-text"><strong>Custom Webhook Fan-Out</strong>: Automated PNG Pick Cards posted directly to your Discord/Telegram</span>
             </li>
           </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%203%20Quant%20API%20%2B%20MCP%20Server&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%203%20(Quant%20API%20%2B%20Bonus%20MCP%20Server%20-%20%E2%82%AC199%2Fmo).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-amber pc-cta">Request API + MCP Access &rarr;</a>
+          <a href="mailto:support@betscout.app?subject=Activate%20BetScout%20Tier%203%20Quant%20API%20%2B%20MCP%20Server&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%203%20(Quant%20API%20%2B%20Bonus%20MCP%20Server%20-%20%E2%82%AC199%2Fmo).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-amber pc-cta">Request API + MCP Access &rarr;</a>
         </div>
       </div>
     </section>

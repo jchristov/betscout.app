@@ -3,7 +3,7 @@ name = "betscout"
 version = "0.4.0"
 description = "BetScout (betscout.app) — Out-of-Sample Multi-Sport Quantitative Edge, Exact-Score & Paper-Betting Intelligence"
 authors = [
-    { name = "Yuliyan Hristov", email = "yuliyan.hristov@rbinternational.com" }
+    { name = "BetScout Team", email = "support@betscout.app" }
 ]
 requires-python = ">=3.12"
 dependencies = [

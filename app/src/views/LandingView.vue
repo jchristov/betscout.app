@@ -914,7 +914,7 @@
           <router-link to="/docs" class="hover:text-white text-sky-300 font-semibold">User Guide</router-link>
           <a href="#pricing" class="hover:text-white">Membership Plans</a>
           <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
-          <a href="mailto:julian.christ@gmail.com" class="hover:text-white">Contact &amp; Support</a>
+          <a href="mailto:support@betscout.app" class="hover:text-white">Contact &amp; Support</a>
         </div>
       </div>
     </footer>
@@ -1233,7 +1233,7 @@ async function startStripeCheckout(tier: 'tier1' | 'tier2' | 'tier3') {
   } catch (_) {}
   checkoutLoadingTier.value = '';
   if (typeof window !== 'undefined') {
-    window.location.href = `mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20${tier.toUpperCase()}%20(${billingCycle.value})`;
+    window.location.href = `mailto:support@betscout.app?subject=Activate%20BetScout%20${tier.toUpperCase()}%20(${billingCycle.value})`;
   }
 }
 

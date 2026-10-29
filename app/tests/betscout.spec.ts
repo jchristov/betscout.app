@@ -296,7 +296,9 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('betscout.app');
     expect(wrapper.text()).not.toContain('/api/');
     expect(wrapper.text()).not.toContain('https://');
+    expect(wrapper.html()).toContain('mailto:support@betscout.app');
     expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
+    expect(wrapper.html().toLowerCase()).not.toMatch(/julian|yuliyan|christov|hristov|jchristov|rbinternational/);
   });
 
   it('renders DashboardView with 4 workspace tabs, sortable table, and custom slip dock', async () => {
@@ -336,6 +338,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).not.toContain('https://');
 
     expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
+    expect(wrapper.html().toLowerCase()).not.toMatch(/julian|yuliyan|christov|hristov|jchristov|rbinternational/);
 
     // Select a match to trigger floating custom slip dock
     store.toggleCustomMatch('AS Roma vs Cagliari');
@@ -370,6 +373,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('betscout://slate/today');
     expect(wrapper.text()).toContain('parlay-builder');
     expect(wrapper.html().toLowerCase()).not.toMatch(/espn|sportradar|sofascore|gismo|tipico|statshub|sqlite/);
+    expect(wrapper.html().toLowerCase()).not.toMatch(/julian|yuliyan|christov|hristov|jchristov|rbinternational/);
   });
 
   it('renders MatchCenterView (/match/:id) with 2-way 100% win probability bar (0% draw for Tennis)', async () => {

@@ -1,7 +1,7 @@
 # Laya Decision Model (`laya-sports` / `ms-decision-1`) — Out-of-Sample Ablation & Hypothesis Evaluation Report
 
 **Date:** October 28, 2026  
-**Preserved Feature Branch (with Laya ON):** [`feat/laya-decision-model`](https://github.com/jchristov/betscout.app/tree/feat/laya-decision-model)  
+**Preserved Feature Branch (with Laya ON):** `feat/laya-decision-model`  
 **Production Decision:** **Removed from active stack on `main`** (all player-availability protection is handled deterministically by the **Position-Specific T-60m Starting XI Confirmation Gate**, **Sportradar `stats_season_injuries`**, and **ESPN structured `injuries` roster counters**).
 
 ---

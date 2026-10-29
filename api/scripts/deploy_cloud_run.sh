@@ -18,7 +18,7 @@ SERVICE_NAME="${CLOUD_RUN_SERVICE:-betscout-app}"
 BUCKET_NAME="${GCS_DATA_BUCKET:-${PROJECT_ID}-data}"
 FB_API_KEY="${FIREBASE_WEB_API_KEY:-${VITE_FIREBASE_API_KEY:-}}"
 FB_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-${VITE_FIREBASE_AUTH_DOMAIN:-${PROJECT_ID}.firebaseapp.com}}"
-ADMIN_EMAILS="${BETSCOUT_ADMIN_EMAILS:-${FIREBASE_ADMIN_EMAILS:-julian.christ@gmail.com,julian.christov@gmail.com}}"
+ADMIN_EMAILS="${BETSCOUT_ADMIN_EMAILS:-${FIREBASE_ADMIN_EMAILS:-support@betscout.app}}"
 CRON_SECRET="${BETSCOUT_CRON_SECRET:-bs_cron_live_9f8e7d6c5b4a3210}"
 
 echo "🚀 [1/4] Ensuring Google Cloud Storage bucket gs://${BUCKET_NAME} exists with strict public-access-prevention..."
