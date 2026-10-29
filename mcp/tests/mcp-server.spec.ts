@@ -56,16 +56,26 @@ function createMockSnapshot() {
     ],
     recommended_doubles: [
       {
-        leg_1_match: 'AS Roma vs Cagliari',
-        leg_1_league: 'Serie A',
-        leg_1_pick: 'AS Roma',
-        leg_1_odds: 1.36,
-        leg_1_prob: 0.812,
-        leg_2_match: 'Tommy Paul vs Luciano Darderi',
-        leg_2_league: 'ATP Vienna',
-        leg_2_pick: 'Tommy Paul',
-        leg_2_odds: 1.22,
-        leg_2_prob: 0.745,
+        combo_type: 'BANKER_PROFIT_BOOSTER',
+        combo_label: 'Banker Profit Booster',
+        leg_1: {
+          match: 'AS Roma vs Cagliari',
+          sport_cat: 'soccer',
+          league: 'Serie A',
+          market: '1X2 Moneyline',
+          pick: 'AS Roma (H)',
+          odds: 1.36,
+          prob: 0.812,
+        },
+        leg_2: {
+          match: 'Tommy Paul vs Luciano Darderi',
+          sport_cat: 'tennis',
+          league: 'ATP Vienna',
+          market: 'Match Winner',
+          pick: 'Tommy Paul ML',
+          odds: 1.22,
+          prob: 0.745,
+        },
         combined_odds: 1.66,
         combined_prob: 0.605,
         ev_pct: 4.2,
@@ -265,6 +275,10 @@ describe('@betscout/mcp-server', () => {
     expect(boostResp.result.isError).toBe(false);
     const boostData = JSON.parse(boostResp.result.content[0].text);
     expect(boostData.combos[0].recommended_stake_eur).toBe(80);
+    expect(boostData.combos[0].title).toBe('AS Roma (H) + Tommy Paul ML');
+    expect(boostData.combos[0].leg_1.match).toBe('AS Roma vs Cagliari');
+    expect(boostData.combos[0].leg_2.match).toBe('Tommy Paul vs Luciano Darderi');
+    expect(boostData.combos[0].quarter_kelly_pct).toBeGreaterThan(0);
 
     // 3. analyze_matchup + verify API cache hit on second call
     const anResp1 = (await server.handleJsonRpc({

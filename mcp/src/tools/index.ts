@@ -310,36 +310,174 @@ export async function executeBetScoutMcpTool(
       }
       const maxCombos = Math.max(1, Math.min(Number(args.max_combos ?? 6), 10));
       const snap = await client.getSnapshot(1.08, 'all');
-      const doubles: any[] = Array.isArray(snap.recommended_doubles)
+      const rawDoubles: any[] = Array.isArray(snap.recommended_doubles)
         ? snap.recommended_doubles.slice(0, maxCombos)
         : [];
-      const perTicketStake = doubles.length > 0 ? Number((budgetEur / doubles.length).toFixed(2)) : 0;
 
-      const combos = doubles.map((c, idx) => {
+      const normLeg = (rawL: any, prefix: string, parent: any) => {
+        if (rawL && typeof rawL === 'object' && rawL.match) {
+          return {
+            match: rawL.match,
+            sport: rawL.sport_cat ?? 'soccer',
+            league: rawL.league,
+            kickoff: rawL.kickoff ?? null,
+            market: rawL.market ?? 'Moneyline',
+            pick: rawL.pick,
+            odds: Number(Number(rawL.odds ?? 1).toFixed(2)),
+            win_prob_pct: Number((Number(rawL.prob ?? 0) * 100).toFixed(1)),
+          };
+        }
+        if (parent?.[`${prefix}_match`] || parent?.[`${prefix}_pick`]) {
+          return {
+            match: parent[`${prefix}_match`],
+            sport: parent[`${prefix}_sport`] ?? 'soccer',
+            league: parent[`${prefix}_league`],
+            kickoff: parent[`${prefix}_kickoff`] ?? null,
+            market: parent[`${prefix}_market`] ?? 'Moneyline',
+            pick: parent[`${prefix}_pick`],
+            odds: Number(Number(parent[`${prefix}_odds`] ?? 1).toFixed(2)),
+            win_prob_pct: Number((Number(parent[`${prefix}_prob`] ?? 0) * 100).toFixed(1)),
+          };
+        }
+        return null;
+      };
+
+      const ticketsRaw: Array<{
+        combo_type: string;
+        combo_label: string;
+        legs: any[];
+        combined_odds: number;
+        combined_prob: number;
+        min_fair_odds: number;
+        ev_pct: number;
+      }> = [];
+
+      for (const c of rawDoubles) {
+        const l1 = normLeg(c.leg_1, 'leg_1', c);
+        const l2 = normLeg(c.leg_2, 'leg_2', c);
+        if (!l1 || !l2) continue;
+        const legs = [l1, l2];
+        const l3 = normLeg(c.leg_3, 'leg_3', c);
+        if (l3) legs.push(l3);
         const combOdds = Number(c.combined_odds ?? 1.5);
-        return {
-          ticket_rank: idx + 1,
-          title: `${c.leg_1_pick} + ${c.leg_2_pick}`,
-          leg_1: {
-            match: c.leg_1_match,
-            league: c.leg_1_league,
-            pick: c.leg_1_pick,
-            odds: c.leg_1_odds,
-            win_prob_pct: Number((Number(c.leg_1_prob ?? 0) * 100).toFixed(1)),
-          },
-          leg_2: {
-            match: c.leg_2_match,
-            league: c.leg_2_league,
-            pick: c.leg_2_pick,
-            odds: c.leg_2_odds,
-            win_prob_pct: Number((Number(c.leg_2_prob ?? 0) * 100).toFixed(1)),
-          },
+        const combProb = Number(c.combined_prob ?? 0.5);
+        const evPct =
+          c.ev_pct !== undefined && c.ev_pct !== null
+            ? Number(c.ev_pct)
+            : Number(((combProb * combOdds - 1) * 100).toFixed(2));
+        ticketsRaw.push({
+          combo_type: c.combo_type ?? 'BANKER_PROFIT_BOOSTER',
+          combo_label: c.combo_label ?? '2-Leg Banker Combo',
+          legs,
           combined_odds: Number(combOdds.toFixed(2)),
-          combined_win_prob_pct: Number((Number(c.combined_prob ?? 0) * 100).toFixed(1)),
-          ev_pct: c.ev_pct,
-          recommended_stake_eur: perTicketStake,
-          projected_return_eur: Number((perTicketStake * combOdds).toFixed(2)),
+          combined_prob: combProb,
+          min_fair_odds: Number((1 / Math.max(combProb, 0.05)).toFixed(2)),
+          ev_pct: Number(evPct.toFixed(2)),
+        });
+      }
+
+      // Synthesize a 3-Leg Banker Profit Treble when >=3 high-prob (>=72%, 1.10-1.48) bankers exist
+      const bankerSingles = (Array.isArray(snap.best_bets) ? snap.best_bets : [])
+        .filter(
+          (b: any) =>
+            Number(b.win_prob ?? 0) >= 0.72 &&
+            Number(b.odds ?? 0) >= 1.1 &&
+            Number(b.odds ?? 0) <= 1.48 &&
+            !String(b.match ?? '').includes('🔒'),
+        )
+        .sort((a: any, b: any) => Number(b.win_prob) - Number(a.win_prob) || Number(a.odds) - Number(b.odds));
+
+      const distinct3: any[] = [];
+      const seenMatches = new Set<string>();
+      for (const b of bankerSingles) {
+        const mName = String(b.match ?? '');
+        if (mName && !seenMatches.has(mName)) {
+          seenMatches.add(mName);
+          distinct3.push(b);
+        }
+        if (distinct3.length === 3) break;
+      }
+
+      if (distinct3.length === 3) {
+        const tLegs = distinct3.map((b) => ({
+          match: b.match,
+          sport: b.sport_cat,
+          league: b.competition ?? b.sport_league,
+          kickoff: b.date_local ?? b.date,
+          market: 'Moneyline / 1X2',
+          pick: b.pick_name ?? b.pick,
+          odds: Number(Number(b.odds ?? 1).toFixed(2)),
+          win_prob_pct: Number((Number(b.win_prob ?? 0) * 100).toFixed(1)),
+        }));
+        const tOdds = Number(
+          (Number(distinct3[0].odds) * Number(distinct3[1].odds) * Number(distinct3[2].odds)).toFixed(2),
+        );
+        const tProb =
+          Number(distinct3[0].win_prob) * Number(distinct3[1].win_prob) * Number(distinct3[2].win_prob);
+        const trebleTicket = {
+          combo_type: 'BANKER_PROFIT_TREBLE',
+          combo_label: '3-Leg Banker Profit Treble',
+          legs: tLegs,
+          combined_odds: tOdds,
+          combined_prob: tProb,
+          min_fair_odds: Number((1 / Math.max(tProb, 0.05)).toFixed(2)),
+          ev_pct: Number(((tProb * tOdds - 1) * 100).toFixed(2)),
         };
+        if (ticketsRaw.length >= maxCombos) {
+          ticketsRaw[ticketsRaw.length - 1] = trebleTicket;
+        } else {
+          ticketsRaw.push(trebleTicket);
+        }
+      }
+
+      const finalTickets = ticketsRaw.slice(0, maxCombos);
+      const qKellyFracs: number[] = [];
+      const kellyWeights: number[] = [];
+
+      for (const t of finalTickets) {
+        const bNet = Math.max(0.05, t.combined_odds - 1);
+        const fullKelly = Math.max(0, (t.combined_prob * t.combined_odds - 1) / bNet);
+        const qKelly = 0.25 * fullKelly;
+        qKellyFracs.push(qKelly);
+        kellyWeights.push(qKelly + 0.015 * t.combined_prob);
+      }
+
+      const weightSum = kellyWeights.reduce((acc, w) => acc + w, 0) || 1;
+      let allocatedSoFar = 0;
+
+      const combos = finalTickets.map((t, idx) => {
+        const qK = qKellyFracs[idx] ?? 0;
+        let stakeEur: number;
+        if (idx === finalTickets.length - 1) {
+          stakeEur = Number(Math.max(0, budgetEur - allocatedSoFar).toFixed(2));
+        } else {
+          stakeEur = Number((budgetEur * ((kellyWeights[idx] ?? 0) / weightSum)).toFixed(2));
+          allocatedSoFar += stakeEur;
+        }
+
+        const outObj: Record<string, any> = {
+          ticket_rank: idx + 1,
+          combo_type: t.combo_type,
+          combo_label: t.combo_label,
+          leg_count: t.legs.length,
+          title: t.legs.map((lg) => lg.pick || lg.match).join(' + '),
+          legs: t.legs,
+          leg_1: t.legs[0],
+          leg_2: t.legs[1],
+        };
+        if (t.legs[2]) outObj.leg_3 = t.legs[2];
+        Object.assign(outObj, {
+          combined_odds: t.combined_odds,
+          min_fair_odds: t.min_fair_odds,
+          combined_win_prob_pct: Number((t.combined_prob * 100).toFixed(1)),
+          ev_pct: t.ev_pct,
+          quarter_kelly_pct: Number((qK * 100).toFixed(2)),
+          standalone_quarter_kelly_stake_eur: Number((budgetEur * qK).toFixed(2)),
+          recommended_stake_eur: stakeEur,
+          projected_return_eur: Number((stakeEur * t.combined_odds).toFixed(2)),
+          projected_net_profit_eur: Number((stakeEur * (t.combined_odds - 1)).toFixed(2)),
+        });
+        return outObj;
       });
 
       return {
@@ -349,6 +487,7 @@ export async function executeBetScoutMcpTool(
             text: JSON.stringify(
               {
                 budget_eur: budgetEur,
+                allocation_method: 'quarter_kelly_weighted',
                 combo_count: combos.length,
                 combos,
               },

@@ -364,44 +364,182 @@ def execute_mcp_tool(
             return {"content": [{"type": "text", "text": json.dumps(result_obj, indent=2)}], "isError": False}
 
         if tool_name == "get_banker_profit_boosters":
+            from .espn import resolve_competition_label
+
             budget_eur = float(args.get("budget_eur") or 100.0)
+            if budget_eur <= 0:
+                return {
+                    "content": [{"type": "text", "text": "Parameter `budget_eur` must be greater than 0 (e.g. 100)."}],
+                    "isError": True,
+                }
             max_combos = max(1, min(int(args.get("max_combos") or 6), 10))
             snap = _build_live_snapshot(
                 rec_path, db_path, min_odds=1.08, sport="all", run_settle=False, role="pro"
             )
-            combos = build_recommended_2leg_doubles(
+            raw_doubles = build_recommended_2leg_doubles(
                 snap.get("qualifying_picks") or [],
                 snap.get("tennis_picks") or [],
                 snap.get("other_sport_picks") or [],
                 max_doubles=max_combos,
             )
-            per_ticket_stake = round(budget_eur / max(1, len(combos)), 2) if combos else 0.0
-            enriched = []
-            for idx, c in enumerate(combos):
+
+            def _norm_leg(raw_l: dict[str, Any], prefix: str, parent: dict[str, Any]) -> dict[str, Any] | None:
+                if isinstance(raw_l, dict) and raw_l.get("match"):
+                    m_str = str(raw_l.get("match") or "")
+                    h_part, a_part = (m_str.split(" vs ", 1) + [""])[:2] if " vs " in m_str else ("", "")
+                    lg_raw = str(raw_l.get("league") or "")
+                    lg_clean = resolve_competition_label(lg_raw, h_part.strip(), a_part.strip()) if lg_raw else ""
+                    return {
+                        "match": m_str,
+                        "sport": raw_l.get("sport_cat") or "soccer",
+                        "league": lg_clean or lg_raw,
+                        "kickoff": raw_l.get("kickoff"),
+                        "market": raw_l.get("market") or "Moneyline",
+                        "pick": raw_l.get("pick"),
+                        "odds": round(float(raw_l.get("odds") or 1.0), 2),
+                        "win_prob_pct": round(float(raw_l.get("prob") or 0.0) * 100.0, 1),
+                    }
+                if parent.get(f"{prefix}_match") or parent.get(f"{prefix}_pick"):
+                    return {
+                        "match": parent.get(f"{prefix}_match"),
+                        "sport": parent.get(f"{prefix}_sport") or "soccer",
+                        "league": parent.get(f"{prefix}_league"),
+                        "kickoff": parent.get(f"{prefix}_kickoff"),
+                        "market": parent.get(f"{prefix}_market") or "Moneyline",
+                        "pick": parent.get(f"{prefix}_pick"),
+                        "odds": round(float(parent.get(f"{prefix}_odds") or 1.0), 2),
+                        "win_prob_pct": round(float(parent.get(f"{prefix}_prob") or 0.0) * 100.0, 1),
+                    }
+                return None
+
+            tickets_raw: list[dict[str, Any]] = []
+            for c in raw_doubles:
+                l1 = _norm_leg(c.get("leg_1") or {}, "leg_1", c)
+                l2 = _norm_leg(c.get("leg_2") or {}, "leg_2", c)
+                if not l1 or not l2:
+                    continue
+                legs_list = [l1, l2]
+                l3 = _norm_leg(c.get("leg_3") or {}, "leg_3", c)
+                if l3:
+                    legs_list.append(l3)
                 comb_odds = float(c.get("combined_odds") or 1.5)
-                enriched.append({
-                    "ticket_rank": idx + 1,
-                    "title": f"{c.get('leg_1_pick')} + {c.get('leg_2_pick')}",
-                    "leg_1": {
-                        "match": c.get("leg_1_match"),
-                        "league": c.get("leg_1_league"),
-                        "pick": c.get("leg_1_pick"),
-                        "odds": c.get("leg_1_odds"),
-                        "win_prob_pct": round(float(c.get("leg_1_prob") or 0.0) * 100.0, 1),
-                    },
-                    "leg_2": {
-                        "match": c.get("leg_2_match"),
-                        "league": c.get("leg_2_league"),
-                        "pick": c.get("leg_2_pick"),
-                        "odds": c.get("leg_2_odds"),
-                        "win_prob_pct": round(float(c.get("leg_2_prob") or 0.0) * 100.0, 1),
-                    },
+                comb_prob = float(c.get("combined_prob") or 0.5)
+                ev_pct = float(c.get("ev_pct") if c.get("ev_pct") is not None else (comb_prob * comb_odds - 1.0) * 100.0)
+                tickets_raw.append({
+                    "combo_type": c.get("combo_type") or "BANKER_PROFIT_BOOSTER",
+                    "combo_label": c.get("combo_label") or "2-Leg Banker Combo",
+                    "legs": legs_list,
                     "combined_odds": round(comb_odds, 2),
-                    "combined_win_prob_pct": round(float(c.get("combined_prob") or 0.0) * 100.0, 1),
-                    "ev_pct": c.get("ev_pct"),
-                    "recommended_stake_eur": per_ticket_stake,
-                    "projected_return_eur": round(per_ticket_stake * comb_odds, 2),
+                    "combined_prob": comb_prob,
+                    "min_fair_odds": round(1.0 / max(comb_prob, 0.05), 2),
+                    "ev_pct": round(ev_pct, 2),
                 })
+
+            # Also synthesize a 3-Leg Banker Profit Treble if >=3 high-prob (>=72%, 1.10-1.48) bankers exist
+            banker_singles = sorted(
+                [
+                    b
+                    for b in (snap.get("best_bets") or [])
+                    if float(b.get("win_prob") or 0.0) >= 0.72
+                    and 1.10 <= float(b.get("odds") or 0.0) <= 1.48
+                    and not str(b.get("match") or "").startswith("🔒")
+                ],
+                key=lambda x: (-float(x.get("win_prob") or 0.0), float(x.get("odds") or 99.0)),
+            )
+            distinct_3: list[dict[str, Any]] = []
+            seen_m3: set[str] = set()
+            for b in banker_singles:
+                m_name = str(b.get("match") or "")
+                if m_name and m_name not in seen_m3:
+                    seen_m3.add(m_name)
+                    distinct_3.append(b)
+                if len(distinct_3) == 3:
+                    break
+            if len(distinct_3) == 3:
+                t_legs = [
+                    {
+                        "match": b.get("match"),
+                        "sport": b.get("sport_cat"),
+                        "league": b.get("competition") or b.get("sport_league"),
+                        "kickoff": b.get("date_local") or b.get("date"),
+                        "market": "Moneyline / 1X2",
+                        "pick": b.get("pick_name") or b.get("pick"),
+                        "odds": round(float(b.get("odds") or 1.0), 2),
+                        "win_prob_pct": round(float(b.get("win_prob") or 0.0) * 100.0, 1),
+                    }
+                    for b in distinct_3
+                ]
+                t_odds = round(float(distinct_3[0]["odds"]) * float(distinct_3[1]["odds"]) * float(distinct_3[2]["odds"]), 2)
+                t_prob = float(distinct_3[0]["win_prob"]) * float(distinct_3[1]["win_prob"]) * float(distinct_3[2]["win_prob"])
+                t_ev = round((t_prob * t_odds - 1.0) * 100.0, 2)
+                treble_ticket = {
+                    "combo_type": "BANKER_PROFIT_TREBLE",
+                    "combo_label": "3-Leg Banker Profit Treble",
+                    "legs": t_legs,
+                    "combined_odds": t_odds,
+                    "combined_prob": t_prob,
+                    "min_fair_odds": round(1.0 / max(t_prob, 0.05), 2),
+                    "ev_pct": t_ev,
+                }
+                if len(tickets_raw) >= max_combos:
+                    tickets_raw[-1] = treble_ticket
+                else:
+                    tickets_raw.append(treble_ticket)
+
+            tickets_raw = tickets_raw[:max_combos]
+
+            # Quarter-Kelly stake sizing across recommended combo tickets
+            kelly_weights: list[float] = []
+            q_kelly_fracs: list[float] = []
+            for t in tickets_raw:
+                b_net = max(0.05, float(t["combined_odds"]) - 1.0)
+                p_c = float(t["combined_prob"])
+                full_kelly = max(0.0, (p_c * float(t["combined_odds"]) - 1.0) / b_net)
+                q_kelly = 0.25 * full_kelly
+                q_kelly_fracs.append(q_kelly)
+                # Weight by Quarter-Kelly edge + small win-prob baseline so higher-edge combos get larger stakes
+                kelly_weights.append(q_kelly + 0.015 * p_c)
+
+            weight_sum = sum(kelly_weights) or 1.0
+            enriched = []
+            allocated_so_far = 0.0
+            for idx, t in enumerate(tickets_raw):
+                comb_odds = float(t["combined_odds"])
+                comb_prob = float(t["combined_prob"])
+                q_k = q_kelly_fracs[idx]
+                if idx == len(tickets_raw) - 1:
+                    stake_eur = round(max(0.0, budget_eur - allocated_so_far), 2)
+                else:
+                    stake_eur = round(budget_eur * (kelly_weights[idx] / weight_sum), 2)
+                    allocated_so_far += stake_eur
+
+                legs = t["legs"]
+                title_str = " + ".join(str(lg.get("pick") or lg.get("match")) for lg in legs)
+                ticket_obj: dict[str, Any] = {
+                    "ticket_rank": idx + 1,
+                    "combo_type": t["combo_type"],
+                    "combo_label": t["combo_label"],
+                    "leg_count": len(legs),
+                    "title": title_str,
+                    "legs": legs,
+                    "leg_1": legs[0],
+                    "leg_2": legs[1],
+                }
+                if len(legs) >= 3:
+                    ticket_obj["leg_3"] = legs[2]
+                ticket_obj.update({
+                    "combined_odds": round(comb_odds, 2),
+                    "min_fair_odds": t["min_fair_odds"],
+                    "combined_win_prob_pct": round(comb_prob * 100.0, 1),
+                    "ev_pct": t["ev_pct"],
+                    "quarter_kelly_pct": round(q_k * 100.0, 2),
+                    "standalone_quarter_kelly_stake_eur": round(budget_eur * q_k, 2),
+                    "recommended_stake_eur": stake_eur,
+                    "projected_return_eur": round(stake_eur * comb_odds, 2),
+                    "projected_net_profit_eur": round(stake_eur * (comb_odds - 1.0), 2),
+                })
+                enriched.append(ticket_obj)
+
             return {
                 "content": [
                     {
@@ -409,6 +547,7 @@ def execute_mcp_tool(
                         "text": json.dumps(
                             {
                                 "budget_eur": budget_eur,
+                                "allocation_method": "quarter_kelly_weighted",
                                 "combo_count": len(enriched),
                                 "combos": enriched,
                             },
