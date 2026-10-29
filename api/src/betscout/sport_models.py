@@ -174,15 +174,22 @@ def evaluate_tennis_gate(
         return False, win_prob, None, "VETO_SHORT_TURNAROUND_TRAVEL"
 
     blended_prob = win_prob
+    p_mkt_devig = 0.0
     if book_odds and opp_book_odds and book_odds > 1.01 and opp_book_odds > 1.01:
         inv_pick, inv_opp = 1.0 / book_odds, 1.0 / opp_book_odds
         p_mkt_devig = inv_pick / (inv_pick + inv_opp)
         if (win_prob - p_mkt_devig) >= 0.15 and p_mkt_devig < 0.60:
             return False, win_prob, None, "VETO_MARKET_DISAGREEMENT"
-        blended_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
+        if p_mkt_devig > win_prob and game_win_pct_diff >= 0.025 and form_6m_diff >= 0.20:
+            blended_prob = 0.45 * win_prob + 0.55 * p_mkt_devig
+        else:
+            blended_prob = 0.75 * win_prob + 0.25 * p_mkt_devig
 
     ev_pct = round((blended_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
-    if ev_pct is not None and ev_pct < -1.5 and blended_prob < 0.80:
+    is_confirmed_tour_banker = (
+        p_mkt_devig >= 0.70 and win_prob >= 0.69 and game_win_pct_diff >= 0.025 and form_6m_diff >= 0.20
+    )
+    if ev_pct is not None and ev_pct < -1.5 and blended_prob < 0.80 and not is_confirmed_tour_banker:
         return False, blended_prob, ev_pct, "VETO_NEGATIVE_EV"
 
     return True, blended_prob, ev_pct, "PASS"
@@ -328,9 +335,11 @@ def route_major_league_gate(
 ) -> bool:
     """Dispatch to the isolated per-sport gate for `nhl`, `nba`, `nfl`, `mlb`, or `volleyball`."""
     lg = (league or "").lower().strip()
-    # Universal EV Floor for 2-way US Major Sports: veto heavily over-juiced negative-EV lines (< -3.5% EV unless ultra-high >=78% banker)
+    # Universal EV Floor for 2-way US Major Sports: veto heavily over-juiced negative-EV lines (< -3.5% EV unless ultra-high >=78% banker,
+    # or < -6.0% EV when comp_score >= 0.30 with strong boxscore/rest dominance where p_mod is shrunk toward 0.50).
     ev_pct = (p_mod * odds_pick - 1.0) * 100.0
-    if ev_pct < -3.5 and p_mod < 0.78:
+    ev_floor = -6.0 if comp_score >= 0.30 else -3.5
+    if ev_pct < ev_floor and p_mod < 0.78:
         return False
     if lg == "nfl":
         return evaluate_nfl_gate(

@@ -118,7 +118,7 @@ def fetch_statshub_gismo(
             params_path=params_path,
             channel=channel,
             language=lang,
-            timezone=tz,
+            timezone_str=tz,
             ttl_sec=ttl_sec,
         )
         if data is not None:
@@ -709,7 +709,11 @@ def scan_sportradar_european_sports(
 
             p_elo_fav = 0.50
             if lg_elo is not None:
-                p_elo_h = float(lg_elo.p_home_win_or_draw_free(cand["home"], cand["away"]))
+                # Use home_adv=0.0 for European sports Elo probability so unrated/lightly-rated away favorites
+                # (e.g. Barcelona @ Skanderborg-Aarhus or Gummersbach @ Goppingen) aren't penalized below 0.50 by a static 30-Elo home offset.
+                rh = float(lg_elo.ratings.get(cand["home"], 1500.0))
+                ra = float(lg_elo.ratings.get(cand["away"], 1500.0))
+                p_elo_h = 1.0 / (1.0 + 10.0 ** ((ra - rh) / 400.0))
                 p_elo_fav = p_elo_h if cand["side"] == "H" else (1.0 - p_elo_h)
             passed, p_model, ev_pct = evaluate_european_sport_gate(
                 sport_slug=sp_slug,

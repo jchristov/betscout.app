@@ -1219,7 +1219,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
     conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_bets WHERE status = 'PENDING' OR settled_score IS NULL OR home_logo IS NULL OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (league IN ('atp', 'wta') AND (home_logo LIKE '%/headshots/%' OR away_logo LIKE '%/headshots/%')) OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL) OR (league IN ('atp', 'wta') AND settled_score NOT LIKE '%(%')"
+        "SELECT * FROM paper_bets WHERE status = 'PENDING' OR settled_score IS NULL OR (home_logo IS NULL AND league NOT LIKE 'sr_%' AND league NOT IN ('handball', 'darts', 'table_tennis', 'snooker', 'mma')) OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL)"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1237,13 +1237,11 @@ def settle_pending_paper_bets(db_path: Path) -> int:
         if m_row and m_row["home_score"] is not None and m_row["away_score"] is not None and not score_str:
             score_str = f"{int(m_row['home_score'])}-{int(m_row['away_score'])}"
 
-        needs_tennis_detail = lg.lower() in ("atp", "wta") and (not score_str or "(" not in score_str)
+        needs_tennis_detail = lg.lower() in ("atp", "wta") and not score_str
         needs_logos = (
-            not row["home_logo"]
-            or not row["away_logo"]
+            (not row["home_logo"] and lg.lower() not in ("handball", "darts", "table_tennis", "snooker", "mma"))
             or "sofascore" in str(row["home_logo"] or "")
             or "sofascore" in str(row["away_logo"] or "")
-            or (lg.lower() in ("atp", "wta") and ("/headshots/" in str(row["home_logo"] or "") or "/headshots/" in str(row["away_logo"] or "")))
         )
         row_t_valid = row["time_valid"] if "time_valid" in row.keys() and row["time_valid"] is not None else 1
         is_unconfirmed_time = was_pending and (int(row_t_valid) == 0 or row["kickoff"].endswith("T04:00Z") or row["kickoff"].endswith("T04:00:00Z"))
@@ -1661,9 +1659,28 @@ def scan_upcoming_other_sports(
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(_fetch_live_json, other_sb_urls))
 
+    # Also pre-warm all summary?event={eid} URLs for upcoming US/Other sports fixtures in parallel
+    # (Skip NCAA Volleyball which has 0 bookmaker odds on ESPN and ~300 games/weekend)
+    other_sum_urls: list[str] = []
+    for lg_obj in OTHER_LEAGUES:
+        if lg_obj.key in ("wvolleyball", "mvolleyball"):
+            continue
+        for ymd in ymd_list:
+            board = _fetch_live_json(f"{BASE}/{lg_obj.sport}/{lg_obj.league}/scoreboard?dates={ymd}&limit=100")
+            for ev in board.get("events") or []:
+                eid = str(ev.get("id") or "")
+                st_state = ((ev.get("status") or {}).get("type") or {}).get("state")
+                if eid and st_state == "pre":
+                    other_sum_urls.append(f"{BASE}/{lg_obj.sport}/{lg_obj.league}/summary?event={eid}")
+    if other_sum_urls:
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(_fetch_live_json, other_sum_urls))
+
     disabled_sports = _load_disabled_sports(db_path)
 
     for lg_obj in OTHER_LEAGUES:
+        if lg_obj.key in ("wvolleyball", "mvolleyball"):
+            continue
         if lg_obj.sport.lower() in disabled_sports or lg_obj.key.lower() in disabled_sports:
             continue
         lg = lg_obj.key
@@ -2186,6 +2203,20 @@ def scan_upcoming_and_log_paper_bets(
     ]
     with ThreadPoolExecutor(max_workers=10) as pool:
         list(pool.map(_fetch_live_json, sb_urls))
+
+    # Also pre-warm all summary?event={eid} URLs for upcoming/in-play soccer fixtures in parallel
+    soc_sum_urls: list[str] = []
+    for lg in league_objs:
+        for ymd in ymd_list:
+            board = _fetch_live_json(f"{BASE}/{lg.sport}/{lg.league}/scoreboard?dates={ymd}&limit=100")
+            for ev in board.get("events") or []:
+                eid = str(ev.get("id") or "")
+                st_state = ((ev.get("status") or {}).get("type") or {}).get("state")
+                if eid and st_state in ("pre", "in"):
+                    soc_sum_urls.append(f"{BASE}/{lg.sport}/{lg.league}/summary?event={eid}")
+    if soc_sum_urls:
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(_fetch_live_json, soc_sum_urls))
 
     for lg in league_objs:
         seen_eids: set[str] = set()
