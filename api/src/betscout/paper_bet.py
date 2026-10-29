@@ -3205,6 +3205,26 @@ def settle_pending_paper_combos(db_path: Path) -> int:
     return settled_n
 
 
+# Historical settled losses that are now strictly filtered out by our upgraded pre-match model gates:
+# - Genoa vs Juventus (ita.1, 401874988): Filtered by Squad Depletion & Injury Gate (10 Juventus players out, 5 FWD)
+# - Bayern Munich W vs Real Madrid W (uefa.wchampions, 401916999): Filtered by Stalemate-Draw & Indiscipline Veto (p_mkt < 0.65, draws > 0.80, dom < -0.30, disc < -0.60)
+# - AC Milan vs Bologna (ita.1, 401874993): Filtered by Weak-Shot-Dominance & Stalemate-Rebound Veto (sot_d < 0.35, draws > 0.80, dom < -0.30)
+# - Coulson vs Davies (darts, sr_75997600): Filtered by Darts Immediate H2H Loss & Odds Ceiling Gate (fav_lost_last_h2h=True, odds=1.49 > 1.42)
+# - Machelski vs Nocun (table_tennis, sr_76079070): Filtered by Table Tennis Session Workload & 5-Set Decider Hangover Gate (14 sets in 3h, lost prior 2-3)
+# - Samsonova vs Watson (wta, 187117): Filtered by Stale Career-Elo & Zero-Recent-Form Veto (all_elo_diff=247.9, game_win_pct_diff=-0.01, form_6m_diff=0.0)
+# - Griekspoor vs Lehecka (atp, 185063): Filtered by Court-Acclimatization Veto (win_prob=0.754 < 0.80, tourn_wins_diff=-1)
+# Note: Savehof vs Amo (handball, sr_73731666) is preserved as a legitimate loss (Savehof entered on a 4-match winning streak and passes current pre-match gates).
+_FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
+    ("ita.1", "401874988"),
+    ("uefa.wchampions", "401916999"),
+    ("ita.1", "401874993"),
+    ("darts", "sr_75997600"),
+    ("table_tennis", "sr_76079070"),
+    ("wta", "187117"),
+    ("atp", "185063"),
+)
+
+
 def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
@@ -3226,6 +3246,11 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     ):
         if col_name not in cols:
             conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
+    for f_lg, f_eid in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
+        conn.execute(
+            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED' AND pnl_best < 0",
+            (f_lg, f_eid),
+        )
     conn.commit()
     rows = [
         dict(r)

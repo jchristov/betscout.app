@@ -87,7 +87,41 @@ LEAGUE_LABELS: dict[str, str] = {
     "mvolleyball": "NCAA Men's Volleyball",
     "womens-college-volleyball": "NCAA Women's Volleyball",
     "mens-college-volleyball": "NCAA Men's Volleyball",
+    "handball": "EHF Handball",
+    "table_tennis": "TT Elite Series",
+    "darts": "MODUS Super Series",
+    "snooker": "World Snooker Tour",
+    "mma": "MMA / UFC",
+    "volleyball": "Volleyball",
 }
+
+
+def resolve_competition_label(league: str, home: str = "", away: str = "") -> str:
+    """Resolve a human-readable competition label for any league key, inferring the specific European
+    Handball / Table Tennis / Darts competition from team/player names when `league` is a generic sport slug."""
+    lg = (league or "").strip().lower()
+    teams_low = f"{home or ''} {away or ''}".lower()
+    if lg == "handball":
+        if any(x in teams_low for x in ("savehof", "amo", "ystad", "helsingborg", "malmo", "kristianstad", "skovde")):
+            return "Handball · Handbollsligan"
+        if any(x in teams_low for x in ("margareten", "krems", "hard", "bregenz", "fivers")):
+            return "Handball · HLA Meisterliga"
+        if any(x in teams_low for x in ("goppingen", "gummersbach", "kiel", "flensburg", "magdeburg", "fuchse", "melsungen")):
+            return "Handball · Bundesliga"
+        if any(x in teams_low for x in ("bjerringbro", "kolding", "aalborg", "gog", "skjern", "holstebro")):
+            return "Handball · Herreligaen"
+        if any(x in teams_low for x in ("nimes", "selestat", "montpellier", "chambery", "toulouse")):
+            return "Handball · Starligue"
+        if any(x in teams_low for x in ("ciudad real", "logrono", "granollers", "bidasoa", "ademar")):
+            return "Handball · Liga ASOBAL"
+        return "EHF Champions League"
+    if lg == "table_tennis":
+        if any(x in teams_low for x in ("stach", "tkachenko", "kolar", "prokupek", "huk", "svec")):
+            return "Table Tennis · Czech Liga Pro"
+        return "Table Tennis · TT Elite Series"
+    if lg == "darts":
+        return "Darts · MODUS Super Series"
+    return LEAGUE_LABELS.get(lg, LEAGUE_LABELS.get(league, (league or "").replace("_", " ").title()))
 
 
 def resolve_league(spec: str) -> League:

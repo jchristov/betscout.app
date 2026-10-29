@@ -697,16 +697,23 @@
                     :class="getSportBadgeTheme(r.sport_cat || r.league)"
                   >
                     <Icon
-                      v-if="getCompetitionFlagIconify(r.league_label, r.league)"
-                      :icon="getCompetitionFlagIconify(r.league_label, r.league)!"
+                      v-if="getCompetitionFlagIconify(formatLeagueBadgeLabel(r.league_label, r.league, r.home, r.away), `${r.league} ${r.home} ${r.away}`)"
+                      :icon="getCompetitionFlagIconify(formatLeagueBadgeLabel(r.league_label, r.league, r.home, r.away), `${r.league} ${r.home} ${r.away}`)!"
                       class="w-3.5 h-2.5 rounded-[2px] shrink-0"
                     />
                     <Icon :icon="getSportIconify(r.sport_cat || r.league)" class="w-3.5 h-3.5 shrink-0" />
-                    <span>{{ r.league_label || r.league }}</span>
+                    <span>{{ formatLeagueBadgeLabel(r.league_label, r.league, r.home, r.away) }}</span>
                   </span>
                 </td>
-                <td class="py-3 px-4 font-bold text-white">
-                  {{ r.home }} <span class="text-slate-400 font-normal">vs</span> {{ r.away }}
+                <td class="py-3 px-4">
+                  <button
+                    type="button"
+                    class="font-bold text-white hover:text-sky-300 text-left transition-colors cursor-pointer"
+                    title="Click to inspect Match Details, H2H &amp; Last-6 Form"
+                    @click="openMatchupModal(r.home, r.away, r.league)"
+                  >
+                    {{ r.home }} <span class="text-slate-400 font-normal">vs</span> {{ r.away }}
+                  </button>
                 </td>
                 <td class="py-3 px-4 text-emerald-300 font-bold">
                   {{ r.side === 'H' ? r.home : r.away }} ({{ r.side }})
@@ -900,6 +907,125 @@
         </div>
       </div>
     </footer>
+
+    <!-- MATCHUP DRILL-DOWN INSPECTOR MODAL -->
+    <div
+      v-if="inspectorModalOpen"
+      class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+      @click.self="inspectorModalOpen = false"
+    >
+      <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5 text-xs">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+          <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
+            <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
+            <span>{{ inspectorTitle }}</span>
+          </b>
+          <button
+            type="button"
+            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+            @click="inspectorModalOpen = false"
+          >
+            <span>Close</span>
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div v-if="inspectorLoading" class="py-6 text-slate-300">Loading Match Details, H2H &amp; Last-6 Form...</div>
+        <div v-else-if="inspectorData" class="space-y-4">
+          <div
+            v-if="inspectorData.pick_detail && Object.keys(inspectorData.pick_detail).length"
+            class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700/80 flex flex-wrap justify-between items-center gap-3 text-xs"
+          >
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Model Selection</span>
+              <b class="text-emerald-300 text-sm">
+                {{ inspectorData.pick_detail.pick || (inspectorData.pick_detail.side === 'H' ? inspectorData.home : inspectorData.away) }}
+              </b>
+              <span
+                v-if="inspectorData.pick_detail.tier"
+                class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                :class="getTierBadgeClass(inspectorData.pick_detail.tier)"
+              >
+                {{ inspectorData.pick_detail.tier }}
+              </span>
+            </div>
+            <div class="font-mono tabular-nums">
+              <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Odds</span>
+              <b class="text-amber-300 text-sm">@{{ Number(inspectorData.pick_detail.best_odds || inspectorData.pick_detail.odds || 1.3).toFixed(2) }}</b>
+            </div>
+            <div v-if="inspectorData.pick_detail.settled_score" class="font-mono tabular-nums">
+              <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Final Score</span>
+              <b class="text-white text-sm">{{ inspectorData.pick_detail.settled_score }}</b>
+            </div>
+            <div v-if="inspectorData.pick_detail.pnl_best !== undefined && inspectorData.pick_detail.pnl_best !== null">
+              <span
+                class="px-2.5 py-1 rounded-md text-xs font-bold border font-mono tabular-nums"
+                :class="
+                  Number(inspectorData.pick_detail.pnl_best) > 0
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                    : 'bg-rose-500/20 text-rose-300 border-rose-400/50'
+                "
+              >
+                {{
+                  Number(inspectorData.pick_detail.pnl_best) > 0
+                    ? `WIN (+${Number(inspectorData.pick_detail.pnl_best).toFixed(2)}u)`
+                    : `LOSS (${Number(inspectorData.pick_detail.pnl_best).toFixed(2)}u)`
+                }}
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
+              <div v-if="!inspectorData.form_home?.length" class="text-slate-300">No recent matches in DB</div>
+              <div
+                v-for="(m, i) in inspectorData.form_home"
+                :key="i"
+                class="flex justify-between py-1 border-b border-slate-800"
+              >
+                <span>
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
+                    {{ m.result }}
+                  </b>
+                  {{ m.venue }} vs <b>{{ m.opp }}</b>
+                </span>
+                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
+              </div>
+            </div>
+            <div>
+              <b class="block mb-1.5 text-white">{{ inspectorData.away }} — Last 6</b>
+              <div v-if="!inspectorData.form_away?.length" class="text-slate-300">No recent matches in DB</div>
+              <div
+                v-for="(m, i) in inspectorData.form_away"
+                :key="i"
+                class="flex justify-between py-1 border-b border-slate-800"
+              >
+                <span>
+                  <b :class="m.result === 'W' ? 'text-emerald-300' : m.result === 'L' ? 'text-rose-400' : 'text-amber-300'">
+                    {{ m.result }}
+                  </b>
+                  {{ m.venue }} vs <b>{{ m.opp }}</b>
+                </span>
+                <span class="font-mono tabular-nums text-slate-300">{{ m.score }} ({{ m.date }})</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <b class="block mb-1.5 text-white">Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
+            <div v-if="!inspectorData.h2h?.length" class="text-slate-300">First tracked meeting in current DB window.</div>
+            <div
+              v-for="(h, idx) in inspectorData.h2h"
+              :key="idx"
+              class="flex justify-between py-1 border-b border-slate-800"
+            >
+              <span><b>{{ h.home }}</b> vs <b>{{ h.away }}</b></span>
+              <span class="font-mono tabular-nums"><b class="text-emerald-300">{{ h.score }}</b> ({{ h.date }})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -908,6 +1034,7 @@ import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
+  formatLeagueBadgeLabel,
   getCompetitionFlagIconify,
   getSportBadgeTheme,
   getSportIconColor,
@@ -925,6 +1052,28 @@ const commitHash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'd
 const billingCycle = ref<'monthly' | 'annual'>('monthly');
 const openFaq = ref<number | null>(0);
 const mobileMenuOpen = ref<boolean>(false);
+
+const inspectorModalOpen = ref<boolean>(false);
+const inspectorTitle = ref<string>('Matchup Inspector');
+const inspectorLoading = ref<boolean>(false);
+const inspectorData = ref<any>(null);
+
+async function openMatchupModal(home: string, away: string, league = '') {
+  inspectorTitle.value = `${home} vs ${away}`;
+  inspectorModalOpen.value = true;
+  inspectorLoading.value = true;
+  try {
+    const qs = new URLSearchParams({ home, away, league });
+    const r = await fetch(`/api/matchup?${qs.toString()}`);
+    if (r.ok) {
+      inspectorData.value = await r.json();
+    }
+  } catch (_) {
+    inspectorData.value = null;
+  } finally {
+    inspectorLoading.value = false;
+  }
+}
 
 const settledCount = computed(() => Number(store.paperLedger?.settled_count || 57));
 const settledWins = computed(() => Number(store.paperLedger?.settled_wins || 55));

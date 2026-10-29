@@ -90,6 +90,62 @@ export function getSportIconify(catOrLeague?: string | null): string {
   return 'betscout-sport:soccer';
 }
 
+export function formatLeagueBadgeLabel(
+  leagueLabel?: string | null,
+  league?: string | null,
+  home?: string | null,
+  away?: string | null,
+): string {
+  const rawLabel = String(leagueLabel || '').trim();
+  const lg = String(league || '').toLowerCase().trim();
+  const teams = `${home || ''} ${away || ''}`.toLowerCase();
+
+  // If rawLabel is already a rich competition label (not a generic ALL-CAPS slug like 'HANDBALL' or 'TABLE_TENNIS'), return it
+  if (
+    rawLabel &&
+    !['HANDBALL', 'TABLE_TENNIS', 'TABLE TENNIS', 'DARTS', 'SNOOKER', 'MMA', 'VOLLEYBALL'].includes(
+      rawLabel.toUpperCase(),
+    )
+  ) {
+    return rawLabel;
+  }
+
+  if (lg === 'handball' || rawLabel.toUpperCase() === 'HANDBALL') {
+    if (['savehof', 'amo', 'ystad', 'helsingborg', 'malmo', 'kristianstad', 'skovde'].some((w) => teams.includes(w))) {
+      return 'Handball · Handbollsligan';
+    }
+    if (['margareten', 'krems', 'hard', 'bregenz', 'fivers'].some((w) => teams.includes(w))) {
+      return 'Handball · HLA Meisterliga';
+    }
+    if (['goppingen', 'gummersbach', 'kiel', 'flensburg', 'magdeburg', 'fuchse', 'melsungen'].some((w) => teams.includes(w))) {
+      return 'Handball · Bundesliga';
+    }
+    if (['bjerringbro', 'kolding', 'aalborg', 'gog', 'skjern', 'holstebro'].some((w) => teams.includes(w))) {
+      return 'Handball · Herreligaen';
+    }
+    if (['nimes', 'selestat', 'montpellier', 'chambery', 'toulouse'].some((w) => teams.includes(w))) {
+      return 'Handball · Starligue';
+    }
+    if (['ciudad real', 'logrono', 'granollers', 'bidasoa', 'ademar'].some((w) => teams.includes(w))) {
+      return 'Handball · Liga ASOBAL';
+    }
+    return 'EHF Champions League';
+  }
+
+  if (lg === 'table_tennis' || rawLabel.toUpperCase() === 'TABLE_TENNIS' || rawLabel.toUpperCase() === 'TABLE TENNIS') {
+    if (['stach', 'tkachenko', 'kolar', 'prokupek', 'huk', 'svec'].some((w) => teams.includes(w))) {
+      return 'Table Tennis · Czech Liga Pro';
+    }
+    return 'Table Tennis · TT Elite Series';
+  }
+
+  if (lg === 'darts' || rawLabel.toUpperCase() === 'DARTS') {
+    return 'Darts · MODUS Super Series';
+  }
+
+  return rawLabel || (league || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /**
  * Resolve a country / federation Flag Iconify name (`flag:*`) for a competition or league string
  * when a country/region can be identified. Returns `null` when international / tour-wide without a country.
@@ -102,19 +158,19 @@ export function getCompetitionFlagIconify(compOrLeague?: string | null, secondar
   if (raw.includes('eng.1') || raw.includes('eng.2') || raw.includes('premier league') || raw.includes('english championship') || raw.includes('england')) {
     return 'flag:gb-eng';
   }
-  if (raw.includes('esp.1') || raw.includes('laliga') || raw.includes('la liga') || raw.includes('copa del rey') || raw.includes('spain') || raw.includes('madrid') || raw.includes('barcelona')) {
+  if (raw.includes('esp.1') || raw.includes('laliga') || raw.includes('la liga') || raw.includes('asobal') || raw.includes('copa del rey') || raw.includes('spain') || raw.includes('madrid') || raw.includes('barcelona')) {
     return 'flag:es';
   }
-  if (raw.includes('ger.1') || (raw.includes('bundesliga') && !raw.includes('austria') && !raw.includes('aut.1')) || raw.includes('germany')) {
+  if (raw.includes('ger.1') || (raw.includes('bundesliga') && !raw.includes('austria') && !raw.includes('aut.1')) || raw.includes('germany') || raw.includes('goppingen') || raw.includes('gummersbach')) {
     return 'flag:de';
   }
-  if (raw.includes('ita.1') || raw.includes('serie a') || raw.includes('italy') || raw.includes('vienna') === false && raw.includes('rome')) {
+  if (raw.includes('ita.1') || raw.includes('serie a') || raw.includes('italy') || raw.includes('courmayeur') || (raw.includes('vienna') === false && raw.includes('rome'))) {
     return 'flag:it';
   }
-  if (raw.includes('fra.1') || raw.includes('ligue 1') || raw.includes('france') || raw.includes('paris') || raw.includes('montpellier') || raw.includes('brest') || raw.includes('roland garros')) {
+  if (raw.includes('fra.1') || raw.includes('ligue 1') || raw.includes('starligue') || raw.includes('france') || raw.includes('paris') || raw.includes('montpellier') || raw.includes('brest') || raw.includes('roland garros') || raw.includes('nimes')) {
     return 'flag:fr';
   }
-  if (raw.includes('aut.1') || raw.includes('austria') || raw.includes('hla meisterliga') || raw.includes('vienna')) {
+  if (raw.includes('aut.1') || raw.includes('austria') || raw.includes('hla meisterliga') || raw.includes('vienna') || raw.includes('margareten') || raw.includes('krems')) {
     return 'flag:at';
   }
   if (raw.includes('ned.1') || raw.includes('eredivisie') || raw.includes('netherlands') || raw.includes('dutch')) {
@@ -123,21 +179,21 @@ export function getCompetitionFlagIconify(compOrLeague?: string | null, secondar
   if (raw.includes('por.1') || raw.includes('primeira liga') || raw.includes('portugal')) {
     return 'flag:pt';
   }
-  if (raw.includes('sweden') || raw.includes('handbollsligan') || raw.includes('allsvenskan')) {
+  if (raw.includes('sweden') || raw.includes('handbollsligan') || raw.includes('allsvenskan') || raw.includes('savehof') || raw.includes('ystad')) {
     return 'flag:se';
   }
   if (raw.includes('switzerland') || raw.includes('basel') || raw.includes('swiss')) {
     return 'flag:ch';
   }
-  if (raw.includes('poland') || raw.includes('tt elite') || raw.includes('superliga')) {
-    return 'flag:pl';
-  }
-  if (raw.includes('czech') || raw.includes('tt star') || raw.includes('extraliga')) {
+  if (raw.includes('czech') || raw.includes('tt star') || raw.includes('extraliga') || raw.includes('stach')) {
     return 'flag:cz';
   }
-  if (raw.includes('denmark')) return 'flag:dk';
+  if (raw.includes('poland') || raw.includes('tt elite') || raw.includes('superliga') || raw.includes('table_tennis') || raw.includes('table tennis')) {
+    return 'flag:pl';
+  }
+  if (raw.includes('denmark') || raw.includes('herreligaen') || raw.includes('bjerringbro')) return 'flag:dk';
   if (raw.includes('norway')) return 'flag:no';
-  if (raw.includes('modus') || raw.includes('pdc') || raw.includes('wimbledon') || raw.includes('united kingdom')) {
+  if (raw.includes('modus') || raw.includes('pdc') || raw.includes('darts') || raw.includes('wimbledon') || raw.includes('united kingdom')) {
     return 'flag:gb';
   }
   if (
@@ -147,6 +203,7 @@ export function getCompetitionFlagIconify(compOrLeague?: string | null, secondar
     raw.includes('conference league') ||
     raw.includes('nations league') ||
     raw.includes('ehf') ||
+    raw.includes('handball') ||
     raw.includes('euroleague')
   ) {
     return 'flag:eu';

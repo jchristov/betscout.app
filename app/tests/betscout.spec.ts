@@ -7,6 +7,7 @@ import {
   SPORT_FA6_ICONIFY_NAMES,
   computeBankerBoosterCombos,
   computeEqualPayoutDutchSplit,
+  formatLeagueBadgeLabel,
   getBadgeTooltipText,
   getCompetitionFlagIconify,
   getSportBadgeTheme,
@@ -71,6 +72,16 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(getCompetitionFlagIconify('Handball · Sweden · Handbollsligan')).toBe('flag:se');
     expect(getCompetitionFlagIconify('UEFA Champions League', 'uefa.champions')).toBe('flag:eu');
     expect(getCompetitionFlagIconify('NBA', 'nba')).toBe('flag:us');
+    expect(formatLeagueBadgeLabel('HANDBALL', 'handball', 'Savehof', 'Amo')).toBe('Handball · Handbollsligan');
+    expect(formatLeagueBadgeLabel('HANDBALL', 'handball', 'Porto', 'Veszprem')).toBe('EHF Champions League');
+    expect(formatLeagueBadgeLabel('TABLE_TENNIS', 'table_tennis', 'Zelezik, Jacek', 'Pyrek, Dawid')).toBe(
+      'Table Tennis · TT Elite Series',
+    );
+    expect(formatLeagueBadgeLabel('TABLE_TENNIS', 'table_tennis', 'Stach, Vojtech', 'Tkachenko, Andrii')).toBe(
+      'Table Tennis · Czech Liga Pro',
+    );
+    expect(getCompetitionFlagIconify(formatLeagueBadgeLabel('HANDBALL', 'handball', 'Savehof', 'Amo'), 'handball Savehof Amo')).toBe('flag:se');
+    expect(getCompetitionFlagIconify(formatLeagueBadgeLabel('TABLE_TENNIS', 'table_tennis', 'Zelezik, Jacek', 'Pyrek, Dawid'), 'table_tennis')).toBe('flag:pl');
     expect(getTierBadgeClass('top_8pct')).toContain('violet');
     expect(getTierBadgeClass('banker_70pct')).toContain('amber');
     expect(getTierBadgeClass('high_conf')).toContain('cyan');

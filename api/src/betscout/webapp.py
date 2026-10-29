@@ -32,7 +32,7 @@ from .dashboard import (
     build_best_bets_summary,
     generate_dashboard_html,
 )
-from .espn import LEAGUE_LABELS
+from .espn import LEAGUE_LABELS, resolve_competition_label
 from .paper_bet import (
     get_paper_ledger_summary,
     refresh_t60_starting_xi_gates,
@@ -418,7 +418,9 @@ def _build_live_snapshot(
             else ""
         )
         tr["day_key"] = _match_day_key(tr.get("kickoff") or "", DEFAULT_LOCAL_TZ)
-        tr["league_label"] = LEAGUE_LABELS.get(tr["league"], tr["league"].upper())
+        tr["league_label"] = resolve_competition_label(
+            tr["league"], tr.get("home") or "", tr.get("away") or ""
+        )
         tr["sport_cat"] = _league_to_sport_cat(tr["league"])
         # Keep completed (SETTLED) bets in the ledger even if their sport is toggled off; exclude non-settled bets for disabled sports
         if tr.get("status") != "SETTLED" and tr["sport_cat"] in dis_sports:
@@ -514,26 +516,33 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         conn.close()
 
     model_pick_detail: dict[str, Any] = {}
+    sr_mid_hint: str | None = None
+    match_date_hint: str | None = None
     if rec_path.exists():
         try:
             rec = json.loads(rec_path.read_text(encoding="utf-8"))
             for p in rec.get("qualifying_picks") or []:
                 if p.get("home") == h and p.get("away") == a:
                     model_pick_detail = p
+                    match_date_hint = str(p.get("kickoff") or "")[:10] or None
                     break
             if not model_pick_detail:
                 for tp in rec.get("tennis_picks") or []:
                     if tp.get("player_1") == h and tp.get("player_2") == a:
                         model_pick_detail = tp
+                        match_date_hint = str(tp.get("kickoff") or "")[:10] or None
                         break
             if not model_pick_detail:
                 for op in rec.get("other_sport_picks") or []:
                     if op.get("home") == h and op.get("away") == a:
                         model_pick_detail = op
+                        match_date_hint = str(op.get("kickoff") or "")[:10] or None
+                        if str(op.get("event_id") or "").startswith("sr_"):
+                            sr_mid_hint = str(op["event_id"]).replace("sr_", "")
                         break
         except Exception:
             pass
-    if not model_pick_detail and db_path.exists():
+    if db_path.exists():
         try:
             conn_pt = sqlite3.connect(db_path)
             conn_pt.row_factory = sqlite3.Row
@@ -543,30 +552,85 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
             ).fetchone()
             conn_pt.close()
             if pt_r:
-                model_pick_detail = {
-                    "tier": pt_r["tier"],
-                    "score": pt_r["composite_score"],
-                    "p_mkt": pt_r["p_mkt"],
-                    "best_odds": pt_r["logged_best_odds"],
-                    "factors": json.loads(pt_r["factor_breakdown_json"] or "{}"),
-                }
+                if str(pt_r["event_id"] or "").startswith("sr_"):
+                    sr_mid_hint = str(pt_r["event_id"]).replace("sr_", "")
+                if not match_date_hint and pt_r["kickoff"]:
+                    match_date_hint = str(pt_r["kickoff"])[:10]
+                if not model_pick_detail:
+                    model_pick_detail = {
+                        "league": pt_r["league"],
+                        "league_label": resolve_competition_label(pt_r["league"], h, a),
+                        "event_id": pt_r["event_id"],
+                        "kickoff": pt_r["kickoff"],
+                        "side": pt_r["side"],
+                        "pick": h if pt_r["side"] == "H" else a,
+                        "tier": pt_r["tier"],
+                        "score": pt_r["composite_score"],
+                        "p_mkt": pt_r["p_mkt"],
+                        "best_odds": pt_r["logged_best_odds"],
+                        "open_odds": pt_r["open_odds"],
+                        "close_odds": pt_r["latest_close_odds"],
+                        "clv_pct": round(float(pt_r["clv_pct"] or 0.0) * 100.0, 2),
+                        "status": pt_r["status"],
+                        "settled_score": pt_r["settled_score"],
+                        "settled_outcome": pt_r["settled_outcome"],
+                        "pnl_best": pt_r["pnl_best"],
+                        "exact_score_pred": pt_r["exact_score_pred"],
+                        "factors": json.loads(pt_r["factor_breakdown_json"] or "{}"),
+                    }
+                else:
+                    for extra_k in ("status", "settled_score", "settled_outcome", "pnl_best", "exact_score_pred"):
+                        if pt_r[extra_k] is not None and extra_k not in model_pick_detail:
+                            model_pick_detail[extra_k] = pt_r[extra_k]
         except Exception:
             pass
 
     statshub_intel: dict[str, Any] = {}
     try:
-        from .sportradar_statshub import fetch_player_lastx_form, lookup_statshub_match_intel
+        from .sportradar_statshub import (
+            fetch_player_lastx_form,
+            fetch_statshub_gismo,
+            lookup_statshub_match_intel,
+        )
 
         sp_hint = "tennis" if lg in ("atp", "wta") else (_league_to_sport_cat(lg) if lg else "soccer")
-        sh_res = lookup_statshub_match_intel(h, a, sport=sp_hint)
+        sh_res = lookup_statshub_match_intel(h, a, sport=sp_hint, date_ymd=match_date_hint)
         if not sh_res.get("found") and not lg:
-            sh_res = lookup_statshub_match_intel(h, a, sport="tennis")
+            sh_res = lookup_statshub_match_intel(h, a, sport="tennis", date_ymd=match_date_hint)
         if sh_res.get("found"):
             statshub_intel = sh_res
             if not form_home and sh_res.get("home_uid"):
                 form_home = fetch_player_lastx_form(sh_res["home_uid"], limit=6)
             if not form_away and sh_res.get("away_uid"):
                 form_away = fetch_player_lastx_form(sh_res["away_uid"], limit=6)
+
+        if sr_mid_hint and (not form_home or not form_away or not h2h_rows):
+            info_sr = fetch_statshub_gismo("match_info_statshub", sr_mid_hint, client_alias="sportradar", ttl_sec=600) or {}
+            m_sr = info_sr.get("match") or {}
+            t_sr = m_sr.get("teams") or {}
+            h_uid_sr = (t_sr.get("home") or {}).get("uid") or (t_sr.get("home") or {}).get("_id")
+            a_uid_sr = (t_sr.get("away") or {}).get("uid") or (t_sr.get("away") or {}).get("_id")
+            if h_uid_sr and not form_home:
+                form_home = fetch_player_lastx_form(h_uid_sr, limit=6)
+            if a_uid_sr and not form_away:
+                form_away = fetch_player_lastx_form(a_uid_sr, limit=6)
+            if h_uid_sr and a_uid_sr and not h2h_rows:
+                vs_sr = fetch_statshub_gismo("stats_team_versus", f"{h_uid_sr}/{a_uid_sr}/8", client_alias="common", ttl_sec=600) or {}
+                for vm in (vs_sr.get("matches") or [])[:8]:
+                    res_v = vm.get("result") or {}
+                    if res_v.get("home") is None or res_v.get("away") is None:
+                        continue
+                    vh_n = ((vm.get("teams") or {}).get("home") or {}).get("name") or h
+                    va_n = ((vm.get("teams") or {}).get("away") or {}).get("name") or a
+                    v_dt = (vm.get("time") or {}).get("date") or ""
+                    h2h_rows.append({
+                        "date": v_dt,
+                        "league": lg or sp_hint,
+                        "home": vh_n,
+                        "away": va_n,
+                        "score": f"{res_v['home']}-{res_v['away']}",
+                        "outcome": "H" if int(res_v["home"]) > int(res_v["away"]) else ("A" if int(res_v["away"]) > int(res_v["home"]) else "D"),
+                    })
     except Exception:
         statshub_intel = {}
 
