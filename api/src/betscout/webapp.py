@@ -672,12 +672,90 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
     except Exception:
         statshub_intel = {}
 
+    # Compute H2H Edge summary bar (home_wins, draws, away_wins, home_win_pct, draw_pct, away_win_pct)
+    h2h_home_w = 0
+    h2h_draws = 0
+    h2h_away_w = 0
+    h_low = h.lower()
+    a_low = a.lower()
+    for hm in h2h_rows:
+        out_c = str(hm.get("outcome") or "").upper()
+        mh_low = str(hm.get("home") or "").lower()
+        if out_c == "D":
+            h2h_draws += 1
+        elif out_c in ("H", "A"):
+            winner_is_mh = out_c == "H"
+            mh_is_main_home = (mh_low == h_low) or (h_low in mh_low) or (mh_low in h_low)
+            if (winner_is_mh and mh_is_main_home) or (not winner_is_mh and not mh_is_main_home):
+                h2h_home_w += 1
+            else:
+                h2h_away_w += 1
+    h2h_tot = h2h_home_w + h2h_draws + h2h_away_w
+    h2h_h_pct = round((h2h_home_w / h2h_tot) * 100) if h2h_tot > 0 else 0
+    h2h_d_pct = round((h2h_draws / h2h_tot) * 100) if h2h_tot > 0 else 0
+    h2h_a_pct = max(0, 100 - h2h_h_pct - h2h_d_pct) if h2h_tot > 0 else 0
+    h2h_edge_bar = {
+        "total_meetings": h2h_tot,
+        "home_wins": h2h_home_w,
+        "draws": h2h_draws,
+        "away_wins": h2h_away_w,
+        "home_win_pct": h2h_h_pct,
+        "draw_pct": h2h_d_pct,
+        "away_win_pct": h2h_a_pct,
+    }
+
+    # Compute 2-Way / 3-Way Win Probability bar from live markets or model_pick_detail
+    pm = (statshub_intel.get("primary_markets") or {}) if isinstance(statshub_intel, dict) else {}
+    cm = (statshub_intel.get("consensus_markets") or {}) if isinstance(statshub_intel, dict) else {}
+    oh = pm.get("odds_home") or cm.get("odds_home")
+    od = pm.get("odds_draw") or cm.get("odds_draw")
+    oa = pm.get("odds_away") or cm.get("odds_away")
+    win_prob_bar: dict[str, Any] | None = None
+    if oh and oa and float(oh) > 1.0 and float(oa) > 1.0:
+        inv1 = 1.0 / float(oh)
+        invx = (1.0 / float(od)) if (od and float(od) > 1.0) else 0.0
+        inv2 = 1.0 / float(oa)
+        inv_s = inv1 + invx + inv2
+        hp_pct = round((inv1 / inv_s) * 100.0, 1)
+        ap_pct = round((inv2 / inv_s) * 100.0, 1)
+        dp_pct = round(max(0.0, 100.0 - hp_pct - ap_pct), 1) if invx > 0 else 0.0
+        win_prob_bar = {
+            "home_pct": hp_pct,
+            "draw_pct": dp_pct,
+            "away_pct": ap_pct,
+            "odds_home": round(float(oh), 2),
+            "odds_draw": round(float(od), 2) if od else None,
+            "odds_away": round(float(oa), 2),
+        }
+    elif model_pick_detail:
+        p_fav = float(model_pick_detail.get("p_model") or model_pick_detail.get("win_prob") or model_pick_detail.get("p_mkt") or 0.0)
+        if p_fav > 0.0:
+            side_p = str(model_pick_detail.get("side") or "H").upper()
+            is_soccer = lg not in ("atp", "wta", "nba", "nhl", "nfl", "mlb", "table_tennis", "darts", "wvolleyball", "mvolleyball")
+            d_est = 14.0 if is_soccer else 0.0
+            fav_pct = round(p_fav * 100.0, 1)
+            dog_pct = round(max(2.0, 100.0 - fav_pct - d_est), 1)
+            d_final = round(max(0.0, 100.0 - fav_pct - dog_pct), 1) if is_soccer else 0.0
+            hp_pct = fav_pct if side_p == "H" else dog_pct
+            ap_pct = dog_pct if side_p == "H" else fav_pct
+            fav_o = float(model_pick_detail.get("best_odds") or model_pick_detail.get("odds") or round(1.0 / max(p_fav, 0.08), 2))
+            win_prob_bar = {
+                "home_pct": hp_pct,
+                "draw_pct": d_final,
+                "away_pct": ap_pct,
+                "odds_home": round(fav_o, 2) if side_p == "H" else None,
+                "odds_draw": None,
+                "odds_away": round(fav_o, 2) if side_p == "A" else None,
+            }
+
     result_payload = {
         "ok": True,
         "home": h,
         "away": a,
         "league": lg,
         "h2h": h2h_rows,
+        "h2h_edge": h2h_edge_bar,
+        "win_prob_bar": win_prob_bar,
         "form_home": form_home,
         "form_away": form_away,
         "pick_detail": model_pick_detail,
@@ -1236,7 +1314,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     return
 
             if spa_index.is_file() and (
-                parsed.path in ("/", "/index.html", "/app", "/landing", "/landing.html", "/pricing", "/pricing.html")
+                parsed.path in ("/", "/index.html", "/app", "/docs", "/landing", "/landing.html", "/pricing", "/pricing.html")
                 or parsed.path.startswith("/app/")
             ):
                 spa_bytes = spa_index.read_bytes()
@@ -1481,7 +1559,7 @@ self.addEventListener('fetch', (event) => {{
                 self.wfile.write(sw_bytes)
                 return
 
-            if parsed.path in ("/api/docs", "/api/v1/docs", "/docs", "/mcp/docs"):
+            if parsed.path in ("/api/docs", "/api/v1/docs", "/mcp/docs"):
                 from .monetization import build_swagger_ui_html
 
                 swagger_b = build_swagger_ui_html().encode("utf-8")
@@ -1575,7 +1653,8 @@ self.addEventListener('fetch', (event) => {{
                 return
 
             if parsed.path in ("/api/data", "/api/snapshot"):
-                from .monetization import get_monetization_config
+                from .monetization import get_monetization_config, list_api_keys, list_subscriber_webhooks, list_subscribers
+                from .sportradar_statshub import get_gismo_cache_stats
 
                 fb_cfg_d = get_firebase_auth_config()
                 mon_cfg_d = get_monetization_config(data_dir)
@@ -1586,6 +1665,7 @@ self.addEventListener('fetch', (event) => {{
                     query_token=(qs.get("token") or [""])[0],
                     cookie_header=self.headers.get("Cookie"),
                 )
+                is_admin_d = role_d == "admin"
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role=role_d)
                 snap["auth"] = {
                     "enabled": fb_cfg_d["enabled"],
@@ -1593,11 +1673,17 @@ self.addEventListener('fetch', (event) => {{
                     "project_id": fb_cfg_d["project_id"],
                     "auth_domain": fb_cfg_d["auth_domain"],
                     "role": role_d,
-                    "is_admin": role_d == "admin",
+                    "is_admin": is_admin_d,
                     "is_pro": role_d in ("admin", "pro"),
                     "actor": act_d,
                 }
-                snap["monetization"] = mon_cfg_d
+                snap["monetization"] = {
+                    **mon_cfg_d,
+                    "api_keys": list_api_keys(db_path) if is_admin_d else [],
+                    "subscribers": list_subscribers(db_path) if is_admin_d else [],
+                    "subscriber_webhooks": list_subscriber_webhooks(db_path, active_only=False) if is_admin_d else [],
+                }
+                snap["gismo_cache"] = get_gismo_cache_stats()
                 self._send_json(snap)
                 return
 
@@ -1663,7 +1749,13 @@ self.addEventListener('fetch', (event) => {{
                 return
 
             if parsed.path in ("/mcp", "/api/mcp"):
-                from .mcp_server import MCP_PROTOCOL_VERSION, MCP_SERVER_INFO, MCP_TOOLS_CATALOG
+                from .mcp_server import (
+                    MCP_PROMPTS_CATALOG,
+                    MCP_PROTOCOL_VERSION,
+                    MCP_RESOURCES_CATALOG,
+                    MCP_SERVER_INFO,
+                    MCP_TOOLS_CATALOG,
+                )
 
                 self._send_json({
                     "ok": True,
@@ -1673,6 +1765,10 @@ self.addEventListener('fetch', (event) => {{
                     "endpoint": "/mcp",
                     "toolsCount": len(MCP_TOOLS_CATALOG),
                     "tools": MCP_TOOLS_CATALOG,
+                    "promptsCount": len(MCP_PROMPTS_CATALOG),
+                    "prompts": MCP_PROMPTS_CATALOG,
+                    "resourcesCount": len(MCP_RESOURCES_CATALOG),
+                    "resources": MCP_RESOURCES_CATALOG,
                 })
                 return
 
@@ -1824,7 +1920,13 @@ self.addEventListener('fetch', (event) => {{
                     )
                     return
 
-                rpc_resp = handle_mcp_jsonrpc_request(rpc_payload, db_path=db_path, rec_path=rec_path)
+                rpc_resp = handle_mcp_jsonrpc_request(
+                    rpc_payload,
+                    db_path=db_path,
+                    rec_path=rec_path,
+                    api_key=self.headers.get("X-API-Key"),
+                    auth_header=self.headers.get("Authorization"),
+                )
                 if rpc_resp is None:
                     self.send_response(202)
                     self.send_header("Access-Control-Allow-Origin", "*")

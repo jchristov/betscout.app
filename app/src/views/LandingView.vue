@@ -905,6 +905,7 @@
         </div>
         <div class="flex flex-wrap gap-5">
           <router-link to="/app" class="hover:text-white">Live Quant Desk</router-link>
+          <router-link to="/docs" class="hover:text-white text-sky-300 font-semibold">User Guide</router-link>
           <a href="#pricing" class="hover:text-white">Membership Plans</a>
           <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
           <a href="mailto:julian.christ@gmail.com" class="hover:text-white">Contact &amp; Support</a>
@@ -996,6 +997,39 @@
             </div>
           </div>
 
+          <!-- Seamless 2-Way / 3-Way Win Probability Bar -->
+          <div
+            v-if="inspectorData.win_prob_bar"
+            class="p-3 rounded-xl bg-slate-900/75 border border-slate-800"
+          >
+            <div class="flex justify-between items-center text-[11.5px] font-bold font-mono tabular-nums mb-1.5">
+              <span class="text-sky-300">
+                {{ inspectorData.home }} — {{ inspectorData.win_prob_bar.home_pct }}%<span v-if="inspectorData.win_prob_bar.odds_home" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_home).toFixed(2) }})</span>
+              </span>
+              <span v-if="Number(inspectorData.win_prob_bar.draw_pct || 0) > 0.5" class="text-slate-300">
+                Draw — {{ inspectorData.win_prob_bar.draw_pct }}%<span v-if="inspectorData.win_prob_bar.odds_draw" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_draw).toFixed(2) }})</span>
+              </span>
+              <span class="text-amber-300">
+                {{ inspectorData.away }} — {{ inspectorData.win_prob_bar.away_pct }}%<span v-if="inspectorData.win_prob_bar.odds_away" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_away).toFixed(2) }})</span>
+              </span>
+            </div>
+            <div class="h-2.5 rounded-full bg-slate-950 overflow-hidden flex gap-0">
+              <div
+                class="h-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                :style="{ width: `${inspectorData.win_prob_bar.home_pct}%` }"
+              ></div>
+              <div
+                v-if="Number(inspectorData.win_prob_bar.draw_pct || 0) > 0.5"
+                class="h-full bg-gradient-to-r from-slate-500 to-slate-400"
+                :style="{ width: `${inspectorData.win_prob_bar.draw_pct}%` }"
+              ></div>
+              <div
+                class="h-full bg-gradient-to-r from-amber-500 to-rose-500"
+                :style="{ width: `${inspectorData.win_prob_bar.away_pct}%` }"
+              ></div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
@@ -1045,6 +1079,37 @@
 
           <div>
             <b class="block mb-1.5 text-white">Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
+            <div
+              v-if="inspectorData.h2h_edge && inspectorData.h2h_edge.total_meetings > 0"
+              class="mb-2.5 p-2.5 rounded-xl bg-slate-900/75 border border-slate-800"
+            >
+              <div class="flex justify-between items-center text-[11px] font-bold font-mono tabular-nums mb-1.5">
+                <span class="text-sky-300">
+                  {{ inspectorData.home }}: {{ inspectorData.h2h_edge.home_wins }}W ({{ inspectorData.h2h_edge.home_win_pct }}%)
+                </span>
+                <span v-if="inspectorData.h2h_edge.draws > 0" class="text-slate-300">
+                  {{ inspectorData.h2h_edge.draws }}D ({{ inspectorData.h2h_edge.draw_pct }}%)
+                </span>
+                <span class="text-amber-300">
+                  {{ inspectorData.away }}: {{ inspectorData.h2h_edge.away_wins }}W ({{ inspectorData.h2h_edge.away_win_pct }}%)
+                </span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-950 overflow-hidden flex gap-0">
+                <div
+                  class="h-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                  :style="{ width: `${inspectorData.h2h_edge.home_win_pct}%` }"
+                ></div>
+                <div
+                  v-if="inspectorData.h2h_edge.draw_pct > 0"
+                  class="h-full bg-gradient-to-r from-slate-500 to-slate-400"
+                  :style="{ width: `${inspectorData.h2h_edge.draw_pct}%` }"
+                ></div>
+                <div
+                  class="h-full bg-gradient-to-r from-amber-500 to-rose-500"
+                  :style="{ width: `${inspectorData.h2h_edge.away_win_pct}%` }"
+                ></div>
+              </div>
+            </div>
             <div v-if="!inspectorData.h2h?.length" class="text-slate-300">First tracked meeting in current DB window.</div>
             <div
               v-for="(h, idx) in inspectorData.h2h"

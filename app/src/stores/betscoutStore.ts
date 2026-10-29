@@ -55,7 +55,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const isPro = ref<boolean>(true);
   const userEmail = ref<string>('');
   const firebaseAuthCfg = ref<Record<string, any>>({ enabled: false });
-  const monetizationCfg = ref<Record<string, any>>({ enabled: false, free_preview_picks_count: 0 });
+  const monetizationCfg = ref<Record<string, any>>({ enabled: false, free_preview_picks_count: 0, api_keys: [], subscribers: [] });
+  const gismoCache = ref<Record<string, any>>({});
   const discordEnv = ref<Record<string, any>>({ configured: false });
   const telegramEnv = ref<Record<string, any>>({ configured: false });
   const settings = ref<Record<string, any>>({});
@@ -230,6 +231,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
       if (snap.auth.role) role.value = snap.auth.role;
     }
     if (snap.monetization) monetizationCfg.value = snap.monetization;
+    if (snap.gismo_cache) gismoCache.value = snap.gismo_cache;
     if (snap.discord_env) discordEnv.value = snap.discord_env;
     if (snap.telegram_env) telegramEnv.value = snap.telegram_env;
     if (snap.settings) {
@@ -745,6 +747,87 @@ export const useBetscoutStore = defineStore('betscout', () => {
     }
   }
 
+  function setCustomApiKey(key: string) {
+    const clean = String(key || '').trim();
+    customApiKey.value = clean;
+    safeStorageSet('bs_api_key', clean);
+    showToast(clean ? 'Saved Quant API / MCP Key in browser storage.' : 'Cleared stored API Key.');
+  }
+
+  async function createAdminApiKey(payload: {
+    email: string;
+    tier?: string;
+    label?: string;
+    daily_limit?: number;
+  }): Promise<string | null> {
+    try {
+      const resp = await fetch('/api/admin/apikeys', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'create',
+          email: payload.email.trim(),
+          tier: payload.tier || 'pro',
+          label: payload.label || '',
+          daily_limit: payload.daily_limit,
+        }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        monetizationCfg.value = {
+          ...monetizationCfg.value,
+          api_keys: data.api_keys || [],
+        };
+        showToast(`Issued ${payload.tier || 'pro'} API key for ${payload.email}!`);
+        return data.api_key || null;
+      }
+      showToast(`Could not issue API key: ${data.error || 'Error'}`);
+    } catch (err) {
+      showToast(`API key error: ${err}`);
+    }
+    return null;
+  }
+
+  async function revokeAdminApiKey(keyId: string) {
+    try {
+      const resp = await fetch('/api/admin/apikeys', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'revoke', key_id: keyId }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        monetizationCfg.value = {
+          ...monetizationCfg.value,
+          api_keys: data.api_keys || [],
+        };
+        showToast(`Revoked API key ${keyId}.`);
+      }
+    } catch (err) {
+      showToast(`Revoke error: ${err}`);
+    }
+  }
+
+  async function upsertAdminSubscriber(payload: { email: string; tier: string; status: string }) {
+    try {
+      const resp = await fetch('/api/admin/subscribers', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        monetizationCfg.value = {
+          ...monetizationCfg.value,
+          subscribers: data.subscribers || [],
+        };
+        showToast(`Updated subscriber ${payload.email} (${payload.tier} · ${payload.status}).`);
+      }
+    } catch (err) {
+      showToast(`Subscriber update error: ${err}`);
+    }
+  }
+
   return {
     loading,
     actionBusy,
@@ -767,6 +850,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     userEmail,
     firebaseAuthCfg,
     monetizationCfg,
+    gismoCache,
     discordEnv,
     telegramEnv,
     settings,
@@ -812,5 +896,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
     trackLiveMatchup,
     untrackLiveMatchup,
     toggleSportEnabled,
+    setCustomApiKey,
+    createAdminApiKey,
+    revokeAdminApiKey,
+    upsertAdminSubscriber,
   };
 });

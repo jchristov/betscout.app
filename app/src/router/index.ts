@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LandingView from '../views/LandingView.vue';
 import DashboardView from '../views/DashboardView.vue';
+import DocsView from '../views/DocsView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,6 +23,11 @@ const router = createRouter({
       path: '/app',
       name: 'dashboard',
       component: DashboardView,
+    },
+    {
+      path: '/docs',
+      name: 'docs',
+      component: DocsView,
     },
   ],
   scrollBehavior(to) {

@@ -1648,6 +1648,7 @@
       </div>
       <div class="flex flex-wrap gap-4">
         <router-link to="/" class="hover:text-white">Home &amp; Membership Plans</router-link>
+        <router-link to="/docs" class="hover:text-white text-sky-300 font-semibold">User Guide</router-link>
         <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
       </div>
     </footer>
@@ -1805,6 +1806,73 @@
             </div>
           </div>
 
+          <!-- Seamless 2-Way / 3-Way Win Probability Bar -->
+          <div
+            v-if="inspectorData.win_prob_bar"
+            class="p-3 rounded-xl bg-slate-900/75 border border-slate-800"
+          >
+            <div class="flex justify-between items-center text-[11.5px] font-bold font-mono tabular-nums mb-1.5">
+              <span class="text-sky-300">
+                {{ inspectorData.home }} — {{ inspectorData.win_prob_bar.home_pct }}%<span v-if="inspectorData.win_prob_bar.odds_home" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_home).toFixed(2) }})</span>
+              </span>
+              <span v-if="Number(inspectorData.win_prob_bar.draw_pct || 0) > 0.5" class="text-slate-300">
+                Draw — {{ inspectorData.win_prob_bar.draw_pct }}%<span v-if="inspectorData.win_prob_bar.odds_draw" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_draw).toFixed(2) }})</span>
+              </span>
+              <span class="text-amber-300">
+                {{ inspectorData.away }} — {{ inspectorData.win_prob_bar.away_pct }}%<span v-if="inspectorData.win_prob_bar.odds_away" class="text-slate-400 font-normal ml-1">({{ Number(inspectorData.win_prob_bar.odds_away).toFixed(2) }})</span>
+              </span>
+            </div>
+            <div class="h-2.5 rounded-full bg-slate-950 overflow-hidden flex gap-0">
+              <div
+                class="h-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                :style="{ width: `${inspectorData.win_prob_bar.home_pct}%` }"
+              ></div>
+              <div
+                v-if="Number(inspectorData.win_prob_bar.draw_pct || 0) > 0.5"
+                class="h-full bg-gradient-to-r from-slate-500 to-slate-400"
+                :style="{ width: `${inspectorData.win_prob_bar.draw_pct}%` }"
+              ></div>
+              <div
+                class="h-full bg-gradient-to-r from-amber-500 to-rose-500"
+                :style="{ width: `${inspectorData.win_prob_bar.away_pct}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Surface Splits or Missing/Injured Players Telemetry -->
+          <div
+            v-if="
+              inspectorData.live_intel?.tennis_surface_records?.home ||
+              inspectorData.live_intel?.home_injuries?.length ||
+              inspectorData.live_intel?.away_injuries?.length
+            "
+            class="p-3 rounded-xl bg-slate-900/75 border border-slate-800 space-y-1.5 text-[11.5px]"
+          >
+            <div
+              v-if="inspectorData.live_intel?.tennis_surface_records?.home || inspectorData.live_intel?.tennis_surface_records?.away"
+              class="flex flex-wrap justify-between gap-2 font-mono tabular-nums"
+            >
+              <span v-if="inspectorData.live_intel.tennis_surface_records.home" class="text-slate-300">
+                <b class="text-sky-300">{{ inspectorData.home }}:</b>
+                Season <b class="text-white">{{ inspectorData.live_intel.tennis_surface_records.home.season_wl }}</b>
+                (Hard {{ inspectorData.live_intel.tennis_surface_records.home.hard_wl }} · Indoor {{ inspectorData.live_intel.tennis_surface_records.home.indoor_wl }} · Clay {{ inspectorData.live_intel.tennis_surface_records.home.clay_wl }})
+              </span>
+              <span v-if="inspectorData.live_intel.tennis_surface_records.away" class="text-slate-300">
+                <b class="text-amber-300">{{ inspectorData.away }}:</b>
+                Season <b class="text-white">{{ inspectorData.live_intel.tennis_surface_records.away.season_wl }}</b>
+                (Hard {{ inspectorData.live_intel.tennis_surface_records.away.hard_wl }} · Indoor {{ inspectorData.live_intel.tennis_surface_records.away.indoor_wl }} · Clay {{ inspectorData.live_intel.tennis_surface_records.away.clay_wl }})
+              </span>
+            </div>
+            <div v-if="inspectorData.live_intel?.home_injuries?.length" class="text-slate-300">
+              <b class="text-rose-300">{{ inspectorData.home }} Missing ({{ inspectorData.live_intel.home_injuries.length }}):</b>
+              <span class="ml-1 text-slate-400">{{ inspectorData.live_intel.home_injuries.slice(0, 6).join(', ') }}</span>
+            </div>
+            <div v-if="inspectorData.live_intel?.away_injuries?.length" class="text-slate-300">
+              <b class="text-rose-300">{{ inspectorData.away }} Missing ({{ inspectorData.live_intel.away_injuries.length }}):</b>
+              <span class="ml-1 text-slate-400">{{ inspectorData.live_intel.away_injuries.slice(0, 6).join(', ') }}</span>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
@@ -1854,6 +1922,37 @@
 
           <div>
             <b class="block mb-1.5 text-white">Head-to-Head History ({{ inspectorData.h2h?.length || 0 }} Meetings)</b>
+            <div
+              v-if="inspectorData.h2h_edge && inspectorData.h2h_edge.total_meetings > 0"
+              class="mb-2.5 p-2.5 rounded-xl bg-slate-900/75 border border-slate-800"
+            >
+              <div class="flex justify-between items-center text-[11px] font-bold font-mono tabular-nums mb-1.5">
+                <span class="text-sky-300">
+                  {{ inspectorData.home }}: {{ inspectorData.h2h_edge.home_wins }}W ({{ inspectorData.h2h_edge.home_win_pct }}%)
+                </span>
+                <span v-if="inspectorData.h2h_edge.draws > 0" class="text-slate-300">
+                  {{ inspectorData.h2h_edge.draws }}D ({{ inspectorData.h2h_edge.draw_pct }}%)
+                </span>
+                <span class="text-amber-300">
+                  {{ inspectorData.away }}: {{ inspectorData.h2h_edge.away_wins }}W ({{ inspectorData.h2h_edge.away_win_pct }}%)
+                </span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-950 overflow-hidden flex gap-0">
+                <div
+                  class="h-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                  :style="{ width: `${inspectorData.h2h_edge.home_win_pct}%` }"
+                ></div>
+                <div
+                  v-if="inspectorData.h2h_edge.draw_pct > 0"
+                  class="h-full bg-gradient-to-r from-slate-500 to-slate-400"
+                  :style="{ width: `${inspectorData.h2h_edge.draw_pct}%` }"
+                ></div>
+                <div
+                  class="h-full bg-gradient-to-r from-amber-500 to-rose-500"
+                  :style="{ width: `${inspectorData.h2h_edge.away_win_pct}%` }"
+                ></div>
+              </div>
+            </div>
             <div v-if="!inspectorData.h2h?.length" class="text-slate-300">First tracked meeting in current DB window.</div>
             <div
               v-for="(h, idx) in inspectorData.h2h"
@@ -2085,9 +2184,13 @@
 
           <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl flex flex-wrap justify-between items-center gap-2">
             <div>
-              <b class="text-cyan-300 block">PWA LocalStorage &amp; Offline Sync</b>
+              <b class="text-cyan-300 block">PWA LocalStorage &amp; 2-Tier Gismo SQLite Cache</b>
               <span class="text-[11px] text-slate-300">
-                Last cached snapshot: {{ store.lastLocalCacheTime || 'Active' }} · Preferences auto-saved locally.
+                Last cached snapshot: {{ store.lastLocalCacheTime || 'Active' }}
+                <template v-if="store.gismoCache?.hit_rate_pct !== undefined">
+                  · Gismo Cache Hit Rate: <b class="text-emerald-300">{{ store.gismoCache.hit_rate_pct }}%</b>
+                  (L1: {{ store.gismoCache.l1_memory_entries || 0 }}, L2 SQLite: {{ store.gismoCache.l2_sqlite_entries || 0 }})
+                </template>
               </span>
             </div>
             <button
@@ -2098,6 +2201,128 @@
               <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" />
               <span>Force Refresh Snapshot</span>
             </button>
+          </div>
+
+          <!-- Quant API Key & Remote MCP Connection Panel -->
+          <div class="p-3.5 bg-slate-950/90 border border-sky-500/40 rounded-xl space-y-2.5 text-xs">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <b class="text-sky-300 inline-flex items-center gap-1.5">
+                <Icon icon="fa6-solid:lock" class="w-3.5 h-3.5 text-amber-300" />
+                <span>Tier 3 Quant API Key &amp; Remote MCP (`https://betscout.app/mcp`)</span>
+              </b>
+              <router-link
+                to="/docs#mcp"
+                class="text-[11px] font-bold text-emerald-300 hover:underline no-underline"
+                @click="settingsModalOpen = false"
+              >
+                Full MCP &amp; User Guide &rarr;
+              </router-link>
+            </div>
+            <div class="flex gap-2">
+              <input
+                v-model="apiKeyInput"
+                type="text"
+                placeholder="Paste your bs_live_... API key"
+                class="flex-1 bg-slate-900 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs"
+              />
+              <button
+                type="button"
+                class="btn-press px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 font-bold"
+                @click="store.setCustomApiKey(apiKeyInput)"
+              >
+                Save Key
+              </button>
+              <button
+                type="button"
+                class="btn-press px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
+                @click="copyRemoteMcpConfig"
+              >
+                Copy MCP Config
+              </button>
+            </div>
+          </div>
+
+          <!-- Admin API Keys & Subscribers Provisioning Panel -->
+          <div
+            v-if="store.isAdmin"
+            class="p-3.5 bg-slate-950/90 border border-amber-500/40 rounded-xl space-y-3 text-xs"
+          >
+            <div class="flex justify-between items-center">
+              <b class="text-amber-300 inline-flex items-center gap-1.5">
+                <Icon icon="fa6-solid:shield-halved" class="w-3.5 h-3.5" />
+                <span>Admin · Issued API Keys ({{ store.monetizationCfg?.api_keys?.length || 0 }}) &amp; Subscribers</span>
+              </b>
+            </div>
+
+            <div class="flex flex-wrap gap-2 items-center">
+              <input
+                v-model="newKeyEmail"
+                type="email"
+                placeholder="owner@email.com"
+                class="flex-1 min-w-[160px] bg-slate-900 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-xs"
+              />
+              <select
+                v-model="newKeyTier"
+                class="bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold"
+              >
+                <option value="starter">starter (500/d)</option>
+                <option value="pro">pro (5,000/d)</option>
+                <option value="enterprise">enterprise (50,000/d)</option>
+              </select>
+              <input
+                v-model="newKeyLabel"
+                type="text"
+                placeholder="Label (optional)"
+                class="w-32 bg-slate-900 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-xs"
+              />
+              <button
+                type="button"
+                class="btn-press px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-400/50 font-bold"
+                @click="handleIssueAdminKey"
+              >
+                + Issue Key
+              </button>
+            </div>
+
+            <div
+              v-if="newlyIssuedPlainKey"
+              class="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-400/50 flex justify-between items-center gap-2 font-mono text-[11px]"
+            >
+              <span class="text-emerald-200 break-all">
+                New Key (copy now): <b class="text-white">{{ newlyIssuedPlainKey }}</b>
+              </span>
+              <button
+                type="button"
+                class="btn-press px-2.5 py-1 rounded bg-emerald-500/30 text-white font-bold shrink-0"
+                @click="copyPlainKey(newlyIssuedPlainKey)"
+              >
+                Copy
+              </button>
+            </div>
+
+            <div v-if="store.monetizationCfg?.api_keys?.length" class="max-h-36 overflow-y-auto divide-y divide-slate-800">
+              <div
+                v-for="k in store.monetizationCfg.api_keys"
+                :key="k.key_id"
+                class="py-1.5 flex justify-between items-center gap-2 font-mono text-[11px]"
+              >
+                <div>
+                  <b class="text-sky-300">{{ k.key_prefix }}</b>
+                  <span class="text-slate-300 ml-1.5">{{ k.owner_email }}</span>
+                  <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 text-[10px]">{{ k.plan_tier }}</span>
+                  <span class="text-slate-400 ml-1.5">{{ k.calls_today || 0 }} / {{ k.daily_limit }} today</span>
+                </div>
+                <button
+                  v-if="k.active"
+                  type="button"
+                  class="btn-press px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 text-[10px] font-bold"
+                  @click="store.revokeAdminApiKey(k.key_id)"
+                >
+                  Revoke
+                </button>
+                <span v-else class="text-rose-400 text-[10px] font-bold">REVOKED</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2203,6 +2428,52 @@ const currentShareCardMeta = ref<PickCardMeta | null>(null);
 const pickCardCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 const settingsModalOpen = ref<boolean>(false);
+const apiKeyInput = ref<string>(store.customApiKey || '');
+const newKeyEmail = ref<string>('julian.christov@gmail.com');
+const newKeyTier = ref<string>('enterprise');
+const newKeyLabel = ref<string>('');
+const newlyIssuedPlainKey = ref<string>('');
+
+async function handleIssueAdminKey() {
+  if (!newKeyEmail.value.trim()) {
+    store.showToast('Enter an owner email address to issue an API key.');
+    return;
+  }
+  const plain = await store.createAdminApiKey({
+    email: newKeyEmail.value.trim(),
+    tier: newKeyTier.value,
+    label: newKeyLabel.value.trim(),
+  });
+  if (plain) {
+    newlyIssuedPlainKey.value = plain;
+  }
+}
+
+function copyPlainKey(val: string) {
+  navigator.clipboard?.writeText(val);
+  store.showToast('Copied API Key to clipboard!');
+}
+
+function copyRemoteMcpConfig() {
+  const token = apiKeyInput.value.trim() || store.customApiKey || 'bs_live_YOUR_API_KEY';
+  const snippet = JSON.stringify(
+    {
+      mcpServers: {
+        betscout: {
+          type: 'http',
+          url: 'https://betscout.app/mcp',
+          headers: {
+            'X-API-Key': token,
+          },
+        },
+      },
+    },
+    null,
+    2,
+  );
+  navigator.clipboard?.writeText(snippet);
+  store.showToast('Copied Remote MCP (.mcp.json) configuration to clipboard!');
+}
 
 const sportToggleItems: Record<string, string> = {
   soccer: 'Football',

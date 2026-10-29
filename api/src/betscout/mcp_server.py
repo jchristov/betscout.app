@@ -958,18 +958,248 @@ def execute_mcp_tool(
         }
 
 
+MCP_PROMPTS_CATALOG: list[dict[str, Any]] = [
+    {
+        "name": "daily-bankers",
+        "description": "Retrieve today's highest-conviction BetScout picks across all sports and present a ranked summary table with model probabilities, bookmaker odds, and exact-score/set-score targets.",
+        "arguments": [
+            {
+                "name": "sport",
+                "description": "Optional sport category filter ('all', 'soccer', 'tennis', 'basketball', 'hockey', 'handball', 'table_tennis', 'darts'). Default: 'all'.",
+                "required": False,
+            },
+            {
+                "name": "min_win_prob",
+                "description": "Minimum calibrated win probability threshold (e.g. '0.70' for >=70%). Default: '0.70'.",
+                "required": False,
+            },
+        ],
+    },
+    {
+        "name": "parlay-builder",
+        "description": "Build 2-leg and 3-leg Banker Profitability Booster combo tickets with Quarter-Kelly EUR stake allocations for a specified bankroll budget.",
+        "arguments": [
+            {
+                "name": "budget_eur",
+                "description": "Total EUR budget to allocate across combo tickets (e.g. '100'). Default: '100'.",
+                "required": False,
+            },
+        ],
+    },
+    {
+        "name": "set-score-audit",
+        "description": "Analyze one or more Tennis matchups for fixed straight-sets (2:0 / 0:2) probability, +1.5 Sets shield, turnaround warnings, and equal-payout set-score dutching.",
+        "arguments": [
+            {
+                "name": "matchups",
+                "description": "Comma-separated tennis matchups (e.g. 'Tommy Paul vs Luciano Darderi, Daniil Medvedev vs Cameron Norrie').",
+                "required": True,
+            },
+        ],
+    },
+    {
+        "name": "match-deep-dive",
+        "description": "Run a full quantitative + Match Center inspection on a specific Football or Tennis matchup, including H2H history, Last-6 form, missing players, and equal-payout exact-score dutching.",
+        "arguments": [
+            {
+                "name": "matchup",
+                "description": "Matchup formatted as 'Home vs Away' (e.g. 'AS Roma vs Cagliari', 'Genoa vs Juventus').",
+                "required": True,
+            },
+            {
+                "name": "stake_eur",
+                "description": "Optional EUR stake for exact-score dutching split (default: '25').",
+                "required": False,
+            },
+        ],
+    },
+]
+
+MCP_RESOURCES_CATALOG: list[dict[str, Any]] = [
+    {
+        "uri": "betscout://slate/today",
+        "name": "Today's Active High-Conviction Picks Slate",
+        "description": "Live JSON snapshot of BetScout's active multi-sport picks, model win probabilities, fair odds, and mispriced bookmaker edges.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "betscout://ledger/summary",
+        "name": "Verified Out-of-Sample Paper-Betting Ledger Summary",
+        "description": "Audited Win-Loss record, net unit profit (+u), ROI%, Closing Line Value (CLV%), by-sport breakdown, and recent resolved bets.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "betscout://boosters/today",
+        "name": "Recommended 2-Leg & 3-Leg Banker Profit Boosters",
+        "description": "High-probability (>=72%) 2-leg and 3-leg combo tickets with Quarter-Kelly stake allocations for a €100 reference budget.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "betscout://cache/telemetry",
+        "name": "2-Tier Gismo L1/L2 SQLite Cache Telemetry",
+        "description": "Real-time hit/miss, negative-cache, and L2 SQLite persistence metrics for the Sportradar/Tipico Gismo data layer.",
+        "mimeType": "application/json",
+    },
+]
+
+
+def get_mcp_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    args = arguments or {}
+    if name == "daily-bankers":
+        sport = str(args.get("sport") or "all")
+        min_wp = str(args.get("min_win_prob") or "0.70")
+        return {
+            "description": f"Daily BetScout banker picks (sport={sport}, min_win_prob={min_wp})",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            f"Call `get_daily_banker_picks` with `sport=\"{sport}\"` and `min_win_prob={min_wp}`. "
+                            "Present the returned picks ranked by model win probability in a clean markdown table "
+                            "showing Matchup, League, Pick, Model Win%, Book Odds, Fair Odds, Edge (pp), and Exact Score / Set Score target."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "parlay-builder":
+        budget = str(args.get("budget_eur") or "100")
+        return {
+            "description": f"Build Quarter-Kelly Banker Profit Booster parlays for €{budget}",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            f"Call `get_banker_profit_boosters` with `budget_eur={budget}` and `max_combos=6`. "
+                            "Present each 2-leg and 3-leg ticket with its full leg breakdown (match, league, pick, odds, win%), "
+                            "combined odds, combined win%, EV%, Quarter-Kelly %, recommended EUR stake, and projected return."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "set-score-audit":
+        matchups = str(args.get("matchups") or "Tommy Paul vs Luciano Darderi, Daniil Medvedev vs Cameron Norrie")
+        return {
+            "description": f"Tennis fixed set-score (2:0 / 0:2) and +1.5 Sets shield audit for: {matchups}",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            f"For each of the following tennis matchups ({matchups}), call `analyze_matchup` and `calculate_exact_score_dutching` (with `stake_eur=25`). "
+                            "Compare their straight-sets (2:0 / 0:2) probability, 3-set decider (2:1 / 1:2) probability, +1.5 Sets shield, H2H history, and rest/turnaround warnings, "
+                            "and rank them from highest to lowest confidence for a fixed set result."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "match-deep-dive":
+        matchup = str(args.get("matchup") or "AS Roma vs Cagliari")
+        stake = str(args.get("stake_eur") or "25")
+        return {
+            "description": f"Full Match Center + Exact-Score Dutching deep dive for {matchup}",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            f"Inspect `{matchup}` by calling `analyze_matchup(query=\"{matchup}\")`, "
+                            f"`calculate_exact_score_dutching(query=\"{matchup}\", stake_eur={stake})`, and "
+                            "`get_match_center_dossier` (using the `sportradar_match_id` or `home`/`away` names). "
+                            "Synthesize the model win probability, H2H edge, Last-6 form, missing/injured players, and exact-score dutching split."
+                        ),
+                    },
+                }
+            ],
+        }
+    raise ValueError(
+        f"Unknown prompt '{name}'. Available prompts: " + ", ".join(p["name"] for p in MCP_PROMPTS_CATALOG)
+    )
+
+
+def read_mcp_resource(uri: str, *, db_path: Path, rec_path: Path) -> dict[str, Any]:
+    u = str(uri or "").strip()
+    if u == "betscout://slate/today":
+        res = execute_mcp_tool(
+            "get_daily_banker_picks", {"sport": "all", "min_win_prob": 0.55, "limit": 30}, db_path=db_path, rec_path=rec_path
+        )
+        return {
+            "contents": [
+                {
+                    "uri": u,
+                    "mimeType": "application/json",
+                    "text": res["content"][0]["text"],
+                }
+            ]
+        }
+    if u == "betscout://ledger/summary":
+        res = execute_mcp_tool(
+            "get_paper_ledger_roi", {"status": "settled", "limit": 20}, db_path=db_path, rec_path=rec_path
+        )
+        return {
+            "contents": [
+                {
+                    "uri": u,
+                    "mimeType": "application/json",
+                    "text": res["content"][0]["text"],
+                }
+            ]
+        }
+    if u == "betscout://boosters/today":
+        res = execute_mcp_tool(
+            "get_banker_profit_boosters", {"budget_eur": 100, "max_combos": 6}, db_path=db_path, rec_path=rec_path
+        )
+        return {
+            "contents": [
+                {
+                    "uri": u,
+                    "mimeType": "application/json",
+                    "text": res["content"][0]["text"],
+                }
+            ]
+        }
+    if u == "betscout://cache/telemetry":
+        return {
+            "contents": [
+                {
+                    "uri": u,
+                    "mimeType": "application/json",
+                    "text": json.dumps(get_gismo_cache_stats(), indent=2),
+                }
+            ]
+        }
+    raise ValueError(
+        f"Unknown resource URI '{u}'. Available resources: " + ", ".join(r["uri"] for r in MCP_RESOURCES_CATALOG)
+    )
+
+
 def handle_mcp_jsonrpc_request(
     rpc_body: dict[str, Any] | list[Any],
     *,
     db_path: Path,
     rec_path: Path,
+    api_key: str | None = None,
+    auth_header: str | None = None,
 ) -> dict[str, Any] | list[Any] | None:
     """Process a JSON-RPC 2.0 MCP request (or batch) and return the JSON-RPC response."""
     if isinstance(rpc_body, list):
         responses = [
             r
             for item in rpc_body
-            if (r := handle_mcp_jsonrpc_request(item, db_path=db_path, rec_path=rec_path)) is not None
+            if (
+                r := handle_mcp_jsonrpc_request(
+                    item, db_path=db_path, rec_path=rec_path, api_key=api_key, auth_header=auth_header
+                )
+            )
+            is not None
         ]
         return responses
 
@@ -994,7 +1224,11 @@ def handle_mcp_jsonrpc_request(
             "id": req_id,
             "result": {
                 "protocolVersion": MCP_PROTOCOL_VERSION,
-                "capabilities": {"tools": {"listChanged": False}},
+                "capabilities": {
+                    "tools": {"listChanged": False},
+                    "prompts": {"listChanged": False},
+                    "resources": {"subscribe": False, "listChanged": False},
+                },
                 "serverInfo": MCP_SERVER_INFO,
             },
         }
@@ -1008,6 +1242,99 @@ def handle_mcp_jsonrpc_request(
             "id": req_id,
             "result": {"tools": MCP_TOOLS_CATALOG},
         }
+
+    if method == "prompts/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {"prompts": MCP_PROMPTS_CATALOG},
+        }
+
+    if method == "prompts/get":
+        p_name = str(params.get("name") or "")
+        p_args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+        try:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": get_mcp_prompt(p_name, p_args),
+            }
+        except ValueError as ve:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": str(ve)},
+            }
+
+    if method == "resources/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {"resources": MCP_RESOURCES_CATALOG},
+        }
+
+    # Meter API key if provided (or enforce when monetization is enabled) for tools/call and resources/read
+    if method in ("tools/call", "resources/read"):
+        from .monetization import get_monetization_config, validate_and_meter_api_key
+
+        raw_k = (api_key or "").strip()
+        if not raw_k and auth_header:
+            ah = auth_header.strip()
+            if ah.lower().startswith("bearer "):
+                raw_k = ah[7:].strip()
+            elif ah.startswith("bs_live_"):
+                raw_k = ah
+        if raw_k.startswith("bs_live_"):
+            ok_k, k_info, _rl_h, _st = validate_and_meter_api_key(db_path, raw_k, required_tier="starter")
+            if not ok_k:
+                err_msg = str(k_info.get("error") or "Invalid or expired BetScout API key.")
+                if method == "tools/call":
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "content": [{"type": "text", "text": err_msg}],
+                            "isError": True,
+                        },
+                    }
+                return {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32001, "message": err_msg},
+                }
+        else:
+            mon_cfg = get_monetization_config(db_path.parent if db_path else None)
+            if mon_cfg.get("enabled"):
+                from .webapp import resolve_request_role
+
+                role_m, _act_m, _err_m = resolve_request_role(db_path, auth_header=auth_header, api_key_header=api_key)
+                if role_m == "free":
+                    msg_auth = (
+                        "Authentication required for BetScout Remote MCP Server (`https://betscout.app/mcp`). "
+                        "Pass `X-API-Key: bs_live_...` or `Authorization: Bearer bs_live_...` in your MCP client headers."
+                    )
+                    if method == "tools/call":
+                        return {
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "result": {"content": [{"type": "text", "text": msg_auth}], "isError": True},
+                        }
+                    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32001, "message": msg_auth}}
+
+    if method == "resources/read":
+        r_uri = str(params.get("uri") or "")
+        try:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": read_mcp_resource(r_uri, db_path=db_path, rec_path=rec_path),
+            }
+        except ValueError as ve:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": str(ve)},
+            }
 
     if method == "tools/call":
         t_name = str(params.get("name") or "")
@@ -1024,6 +1351,6 @@ def handle_mcp_jsonrpc_request(
         "id": req_id,
         "error": {
             "code": -32601,
-            "message": f"Method '{method}' not found. Supported MCP methods: initialize, ping, tools/list, tools/call.",
+            "message": f"Method '{method}' not found. Supported MCP methods: initialize, ping, tools/list, tools/call, prompts/list, prompts/get, resources/list, resources/read.",
         },
     }

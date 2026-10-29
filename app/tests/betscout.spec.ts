@@ -25,6 +25,7 @@ import {
 import { useBetscoutStore } from '../src/stores/betscoutStore';
 import LandingView from '../src/views/LandingView.vue';
 import DashboardView from '../src/views/DashboardView.vue';
+import DocsView from '../src/views/DocsView.vue';
 
 function makeMockBet(overrides: Partial<BestBetItem> = {}): BestBetItem {
   return {
@@ -266,6 +267,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
       routes: [
         { path: '/', component: LandingView },
         { path: '/app', component: DashboardView },
+        { path: '/docs', component: DocsView },
       ],
     });
     const store = useBetscoutStore();
@@ -302,6 +304,7 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
       routes: [
         { path: '/', component: LandingView },
         { path: '/app', component: DashboardView },
+        { path: '/docs', component: DocsView },
       ],
     });
     const store = useBetscoutStore();
@@ -337,5 +340,30 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     store.toggleCustomMatch('AS Roma vs Cagliari');
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain('1 Selected');
+  });
+
+  it('renders DocsView (/docs) with all 5 documentation sections, 7 MCP tools, 4 prompts, and 4 resources', () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: LandingView },
+        { path: '/app', component: DashboardView },
+        { path: '/docs', component: DocsView },
+      ],
+    });
+    const wrapper = mount(DocsView, {
+      global: { plugins: [router] },
+    });
+
+    expect(wrapper.text()).toContain('BetScout Platform Manual');
+    expect(wrapper.text()).toContain('get_daily_banker_picks');
+    expect(wrapper.text()).toContain('get_banker_profit_boosters');
+    expect(wrapper.text()).toContain('analyze_matchup');
+    expect(wrapper.text()).toContain('calculate_exact_score_dutching');
+    expect(wrapper.text()).toContain('get_match_center_dossier');
+    expect(wrapper.text()).toContain('search_daily_fixtures');
+    expect(wrapper.text()).toContain('get_paper_ledger_roi');
+    expect(wrapper.text()).toContain('betscout://slate/today');
+    expect(wrapper.text()).toContain('parlay-builder');
   });
 });
