@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import LandingView from '../views/LandingView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import DocsView from '../views/DocsView.vue';
+import MatchCenterView from '../views/MatchCenterView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +29,11 @@ const router = createRouter({
       path: '/docs',
       name: 'docs',
       component: DocsView,
+    },
+    {
+      path: '/match/:id',
+      name: 'match-center',
+      component: MatchCenterView,
     },
   ],
   scrollBehavior(to) {

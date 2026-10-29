@@ -433,13 +433,15 @@
               </ul>
             </div>
 
-            <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%201%20VIP%20Notifications%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20VIP%20Notifications%20(Discord%20%2F%20Telegram%20-%20%E2%82%AC39%2Fmo).%0AMy%20Discord%20or%20Telegram%20Username%3A%20"
-              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-sky-400/50 hover:bg-sky-500/20 hover:border-sky-300"
+            <button
+              type="button"
+              :disabled="checkoutLoadingTier !== ''"
+              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-sky-400/50 hover:bg-sky-500/20 hover:border-sky-300 cursor-pointer"
+              @click="startStripeCheckout('tier1')"
             >
-              <span>Activate VIP Notifications</span>
+              <span>{{ checkoutLoadingTier === 'tier1' ? 'Redirecting to Checkout...' : 'Activate VIP Notifications' }}</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-sky-300" />
-            </a>
+            </button>
           </article>
 
           <!-- Tier 2: Pro WebApp + Tier 1 Notifications (Featured) — €79/mo -->
@@ -502,14 +504,16 @@
               </ul>
             </div>
 
-            <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%202%20Pro%20WebApp%20%2B%20VIP%20Notifications&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20Tier%202%20(Pro%20WebApp%20%2B%20VIP%20Notifications%20-%20%E2%82%AC79%2Fmo).%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
-              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_8px_24px_rgba(16,185,129,0.3)]"
+            <button
+              type="button"
+              :disabled="checkoutLoadingTier !== ''"
+              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_8px_24px_rgba(16,185,129,0.3)] cursor-pointer"
+              @click="startStripeCheckout('tier2')"
             >
               <Icon icon="fa6-solid:rocket" class="w-4 h-4" />
-              <span>Get Pro WebApp + VIP Alerts</span>
+              <span>{{ checkoutLoadingTier === 'tier2' ? 'Redirecting to Checkout...' : 'Get Pro WebApp + VIP Alerts' }}</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4" />
-            </a>
+            </button>
           </article>
 
           <!-- Tier 3: Quant API + Bonus MCP Server -->
@@ -571,13 +575,15 @@
               </ul>
             </div>
 
-            <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%203%20Quant%20API%20%2B%20MCP%20Server%20Access&body=Hi%20BetScout%20Team%2C%0A%0AI%20am%20interested%20in%20Tier%203%20(Quant%20API%20%2B%20Bonus%20MCP%20Server%20-%20%E2%82%AC199%2Fmo).%0AOrganization%20%2F%20Use%20Case%3A%20"
-              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-amber-400/50 hover:bg-amber-500/20 hover:border-amber-300"
+            <button
+              type="button"
+              :disabled="checkoutLoadingTier !== ''"
+              class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-amber-400/50 hover:bg-amber-500/20 hover:border-amber-300 cursor-pointer"
+              @click="startStripeCheckout('tier3')"
             >
-              <span>Request API + MCP Access</span>
+              <span>{{ checkoutLoadingTier === 'tier3' ? 'Redirecting to Checkout...' : 'Request API + MCP Access' }}</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-amber-300" />
-            </a>
+            </button>
           </article>
         </div>
       </section>
@@ -920,19 +926,34 @@
       @click.self="inspectorModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5 text-xs">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+        <div class="flex justify-between items-center gap-2 mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
             <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
             <span>{{ inspectorTitle }}</span>
           </b>
-          <button
-            type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
-            @click="inspectorModalOpen = false"
-          >
-            <span>Close</span>
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
-          </button>
+          <div class="flex items-center gap-2">
+            <router-link
+              v-if="inspectorData"
+              :to="
+                inspectorData.sr_match_id
+                  ? `/match/${inspectorData.sr_match_id}`
+                  : `/match/lookup?home=${encodeURIComponent(inspectorData.home || '')}&away=${encodeURIComponent(inspectorData.away || '')}&league=${encodeURIComponent(inspectorData.league || '')}`
+              "
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold no-underline"
+              @click="inspectorModalOpen = false"
+            >
+              <span>Full Match Center</span>
+              <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
+            </router-link>
+            <button
+              type="button"
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+              @click="inspectorModalOpen = false"
+            >
+              <span>Close</span>
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <div v-if="inspectorLoading" class="py-8 px-4 flex flex-col items-center justify-center gap-3 text-slate-300">
           <div class="inline-flex items-center gap-2 text-xs font-semibold text-sky-300">
@@ -1163,6 +1184,32 @@ const commitHash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'd
 const billingCycle = ref<'monthly' | 'annual'>('monthly');
 const openFaq = ref<number | null>(0);
 const mobileMenuOpen = ref<boolean>(false);
+const checkoutLoadingTier = ref<string>('');
+
+async function startStripeCheckout(tier: 'tier1' | 'tier2' | 'tier3') {
+  checkoutLoadingTier.value = tier;
+  try {
+    const resp = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tier,
+        cycle: billingCycle.value,
+        email: store.userEmail || undefined,
+        origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      }),
+    });
+    const data = await resp.json();
+    if (data?.ok && data.checkout_url && typeof window !== 'undefined') {
+      window.location.href = data.checkout_url;
+      return;
+    }
+  } catch (_) {}
+  checkoutLoadingTier.value = '';
+  if (typeof window !== 'undefined') {
+    window.location.href = `mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20${tier.toUpperCase()}%20(${billingCycle.value})`;
+  }
+}
 
 const inspectorModalOpen = ref<boolean>(false);
 const inspectorTitle = ref<string>('Matchup Inspector');

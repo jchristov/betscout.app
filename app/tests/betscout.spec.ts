@@ -26,6 +26,7 @@ import { useBetscoutStore } from '../src/stores/betscoutStore';
 import LandingView from '../src/views/LandingView.vue';
 import DashboardView from '../src/views/DashboardView.vue';
 import DocsView from '../src/views/DocsView.vue';
+import MatchCenterView from '../src/views/MatchCenterView.vue';
 
 function makeMockBet(overrides: Partial<BestBetItem> = {}): BestBetItem {
   return {
@@ -365,5 +366,73 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('get_paper_ledger_roi');
     expect(wrapper.text()).toContain('betscout://slate/today');
     expect(wrapper.text()).toContain('parlay-builder');
+  });
+
+  it('renders MatchCenterView (/match/:id) with 2-way 100% win probability bar (0% draw for Tennis)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          match_id: 75837638,
+          sport_id: 5,
+          sport_name: 'Tennis',
+          match_info: {
+            season: { name: 'ATP Vienna, Austria' },
+            tournament: { ground: { name: 'Hardcourt indoor' } },
+            match: {
+              _id: 75837638,
+              status: { name: 'Not started' },
+              teams: {
+                home: { name: 'Paul, Tommy', abbr: 'PAU' },
+                away: { name: 'Darderi, Luciano', abbr: 'DAR' },
+              },
+            },
+          },
+          win_prob_bar: {
+            home_pct: 76.9,
+            draw_pct: 0.0,
+            away_pct: 23.1,
+            odds_home: 1.2,
+            odds_draw: null,
+            odds_away: 4.0,
+          },
+          h2h_edge: {
+            total_meetings: 3,
+            home_wins: 2,
+            draws: 0,
+            away_wins: 1,
+            home_win_pct: 67,
+            draw_pct: 0,
+            away_win_pct: 33,
+          },
+        }),
+      }),
+    );
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: LandingView },
+        { path: '/app', component: DashboardView },
+        { path: '/docs', component: DocsView },
+        { path: '/match/:id', component: MatchCenterView },
+      ],
+    });
+    await router.push('/match/75837638');
+    await router.isReady();
+
+    const wrapper = mount(MatchCenterView, {
+      global: { plugins: [router] },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('Match Center #75837638');
+    expect(wrapper.text()).toContain('Paul, Tommy — 76.9%');
+    expect(wrapper.text()).toContain('Darderi, Luciano — 23.1%');
+    expect(wrapper.text()).not.toContain('Draw —');
+    expect(wrapper.text()).toContain('2-Way (Moneyline)');
   });
 });

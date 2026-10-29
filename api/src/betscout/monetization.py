@@ -117,11 +117,16 @@ def get_monetization_config(data_dir: Path | None = None) -> dict[str, Any]:
         except Exception:
             pass
 
+    stripe_sk = (os.environ.get("STRIPE_SECRET_KEY") or "").strip()
+    stripe_pk = (os.environ.get("VITE_STRIPE_PUBLISHABLE_KEY") or os.environ.get("STRIPE_PUBLISHABLE_KEY") or "").strip()
+
     return {
         "enabled": env_enabled,
         "free_preview_picks_count": free_preview_n,
         "stripe_checkout_url_pro": stripe_Monthly_url,
         "stripe_checkout_url_api": stripe_api_url,
+        "stripe_configured": bool(stripe_sk.startswith("sk_")),
+        "stripe_publishable_key": stripe_pk,
         "has_free_teaser_webhook": bool(free_discord_wh.startswith("https://discord")),
     }
 
@@ -551,6 +556,261 @@ def handle_stripe_webhook_event(
         return {"ok": True, "action": "cancelled", "email": email}
 
     return {"ok": True, "action": "ignored", "type": ev_type}
+
+
+STRIPE_PLANS_SPEC: dict[str, dict[str, Any]] = {
+    "tier1": {
+        "meta_key": "tier_1_vip",
+        "plan_tier": "vip",
+        "name": "BetScout Tier 1 — VIP Notifications Only (Discord & Telegram)",
+        "description": "Private VIP Discord & Telegram channels, high-res PNG Pick Cards, 2-Leg/3-Leg Banker Boosters & Live In-Play Alerts.",
+        "monthly_cents": 3900,
+        "annual_cents": 31900,
+    },
+    "tier2": {
+        "meta_key": "tier_2_pro",
+        "plan_tier": "pro",
+        "name": "BetScout Tier 2 — Pro WebApp + VIP Notifications",
+        "description": "100% Unlocked Pro WebApp Desk, Smart Bet Slip & ¼-Kelly Optimizer, Exact-Score/Set-Score Dutching + Tier 1 VIP Alerts.",
+        "monthly_cents": 7900,
+        "annual_cents": 64900,
+    },
+    "tier3": {
+        "meta_key": "tier_3_api",
+        "plan_tier": "enterprise",
+        "name": "BetScout Tier 3 — Quant API + Bonus MCP Server",
+        "description": "Dedicated Quant REST API Key (50,000 req/day), Remote AI Agent MCP Server (https://betscout.app/mcp), SDKs + Tier 2 Pro WebApp.",
+        "monthly_cents": 19900,
+        "annual_cents": 178800,
+    },
+}
+
+
+def _stripe_api_call(method: str, endpoint: str, form_fields: list[tuple[str, str]] | None = None) -> dict[str, Any]:
+    import subprocess
+    from urllib.parse import urlencode
+
+    load_dotenv(override=False)
+    sk = (os.environ.get("STRIPE_SECRET_KEY") or "").strip()
+    if not sk:
+        return {"error": {"message": "STRIPE_SECRET_KEY is not configured in environment."}}
+    cmd = ["curl", "-sS", "-X", method.upper(), f"https://api.stripe.com/v1/{endpoint.lstrip('/')}", "-u", f"{sk}:"]
+    if form_fields:
+        cmd.extend(["-d", urlencode(form_fields)])
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=15)
+    try:
+        return json.loads(proc.stdout)
+    except Exception:
+        return {"error": {"message": proc.stderr or proc.stdout or "Stripe API request failed"}}
+
+
+def ensure_stripe_catalog_and_webhook(webhook_url: str = "https://betscout.app/api/billing/webhook") -> dict[str, Any]:
+    """Idempotently provision the 3 BetScout products, 6 EUR recurring prices (monthly + annual),
+    and the Stripe webhook endpoint using `STRIPE_SECRET_KEY`."""
+    prods_resp = _stripe_api_call("GET", "products?limit=100")
+    existing_prods = {
+        (p.get("metadata") or {}).get("betscout_tier"): p
+        for p in (prods_resp.get("data") or [])
+        if isinstance(p, dict) and (p.get("metadata") or {}).get("betscout_tier")
+    }
+    prices_resp = _stripe_api_call("GET", "prices?limit=100")
+    existing_prices = {
+        (pr.get("metadata") or {}).get("betscout_price_key"): pr
+        for pr in (prices_resp.get("data") or [])
+        if isinstance(pr, dict) and (pr.get("metadata") or {}).get("betscout_price_key") and pr.get("active")
+    }
+
+    catalog_out: dict[str, Any] = {}
+    for tier_k, spec in STRIPE_PLANS_SPEC.items():
+        m_key = spec["meta_key"]
+        prod = existing_prods.get(m_key)
+        if not prod:
+            prod = _stripe_api_call(
+                "POST",
+                "products",
+                [
+                    ("name", spec["name"]),
+                    ("description", spec["description"]),
+                    ("metadata[betscout_tier]", m_key),
+                    ("metadata[plan_tier]", spec["plan_tier"]),
+                ],
+            )
+        prod_id = prod.get("id")
+        if not prod_id:
+            continue
+
+        tier_prices: dict[str, str] = {}
+        for cyc, interval, cents in (
+            ("monthly", "month", spec["monthly_cents"]),
+            ("annual", "year", spec["annual_cents"]),
+        ):
+            p_key = f"{tier_k}_{cyc}"
+            pr = existing_prices.get(p_key)
+            if not pr or int(pr.get("unit_amount") or 0) != cents:
+                pr = _stripe_api_call(
+                    "POST",
+                    "prices",
+                    [
+                        ("product", str(prod_id)),
+                        ("currency", "eur"),
+                        ("unit_amount", str(cents)),
+                        ("recurring[interval]", interval),
+                        ("nickname", f"{spec['name']} ({cyc.capitalize()})"),
+                        ("metadata[betscout_price_key]", p_key),
+                        ("metadata[plan_tier]", spec["plan_tier"]),
+                        ("metadata[billing_cycle]", cyc),
+                    ],
+                )
+            if pr.get("id"):
+                tier_prices[cyc] = str(pr["id"])
+
+        catalog_out[tier_k] = {
+            "product_id": prod_id,
+            "name": spec["name"],
+            "plan_tier": spec["plan_tier"],
+            "prices": tier_prices,
+        }
+
+    # Ensure webhook endpoint is registered
+    wh_resp = _stripe_api_call("GET", "webhook_endpoints?limit=50")
+    existing_wh = next(
+        (w for w in (wh_resp.get("data") or []) if isinstance(w, dict) and w.get("url") == webhook_url),
+        None,
+    )
+    if not existing_wh and webhook_url.startswith("https://"):
+        existing_wh = _stripe_api_call(
+            "POST",
+            "webhook_endpoints",
+            [
+                ("url", webhook_url),
+                ("description", "BetScout Cloud Run Subscription & API Key Provisioning Webhook"),
+                ("enabled_events[0]", "checkout.session.completed"),
+                ("enabled_events[1]", "customer.subscription.created"),
+                ("enabled_events[2]", "customer.subscription.updated"),
+                ("enabled_events[3]", "customer.subscription.deleted"),
+            ],
+        )
+
+    return {
+        "ok": True,
+        "catalog": catalog_out,
+        "webhook_id": (existing_wh or {}).get("id"),
+        "webhook_url": webhook_url,
+    }
+
+
+def create_stripe_checkout_session(
+    tier: str = "tier2",
+    cycle: str = "monthly",
+    customer_email: str | None = None,
+    origin: str = "https://betscout.app",
+) -> dict[str, Any]:
+    """Create a live Stripe Checkout Session for Tier 1, Tier 2, or Tier 3 (`monthly` or `annual`)
+    and return `{ok, checkout_url, session_id}`."""
+    norm_t = str(tier or "tier2").lower().strip()
+    if norm_t in ("1", "vip", "tier_1", "tier1"):
+        t_key = "tier1"
+    elif norm_t in ("3", "api", "enterprise", "tier_3", "tier3"):
+        t_key = "tier3"
+    else:
+        t_key = "tier2"
+
+    norm_c = "annual" if str(cycle or "").lower().strip() in ("annual", "yearly", "year") else "monthly"
+    spec = STRIPE_PLANS_SPEC[t_key]
+    cents = spec["annual_cents"] if norm_c == "annual" else spec["monthly_cents"]
+    interval = "year" if norm_c == "annual" else "month"
+    clean_origin = (origin or "https://betscout.app").rstrip("/")
+
+    fields: list[tuple[str, str]] = [
+        ("mode", "subscription"),
+        ("success_url", f"{clean_origin}/app?checkout=success&tier={t_key}&session_id={{CHECKOUT_SESSION_ID}}"),
+        ("cancel_url", f"{clean_origin}/#pricing"),
+        ("allow_promotion_codes", "true"),
+        ("line_items[0][quantity]", "1"),
+        ("line_items[0][price_data][currency]", "eur"),
+        ("line_items[0][price_data][unit_amount]", str(cents)),
+        ("line_items[0][price_data][recurring][interval]", interval),
+        ("line_items[0][price_data][product_data][name]", spec["name"]),
+        ("line_items[0][price_data][product_data][description]", spec["description"]),
+        ("metadata[plan_tier]", spec["plan_tier"]),
+        ("metadata[tier_key]", t_key),
+        ("metadata[billing_cycle]", norm_c),
+        ("subscription_data[metadata][plan_tier]", spec["plan_tier"]),
+        ("subscription_data[metadata][tier_key]", t_key),
+    ]
+    if customer_email and "@" in customer_email:
+        fields.append(("customer_email", customer_email.strip()))
+        fields.append(("metadata[email]", customer_email.strip().lower()))
+
+    sess = _stripe_api_call("POST", "checkout/sessions", fields)
+    if sess.get("url"):
+        return {
+            "ok": True,
+            "session_id": sess.get("id"),
+            "checkout_url": sess.get("url"),
+            "tier": t_key,
+            "plan_tier": spec["plan_tier"],
+            "cycle": norm_c,
+        }
+    return {
+        "ok": False,
+        "error": (sess.get("error") or {}).get("message") or "Could not create Stripe Checkout session.",
+    }
+
+
+def verify_and_provision_stripe_session(db_path: Path, session_id: str) -> dict[str, Any]:
+    """Verify a completed Stripe Checkout `session_id` via the Stripe API, activate the subscriber in `subscribers`,
+    and auto-provision a `bs_live_...` API key in `api_keys` when Tier 3 (`enterprise` / `api`) was purchased."""
+    sid = str(session_id or "").strip()
+    if not sid.startswith("cs_"):
+        return {"ok": False, "error": "Invalid Stripe Checkout session_id."}
+
+    sess = _stripe_api_call("GET", f"checkout/sessions/{sid}")
+    if sess.get("error"):
+        return {"ok": False, "error": (sess["error"] or {}).get("message") or "Stripe session lookup failed."}
+
+    status = str(sess.get("status") or "").lower()
+    pay_status = str(sess.get("payment_status") or "").lower()
+    if status != "complete" and pay_status != "paid":
+        return {"ok": False, "error": f"Checkout session is not completed yet (status={status}, payment_status={pay_status})."}
+
+    email = str(
+        ((sess.get("customer_details") or {}).get("email"))
+        or sess.get("customer_email")
+        or ((sess.get("metadata") or {}).get("email"))
+        or "subscriber@betscout.app"
+    ).strip().lower()
+    plan_tier = str((sess.get("metadata") or {}).get("plan_tier") or "pro").lower()
+    sub = upsert_subscriber(
+        db_path=db_path,
+        email=email,
+        plan_tier=plan_tier,
+        status="active",
+        stripe_customer_id=str(sess.get("customer") or ""),
+        stripe_subscription_id=str(sess.get("subscription") or sid),
+    )
+
+    issued_key: dict[str, Any] | None = None
+    if plan_tier in ("enterprise", "api_pro", "api_starter"):
+        lbl = f"Stripe Session {sid[:20]}"
+        existing = [k for k in list_api_keys(db_path) if k.get("label") == lbl and k.get("active")]
+        if not existing:
+            issued_key = create_api_key(
+                db_path,
+                owner_email=email,
+                plan_tier="enterprise" if plan_tier == "enterprise" else "pro",
+                label=lbl,
+            )
+
+    return {
+        "ok": True,
+        "session_id": sid,
+        "email": email,
+        "plan_tier": plan_tier,
+        "subscriber": sub,
+        "api_key": (issued_key or {}).get("api_key"),
+        "key_prefix": (issued_key or {}).get("key_prefix"),
+    }
 
 
 def build_openapi_v1_spec() -> dict[str, Any]:

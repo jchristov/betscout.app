@@ -1697,19 +1697,34 @@
       @click.self="inspectorModalOpen = false"
     >
       <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+        <div class="flex justify-between items-center gap-2 mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
             <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
             <span>{{ inspectorTitle }}</span>
           </b>
-          <button
-            type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
-            @click="inspectorModalOpen = false"
-          >
-            <span>Close</span>
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
-          </button>
+          <div class="flex items-center gap-2">
+            <router-link
+              v-if="inspectorData && !inspectorLockedPro"
+              :to="
+                inspectorData.sr_match_id
+                  ? `/match/${inspectorData.sr_match_id}`
+                  : `/match/lookup?home=${encodeURIComponent(inspectorData.home || '')}&away=${encodeURIComponent(inspectorData.away || '')}&league=${encodeURIComponent(inspectorData.league || '')}`
+              "
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold no-underline"
+              @click="inspectorModalOpen = false"
+            >
+              <span>Full Match Center</span>
+              <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
+            </router-link>
+            <button
+              type="button"
+              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+              @click="inspectorModalOpen = false"
+            >
+              <span>Close</span>
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <div v-if="inspectorLoading" class="py-8 px-4 flex flex-col items-center justify-center gap-3 text-slate-300">
           <div class="inline-flex items-center gap-2 text-xs font-semibold text-sky-300">
@@ -2331,7 +2346,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
@@ -2474,6 +2489,30 @@ function copyRemoteMcpConfig() {
   navigator.clipboard?.writeText(snippet);
   store.showToast('Copied Remote MCP (.mcp.json) configuration to clipboard!');
 }
+
+onMounted(async () => {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search || '');
+  const sid = params.get('session_id');
+  if (sid && sid.startsWith('cs_')) {
+    try {
+      const resp = await fetch(`/api/billing/verify-session?session_id=${encodeURIComponent(sid)}`);
+      const data = await resp.json();
+      if (data?.ok) {
+        if (data.api_key) {
+          apiKeyInput.value = data.api_key;
+          newlyIssuedPlainKey.value = data.api_key;
+          store.setCustomApiKey(data.api_key);
+          settingsModalOpen.value = true;
+          store.showToast(`Stripe Checkout complete! Provisioned ${data.plan_tier} API & MCP Key for ${data.email}.`);
+        } else {
+          store.showToast(`Stripe Checkout complete! Activated ${data.plan_tier} membership for ${data.email}.`);
+        }
+        await store.fetchSnapshot();
+      }
+    } catch (_) {}
+  }
+});
 
 const sportToggleItems: Record<string, string> = {
   soccer: 'Football',

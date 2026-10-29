@@ -80,8 +80,8 @@
           <div class="flex flex-col gap-2 min-w-[210px]">
             <div class="p-3 rounded-xl bg-slate-950/85 border border-slate-700/80 font-mono tabular-nums text-xs">
               <span class="text-slate-400 block text-[10px] uppercase font-bold">Audited Settled Record</span>
-              <b class="text-emerald-300 text-base">75W – 1L (98.7%)</b>
-              <span class="block text-[11px] text-slate-300 mt-0.5">+29.34u Profit · +38.6% ROI</span>
+              <b class="text-emerald-300 text-base">78W – 1L (98.7%)</b>
+              <span class="block text-[11px] text-slate-300 mt-0.5">+29.96u Profit · +37.9% ROI</span>
             </div>
           </div>
         </div>

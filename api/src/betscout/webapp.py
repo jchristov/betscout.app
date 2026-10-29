@@ -611,10 +611,18 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
             lookup_statshub_match_intel,
         )
 
-        sp_hint = "tennis" if lg in ("atp", "wta") else (_league_to_sport_cat(lg) if lg else "soccer")
+        inferred_lg = (
+            lg
+            or str(model_pick_detail.get("tour") or model_pick_detail.get("league") or model_pick_detail.get("sport") or "")
+            or (str(h2h_rows[0].get("league") or "") if h2h_rows else "")
+        ).lower()
+        sp_hint = _league_to_sport_cat(inferred_lg) if inferred_lg else "soccer"
         sh_res = lookup_statshub_match_intel(h, a, sport=sp_hint, date_ymd=match_date_hint)
-        if not sh_res.get("found") and not lg:
-            sh_res = lookup_statshub_match_intel(h, a, sport="tennis", date_ymd=match_date_hint)
+        if not sh_res.get("found") and sp_hint == "soccer":
+            sh_res_t = lookup_statshub_match_intel(h, a, sport="tennis", date_ymd=match_date_hint)
+            if sh_res_t.get("found"):
+                sh_res = sh_res_t
+                sp_hint = "tennis"
         if sh_res.get("found"):
             statshub_intel = sh_res
             if not form_home and sh_res.get("home_uid"):
@@ -705,37 +713,47 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
     }
 
     # Compute 2-Way / 3-Way Win Probability bar from live markets or model_pick_detail
+    # For 2-way sports (Tennis, Basketball, Hockey, NFL, Table Tennis, Darts, Volleyball, Baseball), draw_pct is strictly 0.0
+    # and home_pct + away_pct always sum to 100.0%.
+    is_three_way_sport = sp_hint in ("soccer", "handball") and not model_pick_detail.get("tour")
     pm = (statshub_intel.get("primary_markets") or {}) if isinstance(statshub_intel, dict) else {}
     cm = (statshub_intel.get("consensus_markets") or {}) if isinstance(statshub_intel, dict) else {}
     oh = pm.get("odds_home") or cm.get("odds_home")
-    od = pm.get("odds_draw") or cm.get("odds_draw")
+    od = (pm.get("odds_draw") or cm.get("odds_draw")) if is_three_way_sport else None
     oa = pm.get("odds_away") or cm.get("odds_away")
     win_prob_bar: dict[str, Any] | None = None
     if oh and oa and float(oh) > 1.0 and float(oa) > 1.0:
         inv1 = 1.0 / float(oh)
-        invx = (1.0 / float(od)) if (od and float(od) > 1.0) else 0.0
+        invx = (1.0 / float(od)) if (od and float(od) > 1.0 and is_three_way_sport) else 0.0
         inv2 = 1.0 / float(oa)
         inv_s = inv1 + invx + inv2
         hp_pct = round((inv1 / inv_s) * 100.0, 1)
-        ap_pct = round((inv2 / inv_s) * 100.0, 1)
-        dp_pct = round(max(0.0, 100.0 - hp_pct - ap_pct), 1) if invx > 0 else 0.0
+        if invx > 0:
+            ap_pct = round((inv2 / inv_s) * 100.0, 1)
+            dp_pct = round(max(0.0, 100.0 - hp_pct - ap_pct), 1)
+        else:
+            dp_pct = 0.0
+            ap_pct = round(max(0.0, 100.0 - hp_pct), 1)
         win_prob_bar = {
             "home_pct": hp_pct,
             "draw_pct": dp_pct,
             "away_pct": ap_pct,
             "odds_home": round(float(oh), 2),
-            "odds_draw": round(float(od), 2) if od else None,
+            "odds_draw": round(float(od), 2) if (od and invx > 0) else None,
             "odds_away": round(float(oa), 2),
         }
     elif model_pick_detail:
         p_fav = float(model_pick_detail.get("p_model") or model_pick_detail.get("win_prob") or model_pick_detail.get("p_mkt") or 0.0)
         if p_fav > 0.0:
             side_p = str(model_pick_detail.get("side") or "H").upper()
-            is_soccer = lg not in ("atp", "wta", "nba", "nhl", "nfl", "mlb", "table_tennis", "darts", "wvolleyball", "mvolleyball")
-            d_est = 14.0 if is_soccer else 0.0
             fav_pct = round(p_fav * 100.0, 1)
-            dog_pct = round(max(2.0, 100.0 - fav_pct - d_est), 1)
-            d_final = round(max(0.0, 100.0 - fav_pct - dog_pct), 1) if is_soccer else 0.0
+            if is_three_way_sport and model_pick_detail.get("synthetic_dc_odds"):
+                d_est = round(min(22.0, max(8.0, (100.0 - fav_pct) * 0.45)), 1)
+                dog_pct = round(max(2.0, 100.0 - fav_pct - d_est), 1)
+                d_final = round(max(0.0, 100.0 - fav_pct - dog_pct), 1)
+            else:
+                d_final = 0.0
+                dog_pct = round(max(0.0, 100.0 - fav_pct), 1)
             hp_pct = fav_pct if side_p == "H" else dog_pct
             ap_pct = dog_pct if side_p == "H" else fav_pct
             fav_o = float(model_pick_detail.get("best_odds") or model_pick_detail.get("odds") or round(1.0 / max(p_fav, 0.08), 2))
@@ -748,11 +766,13 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
                 "odds_away": round(fav_o, 2) if side_p == "A" else None,
             }
 
+    resolved_sr_mid = (statshub_intel.get("sr_match_id") if isinstance(statshub_intel, dict) else None) or sr_mid_hint
     result_payload = {
         "ok": True,
         "home": h,
         "away": a,
         "league": lg,
+        "sr_match_id": int(resolved_sr_mid) if resolved_sr_mid and str(resolved_sr_mid).isdigit() else None,
         "h2h": h2h_rows,
         "h2h_edge": h2h_edge_bar,
         "win_prob_bar": win_prob_bar,
@@ -764,6 +784,143 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
     }
     _MATCHUP_DETAIL_CACHE[cache_key] = (now_ts, result_payload)
     return result_payload
+
+
+def _build_match_center_dossier_payload(
+    db_path: Path,
+    rec_path: Path,
+    match_id: str | int | None = None,
+    home: str = "",
+    away: str = "",
+    league: str = "",
+) -> dict[str, Any]:
+    """Build the full 3-tab Match Center dossier payload for `/api/match-center` and `/match/:id`.
+    Combines `BetScoutClient.get_match_center_dossier` with local BetScout `pick_detail`, `win_prob_bar`, and `h2h_edge`."""
+    from betscout_sdk import (
+        get_country_flag_url,
+        get_team_logo_url,
+        resolve_competition_crest_url,
+        resolve_player_headshot_url,
+    )
+    from .sportradar_statshub import get_sdk_client
+
+    local_detail: dict[str, Any] = {}
+    resolved_mid: int | None = int(match_id) if (match_id is not None and str(match_id).isdigit()) else None
+
+    if home and away:
+        local_detail = _lookup_matchup_detail(db_path, rec_path, home, away, league)
+        if not resolved_mid and local_detail.get("sr_match_id"):
+            resolved_mid = int(local_detail["sr_match_id"])
+
+    sdk = get_sdk_client()
+    dossier: dict[str, Any] = {}
+    if resolved_mid:
+        try:
+            dossier = sdk.get_match_center_dossier(resolved_mid) or {}
+        except Exception:
+            dossier = {}
+
+    mi_match = ((dossier.get("match_info") or {}).get("match")) or (
+        (dossier.get("timeline_delta") or {}).get("match")
+    ) or {}
+    teams = mi_match.get("teams") or {}
+    h_team = teams.get("home") or {}
+    a_team = teams.get("away") or {}
+
+    if not local_detail and h_team.get("name") and a_team.get("name"):
+        h_n = str(h_team.get("name") or "")
+        a_n = str(a_team.get("name") or "")
+        if "," in h_n:
+            p1, p2 = [x.strip() for x in h_n.split(",", 1)]
+            h_n = f"{p2} {p1}"
+        if "," in a_n:
+            p1, p2 = [x.strip() for x in a_n.split(",", 1)]
+            a_n = f"{p2} {p1}"
+        sp_arg = "tennis" if int(dossier.get("sport_id") or 1) == 5 else "soccer"
+        local_detail = _lookup_matchup_detail(db_path, rec_path, h_n, a_n, sp_arg)
+
+    if h_team.get("name") or a_team.get("name"):
+        h_uid = h_team.get("uid") or h_team.get("_id")
+        a_uid = a_team.get("uid") or a_team.get("_id")
+        rc_iso = (((dossier.get("match_info") or {}).get("realcategory") or {}).get("cc") or {}).get("a2")
+        h_iso = (
+            (h_team.get("cc") or {}).get("a2")
+            or (h_team.get("countrycode") or {}).get("a2")
+            or (((dossier.get("home_profile") or {}).get("countrycode") or {}).get("a2"))
+            or rc_iso
+            or "int"
+        )
+        a_iso = (
+            (a_team.get("cc") or {}).get("a2")
+            or (a_team.get("countrycode") or {}).get("a2")
+            or (((dossier.get("away_profile") or {}).get("countrycode") or {}).get("a2"))
+            or rc_iso
+            or "int"
+        )
+        tour_obj = (dossier.get("match_info") or {}).get("tournament") or {}
+        tour_iso = (tour_obj.get("tennisinfo") or {}).get("a2") or rc_iso or "int"
+        tour_name = ((dossier.get("match_info") or {}).get("season") or {}).get("name") or tour_obj.get("name")
+
+        h_img = (
+            get_team_logo_url(h_uid, size="big")
+            if (h_team.get("haslogo") and h_uid)
+            else resolve_player_headshot_url(h_team.get("name"))
+        )
+        a_img = (
+            get_team_logo_url(a_uid, size="big")
+            if (a_team.get("haslogo") and a_uid)
+            else resolve_player_headshot_url(a_team.get("name"))
+        )
+        return {
+            "ok": True,
+            **dossier,
+            "home_is_club": bool(h_team.get("haslogo")),
+            "away_is_club": bool(a_team.get("haslogo")),
+            "home_flag_url": get_country_flag_url(h_iso, fmt="svg", ratio="4x3"),
+            "away_flag_url": get_country_flag_url(a_iso, fmt="svg", ratio="4x3"),
+            "home_headshot_url": h_img,
+            "away_headshot_url": a_img,
+            "tournament_flag_url": get_country_flag_url(tour_iso, fmt="svg", ratio="4x3"),
+            "tournament_crest_url": resolve_competition_crest_url(tour_name),
+            "local_detail": local_detail,
+        }
+
+    # Fallback when match is in local DB (`local_detail`) without a live Sportradar match_id
+    if local_detail and (local_detail.get("home") or home):
+        h_name = str(local_detail.get("home") or home)
+        a_name = str(local_detail.get("away") or away)
+        sp_cat = _league_to_sport_cat(str(local_detail.get("league") or league))
+        is_ten = sp_cat == "tennis"
+        return {
+            "ok": True,
+            "match_id": resolved_mid or 0,
+            "sport_id": 5 if is_ten else 1,
+            "sport_name": "Tennis" if is_ten else sp_cat.capitalize(),
+            "home_is_club": not is_ten,
+            "away_is_club": not is_ten,
+            "home_headshot_url": resolve_player_headshot_url(h_name),
+            "away_headshot_url": resolve_player_headshot_url(a_name),
+            "home_flag_url": "",
+            "away_flag_url": "",
+            "tournament_flag_url": "",
+            "tournament_crest_url": resolve_competition_crest_url(str(local_detail.get("league") or league or "League")),
+            "match_info": {
+                "season": {"name": resolve_competition_label(str(local_detail.get("league") or league), h_name, a_name)},
+                "match": {
+                    "_id": resolved_mid or 0,
+                    "status": {"name": str((local_detail.get("pick_detail") or {}).get("status") or "Scheduled")},
+                    "teams": {
+                        "home": {"name": h_name, "abbr": h_name[:3].upper()},
+                        "away": {"name": a_name, "abbr": a_name[:3].upper()},
+                    },
+                },
+            },
+            "h2h_edge": local_detail.get("h2h_edge"),
+            "win_prob_bar": local_detail.get("win_prob_bar"),
+            "local_detail": local_detail,
+        }
+
+    return {"ok": False, "error": f"Match dossier not found for matchId={match_id} ({home} vs {away})."}
 
 
 def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
@@ -1316,6 +1473,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             if spa_index.is_file() and (
                 parsed.path in ("/", "/index.html", "/app", "/docs", "/landing", "/landing.html", "/pricing", "/pricing.html")
                 or parsed.path.startswith("/app/")
+                or parsed.path.startswith("/match/")
             ):
                 spa_bytes = spa_index.read_bytes()
                 self.send_response(200)
@@ -1694,6 +1852,18 @@ self.addEventListener('fetch', (event) => {{
                 self._send_json(_lookup_matchup_detail(db_path, rec_path, home_q, away_q, lg_q))
                 return
 
+            if parsed.path == "/api/match-center":
+                mid_q = (qs.get("matchId") or qs.get("match_id") or [""])[0]
+                home_mc = (qs.get("home") or [""])[0]
+                away_mc = (qs.get("away") or [""])[0]
+                lg_mc = (qs.get("league") or qs.get("sport") or [""])[0]
+                self._send_json(
+                    _build_match_center_dossier_payload(
+                        db_path, rec_path, match_id=mid_q or None, home=home_mc, away=away_mc, league=lg_mc
+                    )
+                )
+                return
+
             if parsed.path == "/api/analyze-live":
                 q_str = (qs.get("q") or [""])[0]
                 self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
@@ -1770,6 +1940,32 @@ self.addEventListener('fetch', (event) => {{
                     "resourcesCount": len(MCP_RESOURCES_CATALOG),
                     "resources": MCP_RESOURCES_CATALOG,
                 })
+                return
+
+            if parsed.path == "/api/billing/checkout":
+                from .monetization import create_stripe_checkout_session
+
+                tier_q = (qs.get("tier") or ["tier2"])[0]
+                cyc_q = (qs.get("cycle") or ["monthly"])[0]
+                em_q = (qs.get("email") or [""])[0] or None
+                proto = self.headers.get("X-Forwarded-Proto") or "http"
+                host_h = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "betscout.app"
+                origin_url = f"{proto}://{host_h}"
+                res_chk = create_stripe_checkout_session(tier=tier_q, cycle=cyc_q, customer_email=em_q, origin=origin_url)
+                if res_chk.get("ok") and (qs.get("redirect") or [""])[0] in ("1", "true", "yes"):
+                    self.send_response(303)
+                    self.send_header("Location", str(res_chk["checkout_url"]))
+                    self.end_headers()
+                    return
+                self._send_json(res_chk, status=(200 if res_chk.get("ok") else 400))
+                return
+
+            if parsed.path == "/api/billing/verify-session":
+                from .monetization import verify_and_provision_stripe_session
+
+                sid_q = (qs.get("session_id") or [""])[0]
+                res_ver = verify_and_provision_stripe_session(db_path, sid_q)
+                self._send_json(res_ver, status=(200 if res_ver.get("ok") else 400))
                 return
 
             if parsed.path == "/api/auth/config":
@@ -1935,12 +2131,31 @@ self.addEventListener('fetch', (event) => {{
                 self._send_json(rpc_resp, status=200)
                 return
 
-            # Stripe Billing Webhook (authenticated via Stripe-Signature HMAC rather than Firebase Auth)
+            # Stripe Billing Webhook & Public Checkout Session Creation
             if parsed.path == "/api/billing/webhook":
                 from .monetization import handle_stripe_webhook_event
 
                 res_wh = handle_stripe_webhook_event(db_path, raw_bytes, self.headers.get("Stripe-Signature"))
                 self._send_json(res_wh, status=(200 if res_wh.get("ok") else 400))
+                return
+
+            if parsed.path == "/api/billing/checkout":
+                from .monetization import create_stripe_checkout_session
+
+                try:
+                    chk_body = json.loads(raw_body) if raw_body.strip() else {}
+                except Exception:
+                    chk_body = {}
+                proto = self.headers.get("X-Forwarded-Proto") or "http"
+                host_h = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "betscout.app"
+                origin_url = str(chk_body.get("origin") or f"{proto}://{host_h}")
+                res_chk = create_stripe_checkout_session(
+                    tier=str(chk_body.get("tier") or "tier2"),
+                    cycle=str(chk_body.get("cycle") or "monthly"),
+                    customer_email=str(chk_body.get("email") or "").strip() or None,
+                    origin=origin_url,
+                )
+                self._send_json(res_chk, status=(200 if res_chk.get("ok") else 400))
                 return
 
             is_authorized, _actor, auth_err = verify_admin_request_auth(self.headers.get("Authorization"), db_path=db_path)

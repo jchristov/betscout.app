@@ -175,24 +175,24 @@ def _sport_icon(sport_cat: str) -> str:
 
 def _league_to_sport_cat(league_or_sport: str) -> str:
     low = (league_or_sport or "").lower().strip()
-    if low in ("atp", "wta", "tennis"):
-        return "tennis"
-    if low in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "basketball", "mens-college-basketball", "womens-college-basketball"):
-        return "basketball"
-    if low in ("wvolleyball", "mvolleyball", "volleyball", "womens-college-volleyball", "mens-college-volleyball"):
-        return "volleyball"
-    if low in ("nhl", "hockey"):
-        return "hockey"
-    if low in ("nfl", "football"):
-        return "football"
-    if low in ("mlb", "baseball"):
-        return "baseball"
-    if "handball" in low:
-        return "handball"
-    if "darts" in low:
-        return "darts"
-    if "table_tennis" in low or "table tennis" in low:
+    if "table_tennis" in low or "table tennis" in low or "tt elite" in low or "czech liga pro" in low:
         return "table_tennis"
+    if low in ("atp", "wta", "tennis") or "atp" in low or "wta" in low or "tennis" in low:
+        return "tennis"
+    if low in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "basketball", "mens-college-basketball", "womens-college-basketball") or "basketball" in low or "nba" in low:
+        return "basketball"
+    if low in ("wvolleyball", "mvolleyball", "volleyball", "womens-college-volleyball", "mens-college-volleyball") or "volleyball" in low:
+        return "volleyball"
+    if low in ("nhl", "hockey") or "hockey" in low or "nhl" in low:
+        return "hockey"
+    if low in ("nfl", "football", "american_football") or "nfl" in low:
+        return "football"
+    if low in ("mlb", "baseball") or "baseball" in low or "mlb" in low:
+        return "baseball"
+    if "handball" in low or "ehf" in low or "handbold" in low or "handboll" in low:
+        return "handball"
+    if "darts" in low or "modus" in low or "pdc" in low:
+        return "darts"
     if "snooker" in low:
         return "snooker"
     if "mma" in low or "ufc" in low:

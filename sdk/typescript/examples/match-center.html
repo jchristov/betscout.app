@@ -1182,24 +1182,29 @@
         if (oDraw?.odds && !drawOdds) drawOdds = oDraw.odds;
 
         if (oHome.probability && oAway.probability) {
-          hProb = Number((oHome.probability * 100).toFixed(1));
-          aProb = Number((oAway.probability * 100).toFixed(1));
-          const rawRem = Number((100 - hProb - aProb).toFixed(1));
-          dProb = oDraw?.probability
-            ? Number((oDraw.probability * 100).toFixed(1))
-            : (rawRem > 0.5 ? rawRem : 0);
-          // Ensure exact 100% total when draw is present
-          if (dProb > 0) {
+          if (!isTennis && oDraw && oDraw.probability) {
+            hProb = Number((oHome.probability * 100).toFixed(1));
+            aProb = Number((oAway.probability * 100).toFixed(1));
             dProb = Number(Math.max(0, 100 - hProb - aProb).toFixed(1));
+          } else {
+            const sum2 = oHome.probability + oAway.probability;
+            hProb = sum2 > 0 ? Number(((oHome.probability / sum2) * 100).toFixed(1)) : 50;
+            aProb = Number(Math.max(0, 100 - hProb).toFixed(1));
+            dProb = 0;
           }
         } else if (oHome.odds && oAway.odds) {
           const inv1 = 1 / oHome.odds;
-          const invX = oDraw?.odds ? 1 / oDraw.odds : 0;
+          const invX = !isTennis && oDraw?.odds ? 1 / oDraw.odds : 0;
           const inv2 = 1 / oAway.odds;
           const sumInv = inv1 + invX + inv2;
           hProb = Number(((inv1 / sumInv) * 100).toFixed(1));
-          aProb = Number(((inv2 / sumInv) * 100).toFixed(1));
-          dProb = invX > 0 ? Number(Math.max(0, 100 - hProb - aProb).toFixed(1)) : 0;
+          if (invX > 0) {
+            aProb = Number(((inv2 / sumInv) * 100).toFixed(1));
+            dProb = Number(Math.max(0, 100 - hProb - aProb).toFixed(1));
+          } else {
+            aProb = Number(Math.max(0, 100 - hProb).toFixed(1));
+            dProb = 0;
+          }
         }
       } else if (!isTennis && mm.odds_home && mm.odds_away) {
         const inv1 = 1 / mm.odds_home;
