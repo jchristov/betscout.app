@@ -1,11 +1,11 @@
-# BetScout Monorepo Makefile (app/ Vue 3 + Tailwind SPA & api/ Python Quant Engine)
+# BetScout Monorepo Makefile (app/ Vue 3 + Tailwind SPA, sdk/ TypeScript & Python SDKs, api/ Python Quant Engine)
 SHELL := /bin/bash
 export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 
 HOST ?= 127.0.0.1
 PORT ?= 8090
 
-.PHONY: help install dev serve app-dev app-build app-test frontend-dev frontend-build frontend-test sdk-build sdk-test api-test backend-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
+.PHONY: help install dev serve app-dev app-build app-test sdk-build sdk-test api-test test logos cards-gallery sync rescan pipeline deploy undeploy clean
 
 help: ## Show all available Makefile commands
 	@echo "BetScout — Quantitative Sports Edge & Score Intelligence"
@@ -28,23 +28,17 @@ app-build: ## Build production Vue 3 + Tailwind SPA into app/dist
 app-test: ## Run Vitest unit & component tests in app/
 	cd app && npm run test
 
-frontend-dev: app-dev
-frontend-build: app-build
-frontend-test: app-test
-
 sdk-build: ## Build standalone TypeScript SDK into sdk/typescript/dist
 	cd sdk/typescript && npm run build
 
-sdk-test: ## Run Vitest & Pytest suites for TypeScript and Python SDKs
+sdk-test: ## Run Vitest & uv Pytest suites for TypeScript and Python SDKs
 	cd sdk/typescript && npm run test
-	cd sdk/python && PYTHONPATH=src ../../api/.venv/bin/python -m pytest -q
+	cd sdk/python && PYTHONPATH=src uv run --project ../../api pytest -q
 
-api-test: ## Run Pytest suite in api/
-	cd api && uv run python -m pytest -q
+api-test: ## Run Pytest suite in api/ via uv
+	cd api && uv run pytest -q
 
-backend-test: api-test
-
-test: app-test sdk-test api-test ## Run all app (Vitest), SDK (Vitest + Pytest), and api (Pytest) test suites
+test: app-test sdk-test api-test ## Run all app (Vitest), SDK (Vitest + uv Pytest), and api (uv Pytest) test suites
 
 logos: ## Regenerate SVG and PNG logo assets (Option 7.3) in all sizes
 	cp -f app/public/betscout-logo.svg app/public/favicon.svg

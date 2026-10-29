@@ -35,7 +35,7 @@ gcloud run services delete "${SERVICE_NAME}" \
   --quiet || echo "   (Cloud Run service ${SERVICE_NAME} already deleted)"
 
 echo "🌐 [3/4] Disabling Firebase Hosting for ${PROJECT_ID}.web.app..."
-npx --yes firebase-tools hosting:disable --project "${PROJECT_ID}" --force || echo "   (Firebase Hosting already disabled)"
+npm_config_loglevel=error npx --yes firebase-tools@latest hosting:disable --project "${PROJECT_ID}" --force || echo "   (Firebase Hosting already disabled)"
 
 if [ "${PURGE_DATA}" = "--purge-data" ]; then
   echo "🗑️ [4/4] Deleting persistent Cloud Storage bucket gs://${BUCKET_NAME}..."

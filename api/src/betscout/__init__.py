@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 API_ROOT = Path(__file__).resolve().parents[2]
-BACKEND_ROOT = API_ROOT
 MODEL_ROOT = (
     API_ROOT.parent
     if ((API_ROOT.parent / "data").exists() or (API_ROOT.parent / "app").exists())
@@ -58,7 +57,7 @@ def _run_script(module_name: str) -> None:
     import importlib
 
     load_dotenv(override=True)
-    for s_dir in (BACKEND_ROOT / "scripts", MODEL_ROOT / "scripts"):
+    for s_dir in (API_ROOT / "scripts", MODEL_ROOT / "scripts"):
         if s_dir.is_dir() and str(s_dir) not in sys.path:
             sys.path.insert(0, str(s_dir))
     try:

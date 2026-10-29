@@ -29,13 +29,13 @@ Across **52,410 finished matches** (`9,292` soccer matches across 6 European lea
 
 ## 2. Database Architecture & Current Data Status (`55,212` Verified Matches)
 
-The SQLite database (`data/betscout.db`) and config descriptor ([`backend/ingestion_config.json`](../backend/ingestion_config.json)) manage three core tables and one unified view across **6 sports and 20 leagues**:
+The SQLite database (`data/betscout.db`) and config descriptor ([`api/ingestion_config.json`](../api/ingestion_config.json)) manage three core tables and one unified view across **6 sports and 20 leagues**:
 
 | Object | Rows | Description |
 | :--- | ---: | :--- |
 | `matches` | `55,212` | Core match results (`home_score`, `away_score`, `outcome`), primary pre-match 1X2 / 2-way moneyline (`odds_home`, `odds_draw`, `odds_away`, `odds_provider`), Double Chance (`odds_dc_1x`, `odds_dc_x2`, `odds_dc_12`), and Totals (`line_total`, `odds_over`, `odds_under`). |
-| `match_details` | `55,197` | 49-column enriched table built by [`backend/src/betscout/enrich.py`](../backend/src/betscout/enrich.py) and [`backend/src/betscout/universal_ingest.py`](../backend/src/betscout/universal_ingest.py) containing opening vs. closing lines (`open_*`, `close_*`), multi-book best prices and consensus probabilities (`best_*`, `cons_*`, `num_books`), soccer boxscore statistics (`shotsOnTarget`, `totalShots`, `wonCorners`, `possessionPct`, `foulsCommitted`, `yellowCards`, `redCards`, `penaltyKickGoals`, `ht_home`, `ht_away`), and tennis metadata (`surface`, `is_major`, `round_name`, `home_games`, `away_games`). |
-| `paper_bets` | `14` (active) | Prospective paper-betting & CLV ledger managed by [`backend/src/betscout/paper_bet.py`](../backend/src/betscout/paper_bet.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
+| `match_details` | `55,197` | 49-column enriched table built by [`api/src/betscout/enrich.py`](../api/src/betscout/enrich.py) and [`api/src/betscout/universal_ingest.py`](../api/src/betscout/universal_ingest.py) containing opening vs. closing lines (`open_*`, `close_*`), multi-book best prices and consensus probabilities (`best_*`, `cons_*`, `num_books`), soccer boxscore statistics (`shotsOnTarget`, `totalShots`, `wonCorners`, `possessionPct`, `foulsCommitted`, `yellowCards`, `redCards`, `penaltyKickGoals`, `ht_home`, `ht_away`), and tennis metadata (`surface`, `is_major`, `round_name`, `home_games`, `away_games`). |
+| `paper_bets` | `14` (active) | Prospective paper-betting & CLV ledger managed by [`api/src/betscout/paper_bet.py`](../api/src/betscout/paper_bet.py), storing `open_odds`, `logged_best_odds`, `logged_primary_odds`, `latest_close_odds`, `clv_pct`, `synthetic_dc_odds`, `composite_score`, `factor_breakdown_json`, `news_signal_json`, `status` (`PENDING` / `SETTLED`), and realized `pnl_best` / `pnl_primary`. |
 | `matches_canonical` | `55,212` | Unified cross-sport view with explicit capability flags (`has_draw`, `has_score`, `has_1x2`). |
 
 ### Current Data Status by Sport & League (`uv run python scripts/quality.py` — `0 errors`)

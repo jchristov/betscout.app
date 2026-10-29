@@ -1049,15 +1049,7 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
             spa_dist_dir = (
                 (root_dir / "app" / "dist")
                 if (root_dir / "app" / "dist").is_dir()
-                else (
-                    (root_dir.parent / "app" / "dist")
-                    if (root_dir.parent / "app" / "dist").is_dir()
-                    else (
-                        (root_dir / "frontend" / "dist")
-                        if (root_dir / "frontend" / "dist").is_dir()
-                        else (root_dir.parent / "frontend" / "dist")
-                    )
-                )
+                else (root_dir.parent / "app" / "dist")
             )
             spa_index = spa_dist_dir / "index.html"
 

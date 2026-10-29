@@ -11,14 +11,14 @@ Supports both **Pythonic `snake_case`** (`client.get_enriched_league_table(...)`
 ```bash
 cd sdk/python
 
-# Run pytest test suite
-PYTHONPATH=src pytest
+# Run pytest test suite via uv
+PYTHONPATH=src uv run --project ../../api pytest
 
 # Run CLI quickstart (56 sports, Match #76034538 Dossier, AC Milan Bundle, Enriched Standings, San Siro Venue)
-PYTHONPATH=src python3 examples/quickstart.py
+PYTHONPATH=src uv run --project ../../api python examples/quickstart.py
 
 # Launch Python Interactive Web Showcase & Match #76034538 Replica Server (http://127.0.0.1:8789/match/76034538)
-PYTHONPATH=src python3 examples/showcase_server.py
+PYTHONPATH=src uv run --project ../../api python examples/showcase_server.py
 ```
 
 ---

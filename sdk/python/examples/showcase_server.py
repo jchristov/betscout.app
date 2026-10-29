@@ -38,7 +38,7 @@ from betscout_sdk import (
 
 HERE = Path(__file__).resolve().parent
 TS_EXAMPLES_DIR = HERE.parent.parent / "typescript" / "examples"
-LOGO_SVG_PATH = HERE.parent.parent.parent / "frontend" / "public" / "betscout-logo.svg"
+LOGO_SVG_PATH = HERE.parent.parent.parent / "app" / "public" / "betscout-logo.svg"
 PORT = int(os.environ.get("PORT", "8789"))
 
 client = BetScoutClient(default_channel="eu-retail", default_timezone="Europe:Berlin")
