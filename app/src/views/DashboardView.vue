@@ -1710,19 +1710,19 @@
                   ? `/match/${inspectorData.sr_match_id}`
                   : `/match/lookup?home=${encodeURIComponent(inspectorData.home || '')}&away=${encodeURIComponent(inspectorData.away || '')}&league=${encodeURIComponent(inspectorData.league || '')}`
               "
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold no-underline"
+              class="btn-press h-8 px-3 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 no-underline"
               @click="inspectorModalOpen = false"
             >
               <span>Full Match Center</span>
-              <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
+              <Icon icon="fa6-solid:arrow-right" class="w-3.5 h-3.5 shrink-0" />
             </router-link>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
               @click="inspectorModalOpen = false"
             >
               <span>Close</span>
-              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
         </div>
@@ -1890,7 +1890,20 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div
+                  v-if="inspectorData.home_headshot_url"
+                  class="w-9 h-9 rounded-xl border-2 border-sky-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center"
+                >
+                  <img
+                    :src="inspectorData.home_headshot_url"
+                    :alt="inspectorData.home"
+                    class="w-full h-full"
+                    :class="inspectorData.home_is_club ? 'object-contain p-1' : 'object-cover object-top rounded-[9px]'"
+                  />
+                </div>
+                <b class="text-white">{{ inspectorData.home }} — Last 6</b>
+              </div>
               <div v-if="!inspectorData.form_home?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_home"
@@ -1912,7 +1925,20 @@
               </div>
             </div>
             <div>
-              <b class="block mb-1.5 text-white">{{ inspectorData.away }} — Last 6</b>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div
+                  v-if="inspectorData.away_headshot_url"
+                  class="w-9 h-9 rounded-xl border-2 border-amber-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center"
+                >
+                  <img
+                    :src="inspectorData.away_headshot_url"
+                    :alt="inspectorData.away"
+                    class="w-full h-full"
+                    :class="inspectorData.away_is_club ? 'object-contain p-1' : 'object-cover object-top rounded-[9px]'"
+                  />
+                </div>
+                <b class="text-white">{{ inspectorData.away }} — Last 6</b>
+              </div>
               <div v-if="!inspectorData.form_away?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_away"
@@ -2011,11 +2037,11 @@
           </div>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
             @click="analyzerModalOpen = false"
           >
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
             <span>Close</span>
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
           </button>
         </div>
 
@@ -2024,15 +2050,15 @@
             v-model="analyzerQuery"
             type="search"
             placeholder="e.g. Shelton vs Kovacevic, Roma vs Cagliari..."
-            class="flex-1 bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-xs"
+            class="flex-1 h-8 bg-slate-950 text-white border border-slate-700 rounded-lg px-3 text-xs"
             @keydown.enter="runLiveAnalyzer"
           />
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
+            class="btn-press h-8 px-3.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
             @click="runLiveAnalyzer"
           >
-            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 shrink-0" />
             <span>Analyze Matchup</span>
           </button>
         </div>
@@ -2065,11 +2091,11 @@
           </b>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
             @click="shareModalOpen = false"
           >
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
             <span>Close</span>
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
           </button>
         </div>
 
@@ -2078,10 +2104,10 @@
             <span class="text-[11px] font-bold text-sky-300">Generated Pick Card Image (1080×560 PNG)</span>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px]"
+              class="btn-press h-7 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-semibold leading-none"
               @click="downloadCanvasPng"
             >
-              <Icon icon="fa6-solid:download" class="w-3 h-3 text-sky-400" />
+              <Icon icon="fa6-solid:download" class="w-3 h-3 text-sky-400 shrink-0" />
               <span>Download PNG Card</span>
             </button>
           </div>
@@ -2102,18 +2128,18 @@
         <div class="flex justify-end gap-2">
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold"
+            class="btn-press h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold leading-none"
             @click="copyShareMessage"
           >
-            <Icon icon="fa6-solid:copy" class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="fa6-solid:copy" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>Copy Text</span>
           </button>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-bold"
+            class="btn-press h-8 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-semibold leading-none"
             @click="postShareToDiscord"
           >
-            <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5 shrink-0" />
             <span>Send to Discord</span>
           </button>
         </div>
@@ -2134,11 +2160,11 @@
           </b>
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
             @click="settingsModalOpen = false"
           >
             <span>Close</span>
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
           </button>
         </div>
 
@@ -2238,18 +2264,18 @@
                 v-model="apiKeyInput"
                 type="text"
                 placeholder="Paste your bs_live_... API key"
-                class="flex-1 bg-slate-900 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs"
+                class="flex-1 h-8 bg-slate-900 text-white border border-slate-700 rounded-lg px-2.5 font-mono text-xs"
               />
               <button
                 type="button"
-                class="btn-press px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 font-bold"
+                class="btn-press h-8 px-3 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center"
                 @click="store.setCustomApiKey(apiKeyInput)"
               >
                 Save Key
               </button>
               <button
                 type="button"
-                class="btn-press px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 font-bold"
+                class="btn-press h-8 px-3 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center"
                 @click="copyRemoteMcpConfig"
               >
                 Copy MCP Config

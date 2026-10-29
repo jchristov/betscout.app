@@ -939,19 +939,19 @@
                   ? `/match/${inspectorData.sr_match_id}`
                   : `/match/lookup?home=${encodeURIComponent(inspectorData.home || '')}&away=${encodeURIComponent(inspectorData.away || '')}&league=${encodeURIComponent(inspectorData.league || '')}`
               "
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold no-underline"
+              class="btn-press h-8 px-3 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 no-underline"
               @click="inspectorModalOpen = false"
             >
               <span>Full Match Center</span>
-              <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
+              <Icon icon="fa6-solid:arrow-right" class="w-3.5 h-3.5 shrink-0" />
             </router-link>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs"
+              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
               @click="inspectorModalOpen = false"
             >
               <span>Close</span>
-              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
         </div>
@@ -1053,7 +1053,20 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <b class="block mb-1.5 text-white">{{ inspectorData.home }} — Last 6</b>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div
+                  v-if="inspectorData.home_headshot_url"
+                  class="w-9 h-9 rounded-xl border-2 border-sky-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center"
+                >
+                  <img
+                    :src="inspectorData.home_headshot_url"
+                    :alt="inspectorData.home"
+                    class="w-full h-full"
+                    :class="inspectorData.home_is_club ? 'object-contain p-1' : 'object-cover object-top rounded-[9px]'"
+                  />
+                </div>
+                <b class="text-white">{{ inspectorData.home }} — Last 6</b>
+              </div>
               <div v-if="!inspectorData.form_home?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_home"
@@ -1075,7 +1088,20 @@
               </div>
             </div>
             <div>
-              <b class="block mb-1.5 text-white">{{ inspectorData.away }} — Last 6</b>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div
+                  v-if="inspectorData.away_headshot_url"
+                  class="w-9 h-9 rounded-xl border-2 border-amber-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center"
+                >
+                  <img
+                    :src="inspectorData.away_headshot_url"
+                    :alt="inspectorData.away"
+                    class="w-full h-full"
+                    :class="inspectorData.away_is_club ? 'object-contain p-1' : 'object-cover object-top rounded-[9px]'"
+                  />
+                </div>
+                <b class="text-white">{{ inspectorData.away }} — Last 6</b>
+              </div>
               <div v-if="!inspectorData.form_away?.length" class="text-slate-300">No recent matches in DB</div>
               <div
                 v-for="(m, i) in inspectorData.form_away"

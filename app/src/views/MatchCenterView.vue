@@ -38,9 +38,9 @@
         <div class="flex flex-wrap items-center gap-2">
           <router-link
             to="/app"
-            class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
+            class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg text-xs font-bold leading-none bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
           >
-            <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>&larr; Back to Quant Desk</span>
           </router-link>
           <div class="flex items-center gap-1.5">
@@ -53,17 +53,17 @@
             />
             <button
               type="button"
-              class="btn-press h-[34px] px-3 rounded-lg text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
+              class="btn-press h-[34px] inline-flex items-center justify-center px-3 rounded-lg text-xs font-bold leading-none bg-sky-500/20 text-sky-300 border border-sky-400/50"
               @click="jumpToMatchId"
             >
               Load
             </button>
             <button
               type="button"
-              class="btn-press h-[34px] inline-flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+              class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg text-xs font-bold leading-none bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
               @click="fetchDossier"
             >
-              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" />
+              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': loading }" />
               <span>Refresh</span>
             </button>
           </div>
@@ -135,35 +135,43 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
             <!-- Home Competitor -->
-            <div class="lg:col-span-4 flex items-center gap-3.5">
-              <div class="relative shrink-0">
+            <div class="lg:col-span-4 flex items-stretch gap-5">
+              <div class="w-[96px] h-[96px] sm:w-[104px] sm:h-[104px] self-stretch rounded-2xl border-2 border-sky-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center">
                 <img
                   v-if="dossier.home_headshot_url"
                   :src="dossier.home_headshot_url"
                   :alt="homeName"
-                  class="w-16 h-16 border-2 border-sky-400/50"
-                  :class="isClubMatch ? 'rounded-2xl object-contain p-1.5 bg-slate-900/90' : 'rounded-full object-cover object-top'"
-                />
-                <img
-                  v-if="dossier.home_flag_url"
-                  :src="dossier.home_flag_url"
-                  alt=""
-                  class="absolute -bottom-1 -right-1 w-6 h-4 rounded-[3px] shadow"
+                  class="w-full h-full"
+                  :class="isClubMatch ? 'object-contain p-2' : 'object-cover object-top rounded-[14px]'"
                 />
               </div>
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="text-lg font-extrabold text-white truncate">{{ homeName }}</span>
-                  <span
-                    v-if="homeSeed"
-                    class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/45"
-                  >
-                    {{ homeSeed }}
-                  </span>
+              <div class="min-w-0 min-h-[96px] sm:min-h-[104px] flex flex-col justify-between py-0.5">
+                <div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-lg font-extrabold text-white leading-tight truncate">{{ homeName }}</span>
+                    <span
+                      v-if="homeSeed"
+                      class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/45"
+                    >
+                      {{ homeSeed }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-1.5">
+                    <span v-if="homeRankPrefix">{{ homeRankPrefix }}</span>
+                    <span v-if="homeRankPrefix && (homeCountryName || dossier.home_flag_url)" class="text-slate-500">·</span>
+                    <span v-if="homeCountryName || dossier.home_flag_url" class="inline-flex items-center gap-1.5">
+                      <img
+                        v-if="dossier.home_flag_url"
+                        :src="dossier.home_flag_url"
+                        alt=""
+                        class="w-4 h-3 rounded-[2px] object-cover shrink-0 shadow-sm"
+                      />
+                      <span>{{ homeCountryName }}</span>
+                    </span>
+                  </div>
                 </div>
-                <div class="text-xs text-slate-400 mt-0.5">{{ homeRankMeta }}</div>
                 <!-- Form WDL Strip -->
                 <div v-if="formWdlHome.length" class="flex items-center gap-1.5 mt-2">
                   <div
@@ -181,7 +189,7 @@
                     </span>
                     <span
                       v-if="seg.score_label"
-                      class="text-[10px] font-mono font-bold"
+                      class="text-[10px] font-mono font-bold leading-none"
                       :class="seg.wdl === 'W' ? 'text-emerald-300' : seg.wdl === 'L' ? 'text-rose-400' : 'text-amber-300'"
                     >
                       {{ seg.score_label }}
@@ -233,18 +241,32 @@
             </div>
 
             <!-- Away Competitor -->
-            <div class="lg:col-span-4 flex items-center lg:justify-end gap-3.5 lg:text-right">
-              <div class="min-w-0 order-2 lg:order-1">
-                <div class="flex flex-wrap items-center lg:justify-end gap-1.5">
-                  <span
-                    v-if="awaySeed"
-                    class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/45"
-                  >
-                    {{ awaySeed }}
-                  </span>
-                  <span class="text-lg font-extrabold text-white truncate">{{ awayName }}</span>
+            <div class="lg:col-span-4 flex items-stretch lg:justify-end gap-5 lg:text-right">
+              <div class="min-w-0 min-h-[96px] sm:min-h-[104px] flex flex-col justify-between py-0.5 order-2 lg:order-1">
+                <div>
+                  <div class="flex flex-wrap items-center lg:justify-end gap-1.5">
+                    <span
+                      v-if="awaySeed"
+                      class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/45"
+                    >
+                      {{ awaySeed }}
+                    </span>
+                    <span class="text-lg font-extrabold text-white leading-tight truncate">{{ awayName }}</span>
+                  </div>
+                  <div class="text-xs text-slate-300 mt-1 flex flex-wrap items-center lg:justify-end gap-1.5">
+                    <span v-if="awayRankPrefix">{{ awayRankPrefix }}</span>
+                    <span v-if="awayRankPrefix && (awayCountryName || dossier.away_flag_url)" class="text-slate-500">·</span>
+                    <span v-if="awayCountryName || dossier.away_flag_url" class="inline-flex items-center gap-1.5">
+                      <img
+                        v-if="dossier.away_flag_url"
+                        :src="dossier.away_flag_url"
+                        alt=""
+                        class="w-4 h-3 rounded-[2px] object-cover shrink-0 shadow-sm"
+                      />
+                      <span>{{ awayCountryName }}</span>
+                    </span>
+                  </div>
                 </div>
-                <div class="text-xs text-slate-400 mt-0.5">{{ awayRankMeta }}</div>
                 <!-- Form WDL Strip -->
                 <div v-if="formWdlAway.length" class="flex items-center lg:justify-end gap-1.5 mt-2">
                   <div
@@ -262,7 +284,7 @@
                     </span>
                     <span
                       v-if="seg.score_label"
-                      class="text-[10px] font-mono font-bold"
+                      class="text-[10px] font-mono font-bold leading-none"
                       :class="seg.wdl === 'W' ? 'text-emerald-300' : seg.wdl === 'L' ? 'text-rose-400' : 'text-amber-300'"
                     >
                       {{ seg.score_label }}
@@ -270,19 +292,13 @@
                   </div>
                 </div>
               </div>
-              <div class="relative shrink-0 order-1 lg:order-2">
+              <div class="w-[96px] h-[96px] sm:w-[104px] sm:h-[104px] self-stretch rounded-2xl border-2 border-amber-400/50 bg-slate-900/90 shrink-0 overflow-hidden flex items-center justify-center order-1 lg:order-2">
                 <img
                   v-if="dossier.away_headshot_url"
                   :src="dossier.away_headshot_url"
                   :alt="awayName"
-                  class="w-16 h-16 border-2 border-amber-400/50"
-                  :class="isClubMatch ? 'rounded-2xl object-contain p-1.5 bg-slate-900/90' : 'rounded-full object-cover object-top'"
-                />
-                <img
-                  v-if="dossier.away_flag_url"
-                  :src="dossier.away_flag_url"
-                  alt=""
-                  class="absolute -bottom-1 -left-1 w-6 h-4 rounded-[3px] shadow"
+                  class="w-full h-full"
+                  :class="isClubMatch ? 'object-contain p-2' : 'object-cover object-top rounded-[14px]'"
                 />
               </div>
             </div>
@@ -797,24 +813,62 @@ const awaySeed = computed(() =>
     : awayTeam.value?.seed?.type_short || '',
 );
 
-const homeRankMeta = computed(() => {
+const homeCountryName = computed(() => {
   const hp = dossier.value?.home_profile || {};
-  const country = homeTeam.value?.countrycode?.name || homeTeam.value?.cc?.name || hp.countrycode?.name || '';
-  if (isTennis.value) {
-    const r = hp.singlesrank;
-    return [r ? `Rank #${r}` : '', country].filter(Boolean).join(' · ');
-  }
-  return country || homeAbbr.value;
+  return (
+    homeTeam.value?.countrycode?.name ||
+    homeTeam.value?.cc?.name ||
+    hp.countrycode?.name ||
+    hp.nationality ||
+    matchInfo.value?.realcategory?.name ||
+    ''
+  );
 });
 
-const awayRankMeta = computed(() => {
+const awayCountryName = computed(() => {
   const ap = dossier.value?.away_profile || {};
-  const country = awayTeam.value?.countrycode?.name || awayTeam.value?.cc?.name || ap.countrycode?.name || '';
+  return (
+    awayTeam.value?.countrycode?.name ||
+    awayTeam.value?.cc?.name ||
+    ap.countrycode?.name ||
+    ap.nationality ||
+    matchInfo.value?.realcategory?.name ||
+    ''
+  );
+});
+
+const homeRankPrefix = computed(() => {
+  const hp = dossier.value?.home_profile || {};
   if (isTennis.value) {
-    const r = ap.singlesrank;
-    return [r ? `Rank #${r}` : '', country].filter(Boolean).join(' · ');
+    const r = hp.singlesrank || dossier.value?.head2head?.rankings?.[homeTeam.value?._id]?.ranking;
+    const pts = hp.ranking?.points ? ` (${hp.ranking.points} pts)` : '';
+    return r ? `Rank #${r}${pts}` : '';
   }
-  return country || awayAbbr.value;
+  const tRows: any[] = dossier.value?.table_slice?.tablerows || [];
+  const hRow = tRows.find(
+    (r) => (r.team?.uid || r.team?._id) === (homeTeam.value?.uid || homeTeam.value?._id),
+  );
+  if (hRow?.pos) {
+    return `League Pos #${hRow.pos}${hRow.pointsTotal !== undefined ? ` (${hRow.pointsTotal} pts)` : ''}`;
+  }
+  return homeAbbr.value;
+});
+
+const awayRankPrefix = computed(() => {
+  const ap = dossier.value?.away_profile || {};
+  if (isTennis.value) {
+    const r = ap.singlesrank || dossier.value?.head2head?.rankings?.[awayTeam.value?._id]?.ranking;
+    const pts = ap.ranking?.points ? ` (${ap.ranking.points} pts)` : '';
+    return r ? `Rank #${r}${pts}` : '';
+  }
+  const tRows: any[] = dossier.value?.table_slice?.tablerows || [];
+  const aRow = tRows.find(
+    (r) => (r.team?.uid || r.team?._id) === (awayTeam.value?.uid || awayTeam.value?._id),
+  );
+  if (aRow?.pos) {
+    return `League Pos #${aRow.pos}${aRow.pointsTotal !== undefined ? ` (${aRow.pointsTotal} pts)` : ''}`;
+  }
+  return awayAbbr.value;
 });
 
 const formWdlHome = computed(() => dossier.value?.form_wdl?.home || []);

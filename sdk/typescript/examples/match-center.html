@@ -176,8 +176,8 @@
 
     .competitor-side {
       display: flex;
-      align-items: center;
-      gap: 1rem;
+      align-items: stretch;
+      gap: 1.35rem;
     }
     .competitor-side.away {
       flex-direction: row-reverse;
@@ -531,17 +531,18 @@
       <div class="scoreboard-grid">
         <!-- Home Player / Team -->
         <div class="competitor-side home">
-          <div style="position:relative;flex-shrink:0;">
-            <img id="home-headshot-img" src="" alt="Home Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid rgba(56,189,248,0.5);" />
-            <img id="home-flag-img" src="" alt="Home Flag" style="position:absolute;bottom:-2px;right:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
+          <div style="width:104px;height:104px;flex-shrink:0;border-radius:16px;border:2px solid rgba(56,189,248,0.5);background:rgba(15,23,42,0.88);overflow:hidden;display:flex;align-items:center;justify-content:center;">
+            <img id="home-headshot-img" src="" alt="Home Player" style="width:100%;height:100%;object-fit:cover;object-position:center 15%;" />
           </div>
-          <div>
-            <div class="competitor-name">
-              <span id="home-name">Fritz, Taylor</span>
-              <span class="pill" id="home-seed-pill">Seed #6</span>
+          <div style="min-height:104px;display:flex;flex-direction:column;justify-content:space-between;">
+            <div>
+              <div class="competitor-name">
+                <span id="home-name">Fritz, Taylor</span>
+                <span class="pill" id="home-seed-pill">Seed #6</span>
+              </div>
+              <div class="competitor-meta" id="home-rank-meta" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">ATP Rank #13 (2,995 pts) · USA</div>
             </div>
-            <div class="competitor-meta" id="home-rank-meta">ATP Rank #13 (2,995 pts) · USA</div>
-            <div style="margin-top: 0.5rem;" id="home-form-strip"></div>
+            <div style="margin-top: 0.45rem;" id="home-form-strip"></div>
           </div>
         </div>
 
@@ -567,17 +568,18 @@
 
         <!-- Away Player / Team -->
         <div class="competitor-side away">
-          <div style="position:relative;flex-shrink:0;">
-            <img id="away-headshot-img" src="" alt="Away Player" style="width:68px;height:68px;border-radius:50%;object-fit:cover;object-position:center 15%;border:2px solid rgba(245,158,11,0.5);" />
-            <img id="away-flag-img" src="" alt="Away Flag" style="position:absolute;bottom:-2px;left:-2px;width:24px;height:18px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.6);" />
+          <div style="width:104px;height:104px;flex-shrink:0;border-radius:16px;border:2px solid rgba(245,158,11,0.5);background:rgba(15,23,42,0.88);overflow:hidden;display:flex;align-items:center;justify-content:center;">
+            <img id="away-headshot-img" src="" alt="Away Player" style="width:100%;height:100%;object-fit:cover;object-position:center 15%;" />
           </div>
-          <div>
-            <div class="competitor-name">
-              <span class="pill pill-amber" id="away-seed-pill">LL</span>
-              <span id="away-name">Hijikata, Rinky</span>
+          <div style="min-height:104px;display:flex;flex-direction:column;justify-content:space-between;">
+            <div>
+              <div class="competitor-name">
+                <span class="pill pill-amber" id="away-seed-pill">LL</span>
+                <span id="away-name">Hijikata, Rinky</span>
+              </div>
+              <div class="competitor-meta" id="away-rank-meta" style="display:flex;align-items:center;justify-content:flex-end;gap:0.4rem;flex-wrap:wrap;">ATP Rank #85 · Australia</div>
             </div>
-            <div class="competitor-meta" id="away-rank-meta">ATP Rank #85 · Australia</div>
-            <div style="margin-top: 0.5rem;" id="away-form-strip"></div>
+            <div style="margin-top: 0.45rem;" id="away-form-strip"></div>
           </div>
         </div>
       </div>
@@ -1060,10 +1062,10 @@
         hImgEl.style.borderRadius = '14px';
         hImgEl.style.objectFit = 'contain';
         hImgEl.style.objectPosition = 'center center';
-        hImgEl.style.padding = '6px';
-        hImgEl.style.background = 'rgba(15, 23, 42, 0.85)';
+        hImgEl.style.padding = '8px';
+        hImgEl.style.background = 'rgba(15, 23, 42, 0.88)';
       } else {
-        hImgEl.style.borderRadius = '50%';
+        hImgEl.style.borderRadius = '14px';
         hImgEl.style.objectFit = 'cover';
         hImgEl.style.objectPosition = 'center 15%';
         hImgEl.style.padding = '0';
@@ -1074,18 +1076,16 @@
         aImgEl.style.borderRadius = '14px';
         aImgEl.style.objectFit = 'contain';
         aImgEl.style.objectPosition = 'center center';
-        aImgEl.style.padding = '6px';
-        aImgEl.style.background = 'rgba(15, 23, 42, 0.85)';
+        aImgEl.style.padding = '8px';
+        aImgEl.style.background = 'rgba(15, 23, 42, 0.88)';
       } else {
-        aImgEl.style.borderRadius = '50%';
+        aImgEl.style.borderRadius = '14px';
         aImgEl.style.objectFit = 'cover';
         aImgEl.style.objectPosition = 'center 15%';
         aImgEl.style.padding = '0';
         aImgEl.style.background = 'transparent';
       }
 
-      document.getElementById('home-flag-img').src = d.home_flag_url || '';
-      document.getElementById('away-flag-img').src = d.away_flag_url || '';
       document.getElementById('home-name').textContent = hTeam.name || 'Home';
       document.getElementById('away-name').textContent = aTeam.name || 'Away';
 
@@ -1108,21 +1108,29 @@
 
       const hCountryName = hTeam.countrycode?.name || hTeam.cc?.name || hp.countrycode?.name || hp.nationality || mi.realcategory?.name || '';
       const aCountryName = aTeam.countrycode?.name || aTeam.cc?.name || ap.countrycode?.name || ap.nationality || mi.realcategory?.name || '';
+      const hFlagInline = d.home_flag_url
+        ? `<img src="${d.home_flag_url}" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:0.25rem;" />`
+        : '';
+      const aFlagInline = d.away_flag_url
+        ? `<img src="${d.away_flag_url}" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:0.25rem;" />`
+        : '';
 
       if (isTennis) {
         const hRank = hp.singlesrank || d.head2head?.rankings?.[hTeam._id]?.ranking;
         const aRank = ap.singlesrank || d.head2head?.rankings?.[aTeam._id]?.ranking;
-        document.getElementById('home-rank-meta').textContent =
-          `${hRank ? `Rank #${hRank}` : ''} ${hp.ranking?.points ? `(${hp.ranking.points} pts)` : ''} · ${hCountryName}`;
-        document.getElementById('away-rank-meta').textContent =
-          `${aRank ? `Rank #${aRank}` : ''} ${ap.ranking?.points ? `(${ap.ranking.points} pts)` : ''} · ${aCountryName}`;
+        const hRankPart = `${hRank ? `Rank #${hRank}` : ''}${hp.ranking?.points ? ` (${hp.ranking.points} pts)` : ''}`;
+        const aRankPart = `${aRank ? `Rank #${aRank}` : ''}${ap.ranking?.points ? ` (${ap.ranking.points} pts)` : ''}`;
+        document.getElementById('home-rank-meta').innerHTML =
+          `${hRankPart}${hRankPart && hCountryName ? ' · ' : ''}<span style="display:inline-flex;align-items:center;">${hFlagInline}${hCountryName}</span>`;
+        document.getElementById('away-rank-meta').innerHTML =
+          `${aRankPart}${aRankPart && aCountryName ? ' · ' : ''}<span style="display:inline-flex;align-items:center;">${aFlagInline}${aCountryName}</span>`;
       } else {
         const hPosStr = hTableRow?.pos ? `League Pos #${hTableRow.pos} (${hTableRow.pointsTotal ?? ''} pts)` : (hTeam.mediumname || hTeam.abbr || '');
         const aPosStr = aTableRow?.pos ? `League Pos #${aTableRow.pos} (${aTableRow.pointsTotal ?? ''} pts)` : (aTeam.mediumname || aTeam.abbr || '');
-        document.getElementById('home-rank-meta').textContent =
-          `${hPosStr}${hPosStr && hCountryName ? ' · ' : ''}${hCountryName}`;
-        document.getElementById('away-rank-meta').textContent =
-          `${aPosStr}${aPosStr && aCountryName ? ' · ' : ''}${aCountryName}`;
+        document.getElementById('home-rank-meta').innerHTML =
+          `${hPosStr}${hPosStr && hCountryName ? ' · ' : ''}<span style="display:inline-flex;align-items:center;">${hFlagInline}${hCountryName}</span>`;
+        document.getElementById('away-rank-meta').innerHTML =
+          `${aPosStr}${aPosStr && aCountryName ? ' · ' : ''}<span style="display:inline-flex;align-items:center;">${aFlagInline}${aCountryName}</span>`;
       }
 
       const fw = d.form_wdl || { home: [], away: [], home_form_pct: 0, away_form_pct: 0 };

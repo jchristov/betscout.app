@@ -767,12 +767,37 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
             }
 
     resolved_sr_mid = (statshub_intel.get("sr_match_id") if isinstance(statshub_intel, dict) else None) or sr_mid_hint
+    is_individual_sport = sp_hint in ("tennis", "table_tennis", "darts", "snooker", "mma") or bool(model_pick_detail.get("tour"))
+    home_img_url = str(model_pick_detail.get("home_logo") or "").strip()
+    away_img_url = str(model_pick_detail.get("away_logo") or "").strip()
+    try:
+        from betscout_sdk import get_team_logo_url, resolve_player_headshot_url
+
+        h_uid_val = statshub_intel.get("home_uid") if isinstance(statshub_intel, dict) else None
+        a_uid_val = statshub_intel.get("away_uid") if isinstance(statshub_intel, dict) else None
+        if not home_img_url:
+            if not is_individual_sport and h_uid_val:
+                home_img_url = get_team_logo_url(h_uid_val, size="big")
+            else:
+                home_img_url = resolve_player_headshot_url(h)
+        if not away_img_url:
+            if not is_individual_sport and a_uid_val:
+                away_img_url = get_team_logo_url(a_uid_val, size="big")
+            else:
+                away_img_url = resolve_player_headshot_url(a)
+    except Exception:
+        pass
+
     result_payload = {
         "ok": True,
         "home": h,
         "away": a,
         "league": lg,
         "sr_match_id": int(resolved_sr_mid) if resolved_sr_mid and str(resolved_sr_mid).isdigit() else None,
+        "home_headshot_url": home_img_url,
+        "away_headshot_url": away_img_url,
+        "home_is_club": not is_individual_sport,
+        "away_is_club": not is_individual_sport,
         "h2h": h2h_rows,
         "h2h_edge": h2h_edge_bar,
         "win_prob_bar": win_prob_bar,
