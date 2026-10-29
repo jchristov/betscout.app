@@ -1612,6 +1612,9 @@
           Score Intelligence. All rights reserved.
         </span>
       </div>
+      <div class="font-mono text-[11px] text-slate-400/95 bg-slate-900/65 border border-slate-700/50 px-2.5 py-0.5 rounded-full">
+        v{{ appVersion }} ({{ commitHash }})
+      </div>
       <div class="flex flex-wrap gap-4">
         <router-link to="/" class="hover:text-white">Home &amp; Membership Plans</router-link>
         <a href="/api/docs" target="_blank" class="hover:text-white">API Documentation</a>
@@ -2017,6 +2020,8 @@ setupIconifyCollections();
 
 const store = useBetscoutStore();
 const currentYear = new Date().getFullYear();
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.5.0';
+const commitHash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
 const activeTab = ref<'picks' | 'studio' | 'ledger' | 'audit'>('picks');
 const trackQuickInput = ref<string>('');
 const betBudget = ref<number>(100);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Descriptor of all configured sports and leagues for periodic & historical ingestion.",
-  "updated_at": "2026-10-29T07:38:16Z",
+  "updated_at": "2026-10-29T07:53:46Z",
   "sources": [
     {
       "sport": "soccer",
@@ -216,11 +216,11 @@
         2025,
         2026
       ],
-      "total_records": 24927,
+      "total_records": 24933,
       "priced_records": 0,
       "first_kickoff": "2022-01-02T00:40Z",
-      "last_ingested_kickoff": "2026-10-28T21:40Z",
-      "last_ingested_ymd": "20261028"
+      "last_ingested_kickoff": "2026-10-29T05:45Z",
+      "last_ingested_ymd": "20261029"
     },
     {
       "sport": "basketball",
@@ -231,11 +231,11 @@
         2025,
         2026
       ],
-      "total_records": 549,
-      "priced_records": 541,
+      "total_records": 561,
+      "priced_records": 553,
       "first_kickoff": "2026-03-01T18:00Z",
-      "last_ingested_kickoff": "2026-10-28T03:00Z",
-      "last_ingested_ymd": "20261028"
+      "last_ingested_kickoff": "2026-10-29T02:30Z",
+      "last_ingested_ymd": "20261029"
     },
     {
       "sport": "hockey",
@@ -246,11 +246,11 @@
         2025,
         2026
       ],
-      "total_records": 709,
-      "priced_records": 647,
+      "total_records": 713,
+      "priced_records": 651,
       "first_kickoff": "2026-03-01T18:00Z",
-      "last_ingested_kickoff": "2026-10-28T02:30Z",
-      "last_ingested_ymd": "20261028"
+      "last_ingested_kickoff": "2026-10-29T02:00Z",
+      "last_ingested_ymd": "20261029"
     },
     {
       "sport": "football",
@@ -336,11 +336,11 @@
         2025,
         2026
       ],
-      "total_records": 1691,
+      "total_records": 1696,
       "priced_records": 0,
       "first_kickoff": "2026-09-24T22:00Z",
-      "last_ingested_kickoff": "2026-10-28T22:00Z",
-      "last_ingested_ymd": "20261028"
+      "last_ingested_kickoff": "2026-10-29T02:00Z",
+      "last_ingested_ymd": "20261029"
     },
     {
       "sport": "volleyball",

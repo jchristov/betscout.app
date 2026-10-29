@@ -939,25 +939,62 @@ def render_landing_page_html(
       </div>
 
       <div class="pricing-grid">
-        <!-- Tier 1: Pro WebApp -->
+        <!-- Tier 1: VIP Notifications Only (€39/mo) -->
         <div class="price-card">
           <div class="pc-head">
-            <div class="pc-tier">TIER 1 · PRO WEBAPP DESK</div>
+            <div class="pc-tier">TIER 1 · VIP NOTIFICATIONS ONLY</div>
             <div class="pc-price-row">
-              <span class="pc-price" data-monthly="€49" data-annual="€33">€49</span>
+              <span class="pc-price" data-monthly="€39" data-annual="€27">€39</span>
               <span class="pc-period">/ month</span>
             </div>
-            <div class="pc-subnote" data-monthly="Billed monthly · Or €399/yr (Save 32%)" data-annual="Billed annually at €399/yr (Save €189)">Billed monthly · Or €399/yr (Save 32%)</div>
-            <p class="pc-summary">Full read-only access to the live BetScout WebApp desk on desktop &amp; mobile.</p>
+            <div class="pc-subnote" data-monthly="Billed monthly · Or €319/yr (Save 32%)" data-annual="Billed annually at €319/yr (Save €149)">Billed monthly · Or €319/yr (Save 32%)</div>
+            <p class="pc-summary">Real-time high-conviction pick alerts &amp; PNG cards delivered directly to Discord &amp; Telegram.</p>
           </div>
           <ul class="pc-features">
             <li class="feat-row">
               <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>100% Unlocked Daily Picks</strong> across all 10 sports on <code>betscout.app</code></span>
+              <span class="feat-text"><strong>Private VIP Discord &amp; Telegram Channels</strong> with dedicated per-sport feeds (⚽ 🎾 🏀 🏒 🏈 🏓)</span>
             </li>
             <li class="feat-row">
               <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>High-Probability Banker Booster Combos</strong> (2-Leg &amp; 3-Leg profit multipliers)</span>
+              <span class="feat-text"><strong>Instant High-Res PNG Pick Cards</strong> with win probability, fair odds &amp; score targets</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>2-Leg &amp; 3-Leg Banker Booster Combos</strong> &amp; Daily Morning Slate Digests</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Live In-Play Dominance Rebound &amp; 76–90m Goal Alerts</strong> pushed in real time</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Closing-Line Steam (<code>🔥 STEAM</code>)</strong> &amp; automated settled recap cards</span>
+            </li>
+          </ul>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%201%20VIP%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20(VIP%20Notifications%20-%20%E2%82%AC39%2Fmo).%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-glass pc-cta">Activate VIP Notifications &rarr;</a>
+        </div>
+
+        <!-- Tier 2: Pro WebApp + Tier 1 Notifications (€79/mo) -->
+        <div class="price-card featured">
+          <div class="popular-tag">★ MOST POPULAR CHOICE</div>
+          <div class="pc-head">
+            <div class="pc-tier c-emerald">TIER 2 · PRO WEBAPP + NOTIFICATIONS</div>
+            <div class="pc-price-row">
+              <span class="pc-price" data-monthly="€79" data-annual="€54">€79</span>
+              <span class="pc-period">/ month</span>
+            </div>
+            <div class="pc-subnote" data-monthly="Billed monthly · Or €649/yr (Save 31%)" data-annual="Billed annually at €649/yr (Save €299)">Billed monthly · Or €649/yr (Save 31%)</div>
+            <p class="pc-summary">Full interactive Quant WebApp desk on desktop &amp; mobile plus all Tier 1 Discord &amp; Telegram notifications.</p>
+          </div>
+          <ul class="pc-features">
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Everything in Tier 1 (VIP Discord &amp; Telegram Notifications)</strong> included</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>100% Unlocked Pro WebApp Desk</strong> across all 10 sports on <code>betscout.app</code></span>
             </li>
             <li class="feat-row">
               <span class="feat-check">✓</span>
@@ -972,61 +1009,28 @@ def render_landing_page_html(
               <span class="feat-text"><strong>On-Demand Matchup Analyzer</strong> &amp; 6-second real-time In-Play SSE stream</span>
             </li>
           </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Pro%20WebApp%20Membership&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20(Pro%20WebApp%20Desk).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20" class="btn btn-glass pc-cta">Activate Pro WebApp &rarr;</a>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%202%20Pro%20WebApp%20%2B%20Notifications&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%202%20(Pro%20WebApp%20%2B%20VIP%20Notifications%20-%20%E2%82%AC79%2Fmo).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-emerald pc-cta">🚀 Get Pro WebApp + VIP Alerts &rarr;</a>
         </div>
 
-        <!-- Tier 2: VIP Signals + Pro WebApp -->
-        <div class="price-card featured">
-          <div class="popular-tag">★ MOST POPULAR CHOICE</div>
-          <div class="pc-head">
-            <div class="pc-tier c-emerald">TIER 2 · VIP SIGNALS + PRO APP</div>
-            <div class="pc-price-row">
-              <span class="pc-price" data-monthly="€79" data-annual="€54">€79</span>
-              <span class="pc-period">/ month</span>
-            </div>
-            <div class="pc-subnote" data-monthly="Billed monthly · Or €649/yr (Save 31%)" data-annual="Billed annually at €649/yr (Save €299)">Billed monthly · Or €649/yr (Save 31%)</div>
-            <p class="pc-summary">Complete Pro WebApp access plus instant real-time push alerts to Discord &amp; Telegram.</p>
-          </div>
-          <ul class="pc-features">
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Everything in Tier 1 (Pro WebApp Desk)</strong> unlocked across all devices</span>
-            </li>
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Private VIP Discord &amp; Telegram Channels</strong> with dedicated per-sport feeds (⚽ 🎾 🏀 🏒 🏈 🏓)</span>
-            </li>
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Instant High-Res PNG Pick Cards</strong> with win probability, fair odds &amp; score targets</span>
-            </li>
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Live In-Play Dominance Rebound &amp; 76–90m Goal Alerts</strong> pushed in real time</span>
-            </li>
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Closing-Line Steam (<code>🔥 STEAM</code>)</strong> &amp; automated settled recap cards</span>
-            </li>
-          </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20VIP%20Signals%20%2B%20Pro%20App&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%202%20(VIP%20Signals%20%2B%20Pro%20WebApp).%0AMy%20Google%20Sign-In%20email%20for%20betscout.app%20is%3A%20%0AMy%20Discord%2FTelegram%20username%20is%3A%20" class="btn btn-emerald pc-cta">🚀 Get VIP Signals + Pro App &rarr;</a>
-        </div>
-
-        <!-- Tier 3: Quant API & Syndicate -->
+        <!-- Tier 3: Quant API + Bonus MCP Server (€199/mo) -->
         <div class="price-card">
           <div class="pc-head">
-            <div class="pc-tier c-amber">TIER 3 · QUANT API &amp; SYNDICATE</div>
+            <div class="pc-tier c-amber">TIER 3 · QUANT API + BONUS MCP SERVER</div>
             <div class="pc-price-row">
               <span class="pc-price" data-monthly="€199" data-annual="€149">€199</span>
               <span class="pc-period">/ month</span>
             </div>
             <div class="pc-subnote" data-monthly="Billed monthly · Or €1,788/yr (Save 25%)" data-annual="Billed annually at €1,788/yr (Save €600)">Billed monthly · Or €1,788/yr (Save 25%)</div>
-            <p class="pc-summary">Built for betting syndicates, communities &amp; automated programmatic execution.</p>
+            <p class="pc-summary">Full REST API, TypeScript/Python SDKs &amp; Bonus AI Agent MCP Server plus everything in Tier 2.</p>
           </div>
           <ul class="pc-features">
             <li class="feat-row">
               <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Everything in Tier 2 (VIP Signals + Pro WebApp)</strong> included</span>
+              <span class="feat-text"><strong>Everything in Tier 2 (Pro WebApp + VIP Notifications)</strong> included</span>
+            </li>
+            <li class="feat-row">
+              <span class="feat-check">✓</span>
+              <span class="feat-text"><strong>Bonus AI Agent MCP Server</strong> for Claude Desktop, Cursor &amp; VS Code Copilot</span>
             </li>
             <li class="feat-row">
               <span class="feat-check">✓</span>
@@ -1040,12 +1044,8 @@ def render_landing_page_html(
               <span class="feat-check">✓</span>
               <span class="feat-text"><strong>Custom Webhook Fan-Out</strong>: Automated PNG Pick Cards posted directly to your Discord/Telegram</span>
             </li>
-            <li class="feat-row">
-              <span class="feat-check">✓</span>
-              <span class="feat-text"><strong>Priority Model Calibration</strong> &amp; custom tournament coverage</span>
-            </li>
           </ul>
-          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Quant%20API%20%26%20Syndicate%20Plan&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%203%20(Quant%20API%20%26%20Syndicate).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-amber pc-cta">Request API &amp; Syndicate Key &rarr;</a>
+          <a href="mailto:julian.christov@gmail.com?subject=Activate%20BetScout%20Tier%203%20Quant%20API%20%2B%20MCP%20Server&amp;body=Hello%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%203%20(Quant%20API%20%2B%20Bonus%20MCP%20Server%20-%20%E2%82%AC199%2Fmo).%0AMy%20Google%20email%20is%3A%20%0AMy%20target%20Discord%2FTelegram%20webhook%20(optional)%3A%20" class="btn btn-amber pc-cta">Request API + MCP Access &rarr;</a>
         </div>
       </div>
     </section>
@@ -1125,7 +1125,7 @@ def render_landing_page_html(
         <div class="step-card">
           <span class="step-num">STEP 01</span>
           <h3>Select Your Membership Tier</h3>
-          <p>Choose <strong>Pro WebApp (€49/mo)</strong>, <strong>VIP Signals + Pro App (€79/mo)</strong>, or <strong>Quant API (€199/mo)</strong> and send your Google account email.</p>
+          <p>Choose <strong>VIP Notifications (€39/mo)</strong>, <strong>Pro WebApp + Notifications (€79/mo)</strong>, or <strong>Quant API + Bonus MCP Server (€199/mo)</strong> and send your details.</p>
         </div>
         <div class="step-card">
           <span class="step-num">STEP 02</span>

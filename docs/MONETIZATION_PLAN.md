@@ -1,10 +1,10 @@
 # BetScout Commercial Monetization Blueprint (`betscout.app`)
 
-This document details the technical, product, and billing architecture to monetize **BetScout** across three independent, high-margin revenue streams on top of the **Option D (Firebase Hosting + Firebase Auth + Cloud Run + SQLite)** stack:
+This document details the technical, product, and billing architecture to monetize **BetScout** across three aligned membership tiers on top of the **Option D (Firebase Hosting + Firebase Auth + Cloud Run + SQLite)** stack:
 
-1. **Stream 1 — Paid B2B / Developer API (`api.betscout.app` / `/api/v1/*`):** Metered API keys (`X-API-Key: bs_live_...`), tiered rate limits, usage analytics, and OpenAPI/RapidAPI/Stripe distribution for 3rd-party apps, syndicates, and automated betting systems.
-2. **Stream 2 — Paid SaaS WebApp / PWA (`betscout.app`):** Freemium + Pro subscription tiers using **Firebase Auth + Stripe Checkout**, where paying subscribers get full real-time read-only access (plus personal bankroll/slip tools), while free/anonymous visitors see the verified historical ledger + 1–2 unlocked daily preview picks (with `top_8pct` / `banker_70pct` / `💎 Mispriced` picks blurred behind a `🔒 Unlock Pro` paywall).
-3. **Stream 3 — Paid VIP Discord & Telegram Channels:** Automated membership gating via **Whop / LaunchPass / Stripe Discord Role Sync** (or multi-tenant customer webhooks), plus Free Teaser vs. VIP Full-Slate dual-channel broadcasting.
+1. **Tier 1 — VIP Notifications Only (Discord / Telegram) — `€39 / month` (`€319 / yr`):** Private VIP Discord & Telegram channels with dedicated per-sport feeds, instant high-resolution PNG Pick Cards, 2-Leg & 3-Leg Banker Booster Combos, Live In-Play Dominance Rebound & 76–90m Goal Alerts, and Closing-Line Steam alerts.
+2. **Tier 2 — Pro WebApp + Tier 1 Notifications — `€79 / month` (`€649 / yr`):** Everything in Tier 1 plus 100% unlocked read-only access to the live BetScout WebApp (`betscout.app`), Smart Bet Slip & ¼-Kelly Optimizer, Exact-Score & Set-Score Dutching Splitter, and On-Demand Matchup Analyzer.
+3. **Tier 3 — Quant API + Bonus MCP Server — `€199 / month` (`€1,788 / yr`):** Everything in Tier 2 plus a dedicated REST API key (`X-API-Key: bs_live_...`, 5,000 calls/day), TypeScript/Python SDKs, custom Discord/Telegram webhook fan-out, and the **Bonus AI Agent Model Context Protocol (MCP) Server** for Claude Desktop, Cursor, and VS Code Copilot.
 
 ---
 

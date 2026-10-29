@@ -377,67 +377,67 @@
 
         <!-- 3 Aligned Pricing Cards -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          <!-- Tier 1: Pro WebApp -->
+          <!-- Tier 1: VIP Notifications (Discord / Telegram) — €39/mo -->
           <article class="card-surface rounded-2xl p-6 sm:p-7 flex flex-col justify-between border-t-2 border-t-sky-400">
             <div>
               <div class="mb-4">
                 <span
                   class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/45"
                 >
-                  TIER 1 · PRO WEBAPP DESK
+                  TIER 1 · VIP NOTIFICATIONS ONLY
                 </span>
               </div>
               <div class="flex items-baseline gap-1.5 my-2 font-mono tabular-nums">
                 <span class="text-4xl font-extrabold text-white">
-                  €{{ billingCycle === 'annual' ? '33' : '49' }}
+                  €{{ billingCycle === 'annual' ? '27' : '39' }}
                 </span>
                 <span class="text-sm text-slate-300">/ month</span>
               </div>
               <div class="text-xs text-emerald-300 font-semibold mb-3 font-mono tabular-nums">
                 {{
                   billingCycle === 'annual'
-                    ? 'Billed €399 annually (Save €189/yr)'
-                    : 'Billed monthly · Or €399/yr (Save 32%)'
+                    ? 'Billed €319 annually (Save €149/yr)'
+                    : 'Billed monthly · Or €319/yr (Save 32%)'
                 }}
               </div>
               <p class="text-[13.5px] text-slate-300 pb-4 mb-4 border-b border-slate-700/60">
-                Full read-only access to the live BetScout WebApp desk on desktop &amp; mobile.
+                Real-time high-conviction pick alerts &amp; PNG cards delivered directly to Discord &amp; Telegram.
               </p>
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>100% Unlocked Daily Picks</b> across all 10 sports on the Live Quant Desk</span>
+                  <span><b>Private VIP Discord &amp; Telegram Channels</b> with dedicated per-sport feeds</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>High-Probability Banker Booster Combos</b> (2-Leg &amp; 3-Leg profit multipliers)</span>
+                  <span><b>Instant High-Res PNG Pick Cards</b> with win probability, fair odds &amp; score targets</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>Smart Bet Slip &amp; ¼-Kelly Optimizer</b> tailored to your exact euro stake</span>
+                  <span><b>2-Leg &amp; 3-Leg Banker Booster Combos</b> &amp; Daily Morning Slate Digests</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>Exact-Score &amp; Set-Score Dutching Splitter</b> (2-Score &amp; 3-Score equal-payout splits)</span>
+                  <span><b>Live In-Play Dominance Rebound</b> &amp; 76–90m Late-Goal Alerts pushed in real time</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                  <span><b>On-Demand Matchup Analyzer</b> &amp; 6-second real-time In-Play SSE stream</span>
+                  <span><b>Closing-Line Steam Alerts</b> &amp; automated settled recap cards</span>
                 </li>
               </ul>
             </div>
 
             <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20Pro%20WebApp%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20BetScout%20Pro%20WebApp.%0AMy%20Google%20Account%20Email%3A%20"
+              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%201%20VIP%20Notifications%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20activate%20Tier%201%20VIP%20Notifications%20(Discord%20%2F%20Telegram%20-%20%E2%82%AC39%2Fmo).%0AMy%20Discord%20or%20Telegram%20Username%3A%20"
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-sky-400/50 hover:bg-sky-500/20 hover:border-sky-300"
             >
-              <span>Activate Pro WebApp</span>
+              <span>Activate VIP Notifications</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-sky-300" />
             </a>
           </article>
 
-          <!-- Tier 2: VIP Picks + Pro WebApp (Featured) -->
+          <!-- Tier 2: Pro WebApp + Tier 1 Notifications (Featured) — €79/mo -->
           <article
             class="card-surface relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between border-2 border-emerald-400/80 shadow-[0_24px_60px_rgba(0,0,0,0.65),0_0_40px_rgba(16,185,129,0.18)]"
           >
@@ -445,7 +445,7 @@
               <span
                 class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
               >
-                TIER 2 · VIP PICKS + PRO APP
+                TIER 2 · PRO WEBAPP + NOTIFICATIONS
               </span>
               <span
                 class="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950 text-[10.5px] font-extrabold px-3 py-1 rounded-full tracking-wider shadow"
@@ -470,51 +470,51 @@
                 }}
               </div>
               <p class="text-[13.5px] text-slate-300 pb-4 mb-4 border-b border-slate-700/60">
-                Complete Pro WebApp access plus instant real-time push alerts to Discord &amp; Telegram.
+                Full interactive Quant WebApp desk on desktop &amp; mobile plus all Tier 1 Discord &amp; Telegram notifications.
               </p>
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span><b>Everything in Tier 1 (Pro WebApp Desk)</b> unlocked across all devices</span>
+                  <span><b>Everything in Tier 1 (VIP Discord &amp; Telegram Notifications)</b> included</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span><b>Private VIP Discord &amp; Telegram Channels</b> with dedicated per-sport feeds</span>
+                  <span><b>100% Unlocked Pro WebApp Desk</b> across all 10 sports on desktop &amp; mobile</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span><b>Instant High-Res PNG Pick Cards</b> with win probability, fair odds &amp; score targets</span>
+                  <span><b>Smart Bet Slip &amp; ¼-Kelly Optimizer</b> tailored to your exact euro bankroll &amp; stake</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span><b>Live In-Play Dominance Rebound</b> &amp; 76–90m Goal Alerts pushed in real time</span>
+                  <span><b>Exact-Score &amp; Set-Score Dutching Splitter</b> (2-Score &amp; 3-Score equal-payout splits)</span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span><b>Closing-Line Steam Alerts</b> &amp; automated settled recap cards</span>
+                  <span><b>On-Demand Matchup Analyzer</b>, Drill-Down Inspector &amp; 6s Live In-Play Stream</span>
                 </li>
               </ul>
             </div>
 
             <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20VIP%20Picks%20%2B%20Pro%20Subscription&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20BetScout%20VIP%20Picks%20%2B%20Pro%20WebApp.%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
+              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%202%20Pro%20WebApp%20%2B%20VIP%20Notifications&body=Hi%20BetScout%20Team%2C%0A%0AI%20would%20like%20to%20join%20Tier%202%20(Pro%20WebApp%20%2B%20VIP%20Notifications%20-%20%E2%82%AC79%2Fmo).%0AMy%20Google%20Account%20Email%3A%20%0AMy%20Discord%2FTelegram%20Username%3A%20"
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-400 via-emerald-400 to-teal-300 text-slate-950 border border-emerald-200 shadow-[0_8px_24px_rgba(16,185,129,0.3)]"
             >
               <Icon icon="fa6-solid:rocket" class="w-4 h-4" />
-              <span>Get VIP Picks + Pro App</span>
+              <span>Get Pro WebApp + VIP Alerts</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4" />
             </a>
           </article>
 
-          <!-- Tier 3: Quant API & Syndicate -->
+          <!-- Tier 3: Quant API + Bonus MCP Server -->
           <article class="card-surface rounded-2xl p-6 sm:p-7 flex flex-col justify-between border-t-2 border-t-amber-400">
             <div>
               <div class="mb-4">
                 <span
                   class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50"
                 >
-                  TIER 3 · QUANT API &amp; SYNDICATE
+                  TIER 3 · QUANT API + BONUS MCP SERVER
                 </span>
               </div>
               <div class="flex items-baseline gap-1.5 my-2 font-mono tabular-nums">
@@ -531,13 +531,20 @@
                 }}
               </div>
               <p class="text-[13.5px] text-slate-300 pb-4 mb-4 border-b border-slate-700/60">
-                Built for betting syndicates, communities &amp; automated programmatic execution.
+                Full REST API, TypeScript/Python SDKs &amp; Bonus AI Agent MCP Server plus everything in Tier 2.
               </p>
 
               <ul class="space-y-3 text-[13.5px] text-slate-100 mb-7">
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <span><b>Everything in Tier 2 (VIP Picks + Pro WebApp)</b> included</span>
+                  <span><b>Everything in Tier 2 (Pro WebApp + VIP Notifications)</b> included</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span>
+                    <b>Bonus AI Agent MCP Server:</b> Native Model Context Protocol tools for Claude, Cursor &amp;
+                    Copilot
+                  </span>
                 </li>
                 <li class="flex items-start gap-2.5">
                   <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -556,18 +563,14 @@
                     <b>Custom Webhook Fan-Out:</b> Automated PNG Pick Cards posted directly to your Discord or Telegram
                   </span>
                 </li>
-                <li class="flex items-start gap-2.5">
-                  <Icon icon="fa6-solid:check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <span><b>Priority Model Calibration</b> &amp; custom tournament coverage</span>
-                </li>
               </ul>
             </div>
 
             <a
-              href="mailto:julian.christ@gmail.com?subject=BetScout%20Quant%20API%20%26%20Syndicate%20Access&body=Hi%20BetScout%20Team%2C%0A%0AI%20am%20interested%20in%20Tier%203%20Quant%20API%20%26%20Syndicate%20access.%0AOrganization%20%2F%20Use%20Case%3A%20"
+              href="mailto:julian.christ@gmail.com?subject=BetScout%20Tier%203%20Quant%20API%20%2B%20MCP%20Server%20Access&body=Hi%20BetScout%20Team%2C%0A%0AI%20am%20interested%20in%20Tier%203%20(Quant%20API%20%2B%20Bonus%20MCP%20Server%20-%20%E2%82%AC199%2Fmo).%0AOrganization%20%2F%20Use%20Case%3A%20"
               class="btn-press w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold bg-slate-900/90 text-white border border-amber-400/50 hover:bg-amber-500/20 hover:border-amber-300"
             >
-              <span>Request API &amp; Syndicate Key</span>
+              <span>Request API + MCP Access</span>
               <Icon icon="fa6-solid:arrow-right" class="w-4 h-4 text-amber-300" />
             </a>
           </article>
@@ -757,8 +760,8 @@
               <h3 class="text-base font-extrabold text-white leading-snug m-0">Select Your Membership Tier</h3>
             </div>
             <p class="text-[13.5px] text-slate-300 leading-relaxed">
-              Choose Pro WebApp (€49/mo), VIP Picks + Pro App (€79/mo), or Quant API (€199/mo) and send your Google
-              account email.
+              Choose VIP Notifications (€39/mo), Pro WebApp + Notifications (€79/mo), or Quant API + Bonus MCP Server
+              (€199/mo) and send your details.
             </p>
           </div>
           <div class="card-surface rounded-2xl p-6 border-t-2 border-t-emerald-400">
@@ -798,10 +801,11 @@
               <Icon icon="fa6-solid:terminal" class="w-3.5 h-3.5" />
               <span>FOR SYNDICATES, BOTS &amp; COMMUNITIES</span>
             </span>
-            <h3 class="text-2xl font-extrabold text-white mb-2.5">Programmatic JSON API &amp; Webhook Syndication</h3>
+            <h3 class="text-2xl font-extrabold text-white mb-2.5">Programmatic JSON API, Bonus MCP Server &amp; Webhook Syndication</h3>
             <p class="text-sm text-slate-300 leading-relaxed mb-5">
               Integrate BetScout's calibrated probabilities, Dixon-Coles 28-score matrices, and 2-leg banker combos
-              directly into your execution engine or community server with rate-limit headers and OpenAPI 3.1 schemas.
+              directly into your execution engine, AI Agent (via our Bonus MCP Server), or community server with
+              rate-limit headers and OpenAPI 3.1 schemas.
             </p>
             <div class="flex flex-wrap gap-3">
               <a
@@ -878,6 +882,9 @@
             Score Intelligence. All rights reserved.
           </span>
         </div>
+        <div class="font-mono text-[11px] text-slate-400/95 bg-slate-900/65 border border-slate-700/50 px-2.5 py-0.5 rounded-full">
+          v{{ appVersion }} ({{ commitHash }})
+        </div>
         <div class="flex flex-wrap gap-5">
           <router-link to="/app" class="hover:text-white">Live Quant Desk</router-link>
           <a href="#pricing" class="hover:text-white">Membership Plans</a>
@@ -906,6 +913,8 @@ setupIconifyCollections();
 
 const store = useBetscoutStore();
 const currentYear = new Date().getFullYear();
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.5.0';
+const commitHash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
 const billingCycle = ref<'monthly' | 'annual'>('monthly');
 const openFaq = ref<number | null>(0);
 const mobileMenuOpen = ref<boolean>(false);

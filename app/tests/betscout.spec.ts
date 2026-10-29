@@ -213,9 +213,11 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
 
     expect(wrapper.text()).toContain('96.5%');
     expect(wrapper.text()).toContain('+35.2%');
-    expect(wrapper.text()).toContain('€49');
+    expect(wrapper.find('footer').text()).toMatch(/v0\.5\.0 \([a-f0-9]+|dev\)/);
+    expect(wrapper.text()).toContain('€39');
     expect(wrapper.text()).toContain('€79');
     expect(wrapper.text()).toContain('€199');
+    expect(wrapper.text()).toContain('Bonus AI Agent MCP Server');
     expect(wrapper.text()).toContain('AS Roma vs Cagliari');
     expect(wrapper.text()).toContain('API Documentation');
     expect(wrapper.text()).not.toContain('Interactive API Docs');
