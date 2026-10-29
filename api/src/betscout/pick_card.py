@@ -438,6 +438,33 @@ def _fit_font_and_text(
     return f_min, (ell + "..." if ell != clean else clean)
 
 
+def _draw_text_with_muted_vs(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    text: str,
+    font_bold: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    font_size: int,
+    primary_rgb: tuple[int, int, int] = (255, 255, 255),
+    muted_rgb: tuple[int, int, int] = (148, 163, 184),
+) -> None:
+    """Draw a matchup string (`Home vs Away`) with team names in bold `primary_rgb` and `vs` in regular `muted_rgb`."""
+    if " vs " not in text:
+        draw.text(xy, text, font=font_bold, fill=primary_rgb)
+        return
+    font_reg = _load_font(font_size, bold=False)
+    x_cur, y_cur = xy
+    parts = text.split(" vs ")
+    for idx, part in enumerate(parts):
+        if part:
+            draw.text((x_cur, y_cur), part, font=font_bold, fill=primary_rgb)
+            x_cur += int(_text_width(draw, part, font_bold))
+        if idx < len(parts) - 1:
+            vs_str = " vs "
+            draw.text((x_cur, y_cur), vs_str, font=font_reg, fill=muted_rgb)
+            x_cur += int(_text_width(draw, vs_str, font_reg))
+
+
+
 def _split_primary_and_sub_kpi(raw_val: str) -> tuple[str, str]:
     """Split a composite KPI string like '1.33 (Fair 1.34, EV +2.1%)' or '2:0 (9.8%) · Cluster 2:0/2:1/3:0 (28.5%)'
     into `(primary_headline, secondary_subline)` so neither line is ever cut off inside a KPI box."""
@@ -706,11 +733,19 @@ def render_pick_card_png(
     draw.rounded_rectangle([(w - 44 - ko_w, 118), (w - 44, 152)], radius=9, fill=(11, 17, 30), outline=(42, 58, 86), width=1)
     draw.text((w - 44 - ko_w + 12, 128), ko_fit, font=f_ko, fill=(148, 163, 184))
 
-    # Matchup Title with Sport Emoji on the left (auto-scaled so long names never clip)
+    # Matchup Title with Sport Emoji on the left (auto-scaled so long names never clip, with muted 'vs')
     match_raw = _strip_non_ascii_symbols(str(pick_data.get("match") or f"{pick_data.get('home', '')} vs {pick_data.get('away', '')}"))
     _paste_sport_icon(img, sport_cat, 62, 190, size=34)
     f_match, match_fit = _fit_font_and_text(draw, match_raw, max_width=w - 140, start_size=32, min_size=18, bold=True)
-    draw.text((88, 173), match_fit, font=f_match, fill=(255, 255, 255))
+    _draw_text_with_muted_vs(
+        draw,
+        (88, 173),
+        match_fit,
+        f_match,
+        int(getattr(f_match, "size", 28)),
+        primary_rgb=(255, 255, 255),
+        muted_rgb=(148, 163, 184),
+    )
 
     # Main Pick Highlight Card (emerald for picks/wins, red/pink for resolved losses) with clipped left accent bar
     box_fill = (13, 33, 29) if not is_loss_card else (38, 16, 26)
@@ -1003,12 +1038,28 @@ def render_digest_slate_png(
         _paste_sport_icon(img, row_sp, 286, y_cur + 31, size=38)
 
         if mt_score_sub:
-            draw.text((322, y_cur + 11), mt_fit, font=f_mt, fill=(241, 245, 249))
+            _draw_text_with_muted_vs(
+                draw,
+                (322, y_cur + 11),
+                mt_fit,
+                f_mt,
+                int(getattr(f_mt, "size", 15)),
+                primary_rgb=(241, 245, 249),
+                muted_rgb=(148, 163, 184),
+            )
             score_line = f"Score: {mt_score_sub}" if not mt_score_sub.lower().startswith("score") else mt_score_sub
             f_ms, ms_fit = _fit_font_and_text(draw, score_line, max_width=310, start_size=12, min_size=9, bold=False)
             draw.text((322, y_cur + 34), ms_fit, font=f_ms, fill=(148, 163, 184))
         else:
-            draw.text((322, y_cur + 21), mt_fit, font=f_mt, fill=(241, 245, 249))
+            _draw_text_with_muted_vs(
+                draw,
+                (322, y_cur + 21),
+                mt_fit,
+                f_mt,
+                int(getattr(f_mt, "size", 15)),
+                primary_rgb=(241, 245, 249),
+                muted_rgb=(148, 163, 184),
+            )
 
         pk_col = (34, 197, 94) if "LOSS" not in pk_clean and "(L " not in pk_raw else (244, 63, 94)
         if pk_sub:

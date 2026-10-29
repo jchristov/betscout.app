@@ -91,6 +91,56 @@ function fillFittedCanvasText(
   if (align) ctx.textAlign = prevAlign;
 }
 
+function fillFittedMatchupCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  startSize: number,
+  minSize: number,
+  primaryColor = '#ffffff',
+  mutedColor = '#94a3b8',
+): void {
+  const str = String(text ?? '');
+  let sz = startSize;
+  const fontFam = '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  while (sz >= minSize) {
+    ctx.font = `800 ${sz}px ${fontFam}`;
+    if (ctx.measureText(str).width <= maxWidth) break;
+    sz -= 2;
+  }
+  const finalSz = Math.max(minSize, sz);
+  ctx.font = `800 ${finalSz}px ${fontFam}`;
+  let out = str;
+  while (out.length > 4 && ctx.measureText(out).width > maxWidth) {
+    out = out.slice(0, -1).trimEnd();
+  }
+  if (out !== str) out += '...';
+  if (!out.includes(' vs ')) {
+    ctx.fillStyle = primaryColor;
+    ctx.fillText(out, x, y);
+    return;
+  }
+  const parts = out.split(' vs ');
+  let curX = x;
+  parts.forEach((part, idx) => {
+    if (part) {
+      ctx.font = `800 ${finalSz}px ${fontFam}`;
+      ctx.fillStyle = primaryColor;
+      ctx.fillText(part, curX, y);
+      curX += ctx.measureText(part).width;
+    }
+    if (idx < parts.length - 1) {
+      const vsStr = ' vs ';
+      ctx.font = `500 ${finalSz}px ${fontFam}`;
+      ctx.fillStyle = mutedColor;
+      ctx.fillText(vsStr, curX, y);
+      curX += ctx.measureText(vsStr).width;
+    }
+  });
+}
+
 export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCardMeta): void {
   if (!cv || !cv.getContext) return;
   const ctx = cv.getContext('2d');
@@ -319,8 +369,7 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
   fillFittedCanvasText(ctx, koStr, w - 56, 140, koBoxW - 22, 12, 9, '700', 'right');
 
   const matchTitle = `${spIcon}  ${String(meta.match || 'Daily High-Conviction Picks')}`;
-  ctx.fillStyle = '#ffffff';
-  fillFittedCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '800', 'left');
+  fillFittedMatchupCanvasText(ctx, matchTitle, 44, 198, w - 88, 32, 18, '#ffffff', '#94a3b8');
 
   const pickBoxFill = isLossCard ? '#26101a' : '#0d211d';
   const pickBoxBorder = isLossCard ? '#f43f5e' : '#22c55e';
