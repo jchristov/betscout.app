@@ -8,6 +8,8 @@ api/.pytest_cache
 .env
 data/cache
 app/node_modules
+mcp/node_modules
+mcp/dist
 sdk/node_modules
 sdk/typescript/node_modules
 sdk/dist
