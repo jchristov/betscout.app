@@ -271,7 +271,12 @@
                   class="w-5 h-5 shrink-0"
                   :class="getSportIconColor(freeTeaser.sport_cat)"
                 />
-                <span>{{ freeTeaser.match }}</span>
+                <span>
+                  <template v-if="freeTeaser.home && freeTeaser.away && !String(freeTeaser.match || '').includes('🔒')">
+                    {{ freeTeaser.home }} <span class="text-slate-400 font-normal">vs</span> {{ freeTeaser.away }}
+                  </template>
+                  <template v-else>{{ freeTeaser.match }}</template>
+                </span>
               </div>
               <div class="p-4 rounded-xl bg-slate-950/75 border border-emerald-400/40">
                 <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
@@ -674,10 +679,10 @@
               <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left">
                 <th class="py-3.5 px-4">League</th>
                 <th class="py-3.5 px-4">Matchup</th>
-                <th class="py-3.5 px-4">Model Pick</th>
+                <th class="py-3.5 px-4">Pick</th>
                 <th class="py-3.5 px-4">Final Score</th>
-                <th class="py-3.5 px-4">Logged Odds</th>
-                <th class="py-3.5 px-4">Realized PnL</th>
+                <th class="py-3.5 px-4">Odds</th>
+                <th class="py-3.5 px-4">Result / PNL</th>
               </tr>
             </thead>
             <tbody>
@@ -700,7 +705,9 @@
                     <span>{{ r.league_label || r.league }}</span>
                   </span>
                 </td>
-                <td class="py-3 px-4 font-bold text-white">{{ r.home }} vs {{ r.away }}</td>
+                <td class="py-3 px-4 font-bold text-white">
+                  {{ r.home }} <span class="text-slate-400 font-normal">vs</span> {{ r.away }}
+                </td>
                 <td class="py-3 px-4 text-emerald-300 font-bold">
                   {{ r.side === 'H' ? r.home : r.away }} ({{ r.side }})
                 </td>
@@ -935,7 +942,7 @@ const freeTeaser = computed(() => {
 });
 
 const recentSettledRows = computed(() => {
-  return store.settledBets.slice(0, 8);
+  return store.settledBets.slice(0, 10);
 });
 
 const faqs = [

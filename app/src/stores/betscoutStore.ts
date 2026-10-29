@@ -558,7 +558,10 @@ export const useBetscoutStore = defineStore('betscout', () => {
   });
 
   const settledBets = computed(() =>
-    (paperLedger.value?.bets || []).filter((t: any) => t.status === 'SETTLED'),
+    (paperLedger.value?.bets || [])
+      .filter((t: any) => t.status === 'SETTLED')
+      .slice()
+      .sort((a: any, b: any) => String(b.kickoff || '').localeCompare(String(a.kickoff || ''))),
   );
 
   const liveBets = computed(() =>

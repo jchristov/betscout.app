@@ -3234,7 +3234,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             SELECT p.*, m.home_score, m.away_score
             FROM paper_bets p
             LEFT JOIN matches m ON p.league = m.league AND p.event_id = m.event_id
-            ORDER BY p.status DESC, p.kickoff ASC
+            ORDER BY p.status DESC,
+                     CASE WHEN p.status = 'SETTLED' THEN p.kickoff END DESC,
+                     p.kickoff ASC
             """
         ).fetchall()
     ]

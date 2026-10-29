@@ -479,3 +479,44 @@ export function computeEqualPayoutDutchSplit(
     combinedProb: Number(combinedProb.toFixed(4)),
   };
 }
+
+export interface ScorePredictionSegment {
+  text: string;
+  probPct: number | null;
+  isOver60: boolean;
+  separatorBefore?: string;
+}
+
+export function parseScorePredictionSegments(raw?: string | null): ScorePredictionSegment[] {
+  const s = String(raw || '').trim();
+  if (!s || s === '—') {
+    return [{ text: '—', probPct: null, isOver60: false }];
+  }
+  const parts: Array<{ sep: string; text: string }> = [];
+  const regex = /\s*(·|\||(?<=\))\s*\/)\s*/g;
+  let lastIdx = 0;
+  let prevSep = '';
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(s)) !== null) {
+    const chunk = s.slice(lastIdx, m.index).trim();
+    if (chunk) {
+      parts.push({ sep: prevSep, text: chunk });
+    }
+    prevSep = m[1].trim() === '/' ? ' / ' : ` ${m[1].trim()} `;
+    lastIdx = regex.lastIndex;
+  }
+  const tail = s.slice(lastIdx).trim();
+  if (tail) {
+    parts.push({ sep: prevSep, text: tail });
+  }
+  return parts.map((p) => {
+    const pctMatch = p.text.match(/\((\d+(?:\.\d+)?)%/);
+    const probPct = pctMatch ? Number(pctMatch[1]) : null;
+    return {
+      text: p.text,
+      probPct,
+      isOver60: probPct !== null && probPct > 60.0,
+      separatorBefore: p.sep || undefined,
+    };
+  });
+}

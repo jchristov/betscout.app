@@ -1873,8 +1873,8 @@
     }
 
     function renderMatchAndVenueSection(match, venue) {
-      document.getElementById('match-venue-stage-title').textContent =
-        `Match #${match.matchId}: ${match.home || 'Home'} vs ${match.away || 'Away'} (${match.result?.home ?? '—'}:${match.result?.away ?? '—'})`;
+      document.getElementById('match-venue-stage-title').innerHTML =
+        `Match #${match.matchId}: ${match.home || 'Home'} <span style="color:var(--text-muted);font-weight:400;">vs</span> ${match.away || 'Away'} (${match.result?.home ?? '—'}:${match.result?.away ?? '—'})`;
       document.getElementById('match-code-tag').textContent =
         `getMatchMarkets(${match.matchId}) · getMatchInsights(${match.matchId}) · getMatchCommentary(${match.matchId})`;
 

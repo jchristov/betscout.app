@@ -14,6 +14,7 @@ import {
   getSportIconify,
   getTierBadgeClass,
   getWinProbBarColor,
+  parseScorePredictionSegments,
 } from '../src/utils/formatters';
 import { useBetscoutStore } from '../src/stores/betscoutStore';
 import LandingView from '../src/views/LandingView.vue';
@@ -80,6 +81,16 @@ describe('BetScout Quantitative Formatters & Engines', () => {
     expect(getBadgeTooltipText('tier_0_96')).toContain('Tier 0 Ultra-Banker');
     expect(getBadgeTooltipText('BANKER_PROFIT_BOOSTER')).toContain('Banker Profitability Booster');
     expect(getBadgeTooltipText('EDGE +4.2pp')).toContain('Bookmaker Odds Mispricing');
+
+    const segsHigh = parseScorePredictionSegments('Sets 2:0 (64.7%, Fair 1.55) / 2:1 (21.6%)');
+    expect(segsHigh.length).toBe(2);
+    expect(segsHigh[0].isOver60).toBe(true);
+    expect(segsHigh[1].isOver60).toBe(false);
+
+    const segsLow = parseScorePredictionSegments('0:1 (16.4%) · Cluster 0:1 / 0:2 / 1:2 (38.9%, Fair 2.57)');
+    expect(segsLow.length).toBe(2);
+    expect(segsLow[0].isOver60).toBe(false);
+    expect(segsLow[1].isOver60).toBe(false);
   });
 
   it('builds 2-Leg and 3-Leg Banker Profitability Booster Combos when >=2 low-odds bankers exist', () => {
@@ -219,6 +230,11 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('€199');
     expect(wrapper.text()).toContain('Bonus AI Agent MCP Server');
     expect(wrapper.text()).toContain('AS Roma vs Cagliari');
+    expect(wrapper.text()).toContain('Pick');
+    expect(wrapper.text()).toContain('Odds');
+    expect(wrapper.text()).toContain('Result / PNL');
+    expect(wrapper.text()).not.toContain('Model Pick');
+    expect(wrapper.text()).not.toContain('Logged Odds');
     expect(wrapper.text()).toContain('API Documentation');
     expect(wrapper.text()).not.toContain('Interactive API Docs');
     expect(wrapper.text()).not.toContain('betscout.app');
@@ -254,6 +270,8 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('Settled Win Rate');
     expect(wrapper.text()).toContain('Realized Profit / ROI');
     expect(wrapper.text()).toContain('AS Roma vs Cagliari');
+    expect(wrapper.find('.live-dot-idle').exists()).toBe(true);
+    expect(wrapper.find('.live-blink-dot').exists()).toBe(false);
     expect(wrapper.text()).toContain('High-Probability Banker Profitability Booster Combos');
     expect(wrapper.text()).not.toContain('Interactive API Docs');
     expect(wrapper.text()).not.toContain('betscout.app');

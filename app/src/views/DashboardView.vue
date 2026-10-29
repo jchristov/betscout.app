@@ -358,7 +358,7 @@
             class="inline-flex items-center gap-2"
             :class="store.liveBets.length > 0 ? 'text-emerald-300' : 'text-slate-200'"
           >
-            <span class="live-blink-dot"></span>
+            <span :class="store.liveBets.length > 0 ? 'live-blink-dot' : 'live-dot-idle'"></span>
             <span>{{ store.liveBets.length }} Live</span>
           </span>
           <span class="text-slate-500">·</span>
@@ -539,7 +539,7 @@
       <!-- Live In-Play Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-rose-300 m-0">
-          <span class="live-blink-dot"></span>
+          <span :class="store.liveBets.length > 0 ? 'live-blink-dot' : 'live-dot-idle'"></span>
           <span>Live In-Play Paper-Bets &amp; Tracked Events (Ongoing: {{ store.liveBets.length }})</span>
         </h2>
         <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
@@ -591,7 +591,7 @@
             class="font-extrabold text-sm text-white hover:text-sky-300 text-left block mb-1.5"
             @click="openMatchupModal(tr.home, tr.away, tr.league)"
           >
-            {{ tr.home }} vs {{ tr.away }}
+            {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
           </button>
           <div class="flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-1.5">
@@ -792,7 +792,10 @@
             class="font-extrabold text-sm text-white hover:text-sky-300 text-left block mb-2"
             @click="openMatchupModal(b.home, b.away, b.sport_league)"
           >
-            {{ b.match }}
+            <template v-if="b.home && b.away && !String(b.match || '').includes('🔒')">
+              {{ b.home }} <span class="text-slate-400 font-normal">vs</span> {{ b.away }}
+            </template>
+            <template v-else>{{ b.match }}</template>
           </button>
 
           <div class="flex flex-wrap items-center gap-1.5 mb-2.5">
@@ -910,7 +913,10 @@
                   class="font-bold text-white hover:text-sky-300 text-left transition-colors"
                   @click="openMatchupModal(b.home, b.away, b.sport_league)"
                 >
-                  {{ b.match }}
+                  <template v-if="b.home && b.away && !String(b.match || '').includes('🔒')">
+                    {{ b.home }} <span class="text-slate-400 font-normal">vs</span> {{ b.away }}
+                  </template>
+                  <template v-else>{{ b.match }}</template>
                 </button>
               </td>
               <td class="py-2.5 px-2.5">
@@ -949,7 +955,16 @@
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="text-sky-300 font-semibold">{{ b.exact_score_pick || '—' }}</span>
+                  <span class="text-sky-300">
+                    <template
+                      v-for="(seg, sIdx) in parseScorePredictionSegments(b.exact_score_pick)"
+                      :key="sIdx"
+                    >
+                      <span v-if="seg.separatorBefore" class="text-slate-400 font-normal">{{ seg.separatorBefore }}</span>
+                      <b v-if="seg.isOver60" class="font-extrabold text-white">{{ seg.text }}</b>
+                      <span v-else class="font-normal">{{ seg.text }}</span>
+                    </template>
+                  </span>
                   <button
                     v-if="b.score_cluster_items?.length"
                     type="button"
@@ -1433,13 +1448,13 @@
           <thead>
             <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase tracking-wider border-b border-slate-700/70 text-left">
               <th class="py-2.5 px-2.5 w-11 text-center">Sport</th>
-              <th class="py-2.5 px-2.5">Competition</th>
+              <th class="py-2.5 px-2.5">League</th>
               <th class="py-2.5 px-2.5">Kickoff</th>
               <th class="py-2.5 px-2.5">Matchup</th>
               <th class="py-2.5 px-2.5">Pick</th>
               <th class="py-2.5 px-2.5">Final Score</th>
-              <th class="py-2.5 px-2.5">Odds / CLV</th>
-              <th class="py-2.5 px-2.5">Result / PnL</th>
+              <th class="py-2.5 px-2.5">Odds</th>
+              <th class="py-2.5 px-2.5">Result / PNL</th>
             </tr>
           </thead>
           <tbody>
@@ -1469,7 +1484,9 @@
                 </span>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">{{ tr.kickoff_local || tr.kickoff }}</td>
-              <td class="py-2.5 px-2.5 font-bold text-white">{{ tr.home }} vs {{ tr.away }}</td>
+              <td class="py-2.5 px-2.5 font-bold text-white">
+                {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
+              </td>
               <td class="py-2.5 px-2.5">
                 <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
                 <span
@@ -2012,6 +2029,7 @@ import {
   getSportIconify,
   getTierBadgeClass,
   getWinProbBarColor,
+  parseScorePredictionSegments,
 } from '../utils/formatters';
 import { setupIconifyCollections } from '../utils/iconifySetup';
 import { type PickCardMeta, renderCanvasPickCard } from '../utils/canvasCard';

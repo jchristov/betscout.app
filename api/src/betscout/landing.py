@@ -44,9 +44,9 @@ def render_landing_page_html(
                 kelly_growth_pct = float(ledger.get("kelly_growth_pct") or 0.0)
                 active_picks_count = int(ledger.get("pending_count") or 0) + int(ledger.get("live_count") or 0)
                 for b in (ledger.get("bets") or []):
-                    if b.get("status") == "SETTLED" and float(b.get("pnl_best") or 0.0) > 0:
+                    if b.get("status") == "SETTLED":
                         recent_wins.append(b)
-                        if len(recent_wins) >= 8:
+                        if len(recent_wins) >= 10:
                             break
         except Exception:
             pass
@@ -116,13 +116,17 @@ def render_landing_page_html(
             pass
 
     recent_rows_html = ""
-    for rw in recent_wins[:8]:
+    for rw in recent_wins[:10]:
         lg_u = html.escape(str(rw.get("league") or "").upper())
-        m_str = html.escape(f"{rw.get('home')} vs {rw.get('away')}")
+        h_esc = html.escape(str(rw.get("home") or ""))
+        a_esc = html.escape(str(rw.get("away") or ""))
+        m_str = f'{h_esc} <span style="color:var(--text-muted);font-weight:400;">vs</span> {a_esc}'
         pk_team = html.escape(str(rw.get("home") if rw.get("side") == "H" else rw.get("away")))
         sc_s = html.escape(str(rw.get("score_str") or rw.get("settled_score") or "Won"))
         odds_f = float(rw.get("logged_best_odds") or 1.30)
         pnl_f = float(rw.get("pnl_best") or (odds_f - 1.0))
+        res_pill_cls = "pill-emerald" if pnl_f > 0 else "pill-amber"
+        res_lbl = f"WIN ({pnl_f:+.2f}u)" if pnl_f > 0 else f"LOSS ({pnl_f:.2f}u)"
         recent_rows_html += f"""
         <tr>
           <td><span class="pill pill-slate">{lg_u}</span></td>
@@ -130,7 +134,7 @@ def render_landing_page_html(
           <td class="td-pick c-emerald">{pk_team}</td>
           <td class="td-mono">{sc_s}</td>
           <td class="td-mono">@{odds_f:.2f}</td>
-          <td class="td-right"><span class="pill pill-emerald">WIN {pnl_f:+.2f}u</span></td>
+          <td class="td-right"><span class="pill {res_pill_cls}">{res_lbl}</span></td>
         </tr>
         """
 
@@ -1100,10 +1104,10 @@ def render_landing_page_html(
             <tr>
               <th>League</th>
               <th>Matchup</th>
-              <th>Model Pick</th>
+              <th>Pick</th>
               <th>Final Score</th>
-              <th>Logged Odds</th>
-              <th class="td-right">Realized PnL</th>
+              <th>Odds</th>
+              <th class="td-right">Result / PNL</th>
             </tr>
           </thead>
           <tbody>

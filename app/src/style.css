@@ -242,6 +242,16 @@
   animation: liveDotRipple 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
+.live-dot-idle {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: rgba(148, 163, 184, 0.45);
+  flex-shrink: 0;
+}
+
 .stagger-1 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.04s both; }
 .stagger-2 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.10s both; }
 .stagger-3 { animation: fadeSlideUp 0.36s cubic-bezier(0.2, 0, 0, 1) 0.16s both; }
