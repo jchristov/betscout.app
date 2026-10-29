@@ -73,7 +73,7 @@ All historical and live records are stored in a single canonical SQLite database
 make dev
 # (or directly: cd api && uv run betscout --port 8090)
 ```
-Then open **`http://127.0.0.1:8090`** (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `/api/docs` Swagger UI, and `/docs/png-notification-cards.html` PNG Notification Cards Catalog) in your browser.
+Then open **`http://127.0.0.1:8090`** (`/` Landing Page, `/app` 4-Tab Quantitative Desk, `/api/docs` Swagger UI, and `/docs/notification-cards.html` PNG Notification Cards Catalog) in your browser.
 
 Running the WebApp server enables:
 - **Real-time Server-Sent Events (SSE) streaming** (`/api/stream`) every 15 seconds.

@@ -44,7 +44,7 @@ logos: ## Regenerate SVG and PNG logo assets (Option 7.3) in all sizes
 	cp -f app/public/betscout-logo.svg app/public/favicon.svg
 	cd api && uv run python -c "from pathlib import Path; from betscout.pick_card import render_logo_png; r = Path('..'); render_logo_png(512, r/'app/public/betscout-logo.png'); render_logo_png(512, r/'app/public/icon-512.png'); render_logo_png(192, r/'app/public/icon-192.png'); render_logo_png(180, r/'app/public/apple-touch-icon.png')"
 
-cards-gallery: ## Generate docs/png-notification-cards.html showcasing all PNG notification card designs
+cards-gallery: ## Generate docs/notification-cards.html showcasing all PNG notification card designs
 	cd api && uv run python scripts/generate_cards_gallery.py
 
 dev: app-build ## Build app/dist and start local BetScout server on http://127.0.0.1:8090

@@ -1139,8 +1139,8 @@ def build_webapp_handler(root_dir: Path) -> type[BaseHTTPRequestHandler]:
                     return
 
             docs_dir = (root_dir / "docs") if (root_dir / "docs").is_dir() else (root_dir.parent / "docs")
-            if parsed.path in ("/docs/png-notification-cards.html", "/cards"):
-                cards_f = docs_dir / "png-notification-cards.html"
+            if parsed.path in ("/docs/notification-cards.html", "/docs/png-notification-cards.html", "/cards"):
+                cards_f = docs_dir / "notification-cards.html"
                 if cards_f.is_file():
                     cb = cards_f.read_bytes()
                     self.send_response(200)

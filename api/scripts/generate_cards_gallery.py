@@ -1,4 +1,4 @@
-"""Generate `docs/png-notification-cards.html` showcasing all 12 BetScout PNG Notification Card designs."""
+"""Generate `docs/notification-cards.html` showcasing all 12 BetScout PNG Notification Card designs."""
 
 from __future__ import annotations
 
@@ -479,7 +479,7 @@ def main() -> None:
 """
     )
 
-    out_file = ROOT / "docs" / "png-notification-cards.html"
+    out_file = ROOT / "docs" / "notification-cards.html"
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text("".join(html_parts), encoding="utf-8")
     print(f"Wrote {out_file} ({out_file.stat().st_size:,} bytes)")
