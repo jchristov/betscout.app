@@ -16,7 +16,7 @@ import re
 import sqlite3
 import subprocess
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -1026,6 +1026,183 @@ def notify_new_picks_to_discord(
                 pass
 
         return {**res, "notified_picks_count": len(unnotified_picks)}
+
+
+def notify_t60_reminders_to_discord(
+    db_path: Path,
+    webhook_url: str | None = None,
+    dry_run: bool = False,
+    window_minutes: int = 75,
+) -> dict[str, Any]:
+    """Atomically claim active pre-match `PENDING` rows in `paper_bets` kicking off within the next `window_minutes`
+    (default 75m so the 20-minute cron and 90s poller always catch the 1-hour T-60m window) where `reminder_notified_at IS NULL`,
+    and send a clean, emoji-styled text reminder notification (NO PNG card image attachment) to Discord & Telegram."""
+    if not db_path.exists():
+        return {"ok": True, "reminded_count": 0}
+
+    with _SETTLEMENT_NOTIFY_LOCK:
+        now_dt = datetime.now(timezone.utc)
+        now_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        horizon_iso = (now_dt + timedelta(minutes=window_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        conn = sqlite3.connect(db_path, timeout=30.0, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(paper_bets)").fetchall()}
+            if "reminder_notified_at" not in cols:
+                conn.execute("ALTER TABLE paper_bets ADD COLUMN reminder_notified_at TEXT")
+
+            candidates = [
+                dict(r)
+                for r in conn.execute(
+                    """
+                    SELECT * FROM paper_bets
+                    WHERE status = 'PENDING'
+                      AND reminder_notified_at IS NULL
+                      AND (is_live = 0 OR is_live IS NULL)
+                      AND (time_valid = 1 OR time_valid IS NULL)
+                      AND kickoff > ?
+                      AND kickoff <= ?
+                    ORDER BY kickoff ASC
+                    """,
+                    (now_iso, horizon_iso),
+                ).fetchall()
+                if not str(r["kickoff"]).endswith("T04:00Z") and not str(r["kickoff"]).endswith("T04:00:00Z")
+            ]
+            if not candidates:
+                conn.execute("COMMIT")
+                conn.close()
+                return {"ok": True, "reminded_count": 0}
+
+            if not dry_run:
+                for r in candidates:
+                    conn.execute(
+                        "UPDATE paper_bets SET reminder_notified_at = ? WHERE league = ? AND event_id = ? AND reminder_notified_at IS NULL",
+                        (now_iso, r["league"], r["event_id"]),
+                    )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            conn.close()
+            raise
+        conn.close()
+
+        def _row_win_prob(r: dict[str, Any]) -> float:
+            lg_l = str(r.get("league") or "").lower()
+            comp_v = float(r.get("composite_score") or 0.0)
+            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99:
+                return comp_v
+            return min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
+
+        def _minutes_until(ko_str: str) -> int:
+            try:
+                ko_dt = datetime.fromisoformat(str(ko_str).replace("Z", "+00:00"))
+                return max(1, int(round((ko_dt - now_dt).total_seconds() / 60.0)))
+            except Exception:
+                return 60
+
+        def _format_reminder_bullet(r: dict[str, Any]) -> str:
+            sp_c = _league_to_sport_cat(r["league"])
+            sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
+            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            comp_lbl = LEAGUE_LABELS.get(r["league"], str(r["league"]).upper())
+            ko_loc = _format_local_time(r["kickoff"])
+            mins_left = _minutes_until(r["kickoff"])
+            wp_v = _row_win_prob(r)
+            fair_o = 1.0 / max(wp_v, 0.05)
+            odds_v = float(r.get("latest_close_odds") or r.get("logged_best_odds") or 1.25)
+            clv_v = float(r.get("clv_pct") or 0.0) * 100.0
+            clv_tag = f" · 📈 CLV `{clv_v:+.1f}%`" if abs(clv_v) >= 0.5 else ""
+            esc_str = f" · 🎲 Target: **{r['exact_score_pred']}**" if r.get("exact_score_pred") else ""
+            return (
+                f"• ⏳ **T-{mins_left}m** | {sp_emoji} **{r['home']} vs {r['away']}** (*{comp_lbl}* · 🕒 `{ko_loc}`)\n"
+                f"  ✅ Pick: **{pick_name} ({r['side']})** @ **{odds_v:.2f}** "
+                f"(Win Prob `{wp_v*100:.1f}%`, Fair `{fair_o:.2f}`, Tier `{r.get('tier') or 'high_conf'}`){clv_tag}{esc_str}"
+            )
+
+        lines: list[str] = [
+            f"⏰ **BETSCOUT — 1-HOUR PRE-MATCH REMINDER ({len(candidates)} Pick{'s' if len(candidates) != 1 else ''} Starting Soon)**",
+            "🔔 *Final pre-kickoff check — lineups, turnaround & closing odds verified:*",
+            "",
+        ]
+        for r in candidates[:15]:
+            lines.append(_format_reminder_bullet(r))
+        lines.append("\n⚡ *Live In-Play Tracker & Match Center: <https://betscout.app>*")
+        msg = "\n".join(lines)
+
+        # Send text-only reminder (image_bytes=None)
+        res = send_discord_message(
+            msg,
+            webhook_url=webhook_url,
+            dry_run=dry_run,
+            env_path=None,
+            image_bytes=None,
+        )
+
+        if not webhook_url:
+            global_wh = resolve_discord_webhook_for_sport(None)
+            by_sp: dict[str, list[dict[str, Any]]] = {}
+            for r in candidates:
+                sp_c = _league_to_sport_cat(r["league"])
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                if sp_wh and sp_wh != global_wh:
+                    by_sp.setdefault(sp_c, []).append(r)
+            for sp_c, sp_rows in by_sp.items():
+                sp_wh = resolve_discord_webhook_for_sport(sp_c)
+                sp_lines = [
+                    f"⏰ **BETSCOUT ({sp_c.upper()}) — 1-HOUR PRE-MATCH REMINDER ({len(sp_rows)} Starting Soon)**",
+                    "",
+                ]
+                for r in sp_rows[:12]:
+                    sp_lines.append(_format_reminder_bullet(r))
+                send_discord_message(
+                    "\n".join(sp_lines),
+                    webhook_url=sp_wh,
+                    dry_run=dry_run,
+                    image_bytes=None,
+                    also_send_to_global=False,
+                )
+
+            try:
+                from .monetization import list_subscriber_webhooks
+
+                for sub_wh in list_subscriber_webhooks(db_path, active_only=True):
+                    if sub_wh.get("channel_type") == "discord" and str(sub_wh.get("target_url_or_chat") or "").startswith("https://discord"):
+                        send_discord_message(
+                            msg,
+                            webhook_url=str(sub_wh["target_url_or_chat"]),
+                            dry_run=dry_run,
+                            image_bytes=None,
+                            also_send_to_global=False,
+                        )
+            except Exception:
+                pass
+
+            try:
+                if get_telegram_env_config().get("configured"):
+                    send_telegram_message(
+                        discord_markdown_to_telegram_html(msg),
+                        dry_run=dry_run,
+                        image_bytes=None,
+                    )
+            except Exception:
+                pass
+
+        if not dry_run and not res.get("ok"):
+            c_rel = sqlite3.connect(db_path, timeout=15.0)
+            for r in candidates:
+                c_rel.execute(
+                    "UPDATE paper_bets SET reminder_notified_at = NULL WHERE league = ? AND event_id = ? AND reminder_notified_at = ?",
+                    (r["league"], r["event_id"], now_iso),
+                )
+            c_rel.commit()
+            c_rel.close()
+
+        return {**res, "reminded_count": len(candidates)}
 
 
 _INPLAY_NOTIFIED_MEMORY: set[str] = set()

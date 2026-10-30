@@ -790,7 +790,7 @@ def test_per_sport_isolated_gates():
     assert tt_bad is False and tt_streak_bad is False and tt_cold_bad is False
     assert tt_good is True and p_mod_tt >= 0.72 and ev_tt >= 0.0
 
-    # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher) & Adverse Line Drift Veto (Laura Samson vs Alice Tubello)
+    # 6b. Tennis Career-Elo Inflation vs Modest Game-Share Veto (Alves vs Grabher), Adverse Line Drift Veto (Laura Samson vs Alice Tubello), & Sub-72% Negative Game-Share Veto (Xinran Sun vs Claire Liu)
     t_alves, _, _, t_alves_reason = evaluate_tennis_gate(
         0.8244, 1.249, 3.80, game_win_pct_diff=0.045, form_6m_diff=0.5, game_elo_diff=88.9, all_elo_diff=254.7, h2h_n=0
     )
@@ -799,6 +799,10 @@ def test_per_sport_isolated_gates():
         0.7135, 1.47, 2.55, game_win_pct_diff=0.063, form_6m_diff=0.4, game_elo_diff=53.9, all_elo_diff=170.2, h2h_n=0, open_odds=1.383
     )
     assert t_samson is False and t_samson_reason == "VETO_ADVERSE_LINE_DRIFT"
+    t_liu, _, _, t_liu_reason = evaluate_tennis_gate(
+        0.7012, 1.52, 2.35, game_win_pct_diff=-0.04, form_6m_diff=0.0, game_elo_diff=76.5, all_elo_diff=130.3, h2h_n=0, decider_diff=-0.10, tourn_wins_diff=1
+    )
+    assert t_liu is False and t_liu_reason == "VETO_STALE_TENNIS_FORM"
 
     # 7. NBA & NHL gates (vetoes Denver vs GSW comp=0.112, 3pt=-2.67, tov=-3.67; vetoes Dallas Stars vs Montreal Canadiens p_mod=0.5886 after 1-5 blowout vs 3-0 goalie wall; vetoes Savehof vs Amo non-Tipico handball loss-streak chalk)
     from betscout.dashboard import build_best_bets_summary
@@ -854,6 +858,81 @@ def test_per_sport_isolated_gates():
         "handball", 0.8096, 0.50, 0.20, 1.21, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=1
     )
     assert hb_bad is False
+
+    # 7b. Secondary Market Opportunity Evaluators (Double Chance 1X/X2, DNB, Over 2.5/1.5 Goals, Tennis +1.5 Sets, Under 21.5 Games, 2:0 Sets, NHL Over Totals)
+    from betscout.sport_models import (
+        evaluate_nhl_totals_market,
+        evaluate_soccer_secondary_markets,
+        evaluate_tennis_secondary_markets,
+    )
+
+    soc_sec = evaluate_soccer_secondary_markets(
+        home="Bayern Munich",
+        away="Borussia Dortmund",
+        side="H",
+        score=0.41,
+        thresholds=thrs,
+        p_model=0.69,
+        p_mkt=0.65,
+        best_h=1.55,
+        best_d=4.30,
+        best_a=5.60,
+        factors_tanh_z={"sot_d": 0.62, "dom_rebound": 0.40, "recent_draws": -0.20},
+        exact_score_pred={"lambda_home": 2.15, "mu_away": 0.95},
+        recent_draws_raw=0.0,
+        h2h_draw_rate=0.15,
+    )
+    soc_sec_types = {x["market_type"] for x in soc_sec}
+    assert "DC_1X" in soc_sec_types and "DNB_H" in soc_sec_types and "OVER_2_5" in soc_sec_types
+
+    ten_sec = evaluate_tennis_secondary_markets(
+        player_1="Tommy Paul",
+        player_2="Luciano Darderi",
+        side="H",
+        win_prob=0.82,
+        game_win_pct_diff=0.068,
+        form_6m_diff=0.35,
+        game_elo_diff=112.0,
+        set_score_pred={"best_of": 3, "straight_sets_score": "2:0", "straight_sets_prob": 0.68, "straight_sets_fair_odds": 1.47},
+        totals_market={"expected_games": 20.1, "games_line": 21.5, "prob": 0.64, "book_odds": 1.76},
+    )
+    ten_sec_types = {x["market_type"] for x in ten_sec}
+    assert "SET_HANDICAP_PLUS_1_5" in ten_sec_types and "UNDER_21.5_GAMES" in ten_sec_types and "SETS_2_0" in ten_sec_types
+
+    nhl_sec = evaluate_nhl_totals_market("Tampa Bay Lightning", "Winnipeg Jets", 6.0, 1.88, 6.75, 65.5)
+    assert len(nhl_sec) == 1 and nhl_sec[0]["tier"] == "totals_over"
+
+    # 7c. Test T-60m 1-Hour Pre-Match Reminder Notification (text-only with emojis, no PNG attachment)
+    import sqlite3
+    import tempfile
+    from datetime import datetime, timedelta, timezone
+    from pathlib import Path
+    from betscout.paper_bet import PAPER_SCHEMA
+    from betscout.telegram_bot import notify_t60_reminders_to_discord
+
+    with tempfile.TemporaryDirectory() as tmp_d:
+        rem_db = Path(tmp_d) / "rem_test.db"
+        c_rem = sqlite3.connect(rem_db)
+        c_rem.executescript(PAPER_SCHEMA)
+        ko_in_45m = (datetime.now(timezone.utc) + timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        c_rem.execute(
+            """
+            INSERT INTO paper_bets (
+                league, event_id, kickoff, time_valid, home, away, side, tier,
+                composite_score, p_mkt, open_odds, logged_best_odds, logged_primary_odds,
+                latest_close_odds, clv_pct, exact_score_pred, factor_breakdown_json,
+                logged_at, updated_at, status
+            ) VALUES ('esp.1', '999888', ?, 1, 'Villarreal', 'Espanyol', 'H', 'top_8pct',
+                      0.74, 0.69, 1.44, 1.44, 1.44, 1.40, 0.0286, '2:0 | Cluster 2:0/1:0/2:1', '{}',
+                      ?, ?, 'PENDING')
+            """,
+            (ko_in_45m, ko_in_45m, ko_in_45m),
+        )
+        c_rem.commit()
+        c_rem.close()
+        rem_res = notify_t60_reminders_to_discord(rem_db, webhook_url="https://discord.com/api/webhooks/111/test", dry_run=True)
+        assert rem_res["ok"] is True and rem_res["reminded_count"] == 1 and rem_res.get("has_image") is not True
+        assert "1-HOUR PRE-MATCH REMINDER" in rem_res["preview"] and "⏳ **T-" in rem_res["preview"] and "Villarreal vs Espanyol" in rem_res["preview"]
     sample_rec = {
         "qualifying_picks": [],
         "tennis_picks": [],

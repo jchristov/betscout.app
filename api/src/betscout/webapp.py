@@ -48,6 +48,7 @@ from .telegram_bot import (
     notify_inplay_rebound_edges_to_discord,
     notify_new_picks_to_discord,
     notify_new_settlements_to_discord,
+    notify_t60_reminders_to_discord,
     send_discord_message,
     send_telegram_message,
 )
@@ -1367,6 +1368,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                 if settled_n > 0:
                     notify_new_settlements_to_discord(db_path)
                 notify_new_picks_to_discord(db_path)
+                notify_t60_reminders_to_discord(db_path)
                 ensure_daily_free_teaser_sent(db_path)
                 if vetoes:
                     lines = ["🚨 **BETSCOUT — T-60m STARTING XI VETO ALERT**", ""]
@@ -2416,9 +2418,10 @@ self.addEventListener('fetch', (event) => {{
                             except Exception:
                                 pass
 
-                    _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement & new pick alerts & regenerating dashboard..."
+                    _PIPELINE_STATUS["step"] = "[3/4] Sending Discord settlement, new pick & T-60m reminder alerts & regenerating dashboard..."
                     notify_new_settlements_to_discord(db_path)
                     notify_new_picks_to_discord(db_path)
+                    notify_t60_reminders_to_discord(db_path)
                     ensure_daily_free_teaser_sent(db_path)
                     generate_dashboard_html(
                         rec_path,

@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS paper_bets (
     exact_score_hit INTEGER,
     notified_at TEXT,
     pick_notified_at TEXT,
+    reminder_notified_at TEXT,
     time_valid INTEGER DEFAULT 1,
     is_live INTEGER DEFAULT 0,
     live_score TEXT,
@@ -626,6 +627,27 @@ def scan_upcoming_tennis(
                         tot_side = "Under" if p_under_games >= p_over_games else "Over"
                         tot_prob = max(p_under_games, p_over_games)
                         tot_book_odds = live_odds.get("odds_under") if tot_side == "Under" else live_odds.get("odds_over")
+                        from .sport_models import evaluate_tennis_secondary_markets
+
+                        t_tot_mkt = {
+                            "expected_games": exp_games,
+                            "games_line": g_line,
+                            "recommended": f"{tot_side} {g_line}",
+                            "prob": tot_prob,
+                            "fair_odds": round(1.0 / max(tot_prob, 0.05), 2),
+                            "book_odds": tot_book_odds,
+                        }
+                        t_sec_opps = evaluate_tennis_secondary_markets(
+                            player_1=h,
+                            player_2=a,
+                            side=t_side,
+                            win_prob=round(win_prob, 4),
+                            game_win_pct_diff=round(sgn * d_game_pct, 3),
+                            form_6m_diff=round(form_diff_pick, 3),
+                            game_elo_diff=round(sgn * d_elo_games * 400.0, 1),
+                            set_score_pred=set_pred,
+                            totals_market=t_tot_mkt,
+                        )
                         p1_hs, p1_flag = _extract_tennis_media(p1)
                         p2_hs, p2_flag = _extract_tennis_media(p2)
                         t_comp_logo = _extract_comp_logo(board)
@@ -653,14 +675,8 @@ def scan_upcoming_tennis(
                             "open_odds": open_book_odds,
                             "ev_pct": ev_pct,
                             "set_score_prediction": set_pred,
-                            "totals_market": {
-                                "expected_games": exp_games,
-                                "games_line": g_line,
-                                "recommended": f"{tot_side} {g_line}",
-                                "prob": tot_prob,
-                                "fair_odds": round(1.0 / max(tot_prob, 0.05), 2),
-                                "book_odds": tot_book_odds,
-                            },
+                            "totals_market": t_tot_mkt,
+                            "secondary_opportunities": t_sec_opps,
                             "factors": {
                                 "game_elo_diff": round(sgn * d_elo_games * 400.0, 1),
                                 "surf_elo_diff": round(sgn * d_elo_surf * 400.0, 1),
@@ -1804,7 +1820,23 @@ def scan_upcoming_other_sports(
                     if opp_dq and len(opp_dq) >= 3 and "ga" in opp_dq[0]
                     else None
                 )
-                from .sport_models import route_major_league_gate
+                from .sport_models import evaluate_nhl_totals_market, route_major_league_gate
+
+                nhl_tot_opps: list[dict[str, Any]] = []
+                if lg == "nhl" and oh_dq and oa_dq and len(oh_dq) >= 3 and len(oa_dq) >= 3:
+                    exp_tot_g = 0.5 * (
+                        float(np.mean([x["gf"] + x["ga"] for x in oh_dq]))
+                        + float(np.mean([x["gf"] + x["ga"] for x in oa_dq]))
+                    )
+                    comb_sog = 60.0 + abs(float(np.mean([x["sot_d"] for x in oh_dq]))) + abs(float(np.mean([x["sot_d"] for x in oa_dq])))
+                    nhl_tot_opps = evaluate_nhl_totals_market(
+                        home=home,
+                        away=away,
+                        line_total=prices.get("line_total"),
+                        odds_over=espn_pr.get("odds_over"),
+                        exp_total_goals=exp_tot_g,
+                        combined_shots=comb_sog,
+                    )
 
                 if not route_major_league_gate(
                     league=lg,
@@ -1853,6 +1885,7 @@ def scan_upcoming_other_sports(
                     "best_odds": round(odds_pick, 3),
                     "ev_pct": round(ev_pct, 2),
                     "line_total": prices["line_total"],
+                    "secondary_opportunities": nhl_tot_opps,
                     "injury_gate": inj_gate,
                 })
 
@@ -2285,6 +2318,7 @@ def scan_upcoming_and_log_paper_bets(
                     continue
                 pri = _soccer_odds(summary)
                 # Prefer Sportradar daily odds (`Tipico` + `UOF` bulk feed) first, falling back to ESPN summary
+                sr_soc: dict[str, Any] = {}
                 try:
                     from .sportradar_statshub import lookup_sportradar_daily_odds
 
@@ -2296,7 +2330,7 @@ def scan_upcoming_and_log_paper_bets(
                         if sr_soc.get("line_total"):
                             pri["line_total"] = sr_soc["line_total"]
                 except Exception:
-                    pass
+                    sr_soc = {}
                 if not pri["odds_home"]:
                     continue
                 det = _extract_soccer_details(lg.key, eid, kickoff, summary)
@@ -2398,7 +2432,7 @@ def scan_upcoming_and_log_paper_bets(
                 if best_candidate is None:
                     continue
 
-                from .sport_models import evaluate_soccer_gate
+                from .sport_models import evaluate_soccer_gate, evaluate_soccer_secondary_markets
 
                 tier = evaluate_soccer_gate(
                     league=lg.key,
@@ -2409,6 +2443,25 @@ def scan_upcoming_and_log_paper_bets(
                     factors_tanh_z=best_candidate["factors_tanh_z"],
                 )
                 best_candidate["tier"] = tier
+                best_candidate["secondary_opportunities"] = evaluate_soccer_secondary_markets(
+                    home=home,
+                    away=away,
+                    side=str(best_candidate["side"]),
+                    score=float(best_candidate["score"]),
+                    thresholds=thresholds,
+                    p_model=float(best_candidate.get("p_model") or 0.5),
+                    p_mkt=float(best_candidate.get("p_mkt") or 0.5),
+                    best_h=float(best_h or 1.5),
+                    best_d=float(best_d or 3.6),
+                    best_a=float(best_a or 4.5),
+                    factors_tanh_z=best_candidate["factors_tanh_z"],
+                    exact_score_pred=best_candidate.get("exact_score_prediction"),
+                    sr_markets=sr_soc,
+                    line_total=pri.get("line_total"),
+                    odds_over=det[23] or det[21] or pri.get("odds_over"),
+                    recent_draws_raw=(h_draw if best_candidate["side"] == "H" else a_draw),
+                    h2h_draw_rate=h2h_draw_rate,
+                )
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
                         summary, best_candidate["side"], hs_live, as_live, live_status_desc

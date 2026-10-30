@@ -289,6 +289,12 @@ export function getTierBadgeClass(tier?: string | null): string {
   if (low.includes('tier_0') || low.includes('top_8pct')) {
     return 'bg-violet-500/20 text-violet-200 border-violet-400/55 shadow-[0_0_10px_rgba(139,92,246,0.22)]';
   }
+  if (low.includes('dc_shield') || low.includes('dnb_shield') || low.includes('set_shield')) {
+    return 'bg-emerald-500/20 text-emerald-300 border-emerald-400/55';
+  }
+  if (low.includes('totals_over') || low.includes('totals_under') || low.includes('straight_sets')) {
+    return 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/55';
+  }
   if (low.includes('banker') || low.includes('tier_1') || low.includes('top_10pct')) {
     return 'bg-amber-500/20 text-amber-300 border-amber-400/55 shadow-[0_0_10px_rgba(245,158,11,0.16)]';
   }

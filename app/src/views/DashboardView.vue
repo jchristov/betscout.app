@@ -1828,6 +1828,40 @@
             </div>
           </div>
 
+          <!-- High-Conviction Secondary Market Opportunities (Over/Under, Double Chance, DNB, +1.5 Sets, 2:0 Sets) -->
+          <div
+            v-if="inspectorData.pick_detail?.secondary_opportunities?.length"
+            class="p-3 rounded-xl bg-slate-900/80 border border-emerald-400/35 space-y-2 text-xs"
+          >
+            <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300">
+              High-Conviction Secondary Market Opportunities
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div
+                v-for="(sec, sIdx) in inspectorData.pick_detail.secondary_opportunities"
+                :key="sIdx"
+                class="p-2.5 rounded-lg bg-slate-950/90 border border-slate-700/80 flex flex-col justify-between gap-1"
+              >
+                <div class="flex justify-between items-center gap-2">
+                  <b class="text-white">{{ sec.pick_name }}</b>
+                  <span
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0"
+                    :class="getTierBadgeClass(sec.tier)"
+                  >
+                    {{ sec.tier }}
+                  </span>
+                </div>
+                <div class="font-mono tabular-nums text-[11px] text-slate-300 flex flex-wrap gap-2">
+                  <span>Odds: <b class="text-amber-300">{{ Number(sec.odds).toFixed(2) }}</b></span>
+                  <span>WinProb: <b class="text-emerald-300">{{ (Number(sec.win_prob) * 100).toFixed(1) }}%</b></span>
+                  <span>Fair: <b class="text-sky-300">{{ Number(sec.min_fair_odds).toFixed(2) }}</b></span>
+                  <span v-if="sec.ev_pct !== undefined">EV: <b class="text-emerald-300">+{{ Number(sec.ev_pct).toFixed(1) }}%</b></span>
+                </div>
+                <div v-if="sec.rationale" class="text-[10.5px] text-slate-400">{{ sec.rationale }}</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Seamless 2-Way / 3-Way Win Probability Bar -->
           <div
             v-if="inspectorData.win_prob_bar"
