@@ -38,10 +38,12 @@
         <div class="flex flex-wrap items-center gap-2">
           <router-link
             to="/app"
-            class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg text-xs font-bold leading-none bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
+            title="Back to Quant Desk"
+            aria-label="Back to Quant Desk"
+            class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 rounded-lg text-xs font-bold leading-none bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
           >
             <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span>&larr; Back to Quant Desk</span>
+            <span class="hidden sm:inline">&larr; Back to Quant Desk</span>
           </router-link>
           <div class="flex items-center gap-1.5">
             <input
@@ -60,11 +62,13 @@
             </button>
             <button
               type="button"
-              class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg text-xs font-bold leading-none bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+              title="Refresh"
+              aria-label="Refresh"
+              class="btn-press h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 rounded-lg text-xs font-bold leading-none bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
               @click="fetchDossier"
             >
               <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': loading }" />
-              <span>Refresh</span>
+              <span class="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </div>

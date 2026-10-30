@@ -33,24 +33,30 @@
         <nav class="flex items-center gap-2 sm:gap-3 shrink-0" aria-label="Documentation Navigation">
           <router-link
             to="/"
-            class="btn-press min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700/80 no-underline"
+            title="Home &amp; Plans"
+            aria-label="Home &amp; Plans"
+            class="btn-press min-h-[36px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700/80 no-underline"
           >
-            <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400" />
+            <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span class="hidden sm:inline">Home &amp; Plans</span>
           </router-link>
           <a
             href="/api/docs"
-            class="btn-press min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700/80 no-underline"
+            title="Swagger &amp; OpenAPI"
+            aria-label="Swagger &amp; OpenAPI"
+            class="btn-press min-h-[36px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700/80 no-underline"
           >
-            <Icon icon="fa6-solid:terminal" class="w-3.5 h-3.5 text-amber-400" />
-            <span>Swagger &amp; OpenAPI</span>
+            <Icon icon="fa6-solid:terminal" class="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span class="hidden sm:inline">Swagger &amp; OpenAPI</span>
           </a>
           <router-link
             to="/app"
-            class="btn-press min-h-[36px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400 shadow-[0_6px_20px_rgba(16,185,129,0.28)] no-underline"
+            title="Open Live Quant Desk"
+            aria-label="Open Live Quant Desk"
+            class="btn-press min-h-[36px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400 shadow-[0_6px_20px_rgba(16,185,129,0.28)] no-underline"
           >
-            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5" />
-            <span>Open Live Quant Desk</span>
+            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 shrink-0" />
+            <span class="hidden sm:inline">Open Live Quant Desk</span>
           </router-link>
         </nav>
       </div>

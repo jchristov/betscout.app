@@ -757,7 +757,7 @@ def test_per_sport_isolated_gates():
         )
         == "pass"
     )
-    # 3. Soccer: Bayern Munich at Freiburg (ger.1) passes at top_10pct
+    # 3. Soccer: Bayern Munich at Freiburg (ger.1) passes at top_10pct; Villarreal vs Espanyol (p_mkt=0.6736 < 0.68, dom_rebound=-0.408, recent_draws=-0.436) & Strasbourg vs Auxerre (sot_d=-0.463 < 0) are vetoed
     assert (
         evaluate_soccer_gate(
             "ger.1",
@@ -768,6 +768,28 @@ def test_per_sport_isolated_gates():
             {"p_mkt": 0.914, "vig_neg": -0.965, "sot_d": 0.934, "discipline": -0.459, "h2h_adv": 0.984, "dom_rebound": 0.437, "recent_draws": 0.438},
         )
         == "top_10pct"
+    )
+    assert (
+        evaluate_soccer_gate(
+            "esp.1",
+            0.4751,
+            thrs,
+            0.6736,
+            2.5,
+            {"p_mkt": 0.971, "vig_neg": 0.31, "sot_d": 0.924, "discipline": 0.972, "h2h_adv": 0.993, "dom_rebound": -0.408, "recent_draws": -0.436},
+        )
+        == "pass"
+    )
+    assert (
+        evaluate_soccer_gate(
+            "fra.1",
+            0.1699,
+            thrs,
+            0.5273,
+            1.2,
+            {"p_mkt": 0.554, "vig_neg": 0.556, "sot_d": -0.463, "discipline": 0.481, "h2h_adv": 0.824, "dom_rebound": -0.327, "recent_draws": -0.436},
+        )
+        == "pass"
     )
 
     # 4. Tennis: Samsonova vs Watson (game_win_pct_diff=-0.01, form_6m_diff=0.0) and Valentova vs Pohankova (win_prob=0.710, game_elo_diff=72.3, game_win_pct_diff=0.016, form_6m_diff=0.0) are vetoed by stale-form gate

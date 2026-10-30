@@ -56,10 +56,12 @@
 
           <router-link
             to="/app"
-            class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-[12.5px] font-bold bg-slate-800/80 text-white border border-sky-400/45 hover:bg-sky-500/20 hover:border-sky-300 whitespace-nowrap"
+            title="Open Live Desk"
+            aria-label="Open Live Desk"
+            class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-[12.5px] font-bold bg-slate-800/80 text-white border border-sky-400/45 hover:bg-sky-500/20 hover:border-sky-300 whitespace-nowrap"
           >
             <Icon icon="fa6-solid:chart-column" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span>Open Live Desk</span>
+            <span class="hidden sm:inline">Open Live Desk</span>
           </router-link>
 
           <a

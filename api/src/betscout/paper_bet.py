@@ -3511,6 +3511,7 @@ def settle_pending_paper_combos(db_path: Path) -> int:
 # - Savehof vs Amo (handball, sr_73731666): Filtered by Handball Non-Tipico Momentum & Loss-Streak Gate (is_tipico=False, fav_loss_streak=1)
 # - BM Caserio Ciudad Real vs Logrono (handball, sr_72982618): Filtered by Handball Draw-Prone & Road Stalemate Veto (side='A', odds=1.60, recent3_diff_fav=0.0, fav_recent_draws=2)
 # - Beveridge vs Wiles (darts, sr_76162490): Filtered by Darts Session Momentum & Decider Hangover Gate (is_tipico=False, odds=1.37 > 1.32, lost 3-4 decider 36m prior)
+# - Villarreal vs Espanyol (esp.1, 401882817): Filtered by Clinical Overperformance & Zero-Rebound Regression Veto (p_mkt=0.6736 < 0.68, dom_rebound=-0.408 < -0.30, recent_draws=-0.436 < -0.40; out-shot on target 3-5 and 5-7 in 2 prior matches)
 _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("ita.1", "401874988"),
     ("uefa.wchampions", "401916999"),
@@ -3525,6 +3526,7 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("handball", "sr_73731666"),
     ("handball", "sr_72982618"),
     ("darts", "sr_76162490"),
+    ("esp.1", "401882817"),
 )
 
 

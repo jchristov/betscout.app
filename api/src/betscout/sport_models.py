@@ -53,6 +53,19 @@ def evaluate_soccer_gate(
     if p_mkt < 0.65 and sot_z < 0.35 and draws_z > 0.80 and dom_z < -0.30:
         return "pass"
 
+    # 1c. Universal Positive Shot-on-Target Dominance Floor
+    # Never back a 3-way Football Moneyline favorite with negative rolling Shots-on-Target differential (e.g. Strasbourg vs AJ Auxerre sot_z=-0.463).
+    if sot_z < 0.0:
+        return "pass"
+
+    # 1d. Clinical Overperformance & Zero-Rebound Regression Veto
+    # Sub-68% favorites (p_mkt < 0.68) with negative dominance rebound (dom_z < -0.30, indicating clinical goal overperformance
+    # relative to underlying shot creation) and negative draw-cushion (draws_z < -0.40) are vulnerable to low-block regression upsets
+    # (e.g. Villarreal 0-1 Espanyol where Villarreal was out-shot on target 3-5 at Valencia and 5-7 at Liverpool in their 2 prior matches
+    # and held 0-0 at home by Elche).
+    if p_mkt < 0.68 and dom_z < -0.30 and draws_z < -0.40:
+        return "pass"
+
     is_uefa = lg.startswith("uefa.") or lg.startswith("fifa.")
     is_secondary_dom = lg in SECONDARY_DOMESTIC_SOCCER_LEAGUES
 

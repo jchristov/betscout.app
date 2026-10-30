@@ -123,29 +123,35 @@
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50"
+              title="Sync &amp; Settle"
+              aria-label="Sync &amp; Settle"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50"
               @click="store.syncAndSettle(false)"
             >
-              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" :class="store.actionBusy ? 'animate-spin' : ''" />
-              <span>Sync &amp; Settle</span>
+              <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 shrink-0" :class="store.actionBusy ? 'animate-spin' : ''" />
+              <span class="hidden sm:inline">Sync &amp; Settle</span>
             </button>
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50"
+              title="Rescan Live"
+              aria-label="Rescan Live"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50"
               @click="store.syncAndSettle(true)"
             >
-              <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-400" />
-              <span>Rescan Live</span>
+              <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span class="hidden sm:inline">Rescan Live</span>
             </button>
             <button
               type="button"
               :disabled="store.actionBusy"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50"
+              title="Full Pipeline"
+              aria-label="Full Pipeline"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50"
               @click="store.runFullPipeline()"
             >
-              <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5 text-emerald-400" />
-              <span>Full Pipeline</span>
+              <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span class="hidden sm:inline">Full Pipeline</span>
             </button>
           </div>
 
@@ -192,23 +198,29 @@
             <button
               v-if="store.canInstallPwa"
               type="button"
-              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50"
+              title="Install App"
+              aria-label="Install App"
+              class="btn-press min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50"
               @click="store.promptPwaInstall()"
             >
-              <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300" />
-              <span>Install App</span>
+              <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300 shrink-0" />
+              <span class="hidden sm:inline">Install App</span>
             </button>
             <router-link
               to="/"
-              class="btn-press min-h-[34px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
+              title="Home &amp; Plans"
+              aria-label="Home &amp; Plans"
+              class="btn-press min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
             >
-              <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400" />
-              <span>Home &amp; Plans</span>
+              <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span class="hidden sm:inline">Home &amp; Plans</span>
             </router-link>
             <button
               v-if="store.firebaseAuthCfg?.enabled"
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
+              :title="store.userEmail ? `${store.userEmail} (${store.isAdmin ? 'Admin' : 'Pro'})` : 'Sign In'"
+              :aria-label="store.userEmail ? `${store.userEmail} (${store.isAdmin ? 'Admin' : 'Pro'})` : 'Sign In'"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
               :class="
                 store.userEmail
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
@@ -216,8 +228,8 @@
               "
               @click="store.triggerSignInOut()"
             >
-              <Icon :icon="store.userEmail ? 'fa6-solid:lock-open' : 'fa6-solid:lock'" class="w-3.5 h-3.5" />
-              <span>
+              <Icon :icon="store.userEmail ? 'fa6-solid:lock-open' : 'fa6-solid:lock'" class="w-3.5 h-3.5 shrink-0" />
+              <span class="hidden sm:inline">
                 {{
                   store.userEmail
                     ? `${store.userEmail.split('@')[0]} (${store.isAdmin ? 'Admin' : 'Pro'})`
@@ -228,19 +240,23 @@
             <button
               v-if="store.isAdmin"
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
+              title="Share Picks"
+              aria-label="Share Picks"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
               @click="openShareSlateModal()"
             >
-              <Icon icon="fa6-solid:share-nodes" class="w-3.5 h-3.5" />
-              <span>Share Picks</span>
+              <Icon icon="fa6-solid:share-nodes" class="w-3.5 h-3.5 shrink-0" />
+              <span class="hidden sm:inline">Share Picks</span>
             </button>
             <button
               type="button"
-              class="btn-press inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400"
+              title="Settings"
+              aria-label="Settings"
+              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400"
               @click="settingsModalOpen = true"
             >
-              <Icon icon="fa6-solid:gear" class="w-3.5 h-3.5 text-slate-300" />
-              <span>Settings</span>
+              <Icon icon="fa6-solid:gear" class="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span class="hidden sm:inline">Settings</span>
             </button>
           </div>
         </div>
