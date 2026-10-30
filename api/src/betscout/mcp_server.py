@@ -103,6 +103,11 @@ MCP_TOOLS_CATALOG: list[dict[str, Any]] = [
                         "darts",
                     ],
                 },
+                "market_filter": {
+                    "type": "string",
+                    "description": "Filter by market type ('all', 'moneyline', 'secondary', 'shield', 'totals'). 'shield' returns Double Chance (1X/X2), Draw No Bet (DNB), and Tennis +1.5 Sets shields; 'totals' returns Over/Under Goals & Games; 'secondary' returns all non-moneyline opportunities. Default: 'all'.",
+                    "enum": ["all", "moneyline", "secondary", "shield", "totals"],
+                },
                 "min_odds": {
                     "type": "number",
                     "description": "Minimum decimal bookmaker odds threshold (e.g. 1.15, 1.25). Default: 1.10.",
@@ -311,6 +316,7 @@ def execute_mcp_tool(
     try:
         if tool_name == "get_daily_banker_picks":
             sport = str(args.get("sport") or "all").strip().lower()
+            market_filter = str(args.get("market_filter") or "all").strip().lower()
             min_odds = float(args.get("min_odds") or 1.10)
             min_win_prob = float(args.get("min_win_prob") or 0.55)
             mispriced_only = bool(args.get("mispriced_only", False))
@@ -320,6 +326,21 @@ def execute_mcp_tool(
             snap = _build_live_snapshot(
                 rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role="pro"
             )
+
+            def _matches_market_filter(b: dict[str, Any]) -> bool:
+                mt = str(b.get("market_type") or "").upper()
+                tr = str(b.get("tier") or "").lower()
+                is_sec = bool(mt) or tr in ("dc_shield", "dnb_shield", "set_shield", "totals_over", "totals_under", "straight_sets")
+                if market_filter == "moneyline":
+                    return not is_sec
+                if market_filter == "secondary":
+                    return is_sec
+                if market_filter == "shield":
+                    return tr in ("dc_shield", "dnb_shield", "set_shield") or mt.startswith(("DC_", "DNB_", "SET_HANDICAP"))
+                if market_filter == "totals":
+                    return tr in ("totals_over", "totals_under", "straight_sets") or mt.startswith(("OVER_", "UNDER_", "SETS_"))
+                return True
+
             picks = [
                 {
                     "match": b.get("match"),
@@ -330,6 +351,7 @@ def execute_mcp_tool(
                     "kickoff_local": b.get("date_local"),
                     "pick": b.get("pick_name"),
                     "side": b.get("pick"),
+                    "market_type": b.get("market_type") or "MONEYLINE",
                     "tier": b.get("tier"),
                     "win_prob_pct": round(float(b.get("win_prob") or 0.0) * 100.0, 1),
                     "book_odds": b.get("odds"),
@@ -338,16 +360,19 @@ def execute_mcp_tool(
                     "is_mispriced": bool(b.get("is_mispriced")),
                     "exact_score_prediction": b.get("exact_score_pick"),
                     "score_cluster": b.get("score_cluster_items") or [],
+                    "secondary_opportunities": b.get("secondary_opportunities") or [],
                 }
                 for b in (snap.get("best_bets") or [])
                 if float(b.get("win_prob") or 0.0) >= min_win_prob
                 and (not mispriced_only or bool(b.get("is_mispriced")))
+                and _matches_market_filter(b)
             ]
             paged = paginate_items(picks, cursor=cursor, limit=limit)
             result_obj = {
                 "generated_at": snap.get("generated_at_local") or snap.get("generated_at"),
                 "filters": {
                     "sport": sport,
+                    "market_filter": market_filter,
                     "min_odds": min_odds,
                     "min_win_prob": min_win_prob,
                     "mispriced_only": mispriced_only,

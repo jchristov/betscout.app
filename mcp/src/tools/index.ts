@@ -52,6 +52,12 @@ export const MCP_TOOLS_CATALOG: readonly McpToolDefinition[] = [
             'darts',
           ],
         },
+        market_filter: {
+          type: 'string',
+          description:
+            "Filter by market type ('all', 'moneyline', 'secondary', 'shield', 'totals'). 'shield' returns Double Chance (1X/X2), Draw No Bet (DNB), and Tennis +1.5 Sets shields; 'totals' returns Over/Under Goals & Games; 'secondary' returns all non-moneyline opportunities. Default: 'all'.",
+          enum: ['all', 'moneyline', 'secondary', 'shield', 'totals'],
+        },
         min_odds: {
           type: 'number',
           description: 'Minimum decimal bookmaker odds threshold (e.g. 1.15, 1.25). Default: 1.10.',
@@ -234,6 +240,7 @@ export async function executeBetScoutMcpTool(
   try {
     if (toolName === 'get_daily_banker_picks') {
       const sport = String(args.sport ?? 'all').toLowerCase().trim();
+      const marketFilter = String(args.market_filter ?? 'all').toLowerCase().trim();
       const minOdds = Number(args.min_odds ?? 1.1);
       const minWinProb = Number(args.min_win_prob ?? 0.55);
       const mispricedOnly = Boolean(args.mispriced_only ?? false);
@@ -247,6 +254,13 @@ export async function executeBetScoutMcpTool(
           const wp = Number(b.win_prob ?? 0);
           if (wp < minWinProb) return false;
           if (mispricedOnly && !b.is_mispriced) return false;
+          const mt = String(b.market_type ?? '').toUpperCase();
+          const tr = String(b.tier ?? '').toLowerCase();
+          const isSec = Boolean(mt) || ['dc_shield', 'dnb_shield', 'set_shield', 'totals_over', 'totals_under', 'straight_sets'].includes(tr);
+          if (marketFilter === 'moneyline' && isSec) return false;
+          if (marketFilter === 'secondary' && !isSec) return false;
+          if (marketFilter === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP'))) return false;
+          if (marketFilter === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_'))) return false;
           return true;
         })
         .map((b) => ({
@@ -258,6 +272,7 @@ export async function executeBetScoutMcpTool(
           kickoff_local: b.date_local,
           pick: b.pick_name,
           side: b.pick,
+          market_type: b.market_type ?? 'MONEYLINE',
           tier: b.tier,
           win_prob_pct: Number((Number(b.win_prob ?? 0) * 100).toFixed(1)),
           book_odds: b.odds,
@@ -266,6 +281,7 @@ export async function executeBetScoutMcpTool(
           is_mispriced: Boolean(b.is_mispriced),
           exact_score_prediction: b.exact_score_pick,
           score_cluster: b.score_cluster_items ?? [],
+          secondary_opportunities: b.secondary_opportunities ?? [],
         }));
 
       const paged = paginateItems(filtered, { cursor, limit });
@@ -278,6 +294,7 @@ export async function executeBetScoutMcpTool(
                 generated_at: snap.generated_at_local ?? snap.generated_at,
                 filters: {
                   sport,
+                  market_filter: marketFilter,
                   min_odds: minOdds,
                   min_win_prob: minWinProb,
                   mispriced_only: mispricedOnly,

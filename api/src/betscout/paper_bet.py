@@ -1242,7 +1242,8 @@ def settle_pending_paper_bets(db_path: Path) -> int:
     tennis_board_cache: dict[tuple[str, str], dict[str, Any]] = {}
 
     for row in to_check:
-        lg, eid, side = row["league"], row["event_id"], row["side"]
+        lg, raw_eid, side = row["league"], str(row["event_id"]), row["side"]
+        eid = raw_eid.split("::", 1)[0]
         was_pending = row["status"] == "PENDING"
         m_row = conn.execute(
             "SELECT outcome, home_score, away_score FROM matches WHERE league = ? AND event_id = ? AND outcome IS NOT NULL",
@@ -1502,10 +1503,95 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                         )
 
         if outcome in ("H", "D", "A"):
-            won = outcome == side
-            pnl_best = (row["logged_best_odds"] - 1.0) if won else -1.0
-            pnl_pri = (row["logged_primary_odds"] - 1.0) if won else -1.0
-            final_sc = score_str or row["settled_score"]
+            final_sc = score_str or row["settled_score"] or ""
+            hs_g: int | None = None
+            as_g: int | None = None
+            if m_row and m_row["home_score"] is not None and m_row["away_score"] is not None:
+                hs_g, as_g = int(m_row["home_score"]), int(m_row["away_score"])
+            elif final_sc:
+                head_sc = final_sc.split("(", 1)[0].strip()
+                if "-" in head_sc:
+                    p_hs, p_as = [x.strip() for x in head_sc.split("-", 1)]
+                    if p_hs.isdigit() and p_as.isdigit():
+                        hs_g, as_g = int(p_hs), int(p_as)
+
+            side_up = str(side or "").upper()
+            is_push = False
+            if side_up in ("H", "A", "D"):
+                won = outcome == side_up
+            elif side_up == "DC_1X":
+                won = outcome in ("H", "D")
+            elif side_up == "DC_X2":
+                won = outcome in ("A", "D")
+            elif side_up == "DNB_H":
+                if outcome == "D":
+                    won = False
+                    is_push = True
+                else:
+                    won = outcome == "H"
+            elif side_up == "DNB_A":
+                if outcome == "D":
+                    won = False
+                    is_push = True
+                else:
+                    won = outcome == "A"
+            elif side_up in ("OVER_2_5", "OVER_1_5") or side_up.startswith("OVER_GOALS_"):
+                if hs_g is None or as_g is None:
+                    continue
+                tot_g = hs_g + as_g
+                if side_up == "OVER_2_5":
+                    won = tot_g >= 3
+                elif side_up == "OVER_1_5":
+                    won = tot_g >= 2
+                else:
+                    try:
+                        ln_v = float(side_up.replace("OVER_GOALS_", ""))
+                        if abs(tot_g - ln_v) < 1e-6:
+                            won = False
+                            is_push = True
+                        else:
+                            won = tot_g > ln_v
+                    except Exception:
+                        won = False
+            elif side_up in ("PLUS15_H", "PLUS15_A"):
+                t_side_c = "H" if side_up.endswith("_H") else "A"
+                if outcome == t_side_c:
+                    won = True
+                elif hs_g is not None and as_g is not None:
+                    won = (hs_g if t_side_c == "H" else as_g) >= 1
+                else:
+                    won = False
+            elif side_up in ("SETS20_H", "SETS20_A"):
+                if hs_g is None or as_g is None:
+                    continue
+                won = (hs_g == 2 and as_g == 0) if side_up.endswith("_H") else (hs_g == 0 and as_g == 2)
+            elif side_up.startswith("UNDER_GAMES_"):
+                if "(" not in final_sc:
+                    continue
+                games_part = final_sc.split("(", 1)[1].split(")", 1)[0]
+                tot_gms = 0
+                for sp_s in games_part.split(","):
+                    sp_c = sp_s.replace("Ret.", "").strip()
+                    if "-" in sp_c:
+                        ga_s, gb_s = sp_c.split("-", 1)
+                        if ga_s.strip().isdigit() and gb_s.strip().isdigit():
+                            tot_gms += int(ga_s.strip()) + int(gb_s.strip())
+                if tot_gms <= 0:
+                    continue
+                try:
+                    g_ln = float(side_up.replace("UNDER_GAMES_", ""))
+                    won = tot_gms < g_ln
+                except Exception:
+                    won = False
+            else:
+                won = outcome == side
+
+            if is_push:
+                pnl_best = 0.0
+                pnl_pri = 0.0
+            else:
+                pnl_best = (row["logged_best_odds"] - 1.0) if won else -1.0
+                pnl_pri = (row["logged_primary_odds"] - 1.0) if won else -1.0
             esc_hit = _check_exact_score_hit(row["exact_score_pred"], final_sc)
             conn.execute(
                 """
@@ -1516,7 +1602,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     pnl_best = ?, pnl_primary = ?, updated_at = ?
                 WHERE league = ? AND event_id = ?
                 """,
-                (outcome, score_str, esc_hit, pnl_best, pnl_pri, now_iso, lg, eid),
+                (outcome, score_str, esc_hit, pnl_best, pnl_pri, now_iso, lg, raw_eid),
             )
             if was_pending:
                 settled_count += 1
@@ -2525,12 +2611,31 @@ def scan_upcoming_and_log_paper_bets(
                     if not vetoed_any:
                         if not best_candidate.get("is_live"):
                             _upsert_paper_bet(db_path, best_candidate, now_iso)
+                            for sec_opp in (best_candidate.get("secondary_opportunities") or [])[:1]:
+                                sec_o = float(sec_opp.get("odds") or 0.0)
+                                if sec_o > 1.12:
+                                    _upsert_paper_bet(
+                                        db_path,
+                                        {
+                                            **best_candidate,
+                                            "event_id": f"{eid}::{sec_opp.get('market_type')}",
+                                            "side": str(sec_opp.get("side") or "DC_1X"),
+                                            "tier": str(sec_opp.get("tier") or "dc_shield"),
+                                            "score": float(sec_opp.get("win_prob") or 0.78),
+                                            "p_mkt": float(sec_opp.get("win_prob") or 0.78),
+                                            "open_odds": sec_o,
+                                            "best_odds": sec_o,
+                                            "primary_odds": float(sec_opp.get("min_fair_odds") or sec_o),
+                                            "close_odds": sec_o,
+                                        },
+                                        now_iso,
+                                    )
                     else:
                         # Remove from active PENDING paper_bets ONLY if vetoed by T-60m depleted Starting XI or Squad Injury Gate before kickoff
                         c_del = _open_db(db_path)
                         c_del.execute(
-                            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                            (lg.key, eid),
+                            "DELETE FROM paper_bets WHERE league = ? AND (event_id = ? OR event_id LIKE ?) AND status = 'PENDING'",
+                            (lg.key, eid, f"{eid}::%"),
                         )
                         c_del.commit()
                         c_del.close()
@@ -2590,6 +2695,36 @@ def scan_upcoming_and_log_paper_bets(
                 },
                 now_iso,
             )
+            for sec_opp in (tp.get("secondary_opportunities") or [])[:1]:
+                sec_o = float(sec_opp.get("odds") or 0.0)
+                if sec_o > 1.12:
+                    _upsert_paper_bet(
+                        db_path,
+                        {
+                            "league": tp["tour"].lower(),
+                            "event_id": f"{tp['event_id']}::{sec_opp.get('market_type')}",
+                            "kickoff": tp["kickoff"],
+                            "time_valid": tp.get("time_valid", True),
+                            "competition_logo": tp.get("competition_logo"),
+                            "home": tp["player_1"],
+                            "away": tp["player_2"],
+                            "home_logo": tp.get("home_logo") or tp.get("home_flag"),
+                            "away_logo": tp.get("away_logo") or tp.get("away_flag"),
+                            "side": str(sec_opp.get("side") or f"PLUS15_{t_side}"),
+                            "tier": str(sec_opp.get("tier") or "set_shield"),
+                            "score": float(sec_opp.get("win_prob") or 0.85),
+                            "p_mkt": float(sec_opp.get("win_prob") or 0.85),
+                            "open_odds": sec_o,
+                            "best_odds": sec_o,
+                            "primary_odds": float(sec_opp.get("min_fair_odds") or sec_o),
+                            "close_odds": sec_o,
+                            "synthetic_dc_odds": None,
+                            "exact_score_pred": t_esc_str,
+                            "factors_tanh_z": tp.get("factors") or {},
+                            "news_signal": {"backend": "tennis_secondary_market"},
+                        },
+                        now_iso,
+                    )
 
     for op in other_sport_picks:
         if float(op.get("best_odds") or 0.0) > 1.10:
@@ -2619,6 +2754,35 @@ def scan_upcoming_and_log_paper_bets(
                 },
                 now_iso,
             )
+            for sec_opp in (op.get("secondary_opportunities") or [])[:1]:
+                sec_o = float(sec_opp.get("odds") or 0.0)
+                if sec_o > 1.12:
+                    _upsert_paper_bet(
+                        db_path,
+                        {
+                            "league": op["league"].lower(),
+                            "event_id": f"{op['event_id']}::{sec_opp.get('market_type')}",
+                            "kickoff": op["kickoff"],
+                            "time_valid": op.get("time_valid", True),
+                            "competition_logo": op.get("competition_logo"),
+                            "home": op["home"],
+                            "away": op["away"],
+                            "home_logo": op.get("home_logo"),
+                            "away_logo": op.get("away_logo"),
+                            "side": str(sec_opp.get("side") or "OVER_GOALS_6.0"),
+                            "tier": str(sec_opp.get("tier") or "totals_over"),
+                            "score": float(sec_opp.get("win_prob") or 0.58),
+                            "p_mkt": float(sec_opp.get("win_prob") or 0.58),
+                            "open_odds": sec_o,
+                            "best_odds": sec_o,
+                            "primary_odds": float(sec_opp.get("min_fair_odds") or sec_o),
+                            "close_odds": sec_o,
+                            "synthetic_dc_odds": None,
+                            "factors_tanh_z": {"p_model": sec_opp.get("win_prob"), "ev_pct": sec_opp.get("ev_pct")},
+                            "news_signal": {"backend": "totals_secondary_market"},
+                        },
+                        now_iso,
+                    )
 
     # Retroactive Re-Validation Gate: remove any pre-match PENDING soccer/tennis/US-sport bet in the scanned window
     # that no longer qualifies under the upgraded Court-Acclimatization / Market-Blend EV / Secondary-Soccer / NBA-NHL gates
@@ -2652,6 +2816,7 @@ def scan_upcoming_and_log_paper_bets(
     ).fetchall():
         lg_p = r_pend["league"].lower()
         eid_p = str(r_pend["event_id"])
+        base_eid_p = eid_p.split("::", 1)[0]
         ko_p = str(r_pend["kickoff"])
         l_sc_p = str(r_pend["live_score"] or "")
         clv_p = float(r_pend["clv_pct"] or 0.0)
@@ -2662,11 +2827,11 @@ def scan_upcoming_and_log_paper_bets(
             continue
         if is_really_live or ko_p <= now_iso:
             continue
-        if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, eid_p) not in valid_tennis_eids:
+        if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, base_eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
-        elif lg_p in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, eid_p) not in valid_other_eids:
+        elif lg_p in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, base_eid_p) not in valid_other_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
-        elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, eid_p) not in valid_soccer_eids:
+        elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, base_eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
     # Also purge any PENDING 2-leg combo in paper_combos where an unplayed future leg was withdrawn/redrawn or vetoed
     for r_cb in c_rev.execute("SELECT combo_id, leg1_json, leg2_json, leg1_hit, leg2_hit FROM paper_combos WHERE status = 'PENDING'").fetchall():
@@ -3299,6 +3464,42 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
 )
 
 
+def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
+    """Format a human-readable pick label from `paper_bets.side` across Moneyline, Double Chance, DNB, +1.5 Sets, and Over/Under Totals."""
+    s = str(side or "").strip().upper()
+    if s == "H":
+        return f"{home} (H)"
+    if s == "A":
+        return f"{away} (A)"
+    if s == "D":
+        return "Draw (X)"
+    if s == "DC_1X":
+        return f"{home} or Draw (1X)"
+    if s == "DC_X2":
+        return f"{away} or Draw (X2)"
+    if s == "DNB_H":
+        return f"{home} DNB"
+    if s == "DNB_A":
+        return f"{away} DNB"
+    if s == "OVER_2_5":
+        return "Over 2.5 Goals"
+    if s == "OVER_1_5":
+        return "Over 1.5 Goals"
+    if s.startswith("OVER_GOALS_"):
+        return f"Over {s.replace('OVER_GOALS_', '')} Goals"
+    if s == "PLUS15_H":
+        return f"{home} +1.5 Sets"
+    if s == "PLUS15_A":
+        return f"{away} +1.5 Sets"
+    if s == "SETS20_H":
+        return f"{home} 2:0 Sets"
+    if s == "SETS20_A":
+        return f"{away} 0:2 Sets"
+    if s.startswith("UNDER_GAMES_"):
+        return f"Under {s.replace('UNDER_GAMES_', '')} Games"
+    return f"{home if s == 'H' else away} ({side})"
+
+
 def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
     conn = _open_db(db_path)
     conn.row_factory = sqlite3.Row
@@ -3439,6 +3640,46 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             "roi_pct": round(float(np.mean(t_pnls)) * 100.0, 1),
         })
 
+    # Market-Type Attribution Breakdown (Moneyline / 1X2 vs Shields vs Over/Under Totals)
+    def _mkt_bucket(side_s: str, tier_s: str) -> str:
+        su = str(side_s or "").upper()
+        tl = str(tier_s or "").lower()
+        if su.startswith(("DC_", "DNB_")) or tl in ("dc_shield", "dnb_shield"):
+            return "Football Double Chance & DNB Shields"
+        if su.startswith("PLUS15_") or tl == "set_shield":
+            return "Tennis +1.5 Sets Handicap Shield"
+        if su.startswith(("OVER_", "UNDER_", "SETS20_")) or tl in ("totals_over", "totals_under", "straight_sets"):
+            return "Over/Under Totals & Straight Sets"
+        return "Moneyline & 1X2 Bankers"
+
+    by_mkt_map: dict[str, list[float]] = defaultdict(list)
+    for r in settled:
+        by_mkt_map[_mkt_bucket(r["side"], r["tier"])].append(float(r["pnl_best"] or 0.0))
+    by_market_summary = [
+        {
+            "market": m_lbl,
+            "settled": len(vals),
+            "wins": sum(1 for v in vals if v > 0),
+            "losses": sum(1 for v in vals if v < 0),
+            "win_rate_pct": round(sum(1 for v in vals if v > 0) / max(1, len(vals)) * 100.0, 1),
+            "profit_u": round(float(sum(vals)), 2),
+            "roi_pct": round(float(np.mean(vals)) * 100.0, 1),
+        }
+        for m_lbl, vals in sorted(by_mkt_map.items(), key=lambda kv: -sum(kv[1]))
+    ]
+    for r_p in pending:
+        mk_b = _mkt_bucket(r_p["side"], r_p["tier"])
+        if not any(x["market"] == mk_b for x in by_market_summary):
+            by_market_summary.append({
+                "market": mk_b,
+                "settled": 0,
+                "wins": 0,
+                "losses": 0,
+                "win_rate_pct": 0.0,
+                "profit_u": 0.0,
+                "roi_pct": 0.0,
+            })
+
     settled_combos = [c for c in combo_rows if c["status"] == "SETTLED"]
     pending_combos = [c for c in combo_rows if c["status"] == "PENDING"]
     combo_wins = sum(1 for c in settled_combos if float(c.get("pnl") or 0.0) > 0)
@@ -3462,6 +3703,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         "kelly_growth_pct": kelly_growth_pct,
         "by_sport": by_sport_summary,
         "by_tier": by_tier_summary,
+        "by_market": by_market_summary,
         "combos_total": len(combo_rows),
         "combos_pending": len(pending_combos),
         "combos_settled": len(settled_combos),
@@ -3509,6 +3751,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
                 "home_logo": r.get("home_logo"),
                 "away_logo": r.get("away_logo"),
                 "side": r["side"],
+                "pick_display": format_paper_bet_pick_label(r["home"], r["away"], r["side"]),
                 "tier": r["tier"],
                 "logged_best_odds": r["logged_best_odds"],
                 "logged_primary_odds": r["logged_primary_odds"],

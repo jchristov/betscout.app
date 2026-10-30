@@ -949,6 +949,35 @@ def test_per_sport_isolated_gates():
         rem_res = notify_t60_reminders_to_discord(rem_db, webhook_url="https://discord.com/api/webhooks/111/test", dry_run=True)
         assert rem_res["ok"] is True and rem_res["reminded_count"] == 1 and rem_res.get("has_image") is not True
         assert "1-HOUR PRE-MATCH REMINDER" in rem_res["preview"] and "⏳ **T-" in rem_res["preview"] and "Villarreal vs Espanyol" in rem_res["preview"]
+
+        # 7d. Test Prospective Secondary-Market Grading (OVER_2_5, DC_X2, PLUS15_H) & by_market ledger attribution
+        from betscout.paper_bet import get_paper_ledger_summary, settle_pending_paper_bets
+
+        c_sec = sqlite3.connect(rem_db)
+        c_sec.execute(
+            "CREATE TABLE IF NOT EXISTS matches (event_id TEXT, league TEXT, sport TEXT, kickoff TEXT, home TEXT, away TEXT, home_score REAL, away_score REAL, outcome TEXT, PRIMARY KEY (league, event_id))"
+        )
+        c_sec.execute(
+            "INSERT OR REPLACE INTO matches VALUES ('999888', 'esp.1', 'soccer', '2026-10-20T20:00:00Z', 'Villarreal', 'Espanyol', 3, 1, 'H')"
+        )
+        c_sec.execute(
+            """
+            INSERT OR REPLACE INTO paper_bets (
+                league, event_id, kickoff, time_valid, home, away, side, tier,
+                composite_score, p_mkt, open_odds, logged_best_odds, logged_primary_odds,
+                latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status
+            ) VALUES ('esp.1', '999888::OVER_2_5', '2026-10-20T20:00:00Z', 1, 'Villarreal', 'Espanyol', 'OVER_2_5', 'totals_over',
+                      0.82, 0.78, 1.52, 1.52, 1.52, 1.52, 0.0, '{}', '2026-10-20T10:00:00Z', '2026-10-20T10:00:00Z', 'PENDING')
+            """
+        )
+        c_sec.commit()
+        c_sec.close()
+        settled_sec_n = settle_pending_paper_bets(rem_db)
+        assert settled_sec_n >= 1
+        sum_sec = get_paper_ledger_summary(rem_db)
+        ov_bet = next(b for b in sum_sec["bets"] if b["event_id"] == "999888::OVER_2_5")
+        assert ov_bet["status"] == "SETTLED" and ov_bet["pnl_best"] == 0.52 and ov_bet["pick_display"] == "Over 2.5 Goals"
+        assert any(m["market"] == "Over/Under Totals & Straight Sets" and m["wins"] == 1 for m in sum_sec["by_market"])
     sample_rec = {
         "qualifying_picks": [],
         "tennis_picks": [],

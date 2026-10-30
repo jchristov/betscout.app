@@ -425,6 +425,30 @@
             <span>{{ label }}</span>
           </button>
         </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+          <b class="text-slate-200">Market:</b>
+          <button
+            v-for="mOpt in [
+              { id: 'all', label: 'All Markets' },
+              { id: 'moneyline', label: 'Moneyline / 1X2' },
+              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5 Sets)' },
+              { id: 'totals', label: 'Totals (Over/Under & 2:0 Sets)' },
+              { id: 'secondary', label: 'All Secondary' },
+            ]"
+            :key="mOpt.id"
+            type="button"
+            class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap"
+            :class="
+              store.marketFilter === mOpt.id
+                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                : 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:text-white'
+            "
+            @click="store.marketFilter = mOpt.id as any"
+          >
+            {{ mOpt.label }}
+          </button>
+        </div>
       </div>
 
       <!-- Row 2: Day Filters + Min Odds, Search & Analyze Match -->
@@ -1498,7 +1522,7 @@
                 </button>
               </td>
               <td class="py-2.5 px-2.5">
-                <b class="text-emerald-300">{{ tr.side === 'H' ? tr.home : tr.away }} ({{ tr.side }})</b>
+                <b class="text-emerald-300">{{ tr.pick_display || `${tr.side === 'H' ? tr.home : tr.away} (${tr.side})` }}</b>
                 <span
                   class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold border"
                   :class="getTierBadgeClass(tr.tier)"
@@ -1629,6 +1653,54 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- By-Market Settled Attribution Table -->
+      <div
+        v-if="store.paperLedger?.by_market?.length"
+        class="card-surface rounded-2xl p-4 border-t-2 border-t-fuchsia-400 mt-4 mb-1"
+      >
+        <b class="inline-flex items-center gap-1.5 text-sm text-fuchsia-300 mb-2">
+          <Icon icon="fa6-solid:layer-group" class="w-4 h-4" />
+          <span>By-Market Settled Attribution (Moneyline / 1X2 vs. Shields vs. Over/Under Totals)</span>
+        </b>
+        <table class="w-full border-collapse text-xs">
+          <thead>
+            <tr class="text-left text-[11px] uppercase text-slate-300 border-b border-slate-700">
+              <th class="py-2">Market Archetype</th>
+              <th class="py-2">Settled (W–L)</th>
+              <th class="py-2">Win Rate</th>
+              <th class="py-2">Profit (u)</th>
+              <th class="py-2">ROI%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="m in store.paperLedger.by_market"
+              :key="m.market"
+              class="border-b border-slate-800 last:border-none"
+            >
+              <td class="py-2 font-bold text-white">{{ m.market }}</td>
+              <td class="py-2 font-mono tabular-nums">
+                {{ m.settled }} (<b class="text-emerald-300">{{ m.wins }}W</b> –
+                <b class="text-rose-400">{{ m.losses }}L</b>)
+              </td>
+              <td class="py-2 font-mono tabular-nums font-bold">{{ Number(m.win_rate_pct || 0).toFixed(1) }}%</td>
+              <td
+                class="py-2 font-mono tabular-nums font-bold"
+                :class="Number(m.profit_u || 0) >= 0 ? 'text-emerald-300' : 'text-rose-400'"
+              >
+                {{ Number(m.profit_u || 0) >= 0 ? '+' : '' }}{{ Number(m.profit_u || 0).toFixed(2) }}u
+              </td>
+              <td
+                class="py-2 font-mono tabular-nums font-bold"
+                :class="Number(m.roi_pct || 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'"
+              >
+                {{ Number(m.roi_pct || 0) >= 0 ? '+' : '' }}{{ Number(m.roi_pct || 0).toFixed(1) }}%
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
       </div>

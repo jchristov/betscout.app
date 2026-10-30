@@ -90,6 +90,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
 
   // Interactive UI Filters (persisted to localStorage)
   const sportFilter = ref<string>('all');
+  const marketFilter = ref<'all' | 'moneyline' | 'secondary' | 'shield' | 'totals'>('all');
   const dayFilter = ref<string>('all');
   const minOdds = ref<number>(1.10);
   const searchQuery = ref<string>('');
@@ -503,6 +504,15 @@ export const useBetscoutStore = defineStore('betscout', () => {
     return activeBestBets.value.filter((b) => {
       if (Number(b.odds || 0) <= minOdds.value) return false;
       if (sportFilter.value !== 'all' && b.sport_cat !== sportFilter.value) return false;
+      if (marketFilter.value !== 'all') {
+        const mt = String((b as any).market_type || '').toUpperCase();
+        const tr = String(b.tier || '').toLowerCase();
+        const isSec = Boolean(mt) || ['dc_shield', 'dnb_shield', 'set_shield', 'totals_over', 'totals_under', 'straight_sets'].includes(tr);
+        if (marketFilter.value === 'moneyline' && isSec) return false;
+        if (marketFilter.value === 'secondary' && !isSec) return false;
+        if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP'))) return false;
+        if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_'))) return false;
+      }
       if (dayFilter.value !== 'all') {
         const d = matchDayKey(b);
         if (dayFilter.value === 'next48h') {
@@ -862,6 +872,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     otherSportPicks,
     backtestRisk,
     sportFilter,
+    marketFilter,
     dayFilter,
     minOdds,
     searchQuery,

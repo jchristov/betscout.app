@@ -1791,13 +1791,31 @@ self.addEventListener('fetch', (event) => {{
 
                 snap_v1 = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport=sport, run_settle=False, role="pro")
                 if parsed.path == "/api/v1/picks":
+                    mkt_f = ((qs.get("market_filter") or qs.get("market") or ["all"])[0]).strip().lower()
+                    raw_picks_v1 = snap_v1["best_bets"]
+                    if mkt_f != "all":
+                        def _v1_mkt_ok(b: dict[str, Any]) -> bool:
+                            mt = str(b.get("market_type") or "").upper()
+                            tr = str(b.get("tier") or "").lower()
+                            is_sec = bool(mt) or tr in ("dc_shield", "dnb_shield", "set_shield", "totals_over", "totals_under", "straight_sets")
+                            if mkt_f == "moneyline":
+                                return not is_sec
+                            if mkt_f == "secondary":
+                                return is_sec
+                            if mkt_f == "shield":
+                                return tr in ("dc_shield", "dnb_shield", "set_shield") or mt.startswith(("DC_", "DNB_", "SET_HANDICAP"))
+                            if mkt_f == "totals":
+                                return tr in ("totals_over", "totals_under", "straight_sets") or mt.startswith(("OVER_", "UNDER_", "SETS_"))
+                            return True
+                        raw_picks_v1 = [b for b in raw_picks_v1 if _v1_mkt_ok(b)]
                     self._send_json(
                         {
                             "ok": True,
                             "plan_tier": k_info.get("plan_tier"),
                             "generated_at": snap_v1.get("generated_at"),
-                            "count": len(snap_v1["best_bets"]),
-                            "picks": snap_v1["best_bets"],
+                            "market_filter": mkt_f,
+                            "count": len(raw_picks_v1),
+                            "picks": raw_picks_v1,
                         },
                         extra_headers=rl_headers,
                     )
