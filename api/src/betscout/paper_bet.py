@@ -1773,6 +1773,7 @@ def scan_upcoming_other_sports(
                 p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
                 pick_dq = oh_dq if side == "H" else oa_dq
+                opp_dq = oa_dq if side == "H" else oh_dq
                 pick_win_rate_5 = (
                     float(np.mean([x["won"] for x in list(pick_dq)[-5:]]))
                     if pick_dq and len(pick_dq) >= 3 and "won" in pick_dq[0]
@@ -1786,6 +1787,21 @@ def scan_upcoming_other_sports(
                 pick_goal_diff = (
                     float(np.mean([x["gf"] - x["ga"] for x in pick_dq]))
                     if pick_dq and len(pick_dq) >= 3 and "gf" in pick_dq[0]
+                    else None
+                )
+                pick_last_margin = (
+                    float(list(pick_dq)[-1]["gf"] - list(pick_dq)[-1]["ga"])
+                    if pick_dq and len(pick_dq) >= 1 and "gf" in pick_dq[0]
+                    else None
+                )
+                opp_win_rate_3 = (
+                    float(np.mean([x["won"] for x in list(opp_dq)[-3:]]))
+                    if opp_dq and len(opp_dq) >= 3 and "won" in opp_dq[0]
+                    else None
+                )
+                opp_ga_3 = (
+                    float(np.mean([x["ga"] for x in list(opp_dq)[-3:]]))
+                    if opp_dq and len(opp_dq) >= 3 and "ga" in opp_dq[0]
                     else None
                 )
                 from .sport_models import route_major_league_gate
@@ -1807,6 +1823,9 @@ def scan_upcoming_other_sports(
                     pick_win_rate_5=pick_win_rate_5,
                     pick_ga_5=pick_ga_5,
                     pick_goal_diff=pick_goal_diff,
+                    pick_last_margin=pick_last_margin,
+                    opp_win_rate_3=opp_win_rate_3,
+                    opp_ga_3=opp_ga_3,
                 ):
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(summary, home, away, side)
@@ -2030,10 +2049,10 @@ def build_recommended_2leg_doubles(
                     "prob": round(p_plus15, 4),
                     "odds": o_plus15,
                 })
-            # 4. Straight Sets 2:0 / 0:2 candidate
+            # 4. Straight Sets 2:0 / 0:2 candidate (strictly require dominant banker p_win >= 0.78 and ss_prob >= 0.58)
             ss_prob = float(sp_pred.get("straight_sets_prob") or 0.0)
             ss_fair = float(sp_pred.get("straight_sets_fair_odds") or 0.0)
-            if ss_prob >= 0.50 and 1.45 <= ss_fair <= 2.05:
+            if p_win >= 0.78 and ss_prob >= 0.58 and 1.35 <= ss_fair <= 1.85:
                 plus_candidates.append({
                     "date_day": ko[:10],
                     "kickoff": ko,
@@ -2049,11 +2068,13 @@ def build_recommended_2leg_doubles(
                     "odds": round(ss_fair, 2),
                 })
 
-        # 3. Tennis Total Games O/U candidate
+        # 3. Tennis Total Games O/U candidate (avoid Over Total Games on heavy >=74% favorites prone to 6-2, 6-2 blowouts)
         tm_mkt = tp.get("totals_market") or {}
         tm_prob = float(tm_mkt.get("prob") or 0.0)
         tm_odds = float(tm_mkt.get("book_odds") or tm_mkt.get("fair_odds") or 0.0)
-        if tm_prob >= 0.58 and 1.35 <= tm_odds <= 1.95 and tm_mkt.get("recommended"):
+        tm_rec_str = str(tm_mkt.get("recommended") or "")
+        is_heavy_fav_over_trap = ("over" in tm_rec_str.lower() and p_win >= 0.74)
+        if tm_prob >= 0.60 and 1.35 <= tm_odds <= 1.95 and tm_rec_str and not is_heavy_fav_over_trap:
             totals_candidates.append({
                 "date_day": ko[:10],
                 "kickoff": ko,
@@ -2064,7 +2085,7 @@ def build_recommended_2leg_doubles(
                 "side": t_side,
                 "match": m_str,
                 "market": "Total Games O/U",
-                "pick": f"{tm_mkt['recommended']} Games (Exp {tm_mkt.get('expected_games')})",
+                "pick": f"{tm_rec_str} Games (Exp {tm_mkt.get('expected_games')})",
                 "prob": round(tm_prob, 4),
                 "odds": round(tm_odds, 2),
             })
@@ -2162,8 +2183,8 @@ def build_recommended_2leg_doubles(
     _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double-Chance / +1.5 Sets Shield", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
     # 3. Goals & Games O/U Totals Combos (up to 2)
     _pair_pool(totals_candidates, totals_candidates + shield_candidates, "GOALS_GAMES_TOTALS", "Goals & Games O/U Combo", 0.46, 1.55, 2.85, limit=2, require_diff_league=False)
-    # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 2)
-    _pair_pool(plus_candidates, ml_candidates + plus_candidates, "STRAIGHT_SETS_SCORE_CLUSTER", "Straight-Sets & Score-Cluster Plus", 0.35, 1.80, 3.60, limit=2, require_diff_league=False)
+    # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 2, require >= 44% combined probability)
+    _pair_pool(plus_candidates, shield_candidates + ml_candidates, "STRAIGHT_SETS_SCORE_CLUSTER", "Straight-Sets & Score-Cluster Plus", 0.44, 1.75, 3.20, limit=2, require_diff_league=False)
 
     return doubles[:max_doubles]
 

@@ -638,7 +638,7 @@
                 <b class="text-sm text-white block pb-2.5 mb-3 border-b border-slate-800">
                   {{ isTennis ? 'Point-by-Point & Game Timeline' : 'Play-by-Play Match Timeline' }}
                 </b>
-                <div class="table-surface rounded-xl overflow-x-auto max-h-[520px] overflow-y-auto">
+                <div class="table-surface custom-scrollbar rounded-xl overflow-x-auto max-h-[520px] overflow-y-auto">
                   <table class="w-full border-collapse text-xs">
                     <thead>
                       <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase border-b border-slate-800 text-left">
@@ -667,7 +667,7 @@
                 <b class="text-sm text-white block pb-2.5 mb-3 border-b border-slate-800">
                   All Bookmaker Markets ({{ allFormattedMarkets.length }})
                 </b>
-                <div class="table-surface rounded-xl overflow-x-auto max-h-[520px] overflow-y-auto">
+                <div class="table-surface custom-scrollbar rounded-xl overflow-x-auto max-h-[520px] overflow-y-auto">
                   <table class="w-full border-collapse text-xs">
                     <thead>
                       <tr class="bg-slate-900/90 text-slate-300 text-[11px] uppercase border-b border-slate-800 text-left">

@@ -61,6 +61,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Hide native browser scrollbar inside .custom-scrollbar so our custom styled scrollbar rail renders cleanly without double bars */
+.custom-scrollbar {
+  overflow-y: auto !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
 /* High-luminosity hero accent gradient — bright across 100% of its width */
 .hero-shimmer-text {
   background: linear-gradient(94deg, #e0f2fe 0%, #7dd3fc 32%, #6ee7b7 68%, #fde047 100%);

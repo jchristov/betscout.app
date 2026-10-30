@@ -800,13 +800,60 @@ def test_per_sport_isolated_gates():
     )
     assert t_samson is False and t_samson_reason == "VETO_ADVERSE_LINE_DRIFT"
 
-    # 7. NBA gate (vetoes Denver vs GSW comp=0.112, 3pt=-2.67, tov=-3.67; passes OKC comp=0.242 & Celtics comp=0.378) & disabled_sports filtering
+    # 7. NBA & NHL gates (vetoes Denver vs GSW comp=0.112, 3pt=-2.67, tov=-3.67; vetoes Dallas Stars vs Montreal Canadiens p_mod=0.5886 after 1-5 blowout vs 3-0 goalie wall; vetoes Savehof vs Amo non-Tipico handball loss-streak chalk)
     from betscout.dashboard import build_best_bets_summary
-    from betscout.sport_models import evaluate_nba_gate
+    from betscout.sport_models import evaluate_nba_gate, evaluate_nhl_gate
 
     assert evaluate_nba_gate(0.683, 0.692, 0.734, 0.112, 8.17, 0.0, 1.38, three_pt_diff=-2.67, tov_margin_diff=-3.67) is False
     assert evaluate_nba_gate(0.763, 0.783, 0.785, 0.242, 3.17, 0.0, 1.22, three_pt_diff=0.0, tov_margin_diff=1.50) is True
     assert evaluate_nba_gate(0.65, 0.66, 0.66, 0.24, -2.1, 1.33, 1.49) is True
+    # Dallas Stars vs Montreal Canadiens (p_mod=0.5886, p_elo=0.5391, p_mkt=0.5934, last_margin=-4.0, opp_wr3=1.0, opp_ga3=0.67) -> Vetoed!
+    assert (
+        evaluate_nhl_gate(
+            0.5886,
+            0.3644,
+            9.33,
+            12.0,
+            0.0,
+            "H",
+            1.617,
+            p_elo=0.5391,
+            p_mkt=0.5934,
+            pick_win_rate_5=0.80,
+            pick_ga_5=2.40,
+            pick_goal_diff=1.50,
+            pick_last_margin=-4.0,
+            opp_win_rate_3=1.0,
+            opp_ga_3=0.67,
+        )
+        is False
+    )
+    # Tampa Bay Lightning vs Winnipeg Jets (p_mod=0.6659, p_elo=0.645, p_mkt=0.675, last_margin=-1.0, opp_wr3=0.0, opp_ga3=3.33) -> Passes!
+    assert (
+        evaluate_nhl_gate(
+            0.6659,
+            0.2291,
+            6.83,
+            6.67,
+            0.0,
+            "H",
+            1.408,
+            p_elo=0.645,
+            p_mkt=0.675,
+            pick_win_rate_5=0.80,
+            pick_ga_5=2.20,
+            pick_goal_diff=1.50,
+            pick_last_margin=-1.0,
+            opp_win_rate_3=0.0,
+            opp_ga_3=3.33,
+        )
+        is True
+    )
+    # Savehof vs Amo (handball, is_tipico=False, fav_loss_streak=1) -> Vetoed!
+    hb_bad, _, _ = evaluate_european_sport_gate(
+        "handball", 0.8096, 0.50, 0.20, 1.21, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=1
+    )
+    assert hb_bad is False
     sample_rec = {
         "qualifying_picks": [],
         "tennis_picks": [],

@@ -871,7 +871,7 @@ def scan_sportradar_european_sports(
             fav_session_sets_3h: int | None = None
             fav_last_lost_5set: bool = False
             fav_lost_last_h2h: bool = False
-            if sp_slug in ("table_tennis", "darts", "snooker") and cand.get("ko_uts"):
+            if sp_slug in ("table_tennis", "darts", "snooker", "handball") and cand.get("ko_uts"):
                 fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
                 dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
                 for is_fav_u, p_uid in ((True, fav_uid), (False, dog_uid)):
@@ -903,8 +903,10 @@ def scan_sportradar_european_sports(
                                 ra_x = int(((m_x.get("result") or {}).get("away")) or 0)
                                 my_s = rh_x if is_h_x else ra_x
                                 op_s = ra_x if is_h_x else rh_x
-                                if idx_m == 0 and my_s < op_s and (my_s + op_s) == 5 and sp_slug == "table_tennis":
-                                    fav_last_lost_5set = True
+                                if idx_m == 0 and my_s < op_s:
+                                    fav_loss_streak = max(fav_loss_streak, 1)
+                                    if (my_s + op_s) == 5 and sp_slug == "table_tennis":
+                                        fav_last_lost_5set = True
                                 if not seen_h2h and dog_uid and opp_uid_x == dog_uid:
                                     seen_h2h = True
                                     if my_s < op_s:

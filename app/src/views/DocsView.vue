@@ -80,8 +80,8 @@
           <div class="flex flex-col gap-2 min-w-[210px]">
             <div class="p-3 rounded-xl bg-slate-950/85 border border-slate-700/80 font-mono tabular-nums text-xs">
               <span class="text-slate-400 block text-[10px] uppercase font-bold">Audited Settled Record</span>
-              <b class="text-emerald-300 text-base">78W – 1L (98.7%)</b>
-              <span class="block text-[11px] text-slate-300 mt-0.5">+29.96u Profit · +37.9% ROI</span>
+              <b class="text-emerald-300 text-base">90W – 2L (97.8%)</b>
+              <span class="block text-[11px] text-slate-300 mt-0.5">+33.55u Profit · +36.5% ROI</span>
             </div>
           </div>
         </div>
@@ -367,7 +367,7 @@ Equal Payout = Stake_i * O_i (identical if any leg hits)</pre>
                   <b class="text-emerald-300 block mb-1.5">4 Direct MCP Resources (<code>resources/list</code>)</b>
                   <ul class="space-y-1 text-slate-300 list-disc pl-4">
                     <li><code class="text-sky-300 font-bold">betscout://slate/today</code> — Active picks &amp; mispriced edges JSON</li>
-                    <li><code class="text-sky-300 font-bold">betscout://ledger/summary</code> — Verified 78W–1L ledger &amp; sport ROI</li>
+                    <li><code class="text-sky-300 font-bold">betscout://ledger/summary</code> — Verified 90W–2L ledger &amp; sport ROI</li>
                     <li><code class="text-sky-300 font-bold">betscout://boosters/today</code> — Today's 2-leg &amp; 3-leg profit boosters</li>
                     <li><code class="text-sky-300 font-bold">betscout://cache/telemetry</code> — Multi-tier real-time cache telemetry</li>
                   </ul>

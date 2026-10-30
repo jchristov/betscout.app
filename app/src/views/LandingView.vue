@@ -925,13 +925,13 @@
       class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
       @click.self="inspectorModalOpen = false"
     >
-      <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[85vh] overflow-y-auto p-5 text-xs">
-        <div class="flex justify-between items-center gap-2 mb-3 pb-2 border-b border-slate-700">
+      <div class="card-surface rounded-2xl max-w-[680px] w-full max-h-[78vh] flex flex-col p-5 text-xs">
+        <div class="flex justify-between items-center gap-2 mb-3 pb-2.5 border-b border-slate-700 shrink-0">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
-            <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
-            <span>{{ inspectorTitle }}</span>
+            <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4 shrink-0" />
+            <span class="whitespace-nowrap">{{ inspectorTitle }}</span>
           </b>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <router-link
               v-if="inspectorData"
               :to="
@@ -939,7 +939,7 @@
                   ? `/match/${inspectorData.sr_match_id}`
                   : `/match/lookup?home=${encodeURIComponent(inspectorData.home || '')}&away=${encodeURIComponent(inspectorData.away || '')}&league=${encodeURIComponent(inspectorData.league || '')}`
               "
-              class="btn-press h-8 px-3 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 no-underline"
+              class="btn-press h-8 px-3 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 no-underline whitespace-nowrap"
               @click="inspectorModalOpen = false"
             >
               <span>Full Match Center</span>
@@ -947,7 +947,7 @@
             </router-link>
             <button
               type="button"
-              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
+              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
               @click="inspectorModalOpen = false"
             >
               <span>Close</span>
@@ -955,6 +955,12 @@
             </button>
           </div>
         </div>
+        <div class="relative flex-1 min-h-0 flex">
+          <div
+            ref="inspectorScrollRef"
+            class="custom-scrollbar flex-1 min-h-0 pr-3"
+            @scroll="updateInspectorScrollbar"
+          >
         <div v-if="inspectorLoading" class="py-8 px-4 flex flex-col items-center justify-center gap-3 text-slate-300">
           <div class="inline-flex items-center gap-2 text-xs font-semibold text-sky-300">
             <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 animate-spin text-sky-400" />
@@ -1178,13 +1184,31 @@
             </div>
           </div>
         </div>
+          </div>
+          <!-- Always-Visible Styled Vertical Scrollbar Rail (macOS overlay-proof) -->
+          <div
+            class="w-2.5 rounded-full bg-slate-950/95 border border-sky-400/35 relative shrink-0 ml-1.5 my-0.5 overflow-hidden cursor-pointer select-none"
+            aria-hidden="true"
+            @mousedown="onInspectorRailMouseDown"
+          >
+            <div
+              class="w-full rounded-full bg-gradient-to-b from-sky-400 to-emerald-400 shadow-[0_0_10px_rgba(56,189,248,0.55)] transition-[top,height] duration-75"
+              :style="{
+                position: 'absolute',
+                left: '0',
+                top: `${inspectorThumbTopPct}%`,
+                height: `${inspectorThumbHeightPct}%`,
+              }"
+            ></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useBetscoutStore } from '../stores/betscoutStore';
 import {
@@ -1241,6 +1265,49 @@ const inspectorModalOpen = ref<boolean>(false);
 const inspectorTitle = ref<string>('Matchup Inspector');
 const inspectorLoading = ref<boolean>(false);
 const inspectorData = ref<any>(null);
+const inspectorScrollRef = ref<HTMLElement | null>(null);
+const inspectorScrollShow = ref<boolean>(false);
+const inspectorThumbTopPct = ref<number>(0);
+const inspectorThumbHeightPct = ref<number>(35);
+
+function updateInspectorScrollbar() {
+  const el = inspectorScrollRef.value;
+  if (!el) return;
+  const sh = el.scrollHeight;
+  const ch = el.clientHeight;
+  if (sh <= ch + 2) {
+    inspectorScrollShow.value = true;
+    inspectorThumbHeightPct.value = 100;
+    inspectorThumbTopPct.value = 0;
+    return;
+  }
+  inspectorScrollShow.value = true;
+  const ratio = Math.max(0.18, Math.min(0.92, ch / sh));
+  const maxScroll = Math.max(1, sh - ch);
+  const progress = Math.max(0, Math.min(1, el.scrollTop / maxScroll));
+  inspectorThumbHeightPct.value = ratio * 100;
+  inspectorThumbTopPct.value = progress * (100 - ratio * 100);
+}
+
+function onInspectorRailMouseDown(ev: MouseEvent) {
+  const rail = ev.currentTarget as HTMLElement | null;
+  const el = inspectorScrollRef.value;
+  if (!rail || !el) return;
+  const applyFromClientY = (clientY: number) => {
+    const rect = rail.getBoundingClientRect();
+    const rel = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
+    el.scrollTop = rel * Math.max(0, el.scrollHeight - el.clientHeight);
+    updateInspectorScrollbar();
+  };
+  applyFromClientY(ev.clientY);
+  const onMove = (mEv: MouseEvent) => applyFromClientY(mEv.clientY);
+  const onUp = () => {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
 
 async function openMatchupModal(home: string, away: string, league = '') {
   inspectorTitle.value = `${home} vs ${away}`;
@@ -1256,6 +1323,9 @@ async function openMatchupModal(home: string, away: string, league = '') {
     inspectorData.value = null;
   } finally {
     inspectorLoading.value = false;
+    await nextTick();
+    updateInspectorScrollbar();
+    setTimeout(updateInspectorScrollbar, 80);
   }
 }
 

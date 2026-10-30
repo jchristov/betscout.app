@@ -238,27 +238,56 @@ def evaluate_nhl_gate(
     pick_win_rate_5: float | None = None,
     pick_ga_5: float | None = None,
     pick_goal_diff: float | None = None,
+    pick_last_margin: float | None = None,
+    opp_win_rate_3: float | None = None,
+    opp_ga_3: float | None = None,
 ) -> bool:
     """NHL Rested + Save%, Shot-Volume, Defensive Integrity & Elo Confirmation Gate.
     Requires:
       - Positive Goalie Save% diff (`save_pct_diff > 0`), positive Shot-Volume diff (`shots_diff > 0`), and `rest_for_pick >= 0`
       - `comp_score >= 0.05` and Elo confirmation `p_elo >= p_mkt - 0.08`
-      - Defensive Integrity & Form Gate: vetoes leaky-defense favorites conceding `>= 3.70` goals/game over their last 5 games
-        (`pick_ga_5 >= 3.70`), slumping favorites with `< 40%` last-5 win rate (`pick_win_rate_5 < 0.40`), or Home favorites with
-        negative rolling goal differential (`pick_goal_diff < -0.30`, e.g. `Anaheim Ducks vs Vancouver Canucks` `1W-4L`, `GA5=4.00`, `GoalDiff=-0.50`)
+      - Conviction Floor (`p_mod >= 0.60` or (`p_elo >= p_mkt` and `shots_diff >= 10.0`))
+      - Defensive Integrity & Form Gate: vetoes leaky-defense favorites conceding `>= 3.30` goals/game over their last 5 games
+        (`pick_ga_5 >= 3.30`), slumping favorites with `< 40%` last-5 win rate (`pick_win_rate_5 < 0.40`), Home favorites with
+        negative rolling goal differential (`pick_goal_diff < -0.30`), or sub-64% favorites lacking a `+1.0` rolling goal diff
+        when `p_elo <= p_mkt` (`p_mod < 0.64 and pick_goal_diff < 1.0 and p_elo <= p_mkt`)
+      - Blowout-Defeat & Surging-Opponent Goalie Wall Veto: vetoes sub-63% favorites coming off a `>= 3`-goal blowout defeat
+        (`pick_last_margin <= -3.0`) or facing an opponent on a Last-3 hot streak (`opp_win_rate_3 >= 0.67` and `opp_ga_3 <= 1.35`,
+        e.g. `Dallas Stars vs Montreal Canadiens` `2-5` where Dallas just lost `1-5` and Montreal was `3-0` allowing `0.67` GPG)
       - Road (`A`) picks require Dual-Dominance (`shots_diff >= 12.0` & `save_pct_diff >= 12.0`).
     """
     if p_mod < min_prob or odds_pick <= 1.10 or comp_score < 0.05:
         return False
     if p_elo is not None and p_mkt is not None and p_elo < (p_mkt - 0.08):
         return False
+    if p_mod < 0.60 and not (p_elo is not None and p_mkt is not None and p_elo >= p_mkt and shots_diff >= 10.0):
+        return False
     if save_pct_diff <= 0.0 or shots_diff <= 0.0 or rest_for_pick < 0.0:
         return False
     if pick_win_rate_5 is not None and pick_win_rate_5 < 0.40:
         return False
-    if pick_ga_5 is not None and pick_ga_5 >= 3.70:
+    if pick_ga_5 is not None and pick_ga_5 >= 3.30:
         return False
     if side == "H" and pick_goal_diff is not None and pick_goal_diff < -0.30:
+        return False
+    if (
+        p_mod < 0.64
+        and pick_goal_diff is not None
+        and pick_goal_diff < 1.0
+        and p_elo is not None
+        and p_mkt is not None
+        and p_elo <= p_mkt
+    ):
+        return False
+    if p_mod < 0.63 and pick_last_margin is not None and pick_last_margin <= -3.0:
+        return False
+    if (
+        p_mod < 0.64
+        and opp_win_rate_3 is not None
+        and opp_ga_3 is not None
+        and opp_win_rate_3 >= 0.67
+        and opp_ga_3 <= 1.35
+    ):
         return False
     if side == "A" and (shots_diff < 12.0 or save_pct_diff < 12.0):
         return False
@@ -332,6 +361,9 @@ def route_major_league_gate(
     pick_win_rate_5: float | None = None,
     pick_ga_5: float | None = None,
     pick_goal_diff: float | None = None,
+    pick_last_margin: float | None = None,
+    opp_win_rate_3: float | None = None,
+    opp_ga_3: float | None = None,
 ) -> bool:
     """Dispatch to the isolated per-sport gate for `nhl`, `nba`, `nfl`, `mlb`, or `volleyball`."""
     lg = (league or "").lower().strip()
@@ -367,6 +399,9 @@ def route_major_league_gate(
             pick_win_rate_5=pick_win_rate_5,
             pick_ga_5=pick_ga_5,
             pick_goal_diff=pick_goal_diff,
+            pick_last_margin=pick_last_margin,
+            opp_win_rate_3=opp_win_rate_3,
+            opp_ga_3=opp_ga_3,
         )
     if lg in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba"):
         return evaluate_nba_gate(
@@ -483,14 +518,21 @@ def evaluate_european_sport_gate(
     elif sp == "handball":
         if best_odds < 1.15 or best_odds > 1.65 or form_diff_fav < 0.0 or p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
+        # Handball Retail Bookmaker & Momentum Gate:
+        # Require verified Tipico retail market pricing (`is_tipico == True`) or strong verified form + Last-3 edge
+        # (`form_diff_fav >= 0.30` and `recent3_diff_fav >= 0.33` and `fav_loss_streak == 0`).
+        # Prevents Consensus-only domestic upsets (e.g. Savehof 21-31 Amo where `is_tipico=False` and `fav_loss_streak=1`).
+        if not is_tipico and (
+            form_diff_fav < 0.30
+            or fav_loss_streak >= 1
+            or recent3_diff_fav is None
+            or recent3_diff_fav < 0.33
+        ):
+            return False, round(p_model, 4), ev_pct
         if is_tipico and form_diff_fav < 0.10:
             return False, round(p_model, 4), ev_pct
         if fav_wr is not None and fav_wr < 0.60:
             return False, round(p_model, 4), ev_pct
-        # Handball Fresh-Defeat & Non-Retail Heavy Chalk Veto:
-        # When a Handball favorite lost their most recent match (`fav_loss_streak >= 1`) and is priced on a
-        # Consensus-only line (`not is_tipico`) or lacks strong Last-3 momentum (`recent3_diff_fav <= 0.35`),
-        # veto to avoid domestic turnover blowouts (e.g. Savehof 21-31 Amo after Savehof's prior defeat).
         if fav_loss_streak >= 1 and (not is_tipico or (recent3_diff_fav is not None and recent3_diff_fav <= 0.35)):
             return False, round(p_model, 4), ev_pct
     elif sp == "darts":
