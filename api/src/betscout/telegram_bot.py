@@ -41,6 +41,7 @@ SPORT_EMOJIS: dict[str, str] = {
     "handball": "🤾",
     "darts": "🎯",
     "table_tennis": "🏓",
+    "curling": "🥌",
     "snooker": "🎱",
     "mma": "🥊",
 }
@@ -303,6 +304,7 @@ SPORT_DISCORD_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "handball": ("DISCORD_WEBHOOK_URL_HANDBALL",),
     "darts": ("DISCORD_WEBHOOK_URL_DARTS",),
     "table_tennis": ("DISCORD_WEBHOOK_URL_TABLE_TENNIS",),
+    "curling": ("DISCORD_WEBHOOK_URL_CURLING",),
 }
 
 SPORT_TELEGRAM_ENV_KEYS: dict[str, tuple[str, ...]] = {
@@ -316,6 +318,7 @@ SPORT_TELEGRAM_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "handball": ("TELEGRAM_CHAT_ID_HANDBALL",),
     "darts": ("TELEGRAM_CHAT_ID_DARTS",),
     "table_tennis": ("TELEGRAM_CHAT_ID_TABLE_TENNIS",),
+    "curling": ("TELEGRAM_CHAT_ID_CURLING",),
 }
 
 
@@ -917,7 +920,7 @@ def notify_new_picks_to_discord(
         def _row_win_prob(r: dict[str, Any]) -> float:
             lg_l = str(r.get("league") or "").lower()
             comp_v = float(r.get("composite_score") or 0.0)
-            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99:
+            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "curling") and 0.45 <= comp_v <= 0.99:
                 return comp_v
             return min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
 
@@ -1184,7 +1187,7 @@ def notify_t60_reminders_to_discord(
         def _row_win_prob(r: dict[str, Any]) -> float:
             lg_l = str(r.get("league") or "").lower()
             comp_v = float(r.get("composite_score") or 0.0)
-            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99:
+            if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "curling") and 0.45 <= comp_v <= 0.99:
                 return comp_v
             return min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
 
@@ -1374,7 +1377,7 @@ def send_free_teaser_to_discord(
                 comp_v = float(r.get("composite_score") or 0.0)
                 wp_v = (
                     comp_v
-                    if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts") and 0.45 <= comp_v <= 0.99
+                    if lg_l in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "curling") and 0.45 <= comp_v <= 0.99
                     else min(max(float(r.get("p_mkt") or 0.62) + 0.04, 0.52), 0.92)
                 )
                 odds_v = float(r.get("logged_best_odds") or 1.25)

@@ -584,6 +584,12 @@ def scan_upcoming_tennis(
                             form_diff_pick = round(pick_f5 - opp_f5, 3)
                         pick_rest_h = live_odds.get("p1_rest_hours") if p_h >= 0.5 else live_odds.get("p2_rest_hours")
                         opp_rest_h = live_odds.get("p2_rest_hours") if p_h >= 0.5 else live_odds.get("p1_rest_hours")
+                        pick_k_lm = hk if p_h >= 0.5 else ak
+                        opp_k_lm = ak if p_h >= 0.5 else hk
+                        if pick_rest_h is None and pick_k_lm in last_match:
+                            pick_rest_h = round((dt - last_match[pick_k_lm][0]).total_seconds() / 3600.0, 1)
+                        if opp_rest_h is None and opp_k_lm in last_match:
+                            opp_rest_h = round((dt - last_match[opp_k_lm][0]).total_seconds() / 3600.0, 1)
                         pick_last_t = str(live_odds.get("p1_last_tourn") if p_h >= 0.5 else live_odds.get("p2_last_tourn") or "").lower()
                         cur_t_city = t_name.lower().split()[0] if t_name else ""
                         from .sport_models import evaluate_tennis_gate
@@ -1235,7 +1241,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
     conn.commit()
 
     to_check = conn.execute(
-        "SELECT * FROM paper_bets WHERE status = 'PENDING' OR settled_score IS NULL OR (home_logo IS NULL AND league NOT LIKE 'sr_%' AND league NOT IN ('handball', 'darts', 'table_tennis', 'snooker', 'mma')) OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL)"
+        "SELECT * FROM paper_bets WHERE status = 'PENDING' OR settled_score IS NULL OR (home_logo IS NULL AND league NOT LIKE 'sr_%' AND league NOT IN ('handball', 'darts', 'table_tennis', 'snooker', 'mma', 'curling')) OR home_logo LIKE '%sofascore%' OR away_logo LIKE '%sofascore%' OR (exact_score_pred IS NOT NULL AND exact_score_hit IS NULL)"
     ).fetchall()
     settled_count = 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1256,7 +1262,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
 
         needs_tennis_detail = lg.lower() in ("atp", "wta") and not score_str
         needs_logos = (
-            (not row["home_logo"] and lg.lower() not in ("handball", "darts", "table_tennis", "snooker", "mma"))
+            (not row["home_logo"] and lg.lower() not in ("handball", "darts", "table_tennis", "snooker", "mma", "curling"))
             or "sofascore" in str(row["home_logo"] or "")
             or "sofascore" in str(row["away_logo"] or "")
         )
@@ -1271,7 +1277,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 try:
                     from .sportradar_statshub import fetch_live_match_timelinedelta
 
-                    sr_sp = lg.lower() if (str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma")) else sp
+                    sr_sp = lg.lower() if (str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma", "curling")) else sp
                     sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=sr_sp, date_ymd=row["kickoff"][:10])
                     if sr_delta.get("state") in ("pre", "in", "post"):
                         sr_found = True
@@ -1302,7 +1308,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             )
                 except Exception:
                     pass
-            if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma"):
+            if str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma", "curling"):
                 pass
             elif sr_found and not needs_logos:
                 # Sportradar already resolved pre/live/post state for this match; skip ESPN/SofaScore fallback entirely
@@ -1674,7 +1680,7 @@ def scan_upcoming_other_sports(
                    d.home_corners, d.away_corners, d.home_fouls, d.away_fouls
             FROM matches m
             LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
-            WHERE m.sport IN ('basketball', 'volleyball', 'hockey', 'football', 'baseball', 'handball', 'darts', 'table_tennis', 'snooker', 'mma')
+            WHERE m.sport IN ('basketball', 'volleyball', 'hockey', 'football', 'baseball', 'handball', 'darts', 'table_tennis', 'snooker', 'mma', 'curling')
                   AND m.outcome IS NOT NULL AND m.home_score IS NOT NULL
             ORDER BY m.kickoff
             """
@@ -2829,7 +2835,7 @@ def scan_upcoming_and_log_paper_bets(
             continue
         if lg_p in ("atp", "wta") and ko_p <= tennis_max_iso and (lg_p, base_eid_p) not in valid_tennis_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
-        elif lg_p in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, base_eid_p) not in valid_other_eids:
+        elif lg_p in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "snooker", "mma", "curling", "wvolleyball", "mvolleyball") and ko_p <= other_max_iso and (lg_p, base_eid_p) not in valid_other_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
         elif lg_p in leagues and ko_p <= soccer_max_iso and (lg_p, base_eid_p) not in valid_soccer_eids:
             c_rev.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (r_pend["league"], eid_p))
@@ -3023,8 +3029,55 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     vetoed_alerts: list[dict[str, Any]] = []
     confirmed_updates: dict[tuple[str, str], dict[str, Any]] = {}
     for r in rows:
-        lg, eid = r["league"], r["event_id"]
+        lg, eid = r["league"], str(r["event_id"])
         backed = r["home"] if r["side"] == "H" else r["away"]
+        if lg.lower() in ("darts", "table_tennis"):
+            # T-60m Rapid-Fire Session Momentum Re-Validation for Darts & Table Tennis:
+            # Purge any pending pick if the backed player just lost a match within the last 3.5 hours before kickoff.
+            try:
+                from .sportradar_statshub import fetch_live_match_timelinedelta, fetch_statshub_gismo
+
+                sr_d = fetch_live_match_timelinedelta(r["home"], r["away"], sport=lg.lower(), date_ymd=str(r["kickoff"])[:10])
+                fav_uid = sr_d.get("home_uid") if r["side"] == "H" else sr_d.get("away_uid")
+                if fav_uid:
+                    lx_d = fetch_statshub_gismo("stats_team_lastx", f"{fav_uid}/5", ttl_sec=60.0) or {}
+                    ko_uts = int(datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp())
+                    prior_ms = [
+                        mx
+                        for mx in (lx_d.get("matches") or [])
+                        if int(((mx.get("time") or {}).get("uts")) or 0) < ko_uts
+                        and str(mx.get("_id")) != eid.replace("sr_", "")
+                    ]
+                    prior_ms.sort(key=lambda mx: int(((mx.get("time") or {}).get("uts")) or 0), reverse=True)
+                    if prior_ms:
+                        m0 = prior_ms[0]
+                        m0_uts = int(((m0.get("time") or {}).get("uts")) or 0)
+                        if (ko_uts - m0_uts) <= int(3.5 * 3600):
+                            tms_0 = m0.get("teams") or {}
+                            is_h0 = ((tms_0.get("home") or {}).get("uid") == fav_uid)
+                            rh0 = int(((m0.get("result") or {}).get("home")) or 0)
+                            ra0 = int(((m0.get("result") or {}).get("away")) or 0)
+                            my_s0 = rh0 if is_h0 else ra0
+                            op_s0 = ra0 if is_h0 else rh0
+                            if my_s0 < op_s0 and (my_s0 + op_s0) > 0:
+                                c_del = _open_db(db_path)
+                                c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                                c_del.commit()
+                                c_del.close()
+                                vetoed_alerts.append({
+                                    "league": lg,
+                                    "event_id": eid,
+                                    "home": r["home"],
+                                    "away": r["away"],
+                                    "backed_team": backed,
+                                    "status": "VETOED_SESSION_LOSS",
+                                    "attack_share": None,
+                                })
+            except Exception:
+                pass
+            continue
+        if lg.lower() in ("handball", "snooker", "mma", "curling"):
+            continue
         s_url = f"{BASE}/soccer/{lg}/summary?event={eid}"
         summary = _fetch_live_json(s_url, ttl_sec=30.0)
         if not summary:
@@ -3452,7 +3505,12 @@ def settle_pending_paper_combos(db_path: Path) -> int:
 # - Machelski vs Nocun (table_tennis, sr_76079070): Filtered by Table Tennis Session Workload & 5-Set Decider Hangover Gate (14 sets in 3h, lost prior 2-3)
 # - Samsonova vs Watson (wta, 187117): Filtered by Stale Career-Elo & Zero-Recent-Form Veto (all_elo_diff=247.9, game_win_pct_diff=-0.01, form_6m_diff=0.0)
 # - Griekspoor vs Lehecka (atp, 185063): Filtered by Court-Acclimatization Veto (win_prob=0.754 < 0.80, tourn_wins_diff=-1)
-# Note: Savehof vs Amo (handball, sr_73731666) is preserved as a legitimate loss (Savehof entered on a 4-match winning streak and passes current pre-match gates).
+# - Xinran Sun vs Claire Liu (wta, 185732): Filtered by Sub-72% Negative Game-Share & Stale-Form Veto (game_win_pct_diff=-0.04, form_6m_diff=0.0, game_elo_diff=76.5 < 85.0)
+# - Francesca Jones vs Nauhany Vitoria Leme Da Silva (wta, 185776): Filtered by Compressed-Turnaround + Negative Physical Endurance Veto (pick_rest=25.8h vs opp_rest=45.4h, decider_diff=-0.05) + mid-match injury retirement (5-7, Ret.)
+# - Dallas Stars vs Montreal Canadiens (nhl, 401892606): Filtered by NHL Blowout-Defeat & Surging-Opponent Goalie Wall Veto (pick_last_margin=-4.0, opp_win_rate_3=1.0, opp_ga_3=0.67)
+# - Savehof vs Amo (handball, sr_73731666): Filtered by Handball Non-Tipico Momentum & Loss-Streak Gate (is_tipico=False, fav_loss_streak=1)
+# - BM Caserio Ciudad Real vs Logrono (handball, sr_72982618): Filtered by Handball Draw-Prone & Road Stalemate Veto (side='A', odds=1.60, recent3_diff_fav=0.0, fav_recent_draws=2)
+# - Beveridge vs Wiles (darts, sr_76162490): Filtered by Darts Session Momentum & Decider Hangover Gate (is_tipico=False, odds=1.37 > 1.32, lost 3-4 decider 36m prior)
 _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("ita.1", "401874988"),
     ("uefa.wchampions", "401916999"),
@@ -3461,6 +3519,12 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76079070"),
     ("wta", "187117"),
     ("atp", "185063"),
+    ("wta", "185732"),
+    ("wta", "185776"),
+    ("nhl", "401892606"),
+    ("handball", "sr_73731666"),
+    ("handball", "sr_72982618"),
+    ("darts", "sr_76162490"),
 )
 
 
@@ -3592,6 +3656,8 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             return "Handball"
         if l == "darts":
             return "Darts"
+        if l == "curling":
+            return "Curling"
         return "Football (UEFA & Domestic)"
 
     by_sport_map: dict[str, list[float]] = defaultdict(list)
@@ -3621,7 +3687,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         # Expected win prob: p_mkt for tennis/other (stored in p_mkt/composite_score), or 1/logged_primary_odds fallback
         t_exp_probs = [
             float(x["composite_score"])
-            if x["league"].lower() in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts")
+            if x["league"].lower() in ("atp", "wta", "nba", "wnba", "nhl", "nfl", "mlb", "table_tennis", "handball", "darts", "curling")
             and 0.45 <= float(x["composite_score"]) <= 0.99
             else min(max(float(x["p_mkt"] or 0.60), 0.35), 0.95)
             for x in t_rows

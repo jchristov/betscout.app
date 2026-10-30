@@ -240,6 +240,9 @@ const BETSCOUT_SPORT_SUBSET = {
     volleyball: {
       body: `<image width="64" height="64" href="/sport-icons/volleyball.png"/>`,
     },
+    curling: {
+      body: `<circle cx="32" cy="34" r="24" fill="#0f172a" stroke="#38bdf8" stroke-width="5"/><circle cx="32" cy="34" r="15" fill="none" stroke="#f8fafc" stroke-width="4.5"/><circle cx="32" cy="34" r="7" fill="#ef4444"/><path d="M22 14h16a4 4 0 0 1 4 4v4" fill="none" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>`,
+    },
   },
 };
 

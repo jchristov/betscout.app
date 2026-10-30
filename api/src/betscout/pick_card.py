@@ -19,6 +19,7 @@ SPORT_LABELS: dict[str, str] = {
     "handball": "HANDBALL",
     "darts": "DARTS",
     "table_tennis": "TABLE TENNIS",
+    "curling": "CURLING",
 }
 
 SPORT_EMOJIS: dict[str, str] = {
@@ -32,6 +33,7 @@ SPORT_EMOJIS: dict[str, str] = {
     "handball": "🤾",
     "darts": "🎯",
     "table_tennis": "🏓",
+    "curling": "🥌",
 }
 
 
@@ -39,6 +41,8 @@ def _infer_sport_cat(raw_val: str | None) -> str:
     low = str(raw_val or "").lower().strip()
     if not low:
         return "soccer"
+    if any(k in low for k in ("curling",)):
+        return "curling"
     if any(k in low for k in ("table_tennis", "table tennis", "tt star", "tt-star", "tt elite", "ittf", "wtt")):
         return "table_tennis"
     if any(k in low for k in ("handball", "ehf", "ihf", "starligue", "hbl")):
@@ -112,6 +116,12 @@ def _render_sport_icon_rgba(sport_cat: str, size: int = 30) -> Image.Image:
         r_mid = int(r * 0.62)
         r_in = int(r * 0.28)
         draw.ellipse([(cx - r_mid, cy - r_mid), (cx + r_mid, cy + r_mid)], outline=(34, 197, 94, 255), width=7)
+        draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], fill=(239, 68, 68, 255))
+    elif sp == "curling":
+        draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=(56, 189, 248, 255), width=7)
+        r_mid = int(r * 0.62)
+        r_in = int(r * 0.28)
+        draw.ellipse([(cx - r_mid, cy - r_mid), (cx + r_mid, cy + r_mid)], outline=(248, 250, 252, 255), width=6)
         draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], fill=(239, 68, 68, 255))
     elif sp in ("volleyball", "handball"):
         col_fill = (56, 189, 248, 255) if sp == "volleyball" else (245, 158, 11, 255)
@@ -570,6 +580,7 @@ def _get_sport_pill_colors(sport_cat: str) -> tuple[tuple[int, int, int], tuple[
         "baseball": ((44, 16, 26), (251, 113, 133), (254, 205, 211)),
         "handball": ((20, 24, 52), (129, 140, 248), (199, 210, 254)),
         "darts": ((44, 16, 18), (248, 113, 113), (254, 202, 202)),
+        "curling": ((12, 34, 46), (56, 189, 248), (186, 230, 253)),
     }
     return palettes.get(sp, palettes["soccer"])
 

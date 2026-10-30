@@ -678,6 +678,7 @@ def backfill_sportradar_european_sports_to_db(
         (6, "handball"),
         (22, "darts"),
         (20, "table_tennis"),
+        (28, "curling"),
     ]
     conn = sqlite3.connect(db_path, timeout=20.0)
     inserted_by_sport: dict[str, int] = {sp_slug: 0 for _, sp_slug in target_sports}
@@ -685,7 +686,7 @@ def backfill_sportradar_european_sports_to_db(
 
     for sp_id, sp_slug in target_sports:
         rows_to_upsert: list[tuple[Any, ...]] = []
-        for d_back in range(1, days_back + 1):
+        for d_back in range(0, days_back + 1):
             ymd = (now_utc - timedelta(days=d_back)).strftime("%Y-%m-%d")
             u_doc = fetch_statshub_gismo("unified_sport_matches", f"{sp_id}/{ymd}/1", ttl_sec=86400.0) or {}
             mkt_tip = (fetch_statshub_gismo("unified_sport_matches_markets", f"{sp_id}/{ymd}/1", client_alias="tipico", ttl_sec=86400.0) or {}).get("matches") or {}
@@ -693,21 +694,30 @@ def backfill_sportradar_european_sports_to_db(
 
             for rc in (u_doc.get("sport") or {}).get("realcategories") or []:
                 for t in rc.get("tournaments") or []:
+                    t_name_b = str(t.get("name") or "")
+                    is_womens_t = sp_slug == "curling" and "women" in t_name_b.lower()
                     for m in t.get("matches") or []:
                         st = m.get("status")
                         st_id = int(st.get("_id") or 0) if isinstance(st, dict) else 0
-                        if st_id not in (100, 110, 120):
-                            continue
-                        mid = str(m.get("_id") or "")
                         res_obj = m.get("result") or {}
                         h_sc = res_obj.get("home")
                         a_sc = res_obj.get("away")
+                        if st_id not in (100, 110, 120) and not (
+                            st is None and h_sc is not None and a_sc is not None and not m.get("inlivescore")
+                        ):
+                            continue
+                        mid = str(m.get("_id") or "")
                         if not mid or h_sc is None or a_sc is None:
                             continue
                         teams = m.get("teams") or {}
                         h_name = (teams.get("home") or {}).get("name") or ""
                         a_name = (teams.get("away") or {}).get("name") or ""
-                        dt_uts = ((m.get("_dt") or {}).get("uts")) or 0
+                        if is_womens_t:
+                            if h_name and not h_name.endswith(" W"):
+                                h_name = f"{h_name} W"
+                            if a_name and not a_name.endswith(" W"):
+                                a_name = f"{a_name} W"
+                        dt_uts = ((m.get("_dt") or m.get("time") or {}).get("uts")) or 0
                         if not h_name or not a_name or not dt_uts:
                             continue
                         ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -764,6 +774,7 @@ def scan_sportradar_european_sports(
         (6, "handball", "Handball"),
         (22, "darts", "Darts"),
         (20, "table_tennis", "Table Tennis"),
+        (28, "curling", "Curling"),
         (19, "snooker", "Snooker"),
         (117, "mma", "MMA"),
     ]
@@ -779,11 +790,13 @@ def scan_sportradar_european_sports(
             rc_name = rc.get("name") or ""
             for t in rc.get("tournaments") or []:
                 t_name = t.get("name") or ""
+                is_womens_t = sp_slug == "curling" and "women" in t_name.lower()
                 comp_label = f"{rc_name} · {t_name}".strip(" ·")
                 for m in t.get("matches") or []:
                     st = m.get("status")
                     st_id = int(st.get("_id") or 0) if isinstance(st, dict) else 0
-                    if st_id not in (0, 61):  # Skip finished or in-play matches
+                    res_m = m.get("result") or {}
+                    if st_id not in (0, 61) or res_m.get("home") is not None or m.get("inlivescore"):
                         continue
                     mid = str(m.get("_id") or "")
                     if not mid:
@@ -798,7 +811,8 @@ def scan_sportradar_european_sports(
                     oh = parsed_m.get("odds_home")
                     oa = parsed_m.get("odds_away")
                     od = parsed_m.get("odds_draw")
-                    if not oh or not oa or min(oh, oa) < 1.12 or min(oh, oa) > 1.72:
+                    min_o_floor = 1.10 if sp_slug == "curling" else 1.12
+                    if not oh or not oa or min(oh, oa) < min_o_floor or min(oh, oa) > 1.72:
                         continue
 
                     # Compute vig-free market probability (in 3-way Handball, cap draw weight at 6.5% so 3-way draw vig doesn't distort 1X2 favorites)
@@ -822,7 +836,12 @@ def scan_sportradar_european_sports(
                     teams = m.get("teams") or {}
                     h_name = (teams.get("home") or {}).get("name") or ""
                     a_name = (teams.get("away") or {}).get("name") or ""
-                    dt_uts = ((m.get("_dt") or {}).get("uts")) or 0
+                    if is_womens_t:
+                        if h_name and not h_name.endswith(" W"):
+                            h_name = f"{h_name} W"
+                        if a_name and not a_name.endswith(" W"):
+                            a_name = f"{a_name} W"
+                    dt_uts = ((m.get("_dt") or m.get("time") or {}).get("uts")) or 0
                     if not h_name or not a_name or not dt_uts:
                         continue
                     ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
@@ -871,17 +890,23 @@ def scan_sportradar_european_sports(
             dog_st_obj = (a_f_obj.get("streak") if cand["side"] == "H" else h_f_obj.get("streak")) or {}
             fav_loss_streak = int(fav_st_obj.get("value") or 0) if fav_st_obj.get("type") == "L" else 0
             dog_win_streak = int(dog_st_obj.get("value") or 0) if dog_st_obj.get("type") == "W" else 0
+            fav_f_list = h_f_list if cand["side"] == "H" else a_f_list
+            fav_recent_draws = sum(1 for x in fav_f_list[:5] if x.get("type") == "D")
+            if (len(h_f_list) >= 4 and len(a_f_list) >= 4 and form_diff_fav < 0.0) or fav_loss_streak >= 2 or dog_win_streak >= 3:
+                continue
 
-            # Check `stats_team_lastx/{uid}/10` for Table Tennis & Darts to measure hours since last match,
-            # 3.5h session set workload, 5-set decider hangover, and direct head-to-head result vs today's opponent
+            # Check `stats_team_lastx/{uid}/10` for Table Tennis, Darts, Snooker & Handball to measure hours since last match,
+            # 3.5h session set workload, 5-set / 7-leg decider hangover, chronological streaks, and direct H2H result vs today's opponent
             fav_hours_since_last: float | None = None
             dog_hours_since_last: float | None = None
             fav_session_sets_3h: int | None = None
             fav_last_lost_5set: bool = False
             fav_lost_last_h2h: bool = False
-            if sp_slug in ("table_tennis", "darts", "snooker", "handball") and cand.get("ko_uts"):
+            if sp_slug in ("table_tennis", "darts", "snooker", "handball", "curling") and cand.get("ko_uts"):
                 fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
                 dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
+                fav_r3_lx: float | None = None
+                dog_r3_lx: float | None = None
                 for is_fav_u, p_uid in ((True, fav_uid), (False, dog_uid)):
                     if not p_uid:
                         continue
@@ -900,6 +925,11 @@ def scan_sportradar_european_sports(
                             fav_hours_since_last = hrs_gap
                             sess_sets = 0
                             seen_h2h = False
+                            lx_l_streak = 0
+                            lx_streak_open = True
+                            lx_r3_wins = 0
+                            lx_r3_n = 0
+                            lx_draws_5 = 0
                             for idx_m, m_x in enumerate(prior_ms):
                                 m_uts = int(((m_x.get("time") or {}).get("uts")) or 0)
                                 tms_x = m_x.get("teams") or {}
@@ -911,9 +941,22 @@ def scan_sportradar_european_sports(
                                 ra_x = int(((m_x.get("result") or {}).get("away")) or 0)
                                 my_s = rh_x if is_h_x else ra_x
                                 op_s = ra_x if is_h_x else rh_x
+                                if idx_m < 3:
+                                    lx_r3_n += 1
+                                    if my_s > op_s:
+                                        lx_r3_wins += 1
+                                if idx_m < 5 and my_s == op_s and (my_s + op_s) > 0:
+                                    lx_draws_5 += 1
+                                if lx_streak_open:
+                                    if my_s < op_s:
+                                        lx_l_streak += 1
+                                    else:
+                                        lx_streak_open = False
                                 if idx_m == 0 and my_s < op_s:
                                     fav_loss_streak = max(fav_loss_streak, 1)
                                     if (my_s + op_s) == 5 and sp_slug == "table_tennis":
+                                        fav_last_lost_5set = True
+                                    elif sp_slug == "darts" and (op_s - my_s) == 1 and (my_s + op_s) in (7, 9, 11):
                                         fav_last_lost_5set = True
                                 if not seen_h2h and dog_uid and opp_uid_x == dog_uid:
                                     seen_h2h = True
@@ -921,9 +964,39 @@ def scan_sportradar_european_sports(
                                         fav_lost_last_h2h = True
                                 if (int(cand["ko_uts"]) - m_uts) <= int(3.5 * 3600):
                                     sess_sets += (my_s + op_s)
+                            fav_loss_streak = max(fav_loss_streak, lx_l_streak)
+                            fav_recent_draws = max(fav_recent_draws, lx_draws_5)
+                            if lx_r3_n == 3:
+                                fav_r3_lx = lx_r3_wins / 3.0
                             fav_session_sets_3h = sess_sets
                         else:
                             dog_hours_since_last = hrs_gap
+                            dog_w_streak = 0
+                            dog_streak_open = True
+                            dog_r3_wins = 0
+                            dog_r3_n = 0
+                            for idx_m, m_x in enumerate(prior_ms):
+                                tms_x = m_x.get("teams") or {}
+                                h_uid_x = (tms_x.get("home") or {}).get("uid")
+                                is_h_x = (h_uid_x == p_uid)
+                                rh_x = int(((m_x.get("result") or {}).get("home")) or 0)
+                                ra_x = int(((m_x.get("result") or {}).get("away")) or 0)
+                                my_s = rh_x if is_h_x else ra_x
+                                op_s = ra_x if is_h_x else rh_x
+                                if idx_m < 3:
+                                    dog_r3_n += 1
+                                    if my_s > op_s:
+                                        dog_r3_wins += 1
+                                if dog_streak_open:
+                                    if my_s > op_s:
+                                        dog_w_streak += 1
+                                    else:
+                                        dog_streak_open = False
+                            dog_win_streak = max(dog_win_streak, dog_w_streak)
+                            if dog_r3_n == 3:
+                                dog_r3_lx = dog_r3_wins / 3.0
+                if fav_r3_lx is not None and dog_r3_lx is not None:
+                    recent3_diff_fav = fav_r3_lx - dog_r3_lx
 
             p_elo_fav = 0.50
             if lg_elo is not None:
@@ -952,6 +1025,8 @@ def scan_sportradar_european_sports(
                 fav_session_sets_3h=fav_session_sets_3h,
                 fav_last_lost_5set=fav_last_lost_5set,
                 fav_lost_last_h2h=fav_lost_last_h2h,
+                fav_recent_draws=fav_recent_draws,
+                side=cand["side"],
             )
             if not passed:
                 continue
@@ -996,15 +1071,21 @@ def fetch_live_match_timelinedelta(
         pass
     matched_m = None
     flipped = False
+    is_womens_q = home.strip().endswith(" W") or away.strip().endswith(" W")
+    clean_h_q = home.strip()[:-2].strip() if home.strip().endswith(" W") else home
+    clean_a_q = away.strip()[:-2].strip() if away.strip().endswith(" W") else away
     for d_cand in date_candidates:
         flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
         for entry in flat:
             th, ta = entry["home"], entry["away"]
-            if _names_match(home, th) and _names_match(away, ta):
+            t_tr = str(entry.get("tournament") or "").lower()
+            if sport == "curling" and is_womens_q != ("women" in t_tr):
+                continue
+            if _names_match(clean_h_q, th) and _names_match(clean_a_q, ta):
                 matched_m = entry["match_obj"]
                 flipped = False
                 break
-            if _names_match(home, ta) and _names_match(away, th):
+            if _names_match(clean_h_q, ta) and _names_match(clean_a_q, th):
                 matched_m = entry["match_obj"]
                 flipped = True
                 break
@@ -1022,9 +1103,18 @@ def fetch_live_match_timelinedelta(
 
     m = td["match"]
     st_obj = m.get("status") or {}
-    st_id = int(st_obj.get("_id") or 0)
-    st_name = str(st_obj.get("name") or st_obj.get("shortName") or "LIVE")
-    dt_uts_m = ((m.get("_dt") or matched_m.get("_dt") or {}).get("uts")) or 0
+    st_id = int(st_obj.get("_id") or 0) if isinstance(st_obj, dict) else 0
+    st_name = str((st_obj.get("name") or st_obj.get("shortName")) if isinstance(st_obj, dict) else "" or "LIVE")
+    m_res_raw = m.get("result") or {}
+    mm_res_raw = matched_m.get("result") or {}
+    res_check = m_res_raw if m_res_raw.get("home") is not None else mm_res_raw
+    if st_id == 0 and res_check.get("home") is not None and res_check.get("away") is not None and not m.get("inlivescore"):
+        st_id = 100
+        st_name = "Ended"
+    elif st_id == 0 and m.get("inlivescore"):
+        st_id = 6
+        st_name = "LIVE"
+    dt_uts_m = ((m.get("_dt") or m.get("time") or matched_m.get("_dt") or matched_m.get("time") or {}).get("uts")) or 0
     start_utc_m = (
         datetime.fromtimestamp(int(dt_uts_m), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
         if dt_uts_m
@@ -1044,7 +1134,7 @@ def fetch_live_match_timelinedelta(
         }
 
     is_finished = st_id in (91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 110, 111, 120)
-    res_obj = m.get("result") or {}
+    res_obj = res_check
     raw_h = res_obj.get("away" if flipped else "home")
     raw_a = res_obj.get("home" if flipped else "away")
     # Status 22 = "About to start" (players not yet playing points; result is None). Treat as pre-match ('pre') until first point/game starts!
@@ -1084,8 +1174,22 @@ def fetch_live_match_timelinedelta(
         if str(g_h) != "0" or str(g_a) != "0" or srv_h or srv_a:
             pt_str = f" · Pt {srv_h}{g_h}-{g_a}{srv_a}"
 
+    is_retired = bool(is_finished and (st_id == 92 or "ret" in str(st_name or "").lower()))
+    if is_retired and h_main == 0 and a_main == 0 and period_strs:
+        for ps_item in period_strs:
+            if "-" in ps_item:
+                p_h_s, p_a_s = ps_item.split("-", 1)
+                if p_h_s.isdigit() and p_a_s.isdigit():
+                    ph_v, pa_v = int(p_h_s), int(p_a_s)
+                    if (ph_v >= 6 or pa_v >= 6) and abs(ph_v - pa_v) >= 1:
+                        if ph_v > pa_v:
+                            h_main += 1
+                        elif pa_v > ph_v:
+                            a_main += 1
+
     if period_strs:
-        score_str = f"{h_main}-{a_main} ({', '.join(period_strs)}{pt_str})"
+        ret_suffix = ", Ret." if is_retired else ""
+        score_str = f"{h_main}-{a_main} ({', '.join(period_strs)}{ret_suffix}{pt_str})"
     else:
         score_str = f"{h_main}-{a_main} ({st_name})" if not is_finished else f"{h_main}-{a_main}"
 
@@ -1098,7 +1202,7 @@ def fetch_live_match_timelinedelta(
             outcome = "H" if flipped else "A"
         elif h_main != a_main:
             outcome = "H" if h_main > a_main else "A"
-        elif sport == "soccer":
+        elif (raw_h is not None and raw_a is not None and h_main == a_main and sport in ("soccer", "handball")) or win_raw == "draw":
             outcome = "D"
 
     return {
@@ -1115,6 +1219,7 @@ def fetch_live_match_timelinedelta(
         "periods": period_strs,
         "point_score": pt_str.strip(" ·"),
         "outcome": outcome,
+        "is_retired": is_retired,
     }
 
 

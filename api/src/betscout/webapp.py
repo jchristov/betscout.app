@@ -2565,7 +2565,7 @@ self.addEventListener('fetch', (event) => {{
                     # Route per-sport morning digests to dedicated sport webhooks
                     global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
                     sport_sent = 0
-                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis", "curling"):
                         sp_wh = resolve_discord_webhook_for_sport(sp_cat_k, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
                         if sp_wh and sp_wh != global_wh:
                             sp_bets = build_best_bets_summary(rec, min_odds=min_odds_d, sport_filter=sp_cat_k)
@@ -2611,7 +2611,7 @@ self.addEventListener('fetch', (event) => {{
                             image_bytes=slate_png,
                         )
                         global_tg = resolve_telegram_chat_for_sport(None, custom_sport_chats=cfg_d.get("telegram_sport_chats"))
-                        for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                        for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis", "curling"):
                             sp_tg_chat = resolve_telegram_chat_for_sport(sp_cat_k, custom_sport_chats=cfg_d.get("telegram_sport_chats"))
                             if sp_tg_chat and sp_tg_chat != global_tg:
                                 sp_bets = build_best_bets_summary(rec, min_odds=min_odds_d, sport_filter=sp_cat_k)
@@ -2697,7 +2697,7 @@ self.addEventListener('fetch', (event) => {{
                         pass
 
                     global_wh = resolve_discord_webhook_for_sport(None, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
-                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis", "curling"):
                         sp_wh = resolve_discord_webhook_for_sport(sp_cat_k, custom_sport_webhooks=cfg_d.get("sport_webhooks"))
                         if sp_wh and sp_wh != global_wh:
                             sp_bets = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.15), sport_filter=sp_cat_k)
@@ -2764,7 +2764,7 @@ self.addEventListener('fetch', (event) => {{
                 )
                 if sp_f_tg == "all" and not body.get("chat_id") and not body.get("pick_card"):
                     global_tg = resolve_telegram_chat_for_sport(None, custom_sport_chats=cfg_tg.get("telegram_sport_chats"))
-                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis", "curling"):
                         sp_tg_chat = resolve_telegram_chat_for_sport(sp_cat_k, custom_sport_chats=cfg_tg.get("telegram_sport_chats"))
                         if sp_tg_chat and sp_tg_chat != global_tg:
                             sp_bets = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.15), sport_filter=sp_cat_k)

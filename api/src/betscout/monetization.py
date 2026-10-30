@@ -355,11 +355,18 @@ def list_subscribers(db_path: Path) -> list[dict[str, Any]]:
 
 
 def check_is_active_subscriber(db_path: Path, email: str | None) -> tuple[bool, str]:
-    """Check if `email` is an active paying subscriber (`status == 'active'` and not expired)."""
-    if not email or not db_path.exists():
+    """Check if `email` is an active paying subscriber (`status == 'active'` and not expired) or listed in `BETSCOUT_PRO_EMAILS`."""
+    if not email:
+        return False, "free"
+    norm_email = email.strip().lower()
+    raw_pro_env = (os.environ.get("BETSCOUT_PRO_EMAILS") or "").strip()
+    if raw_pro_env:
+        pro_emails = {x.strip().lower() for x in raw_pro_env.split(",") if x.strip()}
+        if norm_email in pro_emails:
+            return True, "pro"
+    if not db_path.exists():
         return False, "free"
     ensure_monetization_tables(db_path)
-    norm_email = email.strip().lower()
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row

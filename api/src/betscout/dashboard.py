@@ -86,6 +86,7 @@ SPORT_FILTER_LABELS: dict[str, str] = {
     "handball": "Handball",
     "darts": "Darts",
     "table_tennis": "Table Tennis",
+    "curling": "Curling",
 }
 
 SPORT_ICONS: dict[str, str] = {
@@ -99,6 +100,7 @@ SPORT_ICONS: dict[str, str] = {
     "handball": "🤾",
     "darts": "🎯",
     "table_tennis": "🏓",
+    "curling": "🥌",
     "snooker": "🎱",
     "mma": "🥊",
 }
@@ -193,6 +195,8 @@ def _league_to_sport_cat(league_or_sport: str) -> str:
         return "handball"
     if "darts" in low or "modus" in low or "pdc" in low:
         return "darts"
+    if "curling" in low:
+        return "curling"
     if "snooker" in low:
         return "snooker"
     if "mma" in low or "ufc" in low:

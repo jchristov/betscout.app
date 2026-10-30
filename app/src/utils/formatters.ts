@@ -9,6 +9,7 @@ export const SPORT_EMOJIS: Record<string, string> = {
   handball: '🤾',
   darts: '🎯',
   table_tennis: '🏓',
+  curling: '🥌',
 };
 
 /**
@@ -27,6 +28,7 @@ export const SPORT_FA6_ICONIFY_NAMES: Record<string, string> = {
   handball: 'fa6-solid:handball',
   darts: 'fa6-solid:bullseye',
   table_tennis: 'fa6-solid:table-tennis-paddle-ball',
+  curling: 'fa6-solid:bullseye',
 };
 
 /**
@@ -45,6 +47,7 @@ export const SPORT_ICONIFY_NAMES: Record<string, string> = {
   handball: 'betscout-sport:handball',
   darts: 'betscout-sport:darts',
   table_tennis: 'betscout-sport:table_tennis',
+  curling: 'betscout-sport:curling',
 };
 
 export const SPORT_CLEAN_LABELS: Record<string, string> = {
@@ -59,6 +62,7 @@ export const SPORT_CLEAN_LABELS: Record<string, string> = {
   handball: 'Handball',
   darts: 'Darts',
   table_tennis: 'Table Tennis',
+  curling: 'Curling',
 };
 
 export const SPORT_LABELS: Record<string, string> = {
@@ -73,11 +77,13 @@ export const SPORT_LABELS: Record<string, string> = {
   handball: '🤾 Handball',
   darts: '🎯 Darts',
   table_tennis: '🏓 Table Tennis',
+  curling: '🥌 Curling',
 };
 
 export function getSportIconify(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (SPORT_ICONIFY_NAMES[low]) return SPORT_ICONIFY_NAMES[low];
+  if (low.includes('curling')) return 'betscout-sport:curling';
   if (low.includes('table tennis') || low.includes('table_tennis') || low.includes('wtt')) return 'betscout-sport:table_tennis';
   if (low.includes('handball')) return 'betscout-sport:handball';
   if (low.includes('darts')) return 'betscout-sport:darts';
@@ -103,11 +109,16 @@ export function formatLeagueBadgeLabel(
   // If rawLabel is already a rich competition label (not a generic ALL-CAPS slug like 'HANDBALL' or 'TABLE_TENNIS'), return it
   if (
     rawLabel &&
-    !['HANDBALL', 'TABLE_TENNIS', 'TABLE TENNIS', 'DARTS', 'SNOOKER', 'MMA', 'VOLLEYBALL'].includes(
+    !['HANDBALL', 'TABLE_TENNIS', 'TABLE TENNIS', 'DARTS', 'CURLING', 'SNOOKER', 'MMA', 'VOLLEYBALL'].includes(
       rawLabel.toUpperCase(),
     )
   ) {
     return rawLabel;
+  }
+
+  if (lg === 'curling' || rawLabel.toUpperCase() === 'CURLING') {
+    if (teams.includes(' w')) return 'Curling · European Championship Women';
+    return 'Curling · European Championship';
   }
 
   if (lg === 'handball' || rawLabel.toUpperCase() === 'HANDBALL') {
@@ -257,12 +268,15 @@ export function getSportIconColor(catOrLeague?: string | null): string {
   if (low.includes('baseball') || low.includes('mlb')) return 'text-rose-400';
   if (low.includes('handball')) return 'text-indigo-400';
   if (low.includes('darts')) return 'text-red-400';
+  if (low.includes('curling')) return 'text-sky-400';
   if (low === 'all') return 'text-sky-400';
   return 'text-emerald-400';
 }
 
 export function getSportBadgeTheme(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
+  if (low.includes('curling'))
+    return 'bg-sky-500/15 text-sky-300 border-sky-400/40';
   if (low.includes('table tennis') || low.includes('table_tennis'))
     return 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/40';
   if (low.includes('tennis') || low.includes('atp') || low.includes('wta'))
@@ -519,6 +533,7 @@ export const CLV_TOOLTIP =
 export function getSportEmoji(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (SPORT_EMOJIS[low]) return SPORT_EMOJIS[low];
+  if (low.includes('curling')) return '🥌';
   if (low.includes('table tennis') || low.includes('table_tennis')) return '🏓';
   if (low.includes('handball')) return '🤾';
   if (low.includes('darts')) return '🎯';

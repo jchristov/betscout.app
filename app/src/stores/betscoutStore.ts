@@ -548,6 +548,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
       'handball',
       'darts',
       'table_tennis',
+      'curling',
     ];
     const counts: Record<string, number> = {};
     for (const b of activeBestBets.value) {
@@ -580,6 +581,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
       'handball',
       'darts',
       'table_tennis',
+      'curling',
     ];
     const counts: Record<string, number> = {};
     for (const b of activeBestBets.value) {

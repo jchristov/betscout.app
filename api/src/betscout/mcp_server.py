@@ -90,7 +90,7 @@ MCP_TOOLS_CATALOG: list[dict[str, Any]] = [
             "properties": {
                 "sport": {
                     "type": "string",
-                    "description": "Filter by sport category ('all', 'soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts'). Default: 'all'.",
+                    "description": "Filter by sport category ('all', 'soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts', 'curling'). Default: 'all'.",
                     "enum": [
                         "all",
                         "soccer",
@@ -101,6 +101,7 @@ MCP_TOOLS_CATALOG: list[dict[str, Any]] = [
                         "handball",
                         "table_tennis",
                         "darts",
+                        "curling",
                     ],
                 },
                 "market_filter": {
@@ -244,7 +245,7 @@ MCP_TOOLS_CATALOG: list[dict[str, Any]] = [
             "properties": {
                 "sport": {
                     "type": "string",
-                    "description": "Sport key ('soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts', 'volleyball', 'baseball'). Default: 'tennis'.",
+                    "description": "Sport key ('soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts', 'curling', 'volleyball', 'baseball'). Default: 'tennis'.",
                 },
                 "date_ymd": {
                     "type": "string",

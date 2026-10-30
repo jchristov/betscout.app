@@ -819,6 +819,16 @@ def test_per_sport_isolated_gates():
         0.7012, 1.52, 2.35, game_win_pct_diff=-0.04, form_6m_diff=0.0, game_elo_diff=76.5, all_elo_diff=130.3, h2h_n=0, decider_diff=-0.10, tourn_wins_diff=1
     )
     assert t_liu is False and t_liu_reason == "VETO_STALE_TENNIS_FORM"
+    # Francesca Jones vs Nauhany Vitoria Leme Da Silva (win_prob=0.761, pick_rest_h=25.8, opp_rest_h=45.4, decider_diff=-0.05) -> Vetoed by Fatigue/Decider Deficit!
+    t_jones, _, _, t_jones_reason = evaluate_tennis_gate(
+        0.761, 1.28, 3.60, game_win_pct_diff=0.075, form_6m_diff=0.2, pick_rest_h=25.8, opp_rest_h=45.4, game_elo_diff=87.4, all_elo_diff=173.1, h2h_n=0, decider_diff=-0.05, tourn_wins_diff=0
+    )
+    assert t_jones is False and t_jones_reason == "VETO_FATIGUE_DECIDER_DEFICIT"
+    # Cameron Norrie vs Daniil Medvedev (pick_rest_h=23.8, opp_rest_h=43.2, decider_diff=+0.40) -> Passes!
+    t_med, _, _, _ = evaluate_tennis_gate(
+        0.76, 1.17, 4.80, game_win_pct_diff=0.09, form_6m_diff=0.3, pick_rest_h=23.8, opp_rest_h=43.2, game_elo_diff=110.0, all_elo_diff=195.0, h2h_n=4, decider_diff=0.40, tourn_wins_diff=0
+    )
+    assert t_med is True
 
     # 7. NBA & NHL gates (vetoes Denver vs GSW comp=0.112, 3pt=-2.67, tov=-3.67; vetoes Dallas Stars vs Montreal Canadiens p_mod=0.5886 after 1-5 blowout vs 3-0 goalie wall; vetoes Savehof vs Amo non-Tipico handball loss-streak chalk)
     from betscout.dashboard import build_best_bets_summary
@@ -874,6 +884,39 @@ def test_per_sport_isolated_gates():
         "handball", 0.8096, 0.50, 0.20, 1.21, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=1
     )
     assert hb_bad is False
+    # BM Caserio Ciudad Real vs Logrono (handball, side="A", best_odds=1.60, p_mkt=0.6107, recent3_diff_fav=0.0, fav_recent_draws=2) -> Vetoed!
+    hb_draw_bad, _, _ = evaluate_european_sport_gate(
+        "handball", 0.6107, 0.50, 0.20, 1.60, True, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=0, fav_wr=0.60, fav_recent_draws=2, side="A"
+    )
+    assert hb_draw_bad is False
+    # Goppingen vs Gummersbach (handball, side="A", best_odds=1.45, p_mkt=0.66, recent3_diff_fav=0.333, fav_recent_draws=0) -> Passes!
+    hb_gum_ok, _, _ = evaluate_european_sport_gate(
+        "handball", 0.66, 0.55, 0.30, 1.45, True, 10, 10, recent3_diff_fav=0.333, fav_loss_streak=0, fav_wr=0.70, fav_recent_draws=0, side="A"
+    )
+    assert hb_gum_ok is True
+    # Beveridge, Darren vs Wiles, Michael (darts, is_tipico=False, best_odds=1.37 > 1.32, fav_loss_streak=1, fav_last_lost_5set=True) -> Vetoed!
+    darts_bev_bad, _, _ = evaluate_european_sport_gate(
+        "darts", 0.6889, 0.50, 0.20, 1.37, False, 10, 10, recent3_diff_fav=-0.333, fav_loss_streak=1, dog_win_streak=2, fav_wr=0.60, fav_last_lost_5set=True
+    )
+    assert darts_bev_bad is False
+    # Greaves, Beau vs Warner, Adam (darts, p_mkt=0.7745, best_odds=1.25, form_diff=0.40, fav_wr=0.80, recent3_diff_fav=0.667, fav_loss_streak=0) -> Passes!
+    darts_grv_ok, _, _ = evaluate_european_sport_gate(
+        "darts", 0.7745, 0.58, 0.40, 1.25, False, 10, 10, recent3_diff_fav=0.667, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.80
+    )
+    assert darts_grv_ok is True
+    # Curling: Austria vs Germany (Germany @ 1.24, fav_wr=0.10, form_diff=0.0, recent3_diff=0.0) -> Vetoed!
+    curl_ger_bad, _, _ = evaluate_european_sport_gate(
+        "curling", 0.75, 0.50, 0.0, 1.24, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=1, dog_win_streak=0, fav_wr=0.10
+    )
+    assert curl_ger_bad is False
+    # Curling: Scotland vs Italy (Scotland @ 1.33, fav_wr=0.90, form_diff=0.20, recent3_diff=0.0) & Czechia vs Sweden (Sweden @ 1.33, fav_wr=0.90, form_diff=0.50, recent3_diff=0.333) -> Pass!
+    curl_sco_ok, _, _ = evaluate_european_sport_gate(
+        "curling", 0.72, 0.58, 0.20, 1.33, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.90
+    )
+    curl_swe_ok, _, _ = evaluate_european_sport_gate(
+        "curling", 0.72, 0.62, 0.50, 1.33, False, 10, 10, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.90
+    )
+    assert curl_sco_ok is True and curl_swe_ok is True
 
     # 7b. Secondary Market Opportunity Evaluators (Double Chance 1X/X2, DNB, Over 2.5/1.5 Goals, Tennis +1.5 Sets, Under 21.5 Games, 2:0 Sets, NHL Over Totals)
     from betscout.sport_models import (

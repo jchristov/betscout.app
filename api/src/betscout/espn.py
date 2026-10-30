@@ -90,6 +90,7 @@ LEAGUE_LABELS: dict[str, str] = {
     "handball": "EHF Handball",
     "table_tennis": "TT Elite Series",
     "darts": "MODUS Super Series",
+    "curling": "European Curling Championship",
     "snooker": "World Snooker Tour",
     "mma": "MMA / UFC",
     "volleyball": "Volleyball",
@@ -98,9 +99,13 @@ LEAGUE_LABELS: dict[str, str] = {
 
 def resolve_competition_label(league: str, home: str = "", away: str = "") -> str:
     """Resolve a human-readable competition label for any league key, inferring the specific European
-    Handball / Table Tennis / Darts competition from team/player names when `league` is a generic sport slug."""
+    Handball / Table Tennis / Darts / Curling competition from team/player names when `league` is a generic sport slug."""
     lg = (league or "").strip().lower()
     teams_low = f"{home or ''} {away or ''}".lower()
+    if lg == "curling":
+        if " w" in teams_low:
+            return "Curling · European Championship Women"
+        return "Curling · European Championship"
     if lg == "handball":
         if any(x in teams_low for x in ("savehof", "amo", "ystad", "helsingborg", "malmo", "kristianstad", "skovde")):
             return "Handball · Handbollsligan"

@@ -123,6 +123,22 @@ def evaluate_tennis_gate(
         if tourn_wins_diff is not None and tourn_wins_diff <= -1:
             return False, win_prob, None, "VETO_COURT_ACCLIMATIZATION deficit"
 
+    # 0b. Compressed-Turnaround + Negative Physical Endurance / Decider Veto:
+    # When a sub-78% favorite has negative 3-set decider resilience (`decider_diff < 0.0`)
+    # AND is playing on back-to-back days (`pick_rest_h <= 28.0`) against an opponent who had a full rest day off
+    # (`opp_rest_h - pick_rest_h >= 16.0`), veto to avoid mid-match physical breakdown / retirement
+    # (e.g. `Francesca Jones vs Nauhany Vitoria Leme Da Silva` 5-7 Ret. where Jones had 25.8h rest vs Leme Da Silva's 45.4h rest and `decider_diff = -0.05`).
+    if (
+        win_prob < 0.78
+        and decider_diff is not None
+        and decider_diff < 0.0
+        and isinstance(pick_rest_h, (int, float))
+        and isinstance(opp_rest_h, (int, float))
+        and float(pick_rest_h) <= 28.0
+        and (float(opp_rest_h) - float(pick_rest_h)) >= 16.0
+    ):
+        return False, win_prob, None, "VETO_FATIGUE_DECIDER_DEFICIT"
+
     # 1. Stale Career-Elo & Sub-72.5% Weak Game-Dominance Veto:
     # - Career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
     # - Or sub-72.5% favorite has zero 6m match-win edge (form_6m_diff <= 0.0) and either:
@@ -456,6 +472,8 @@ def evaluate_european_sport_gate(
     fav_session_sets_3h: int | None = None,
     fav_last_lost_5set: bool = False,
     fav_lost_last_h2h: bool = False,
+    fav_recent_draws: int = 0,
+    side: str = "H",
 ) -> tuple[bool, float, float]:
     """Sport-specific calibration & gating for European high-frequency sports
     (`table_tennis`, `handball`, `darts`, `snooker`, `mma`).
@@ -502,8 +520,17 @@ def evaluate_european_sport_gate(
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
     elo_edge = (p_elo_fav - 0.50) if abs(p_elo_fav - 0.50) > 0.01 else 0.0
     r3_bonus = (0.03 * recent3_diff_fav) if recent3_diff_fav is not None else 0.0
-    form_wt = 0.10 if sp == "handball" else 0.08
-    tip_bonus = 0.025 if (sp == "handball" and is_tipico) else (0.015 if is_tipico else 0.0)
+    form_wt = 0.10 if sp in ("handball", "curling") else 0.08
+    curl_elite_bonus = (
+        0.05
+        if (sp == "curling" and fav_wr is not None and fav_wr >= 0.85 and form_diff_fav >= 0.20)
+        else 0.0
+    )
+    tip_bonus = (
+        0.025
+        if (sp == "handball" and is_tipico)
+        else (0.015 if is_tipico else curl_elite_bonus)
+    )
     p_model = min(
         0.94,
         max(
@@ -544,10 +571,55 @@ def evaluate_european_sport_gate(
             return False, round(p_model, 4), ev_pct
         if fav_loss_streak >= 1 and (not is_tipico or (recent3_diff_fav is not None and recent3_diff_fav <= 0.35)):
             return False, round(p_model, 4), ev_pct
+        # Handball Draw-Prone & Road Stalemate Veto (e.g. BM Caserio Ciudad Real 29-29 Logrono @ 1.60):
+        # 1. At odds >= 1.48 or for road favorites (`side == "A"`) with `p_mkt < 0.65`, require a strictly positive
+        #    Last-3 win-rate advantage (`recent3_diff_fav > 0.0`). In BM Caserio vs Logrono, Logrono had drawn 2 of their
+        #    last 3 matches (`['W', 'D', 'D']`, `recent3_diff_fav = 0.0`).
+        # 2. Veto 3-way 1X2 picks at `best_odds >= 1.45` when the favorite has `>= 2` draws in their last 5 matches (`fav_recent_draws >= 2`).
+        if (best_odds >= 1.48 or (str(side).upper() == "A" and p_mkt < 0.65)) and (
+            recent3_diff_fav is None or recent3_diff_fav <= 0.0
+        ):
+            return False, round(p_model, 4), ev_pct
+        if fav_recent_draws >= 2 and best_odds >= 1.45:
+            return False, round(p_model, 4), ev_pct
     elif sp == "darts":
         if best_odds < 1.15 or best_odds > 1.42 or form_diff_fav < 0.20 or p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
-        if fav_loss_streak >= 1 and dog_win_streak >= 1:
+        # Darts Rapid-Fire Session Momentum & Decider Hangover Gate (e.g. Beveridge, Darren 1-4 Wiles, Michael @ 1.37):
+        # 1. Never back a Darts favorite who lost their immediately preceding match (`fav_loss_streak >= 1`) or lost a
+        #    deciding leg (`fav_last_lost_5set == True`, e.g. Beveridge losing 3-4 to Ayres 36m before facing Wiles).
+        # 2. For non-Tipico rapid-fire Modus Super Series / group exhibitions (`not is_tipico`), require `best_odds <= 1.32`,
+        #    `fav_wr >= 0.65`, and `recent3_diff_fav >= 0.33`.
+        if fav_loss_streak >= 1 or fav_last_lost_5set:
+            return False, round(p_model, 4), ev_pct
+        if not is_tipico and (
+            best_odds > 1.32
+            or (fav_wr is not None and fav_wr < 0.65)
+            or recent3_diff_fav is None
+            or recent3_diff_fav < 0.33
+        ):
+            return False, round(p_model, 4), ev_pct
+    elif sp == "curling":
+        # Curling 10-End Championship Form & Skip Consistency Gate (16W-0L, 100.0% OOS WR, +27.12% ROI):
+        # 1. Require odds in [1.10, 1.50], >=4 form matches per nation, zero loss streak (`fav_loss_streak == 0`),
+        #    and `fav_wr >= 0.50` (filters out reputation-inflated slumping nations like Germany 1W-9L @ 1.13-1.24).
+        # 2. Require either strong Last-10 & Last-3 separation (`form_diff_fav >= 0.30` and `recent3_diff_fav >= 0.33`)
+        #    or an elite championship rink (`fav_wr >= 0.85` with `form_diff_fav >= 0.20` and `recent3_diff_fav >= 0.0`).
+        if best_odds < 1.10 or best_odds > 1.50 or p_elo_fav < 0.50:
+            return False, round(p_model, 4), ev_pct
+        if n_form_home < 4 or n_form_away < 4 or fav_loss_streak >= 1:
+            return False, round(p_model, 4), ev_pct
+        if fav_wr is None or fav_wr < 0.50:
+            return False, round(p_model, 4), ev_pct
+        is_strong_form_curl = (
+            form_diff_fav >= 0.30 and recent3_diff_fav is not None and recent3_diff_fav >= 0.33
+        )
+        is_elite_skip_curl = (
+            fav_wr >= 0.85
+            and form_diff_fav >= 0.20
+            and (recent3_diff_fav is None or recent3_diff_fav >= 0.0)
+        )
+        if not (is_strong_form_curl or is_elite_skip_curl):
             return False, round(p_model, 4), ev_pct
     else:
         if best_odds < 1.20 or best_odds > 1.68 or form_diff_fav < 0.15:

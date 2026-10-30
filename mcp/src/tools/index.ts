@@ -39,7 +39,7 @@ export const MCP_TOOLS_CATALOG: readonly McpToolDefinition[] = [
         sport: {
           type: 'string',
           description:
-            "Filter by sport category ('all', 'soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts'). Default: 'all'.",
+            "Filter by sport category ('all', 'soccer', 'tennis', 'basketball', 'hockey', 'nfl', 'handball', 'table_tennis', 'darts', 'curling'). Default: 'all'.",
           enum: [
             'all',
             'soccer',
@@ -50,6 +50,7 @@ export const MCP_TOOLS_CATALOG: readonly McpToolDefinition[] = [
             'handball',
             'table_tennis',
             'darts',
+            'curling',
           ],
         },
         market_filter: {

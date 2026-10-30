@@ -2724,6 +2724,7 @@ const sportToggleItems: Record<string, string> = {
   handball: 'Handball',
   darts: 'Darts',
   table_tennis: 'Table Tennis',
+  curling: 'Curling',
 };
 
 const settledCount = computed(() => Number(store.paperLedger?.settled_count || 57));
