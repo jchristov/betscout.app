@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Descriptor of all configured sports and leagues for periodic & historical ingestion.",
-  "updated_at": "2026-10-29T07:53:46Z",
+  "updated_at": "2026-10-30T13:25:37Z",
   "sources": [
     {
       "sport": "soccer",

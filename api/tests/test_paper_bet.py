@@ -689,7 +689,9 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
 
 
 
-    # Test per-sport Discord webhook resolution via .env and UI overrides
+    # Test per-sport Discord webhook & Telegram multi-channel resolution via .env and UI overrides
+    from betscout.telegram_bot import resolve_telegram_chat_for_sport
+
     env_file.write_text(
         'DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/111/global_wh"\n'
         'DISCORD_WEBHOOK_URL_TENNIS="https://discord.com/api/webhooks/222/tennis_wh"\n'
@@ -697,6 +699,12 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         'DISCORD_WEBHOOK_URL_HOCKEY=""\n'
         'DISCORD_WEBHOOK_URL_NHL=""\n'
         'DISCORD_WEBHOOK_URL_US_SPORTS=""\n'
+        'TELEGRAM_BOT_TOKEN="123456:ABC_TEST_TOKEN"\n'
+        'TELEGRAM_CHAT_ID="@betscout_global"\n'
+        'TELEGRAM_CHAT_ID_TENNIS="@betscout_tennis"\n'
+        'TELEGRAM_CHAT_ID_FOOTBALL="@betscout_football"\n'
+        'TELEGRAM_CHAT_ID_HOCKEY=""\n'
+        'TELEGRAM_CHAT_ID_US_SPORTS=""\n'
     )
     assert resolve_discord_webhook_for_sport("wta", env_path=env_file) == "https://discord.com/api/webhooks/222/tennis_wh"
     assert resolve_discord_webhook_for_sport("ger.1", env_path=env_file) == "https://discord.com/api/webhooks/333/soccer_wh"
@@ -704,6 +712,14 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert resolve_discord_webhook_for_sport(
         "nhl", env_path=env_file, custom_sport_webhooks={"hockey": "https://discord.com/api/webhooks/444/hockey_ui"}
     ) == "https://discord.com/api/webhooks/444/hockey_ui"
+    assert resolve_telegram_chat_for_sport("wta", env_path=env_file) == "@betscout_tennis"
+    assert resolve_telegram_chat_for_sport("ger.1", env_path=env_file) == "@betscout_football"
+    assert resolve_telegram_chat_for_sport("nhl", env_path=env_file) == "@betscout_global"
+    assert resolve_telegram_chat_for_sport(
+        "nhl", env_path=env_file, custom_sport_chats={"hockey": "@betscout_nhl_ui"}
+    ) == "@betscout_nhl_ui"
+    tg_env_cfg = get_telegram_env_config(env_path=env_file)
+    assert tg_env_cfg["configured"] is True and tg_env_cfg["sport_chats"]["tennis"]["has_dedicated"] is True
     load_dotenv(override=True)
 
 

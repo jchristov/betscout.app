@@ -279,6 +279,7 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
         "daily_digest_hour": (os.environ.get("DAILY_DIGEST_HOUR") or "").strip(),
         "disabled_sports": [],
         "sport_webhooks": {},
+        "telegram_sport_chats": {},
     }
     if cfg_file.exists():
         try:
@@ -298,6 +299,8 @@ def _load_webapp_settings(data_dir: Path) -> dict[str, Any]:
         defaults["disabled_sports"] = [str(x).lower().strip() for x in defaults["disabled_sports"] if x]
     if not isinstance(defaults.get("sport_webhooks"), dict):
         defaults["sport_webhooks"] = {}
+    if not isinstance(defaults.get("telegram_sport_chats"), dict):
+        defaults["telegram_sport_chats"] = {}
     return defaults
 
 
@@ -346,6 +349,11 @@ def _save_webapp_settings(
             for sk, sv in updates["sport_webhooks"].items():
                 sw[str(sk).lower()] = str(sv or "").strip()
             cur["sport_webhooks"] = sw
+        if isinstance(updates.get("telegram_sport_chats"), dict):
+            tc = dict(cur.get("telegram_sport_chats") or {})
+            for sk, sv in updates["telegram_sport_chats"].items():
+                tc[str(sk).lower()] = str(sv or "").strip()
+            cur["telegram_sport_chats"] = tc
     if inplay_alerts_enabled is not None:
         cur["inplay_alerts_enabled"] = bool(inplay_alerts_enabled)
     items_map = dict(cur.get("inplay_alert_items") or {})
@@ -2041,7 +2049,7 @@ self.addEventListener('fetch', (event) => {{
                 self._send_json({
                     "ok": True,
                     "discord": get_discord_env_config(custom_sport_webhooks=cfg_s.get("sport_webhooks")),
-                    "telegram": get_telegram_env_config(),
+                    "telegram": get_telegram_env_config(custom_sport_chats=cfg_s.get("telegram_sport_chats")),
                     "settings": cfg_s,
                     "inplay_alerts_enabled": bool(cfg_s.get("inplay_alerts_enabled", False)),
                     "inplay_alert_items": cfg_s.get("inplay_alert_items") or {},
@@ -2563,8 +2571,10 @@ self.addEventListener('fetch', (event) => {{
                                 )
                                 sport_sent += 1
 
-                    # Also broadcast to Telegram if configured
-                    tg_cfg = get_telegram_env_config()
+                    # Also broadcast to Telegram (global + per-sport channels) if configured
+                    from .telegram_bot import resolve_telegram_chat_for_sport
+
+                    tg_cfg = get_telegram_env_config(custom_sport_chats=cfg_d.get("telegram_sport_chats"))
                     tg_res = {"ok": False, "skipped": True}
                     if tg_cfg.get("configured"):
                         msg_tg = format_telegram_digest(
@@ -2575,7 +2585,36 @@ self.addEventListener('fetch', (event) => {{
                             day_filter=day_f_d,
                             max_picks=12,
                         )
-                        tg_res = send_telegram_message(text=msg_tg, dry_run=dry_run_d, image_bytes=slate_png)
+                        tg_res = send_telegram_message(
+                            text=msg_tg,
+                            dry_run=dry_run_d,
+                            sport="all",
+                            custom_sport_chats=cfg_d.get("telegram_sport_chats"),
+                            image_bytes=slate_png,
+                        )
+                        global_tg = resolve_telegram_chat_for_sport(None, custom_sport_chats=cfg_d.get("telegram_sport_chats"))
+                        for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                            sp_tg_chat = resolve_telegram_chat_for_sport(sp_cat_k, custom_sport_chats=cfg_d.get("telegram_sport_chats"))
+                            if sp_tg_chat and sp_tg_chat != global_tg:
+                                sp_bets = build_best_bets_summary(rec, min_odds=min_odds_d, sport_filter=sp_cat_k)
+                                if sp_bets:
+                                    sp_tg_msg = format_telegram_digest(
+                                        rec=rec,
+                                        db_path=db_path,
+                                        min_odds=min_odds_d,
+                                        sport_filter=sp_cat_k,
+                                        day_filter=day_f_d,
+                                        max_picks=12,
+                                        include_settled=False,
+                                    )
+                                    sp_img = render_digest_slate_png(sp_bets[:10], title=f"{sp_cat_k.upper()} HIGH-CONVICTION PICKS")
+                                    send_telegram_message(
+                                        text=sp_tg_msg,
+                                        chat_id=sp_tg_chat,
+                                        dry_run=dry_run_d,
+                                        image_bytes=sp_img,
+                                        also_send_to_global=False,
+                                    )
                 finally:
                     _PIPELINE_STATUS["running"] = False
                     _PIPELINE_STATUS["step"] = "Idle"
@@ -2667,7 +2706,9 @@ self.addEventListener('fetch', (event) => {{
 
             if parsed.path == "/api/telegram":
                 from .pick_card import render_digest_slate_png, render_pick_card_png
+                from .telegram_bot import resolve_telegram_chat_for_sport
 
+                cfg_tg = _load_webapp_settings(data_dir)
                 rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else {}
                 custom_text = (body.get("text") or "").strip()
                 sp_f_tg = str(body.get("sport") or "all")
@@ -2699,8 +2740,34 @@ self.addEventListener('fetch', (event) => {{
                     bot_token=body.get("bot_token"),
                     chat_id=body.get("chat_id"),
                     dry_run=bool(body.get("dry_run", False)),
+                    sport=sp_f_tg,
+                    custom_sport_chats=cfg_tg.get("telegram_sport_chats"),
                     image_bytes=tg_img_bytes,
                 )
+                if sp_f_tg == "all" and not body.get("chat_id") and not body.get("pick_card"):
+                    global_tg = resolve_telegram_chat_for_sport(None, custom_sport_chats=cfg_tg.get("telegram_sport_chats"))
+                    for sp_cat_k in ("soccer", "tennis", "basketball", "volleyball", "hockey", "football", "baseball", "handball", "darts", "table_tennis"):
+                        sp_tg_chat = resolve_telegram_chat_for_sport(sp_cat_k, custom_sport_chats=cfg_tg.get("telegram_sport_chats"))
+                        if sp_tg_chat and sp_tg_chat != global_tg:
+                            sp_bets = build_best_bets_summary(rec, min_odds=float(body.get("min_odds") or 1.15), sport_filter=sp_cat_k)
+                            if sp_bets:
+                                sp_tg_msg = format_telegram_digest(
+                                    rec=rec,
+                                    db_path=db_path,
+                                    min_odds=float(body.get("min_odds") or 1.15),
+                                    sport_filter=sp_cat_k,
+                                    day_filter=str(body.get("day") or "today"),
+                                    max_picks=int(body.get("max_picks") or 12),
+                                    include_settled=False,
+                                )
+                                sp_img = render_digest_slate_png(sp_bets[:10], title=f"{sp_cat_k.upper()} HIGH-CONVICTION PICKS") if body.get("include_image", True) else None
+                                send_telegram_message(
+                                    text=sp_tg_msg,
+                                    chat_id=sp_tg_chat,
+                                    dry_run=bool(body.get("dry_run", False)),
+                                    image_bytes=sp_img,
+                                    also_send_to_global=False,
+                                )
                 self._send_json({**res, "formatted_message": msg})
                 return
 

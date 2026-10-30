@@ -305,6 +305,19 @@ SPORT_DISCORD_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "table_tennis": ("DISCORD_WEBHOOK_URL_TABLE_TENNIS",),
 }
 
+SPORT_TELEGRAM_ENV_KEYS: dict[str, tuple[str, ...]] = {
+    "soccer": ("TELEGRAM_CHAT_ID_SOCCER", "TELEGRAM_CHAT_ID_FOOTBALL"),
+    "tennis": ("TELEGRAM_CHAT_ID_TENNIS", "TELEGRAM_CHAT_ID_ATP", "TELEGRAM_CHAT_ID_WTA"),
+    "basketball": ("TELEGRAM_CHAT_ID_BASKETBALL", "TELEGRAM_CHAT_ID_NBA", "TELEGRAM_CHAT_ID_WNBA", "TELEGRAM_CHAT_ID_US_SPORTS"),
+    "volleyball": ("TELEGRAM_CHAT_ID_VOLLEYBALL", "TELEGRAM_CHAT_ID_US_SPORTS"),
+    "hockey": ("TELEGRAM_CHAT_ID_HOCKEY", "TELEGRAM_CHAT_ID_NHL", "TELEGRAM_CHAT_ID_US_SPORTS"),
+    "football": ("TELEGRAM_CHAT_ID_NFL", "TELEGRAM_CHAT_ID_AMERICAN_FOOTBALL", "TELEGRAM_CHAT_ID_US_SPORTS"),
+    "baseball": ("TELEGRAM_CHAT_ID_BASEBALL", "TELEGRAM_CHAT_ID_MLB", "TELEGRAM_CHAT_ID_US_SPORTS"),
+    "handball": ("TELEGRAM_CHAT_ID_HANDBALL",),
+    "darts": ("TELEGRAM_CHAT_ID_DARTS",),
+    "table_tennis": ("TELEGRAM_CHAT_ID_TABLE_TENNIS",),
+}
+
 
 def resolve_discord_webhook_for_sport(
     sport_or_league: str | None = None,
@@ -789,16 +802,57 @@ def notify_new_settlements_to_discord(
             c_rel.commit()
             c_rel.close()
 
-        # Also mirror settlement alerts + PNG card to Telegram when configured
+        # Also mirror settlement alerts + PNG card to Telegram (global + per-sport + free teaser channels) when configured
         if not webhook_url:
             try:
-                if get_telegram_env_config().get("configured"):
+                tg_cfg = get_telegram_env_config()
+                if tg_cfg.get("configured"):
                     send_telegram_message(
                         discord_markdown_to_telegram_html(msg),
                         dry_run=dry_run,
                         image_bytes=settle_img_bytes,
                         image_filename="betscout_settlement.png",
                     )
+                    global_tg = resolve_telegram_chat_for_sport(None)
+                    by_sp_tg: dict[str, list[dict[str, Any]]] = {}
+                    for r in unnotified:
+                        sp_c = _league_to_sport_cat(r["league"])
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        if sp_chat and sp_chat != global_tg:
+                            by_sp_tg.setdefault(sp_c, []).append(r)
+                    for sp_c, sp_rows in by_sp_tg.items():
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        sp_lines = [
+                            f"🔔 **BETSCOUT ({sp_c.upper()}) — NEW SETTLED PAPER-BET ALERT ({len(sp_rows)} Resolved)**",
+                            "",
+                        ]
+                        for r in sp_rows:
+                            pnl_v = float(r.get("pnl_best") or 0.0)
+                            badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
+                            sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
+                            pick_name = r["home"] if r["side"] == "H" else r["away"]
+                            sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
+                            sp_lines.append(
+                                f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — *{r['home']} vs {r['away']}* [`{sc_str}`]"
+                            )
+                        send_telegram_message(
+                            discord_markdown_to_telegram_html("\n".join(sp_lines)),
+                            chat_id=sp_chat,
+                            dry_run=dry_run,
+                            also_send_to_global=False,
+                        )
+                    tg_teaser = (os.environ.get("TELEGRAM_CHAT_ID_FREE_TEASER") or "").strip()
+                    if tg_teaser and tg_teaser != global_tg:
+                        send_telegram_message(
+                            discord_markdown_to_telegram_html(
+                                msg + "\n\n🚀 *Unlock all daily VIP picks, exact-score matrices & 2-leg combos at **https://betscout.app***"
+                            ),
+                            chat_id=tg_teaser,
+                            dry_run=dry_run,
+                            image_bytes=settle_img_bytes,
+                            image_filename="betscout_settlement.png",
+                            also_send_to_global=False,
+                        )
             except Exception:
                 pass
         return {**res, "notified_count": len(unnotified) + len(unnotified_combos)}
@@ -1008,20 +1062,56 @@ def notify_new_picks_to_discord(
             c_rel.close()
 
         # Also ensure today's Free Daily Teaser has been posted to DISCORD_WEBHOOK_URL_FREE_TEASER
-        # and mirror new pre-match pick alerts + PNG card to Telegram when configured
+        # and mirror new pre-match pick alerts + PNG card to Telegram (global + per-sport channels) when configured
         if not webhook_url:
             try:
                 ensure_daily_free_teaser_sent(db_path, dry_run=dry_run)
             except Exception:
                 pass
             try:
-                if get_telegram_env_config().get("configured"):
+                tg_cfg = get_telegram_env_config()
+                if tg_cfg.get("configured"):
                     send_telegram_message(
                         discord_markdown_to_telegram_html(msg),
                         dry_run=dry_run,
                         image_bytes=pick_img_bytes,
                         image_filename="betscout_picks.png",
                     )
+                    global_tg = resolve_telegram_chat_for_sport(None)
+                    by_sp_tg_picks: dict[str, list[dict[str, Any]]] = {}
+                    for r in unnotified_picks:
+                        sp_c = _league_to_sport_cat(r["league"])
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        if sp_chat and sp_chat != global_tg:
+                            by_sp_tg_picks.setdefault(sp_c, []).append(r)
+                    for sp_c, sp_rows in by_sp_tg_picks.items():
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        sp_lines = [
+                            f"🎯 **BETSCOUT ({sp_c.upper()}) — NEW HIGH-CONVICTION PICK{'S' if len(sp_rows) != 1 else ''} ({len(sp_rows)} Active)**",
+                            "",
+                        ]
+                        for r in sp_rows[:12]:
+                            sp_lines.append(_format_pick_bullet(r))
+                        sp_img: bytes | None = None
+                        try:
+                            from .pick_card import render_digest_slate_png, render_pick_card_png
+
+                            sp_payloads = [_build_card_payload(r) for r in sp_rows[:10]]
+                            sp_img = (
+                                render_pick_card_png(sp_payloads[0])
+                                if len(sp_payloads) == 1
+                                else render_digest_slate_png(sp_payloads, title=f"{sp_c.upper()} HIGH-CONVICTION PICKS ({len(sp_rows)} ACTIVE)")
+                            )
+                        except Exception:
+                            sp_img = None
+                        send_telegram_message(
+                            discord_markdown_to_telegram_html("\n".join(sp_lines)),
+                            chat_id=sp_chat,
+                            dry_run=dry_run,
+                            image_bytes=sp_img,
+                            image_filename=f"betscout_{sp_c}_picks.png",
+                            also_send_to_global=False,
+                        )
             except Exception:
                 pass
 
@@ -1183,12 +1273,35 @@ def notify_t60_reminders_to_discord(
                 pass
 
             try:
-                if get_telegram_env_config().get("configured"):
+                tg_cfg = get_telegram_env_config()
+                if tg_cfg.get("configured"):
                     send_telegram_message(
                         discord_markdown_to_telegram_html(msg),
                         dry_run=dry_run,
                         image_bytes=None,
                     )
+                    global_tg = resolve_telegram_chat_for_sport(None)
+                    by_sp_tg_rem: dict[str, list[dict[str, Any]]] = {}
+                    for r in candidates:
+                        sp_c = _league_to_sport_cat(r["league"])
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        if sp_chat and sp_chat != global_tg:
+                            by_sp_tg_rem.setdefault(sp_c, []).append(r)
+                    for sp_c, sp_rows in by_sp_tg_rem.items():
+                        sp_chat = resolve_telegram_chat_for_sport(sp_c)
+                        sp_lines = [
+                            f"⏰ **BETSCOUT ({sp_c.upper()}) — 1-HOUR PRE-MATCH REMINDER ({len(sp_rows)} Starting Soon)**",
+                            "",
+                        ]
+                        for r in sp_rows[:12]:
+                            sp_lines.append(_format_reminder_bullet(r))
+                        send_telegram_message(
+                            discord_markdown_to_telegram_html("\n".join(sp_lines)),
+                            chat_id=sp_chat,
+                            dry_run=dry_run,
+                            image_bytes=None,
+                            also_send_to_global=False,
+                        )
             except Exception:
                 pass
 
@@ -1326,7 +1439,22 @@ def send_free_teaser_to_discord(
         image_bytes=img_bytes,
         image_filename="betscout_free_teaser.png",
         also_send_to_global=False,
-    )
+    ) if target_wh.startswith("https://discord") else {"ok": False, "skipped_discord": True}
+    tg_teaser_chat = (os.environ.get("TELEGRAM_CHAT_ID_FREE_TEASER") or "").strip()
+    if tg_teaser_chat and (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip():
+        try:
+            tg_t_res = send_telegram_message(
+                text=discord_markdown_to_telegram_html(msg),
+                chat_id=tg_teaser_chat,
+                dry_run=dry_run,
+                image_bytes=img_bytes,
+                image_filename="betscout_free_teaser.png",
+                also_send_to_global=False,
+            )
+            if not res.get("ok") and tg_t_res.get("ok"):
+                res = tg_t_res
+        except Exception:
+            pass
     if not dry_run and res.get("ok") and db_path and db_path.exists():
         try:
             conn_t = sqlite3.connect(db_path, timeout=15.0)
@@ -1516,53 +1644,92 @@ def discord_markdown_to_telegram_html(md_text: str) -> str:
     return s
 
 
-def get_telegram_env_config(env_path: Path | None = None) -> dict[str, Any]:
-    """Reload `.env` on the fly and return current Telegram configuration status."""
+def resolve_telegram_chat_for_sport(
+    sport_or_league: str | None = None,
+    explicit_chat_id: str | None = None,
+    env_path: Path | None = None,
+    custom_sport_chats: dict[str, str] | None = None,
+) -> str:
+    """Resolve the target Telegram Chat/Channel ID (`@channel` or `-100...`) for a given sport/league.
+    Priority:
+      1. `explicit_chat_id` (if passed directly by caller)
+      2. `custom_sport_chats[sport_cat]` (if configured in WebApp Settings UI)
+      3. Per-sport environment variable (`TELEGRAM_CHAT_ID_TENNIS`, `TELEGRAM_CHAT_ID_SOCCER`, etc.)
+      4. Global `TELEGRAM_CHAT_ID` fallback.
+    """
+    load_dotenv(env_path=env_path, override=True)
+    if explicit_chat_id and str(explicit_chat_id).strip():
+        return str(explicit_chat_id).strip()
+    sp_cat = _league_to_sport_cat(sport_or_league or "") if (sport_or_league and sport_or_league != "all") else ""
+    if sp_cat and custom_sport_chats and isinstance(custom_sport_chats, dict):
+        ui_ch = str(custom_sport_chats.get(sp_cat) or "").strip()
+        if ui_ch:
+            return ui_ch
+    if sp_cat and sp_cat in SPORT_TELEGRAM_ENV_KEYS:
+        for env_k in SPORT_TELEGRAM_ENV_KEYS[sp_cat]:
+            val = (os.environ.get(env_k) or "").strip()
+            if val:
+                return val
+    if custom_sport_chats and isinstance(custom_sport_chats, dict):
+        g_ui = str(custom_sport_chats.get("global") or "").strip()
+        if g_ui:
+            return g_ui
+    return (os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+
+
+def get_telegram_env_config(
+    env_path: Path | None = None,
+    custom_sport_chats: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Reload `.env` on the fly and return current Telegram configuration status (global + per-sport channels)."""
     load_dotenv(env_path=env_path, override=True)
     token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
-    chat_id = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+    chat_id = resolve_telegram_chat_for_sport(None, env_path=env_path, custom_sport_chats=custom_sport_chats)
     masked_token = (token[:6] + "..." + token[-4:]) if len(token) > 12 else ("***" if token else "")
+
+    sport_chats_status: dict[str, dict[str, Any]] = {}
+    for sp_cat, env_keys in SPORT_TELEGRAM_ENV_KEYS.items():
+        sp_chat = ""
+        source = "global_fallback"
+        if custom_sport_chats and isinstance(custom_sport_chats, dict):
+            cand_ui = str(custom_sport_chats.get(sp_cat) or "").strip()
+            if cand_ui:
+                sp_chat = cand_ui
+                source = "settings_ui"
+        if not sp_chat:
+            for ek in env_keys:
+                cand_env = (os.environ.get(ek) or "").strip()
+                if cand_env:
+                    sp_chat = cand_env
+                    source = ek
+                    break
+        eff_chat = sp_chat or chat_id
+        sport_chats_status[sp_cat] = {
+            "env_keys": list(env_keys),
+            "has_dedicated": bool(sp_chat),
+            "source": source if sp_chat else ("TELEGRAM_CHAT_ID" if chat_id else "unconfigured"),
+            "chat_id": eff_chat,
+        }
+
+    free_teaser_chat = (os.environ.get("TELEGRAM_CHAT_ID_FREE_TEASER") or "").strip()
+    has_any_chat = bool(chat_id or free_teaser_chat or any(v["has_dedicated"] for v in sport_chats_status.values()))
     return {
-        "configured": bool(token and chat_id),
+        "configured": bool(token and has_any_chat),
         "has_token": bool(token),
         "masked_token": masked_token,
         "chat_id": chat_id,
+        "free_teaser_chat_id": free_teaser_chat,
+        "sport_chats": sport_chats_status,
     }
 
 
-def send_telegram_message(
+def _send_single_telegram_chat(
+    token: str,
+    target_chat: str,
     text: str,
-    bot_token: str | None = None,
-    chat_id: str | None = None,
-    dry_run: bool = False,
-    env_path: Path | None = None,
     image_bytes: bytes | None = None,
     image_filename: str = "betscout_pick.png",
 ) -> dict[str, Any]:
-    """Post an HTML-formatted message (and optional PNG card photo via `sendPhoto`) to a Telegram channel/chat."""
-    load_dotenv(env_path=env_path, override=True)
-    token = (bot_token or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
-    target_chat = (chat_id or os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
-    # Telegram HTML parse_mode only supports &lt;, &gt;, &amp;, and &quot; — convert named arrow/dash entities to direct Unicode
-    text = (
-        str(text or "")
-        .replace("&rarr;", "→")
-        .replace("&ndash;", "–")
-        .replace("&mdash;", "—")
-        .replace("&middot;", "·")
-    )
-
-    if dry_run or not token or not target_chat:
-        return {
-            "ok": True,
-            "dry_run": True,
-            "configured": bool(token and target_chat),
-            "chat_id": target_chat or "<TELEGRAM_CHAT_ID not set>",
-            "message_length": len(text),
-            "has_image": bool(image_bytes),
-            "preview": text,
-        }
-
     import tempfile
 
     if image_bytes and len(text) <= 1020:
@@ -1627,7 +1794,77 @@ def send_telegram_message(
             "error": "api.telegram.org is unreachable on this network. Use Discord (DISCORD_WEBHOOK_URL in .env)!",
         }
     try:
-        resp = json.loads(proc.stdout)
-        return resp
+        return json.loads(proc.stdout)
     except Exception as exc:
         return {"ok": False, "error": str(exc), "raw": proc.stdout[:300]}
+
+
+def send_telegram_message(
+    text: str,
+    bot_token: str | None = None,
+    chat_id: str | None = None,
+    dry_run: bool = False,
+    env_path: Path | None = None,
+    sport: str | None = None,
+    custom_sport_chats: dict[str, str] | None = None,
+    image_bytes: bytes | None = None,
+    image_filename: str = "betscout_pick.png",
+    also_send_to_global: bool = True,
+) -> dict[str, Any]:
+    """Post an HTML-formatted message (and optional PNG card photo via `sendPhoto`) to Telegram channel(s).
+    Supports multi-channel routing (global `TELEGRAM_CHAT_ID` + per-sport `TELEGRAM_CHAT_ID_<SPORT>`), mirroring Discord."""
+    load_dotenv(env_path=env_path, override=True)
+    token = (bot_token or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    target_chat = resolve_telegram_chat_for_sport(
+        sport_or_league=sport,
+        explicit_chat_id=chat_id,
+        env_path=env_path,
+        custom_sport_chats=custom_sport_chats,
+    )
+    global_chat = resolve_telegram_chat_for_sport(
+        sport_or_league=None,
+        explicit_chat_id=None,
+        env_path=env_path,
+        custom_sport_chats=custom_sport_chats,
+    )
+    # Telegram HTML parse_mode only supports &lt;, &gt;, &amp;, and &quot; — convert named arrow/dash entities to direct Unicode
+    text = (
+        str(text or "")
+        .replace("&rarr;", "→")
+        .replace("&ndash;", "–")
+        .replace("&mdash;", "—")
+        .replace("&middot;", "·")
+    )
+
+    if dry_run or not token or not target_chat:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "configured": bool(token and target_chat),
+            "chat_id": target_chat or "<TELEGRAM_CHAT_ID not set>",
+            "message_length": len(text),
+            "has_image": bool(image_bytes),
+            "preview": text,
+        }
+
+    res = _send_single_telegram_chat(
+        token=token,
+        target_chat=target_chat,
+        text=text,
+        image_bytes=image_bytes,
+        image_filename=image_filename,
+    )
+    if (
+        also_send_to_global
+        and not chat_id
+        and global_chat
+        and global_chat != target_chat
+    ):
+        _send_single_telegram_chat(
+            token=token,
+            target_chat=global_chat,
+            text=text,
+            image_bytes=image_bytes,
+            image_filename=image_filename,
+        )
+    return res
