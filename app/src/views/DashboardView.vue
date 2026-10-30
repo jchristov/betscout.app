@@ -1729,7 +1729,8 @@
         <div class="relative flex-1 min-h-0 flex">
           <div
             ref="inspectorScrollRef"
-            class="custom-scrollbar flex-1 min-h-0 pr-3"
+            class="custom-scrollbar flex-1 min-h-0"
+            :class="inspectorScrollShow ? 'pr-2.5' : ''"
             @scroll="updateInspectorScrollbar"
           >
         <div v-if="inspectorLoading" class="py-8 px-4 flex flex-col items-center justify-center gap-3 text-slate-300">
@@ -2022,14 +2023,15 @@
           </div>
         </div>
           </div>
-          <!-- Always-Visible Styled Vertical Scrollbar Rail (macOS overlay-proof) -->
+          <!-- Muted Dark-Blue Vertical Scrollbar Rail (shown only on overflow) -->
           <div
-            class="w-2.5 rounded-full bg-slate-950/95 border border-sky-400/35 relative shrink-0 ml-1.5 my-0.5 overflow-hidden cursor-pointer select-none"
+            v-if="inspectorScrollShow"
+            class="w-1.5 rounded-full bg-slate-950/80 border border-slate-800/80 relative shrink-0 ml-1 my-0.5 overflow-hidden cursor-pointer select-none"
             aria-hidden="true"
             @mousedown="onInspectorRailMouseDown"
           >
             <div
-              class="w-full rounded-full bg-gradient-to-b from-sky-400 to-emerald-400 shadow-[0_0_10px_rgba(56,189,248,0.55)] transition-[top,height] duration-75"
+              class="w-full rounded-full bg-[#243b5e] hover:bg-[#31507e] transition-[top,height,background-color] duration-100"
               :style="{
                 position: 'absolute',
                 left: '0',
@@ -2107,7 +2109,7 @@
       class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
       @click.self="shareModalOpen = false"
     >
-      <div class="card-surface custom-scrollbar rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
+      <div class="card-surface rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
             <Icon icon="fa6-solid:share-nodes" class="w-4 h-4" />
@@ -2176,7 +2178,7 @@
       class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
       @click.self="settingsModalOpen = false"
     >
-      <div class="card-surface custom-scrollbar rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
+      <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
         <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
             <Icon icon="fa6-solid:gear" class="w-4 h-4" />
@@ -2491,14 +2493,12 @@ function updateInspectorScrollbar() {
   if (!el) return;
   const sh = el.scrollHeight;
   const ch = el.clientHeight;
-  if (sh <= ch + 2) {
-    inspectorScrollShow.value = true;
-    inspectorThumbHeightPct.value = 100;
-    inspectorThumbTopPct.value = 0;
+  if (sh <= ch + 4) {
+    inspectorScrollShow.value = false;
     return;
   }
   inspectorScrollShow.value = true;
-  const ratio = Math.max(0.18, Math.min(0.92, ch / sh));
+  const ratio = Math.max(0.16, Math.min(0.92, ch / sh));
   const maxScroll = Math.max(1, sh - ch);
   const progress = Math.max(0, Math.min(1, el.scrollTop / maxScroll));
   inspectorThumbHeightPct.value = ratio * 100;
@@ -2758,6 +2758,7 @@ async function onTrackLiveQuick() {
 
 async function openMatchupModal(home: string, away: string, league = '') {
   inspectorTitle.value = `${home} vs ${away}`;
+  inspectorScrollShow.value = false;
   inspectorModalOpen.value = true;
   if (String(home).includes('🔒') || String(away).includes('🔒')) {
     inspectorLockedPro.value = true;

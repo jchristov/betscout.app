@@ -6,23 +6,23 @@
   * {
     box-sizing: border-box;
     scrollbar-width: thin;
-    scrollbar-color: #2c4268 #05080f;
+    scrollbar-color: #243b5e #05080f;
   }
   *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   *::-webkit-scrollbar-track {
     background: #05080f;
-    border-radius: 8px;
+    border-radius: 6px;
   }
   *::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #2b3f63 0%, #1e2d45 100%);
-    border-radius: 8px;
-    border: 1.5px solid #05080f;
+    background: #243b5e;
+    border-radius: 6px;
+    border: 1px solid #05080f;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%);
+    background: #31507e;
   }
   *::-webkit-scrollbar-corner {
     background: #05080f;
