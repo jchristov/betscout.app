@@ -525,9 +525,10 @@ def evaluate_european_sport_gate(
         if fav_session_sets_3h is not None and fav_session_sets_3h >= 13:
             return False, 0.0, -100.0
         if fav_hours_since_last is not None:
-            if fav_hours_since_last > 48.0:
-                return False, 0.0, -100.0
-            if dog_hours_since_last is not None and fav_hours_since_last > 24.0 and (fav_hours_since_last - dog_hours_since_last) >= 18.0:
+            if dog_hours_since_last is not None:
+                if fav_hours_since_last > 24.0 and (fav_hours_since_last - dog_hours_since_last) >= 18.0:
+                    return False, 0.0, -100.0
+            elif fav_hours_since_last > 48.0:
                 return False, 0.0, -100.0
 
     # Blend market implied probability with Elo edge (only when Elo deviates meaningfully from 0.50) and rolling form
@@ -553,7 +554,11 @@ def evaluate_european_sport_gate(
     )
     ev_pct = round((p_model * best_odds - 1.0) * 100.0, 2)
 
-    eff_min_prob = max(0.64, min_prob - 0.04) if sp == "handball" else min_prob
+    eff_min_prob = (
+        max(0.64, min_prob - 0.04)
+        if sp == "handball"
+        else (max(0.65, min_prob - 0.03) if sp == "table_tennis" else min_prob)
+    )
     if p_model < eff_min_prob or p_model < p_mkt or ev_pct < 0.0:
         return False, round(p_model, 4), ev_pct
 

@@ -811,8 +811,17 @@ def scan_sportradar_european_sports(
                     oh = parsed_m.get("odds_home")
                     oa = parsed_m.get("odds_away")
                     od = parsed_m.get("odds_draw")
-                    min_o_floor = 1.10 if sp_slug == "curling" else 1.12
-                    if not oh or not oa or min(oh, oa) < min_o_floor or min(oh, oa) > 1.72:
+                    min_o_floor = (
+                        1.28
+                        if sp_slug == "table_tennis"
+                        else (1.10 if sp_slug == "curling" else 1.15)
+                    )
+                    max_o_ceil = (
+                        1.65
+                        if sp_slug in ("table_tennis", "handball")
+                        else (1.42 if sp_slug == "darts" else (1.50 if sp_slug == "curling" else 1.68))
+                    )
+                    if not oh or not oa or min(oh, oa) < min_o_floor or min(oh, oa) > max_o_ceil:
                         continue
 
                     # Compute vig-free market probability (in 3-way Handball, cap draw weight at 6.5% so 3-way draw vig doesn't distort 1X2 favorites)
@@ -829,7 +838,11 @@ def scan_sportradar_european_sports(
                     side = "H" if p_mkt_h >= p_mkt_a else "A"
                     p_mkt_fav = p_mkt_h if side == "H" else p_mkt_a
                     best_o = float(oh if side == "H" else oa)
-                    min_mkt_floor = 0.59 if sp_slug == "handball" else (min_prob - 0.04)
+                    min_mkt_floor = (
+                        0.59
+                        if sp_slug == "handball"
+                        else (0.60 if sp_slug == "table_tennis" else (min_prob - 0.04))
+                    )
                     if p_mkt_fav < min_mkt_floor:
                         continue
 
@@ -868,10 +881,24 @@ def scan_sportradar_european_sports(
 
         sport_cands.sort(key=lambda x: (1 if x["is_tipico"] else 0, x["p_mkt"]), reverse=True)
         lg_elo = (elo_by_lg or {}).get(sp_slug)
-        sp_cap = max(max_picks_per_sport, 7) if sp_slug == "handball" else max_picks_per_sport
-        for cand in sport_cands[: sp_cap * 4]:
+        sp_cap = (
+            max(max_picks_per_sport, 12)
+            if sp_slug == "table_tennis"
+            else (max(max_picks_per_sport, 7) if sp_slug == "handball" else max_picks_per_sport)
+        )
+        max_eval_cands = sp_cap * 5 if sp_slug == "table_tennis" else sp_cap * 4
+        fav_pick_counts: dict[str, int] = {}
+        seen_matchup_pairs: set[tuple[str, str]] = set()
+        now_uts_ref = int(time.time())
+        for cand in sport_cands[:max_eval_cands]:
             if len([p for p in picks_out if p["sport"] == sp_slug]) >= sp_cap:
                 break
+            pair_key = (min(cand["home"], cand["away"]), max(cand["home"], cand["away"]))
+            if sp_slug == "table_tennis":
+                if pair_key in seen_matchup_pairs:
+                    continue
+                if fav_pick_counts.get(cand["pick"], 0) >= 2:
+                    continue
             mf = fetch_statshub_gismo("stats_match_form", cand["mid"], ttl_sec=1800.0) or {}
             t_forms = mf.get("teams") or {}
             h_f_obj = t_forms.get("home") or {}
@@ -920,7 +947,10 @@ def scan_sportradar_european_sports(
                     prior_ms.sort(key=lambda m_x: int(((m_x.get("time") or {}).get("uts")) or 0), reverse=True)
                     if prior_ms:
                         max_prev_uts = int(((prior_ms[0].get("time") or {}).get("uts")) or 0)
-                        hrs_gap = round((int(cand["ko_uts"]) - max_prev_uts) / 3600.0, 2)
+                        # Measure inactivity gap relative to `min(ko_uts, now_uts + 3600)` so future matches scheduled 12-24h ahead
+                        # don't add unplayed future hours onto the player's current rest interval.
+                        eff_ref_uts = min(int(cand["ko_uts"]), now_uts_ref + 3600) if int(cand["ko_uts"]) > max_prev_uts else int(cand["ko_uts"])
+                        hrs_gap = round(max(0.0, (eff_ref_uts - max_prev_uts) / 3600.0), 2)
                         if is_fav_u:
                             fav_hours_since_last = hrs_gap
                             sess_sets = 0
@@ -1030,6 +1060,8 @@ def scan_sportradar_european_sports(
             )
             if not passed:
                 continue
+            seen_matchup_pairs.add(pair_key)
+            fav_pick_counts[cand["pick"]] = fav_pick_counts.get(cand["pick"], 0) + 1
             picks_out.append({
                 "sport": sp_slug,
                 "league": sp_slug,

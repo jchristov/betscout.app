@@ -1990,7 +1990,7 @@ def scan_upcoming_other_sports(
             sr_euro_picks = scan_sportradar_european_sports(
                 date_ymd=d_ymd,
                 min_prob=max(min_prob, 0.68),
-                max_picks_per_sport=4,
+                max_picks_per_sport=8,
                 elo_by_lg=elo_by_lg,
             )
             picks.extend([p for p in sr_euro_picks if str(p.get("sport") or "").lower() not in disabled_sports])
