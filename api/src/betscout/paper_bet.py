@@ -1140,6 +1140,10 @@ def build_frozen_model_and_team_state(
             "poss": (r["home_poss"] or 50.0) - 50.0,
             "fouls": r["home_fouls"] or 11.0,
             "draw": 1.0 if gd == 0 else 0.0,
+            "gf": float(hs),
+            "ga": float(as_),
+            "sot_for": float(r["home_sot"]) if r["home_sot"] is not None else 4.0,
+            "sot_ag": float(r["away_sot"]) if r["away_sot"] is not None else 4.0,
         }
         a_rec = {
             "s_gd": -s_gd,
@@ -1147,6 +1151,10 @@ def build_frozen_model_and_team_state(
             "poss": (r["away_poss"] or 50.0) - 50.0,
             "fouls": r["away_fouls"] or 11.0,
             "draw": 1.0 if gd == 0 else 0.0,
+            "gf": float(as_),
+            "ga": float(hs),
+            "sot_for": float(r["away_sot"]) if r["away_sot"] is not None else 4.0,
+            "sot_ag": float(r["home_sot"]) if r["home_sot"] is not None else 4.0,
         }
         hist[hk].append(h_rec)
         hist[ak].append(a_rec)
@@ -1544,7 +1552,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     is_push = True
                 else:
                     won = outcome == "A"
-            elif side_up in ("OVER_2_5", "OVER_1_5") or side_up.startswith("OVER_GOALS_"):
+            elif side_up in ("OVER_2_5", "OVER_1_5", "UNDER_2_5") or side_up.startswith(("OVER_GOALS_", "UNDER_GOALS_", "OVER_POINTS_", "UNDER_POINTS_")):
                 if hs_g is None or as_g is None:
                     continue
                 tot_g = hs_g + as_g
@@ -1552,9 +1560,11 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     won = tot_g >= 3
                 elif side_up == "OVER_1_5":
                     won = tot_g >= 2
-                else:
+                elif side_up == "UNDER_2_5":
+                    won = tot_g <= 2
+                elif side_up.startswith(("OVER_GOALS_", "OVER_POINTS_")):
                     try:
-                        ln_v = float(side_up.replace("OVER_GOALS_", ""))
+                        ln_v = float(side_up.replace("OVER_GOALS_", "").replace("OVER_POINTS_", ""))
                         if abs(tot_g - ln_v) < 1e-6:
                             won = False
                             is_push = True
@@ -1562,6 +1572,27 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             won = tot_g > ln_v
                     except Exception:
                         won = False
+                else:
+                    try:
+                        ln_v = float(side_up.replace("UNDER_GOALS_", "").replace("UNDER_POINTS_", ""))
+                        if abs(tot_g - ln_v) < 1e-6:
+                            won = False
+                            is_push = True
+                        else:
+                            won = tot_g < ln_v
+                    except Exception:
+                        won = False
+            elif side_up.startswith(("SPREAD_M2.5_", "SPREAD_P7.5_", "PUCKLINE_P1.5_")):
+                if hs_g is None or as_g is None:
+                    continue
+                t_side_c = "H" if side_up.endswith("_H") else "A"
+                margin_pick = (hs_g - as_g) if t_side_c == "H" else (as_g - hs_g)
+                if side_up.startswith("SPREAD_M2.5_"):
+                    won = margin_pick >= 3
+                elif side_up.startswith("SPREAD_P7.5_"):
+                    won = margin_pick >= -7
+                else:
+                    won = margin_pick >= -1
             elif side_up in ("PLUS15_H", "PLUS15_A"):
                 t_side_c = "H" if side_up.endswith("_H") else "A"
                 if outcome == t_side_c:
@@ -1746,10 +1777,14 @@ def scan_upcoming_other_sports(
             box_hist[hk].append({
                 "sot_d": sot_d, "sh_d": sh_d, "co_d": co_d, "fo_d": fo_d, "s_m": s_m,
                 "won": 1.0 if r["outcome"] == "H" else 0.0, "gf": hs_f, "ga": as_f,
+                "sot_for": float(r["home_sot"] or 0.0), "sot_ag": float(r["away_sot"] or 0.0),
+                "sh_for": float(r["home_shots"] or 0.0), "sh_ag": float(r["away_shots"] or 0.0),
             })
             box_hist[ak].append({
                 "sot_d": -sot_d, "sh_d": -sh_d, "co_d": -co_d, "fo_d": -fo_d, "s_m": -s_m,
                 "won": 1.0 if r["outcome"] == "A" else 0.0, "gf": as_f, "ga": hs_f,
+                "sot_for": float(r["away_sot"] or 0.0), "sot_ag": float(r["home_sot"] or 0.0),
+                "sh_for": float(r["away_shots"] or 0.0), "sh_ag": float(r["home_shots"] or 0.0),
             })
 
     scalers_by_lg = {
@@ -1920,23 +1955,82 @@ def scan_upcoming_other_sports(
                     if opp_dq and len(opp_dq) >= 1 and "gf" in opp_dq[0]
                     else None
                 )
-                from .sport_models import evaluate_nhl_totals_market, route_major_league_gate
+                from .sport_models import (
+                    evaluate_nba_secondary_markets,
+                    evaluate_nfl_secondary_markets,
+                    evaluate_nhl_totals_market,
+                    route_major_league_gate,
+                )
 
-                nhl_tot_opps: list[dict[str, Any]] = []
-                if lg == "nhl" and oh_dq and oa_dq and len(oh_dq) >= 3 and len(oa_dq) >= 3:
+                sec_opps_us: list[dict[str, Any]] = []
+                if oh_dq and oa_dq and len(oh_dq) >= 3 and len(oa_dq) >= 3:
                     exp_tot_g = 0.5 * (
                         float(np.mean([x["gf"] + x["ga"] for x in oh_dq]))
                         + float(np.mean([x["gf"] + x["ga"] for x in oa_dq]))
                     )
-                    comb_sog = 60.0 + abs(float(np.mean([x["sot_d"] for x in oh_dq]))) + abs(float(np.mean([x["sot_d"] for x in oa_dq])))
-                    nhl_tot_opps = evaluate_nhl_totals_market(
-                        home=home,
-                        away=away,
-                        line_total=prices.get("line_total"),
-                        odds_over=espn_pr.get("odds_over"),
-                        exp_total_goals=exp_tot_g,
-                        combined_shots=comb_sog,
+                    comb_sot_for = float(np.mean([x.get("sot_for", 28.0) for x in oh_dq])) + float(
+                        np.mean([x.get("sot_for", 28.0) for x in oa_dq])
                     )
+                    comb_sot_ag = float(np.mean([x.get("sot_ag", 28.0) for x in oh_dq])) + float(
+                        np.mean([x.get("sot_ag", 28.0) for x in oa_dq])
+                    )
+                    comb_sh_for = float(np.mean([x.get("sh_for", 0.0) for x in oh_dq])) + float(
+                        np.mean([x.get("sh_for", 0.0) for x in oa_dq])
+                    )
+                    comb_sh_ag = float(np.mean([x.get("sh_ag", 0.0) for x in oh_dq])) + float(
+                        np.mean([x.get("sh_ag", 0.0) for x in oa_dq])
+                    )
+                    comb_ga = float(np.mean([x["ga"] for x in oh_dq])) + float(np.mean([x["ga"] for x in oa_dq]))
+                    if lg == "nhl":
+                        sec_opps_us = evaluate_nhl_totals_market(
+                            home=home,
+                            away=away,
+                            line_total=prices.get("line_total"),
+                            odds_over=espn_pr.get("odds_over"),
+                            exp_total_goals=exp_tot_g,
+                            combined_shots=comb_sot_for,
+                            odds_under=espn_pr.get("odds_under"),
+                            combined_shots_against=comb_sot_ag,
+                            side=side,
+                            p_mkt=p_mkt,
+                            p_elo=p_elo,
+                            sog_diff=sot_f,
+                            vol_diff=vol_f,
+                            rest_for_pick=rest_for_pick,
+                        )
+                    elif lg in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba"):
+                        sec_opps_us = evaluate_nba_secondary_markets(
+                            home=home,
+                            away=away,
+                            side=side,
+                            p_mkt=p_mkt,
+                            p_elo=p_elo,
+                            fg_pct_diff=sot_f,
+                            rest_for_pick=rest_for_pick,
+                            three_pt_diff=co_f,
+                            tov_margin_diff=tov_f,
+                            line_total=prices.get("line_total"),
+                            open_line=espn_pr.get("open_line"),
+                            odds_over=espn_pr.get("odds_over"),
+                            exp_total_pts=exp_tot_g,
+                        )
+                    elif lg == "nfl":
+                        sec_opps_us = evaluate_nfl_secondary_markets(
+                            home=home,
+                            away=away,
+                            side=side,
+                            p_mkt=p_mkt,
+                            p_elo=p_elo,
+                            ypp_diff=sot_f,
+                            yards_diff=vol_f,
+                            line_total=prices.get("line_total"),
+                            odds_over=espn_pr.get("odds_over"),
+                            odds_under=espn_pr.get("odds_under"),
+                            comb_yards_for=comb_sh_for,
+                            comb_ypp_for=comb_sot_for,
+                            comb_ga_avg=comb_ga,
+                            comb_yards_allowed=comb_sh_ag,
+                        )
 
                 if not route_major_league_gate(
                     league=lg,
@@ -1986,7 +2080,7 @@ def scan_upcoming_other_sports(
                     "best_odds": round(odds_pick, 3),
                     "ev_pct": round(ev_pct, 2),
                     "line_total": prices["line_total"],
-                    "secondary_opportunities": nhl_tot_opps,
+                    "secondary_opportunities": sec_opps_us,
                     "injury_gate": inj_gate,
                 })
 
@@ -2228,6 +2322,7 @@ def build_recommended_2leg_doubles(
         odds = float(op.get("best_odds") or 0.0)
         p_win = float(op.get("p_model") or 0.0)
         ko = op.get("kickoff") or ""
+        m_str_op = f"{op['home']} vs {op['away']}"
         if 1.10 <= odds <= 1.75 and p_win >= 0.62 and float(op.get("composite_score") or 0.0) >= 0.15:
             ml_candidates.append({
                 "date_day": ko[:10],
@@ -2237,12 +2332,47 @@ def build_recommended_2leg_doubles(
                 "league": op["league"].lower(),
                 "event_id": str(op.get("event_id") or ""),
                 "side": op.get("side") or "H",
-                "match": f"{op['home']} vs {op['away']}",
+                "match": m_str_op,
                 "market": "Moneyline",
                 "pick": f"{op['pick']} ({op['side']})",
                 "prob": p_win,
                 "odds": round(odds, 2),
             })
+        for sec_op in op.get("secondary_opportunities") or []:
+            s_odds = float(sec_op.get("odds") or 0.0)
+            s_prob = float(sec_op.get("win_prob") or 0.0)
+            s_side = str(sec_op.get("side") or "")
+            s_tier = str(sec_op.get("tier") or "")
+            if s_tier == "set_shield" and 1.15 <= s_odds <= 1.50 and s_prob >= 0.78:
+                shield_candidates.append({
+                    "date_day": ko[:10],
+                    "kickoff": ko,
+                    "time_valid": op.get("time_valid", True),
+                    "sport_cat": op["sport"],
+                    "league": op["league"].lower(),
+                    "event_id": f"{op.get('event_id')}::{sec_op.get('market_type')}",
+                    "side": s_side,
+                    "match": m_str_op,
+                    "market": str(sec_op.get("market_label") or "Spread Shield"),
+                    "pick": str(sec_op.get("pick_name") or s_side),
+                    "prob": round(s_prob, 4),
+                    "odds": round(s_odds, 2),
+                })
+            elif s_tier in ("totals_over", "totals_under") and 1.50 <= s_odds <= 2.15 and s_prob >= 0.58:
+                totals_candidates.append({
+                    "date_day": ko[:10],
+                    "kickoff": ko,
+                    "time_valid": op.get("time_valid", True),
+                    "sport_cat": op["sport"],
+                    "league": op["league"].lower(),
+                    "event_id": f"{op.get('event_id')}::{sec_op.get('market_type')}",
+                    "side": s_side,
+                    "match": m_str_op,
+                    "market": str(sec_op.get("market_label") or "Totals O/U"),
+                    "pick": str(sec_op.get("pick_name") or s_side),
+                    "prob": round(s_prob, 4),
+                    "odds": round(s_odds, 2),
+                })
 
     doubles: list[dict[str, Any]] = []
     # High-win-probability, low-line-value Bankers (>=72% Win Prob, odds 1.10..1.48)
@@ -2544,10 +2674,23 @@ def scan_upcoming_and_log_paper_bets(
                     factors_tanh_z=best_candidate["factors_tanh_z"],
                 )
                 best_candidate["tier"] = tier
+                fav_Side_c = str(best_candidate["side"])
+                fav_oh = oh if fav_Side_c == "H" else oa
+                dog_oh = oa if fav_Side_c == "H" else oh
+                fav_ga_avg_v = float(np.mean([x.get("ga", 1.1) for x in fav_oh])) if fav_oh else None
+                fav_sot_ag_sum = sum(float(x.get("sot_ag", 4.0)) for x in fav_oh) if fav_oh else 0.0
+                fav_ga_sum = sum(float(x.get("ga", 1.1)) for x in fav_oh) if fav_oh else 0.0
+                fav_sv_pct_v = (1.0 - (fav_ga_sum / max(1.0, fav_sot_ag_sum))) if fav_oh else None
+                dog_gf_avg_v = float(np.mean([x.get("gf", 1.1) for x in dog_oh])) if dog_oh else None
+                dog_sot_for_v = float(np.mean([x.get("sot_for", 4.0) for x in dog_oh])) if dog_oh else None
+                comb_sot_for_v = (
+                    float(np.mean([x.get("sot_for", 4.0) for x in oh]))
+                    + float(np.mean([x.get("sot_for", 4.0) for x in oa]))
+                )
                 best_candidate["secondary_opportunities"] = evaluate_soccer_secondary_markets(
                     home=home,
                     away=away,
-                    side=str(best_candidate["side"]),
+                    side=fav_Side_c,
                     score=float(best_candidate["score"]),
                     thresholds=thresholds,
                     p_model=float(best_candidate.get("p_model") or 0.5),
@@ -2560,8 +2703,14 @@ def scan_upcoming_and_log_paper_bets(
                     sr_markets=sr_soc,
                     line_total=pri.get("line_total"),
                     odds_over=det[23] or det[21] or pri.get("odds_over"),
-                    recent_draws_raw=(h_draw if best_candidate["side"] == "H" else a_draw),
+                    odds_under=det[24] or det[22] or pri.get("odds_under"),
+                    recent_draws_raw=(h_draw if fav_Side_c == "H" else a_draw),
                     h2h_draw_rate=h2h_draw_rate,
+                    fav_ga_avg=fav_ga_avg_v,
+                    fav_save_pct=fav_sv_pct_v,
+                    dog_gf_avg=dog_gf_avg_v,
+                    dog_sot_for_avg=dog_sot_for_v,
+                    comb_sot_for_avg=comb_sot_for_v,
                 )
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
@@ -2769,7 +2918,7 @@ def scan_upcoming_and_log_paper_bets(
                 },
                 now_iso,
             )
-            for sec_opp in (op.get("secondary_opportunities") or [])[:1]:
+            for sec_opp in (op.get("secondary_opportunities") or [])[:2]:
                 sec_o = float(sec_opp.get("odds") or 0.0)
                 if sec_o > 1.12:
                     _upsert_paper_bet(
@@ -3688,7 +3837,7 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
 
 
 def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
-    """Format a human-readable pick label from `paper_bets.side` across Moneyline, Double Chance, DNB, +1.5 Sets, and Over/Under Totals."""
+    """Format a human-readable pick label from `paper_bets.side` across Moneyline, Double Chance, DNB, +1.5 Sets, Spreads, Puck Lines, and Over/Under Totals."""
     s = str(side or "").strip().upper()
     if s == "H":
         return f"{home} (H)"
@@ -3708,8 +3857,16 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return "Over 2.5 Goals"
     if s == "OVER_1_5":
         return "Over 1.5 Goals"
+    if s == "UNDER_2_5":
+        return "Under 2.5 Goals"
     if s.startswith("OVER_GOALS_"):
         return f"Over {s.replace('OVER_GOALS_', '')} Goals"
+    if s.startswith("UNDER_GOALS_"):
+        return f"Under {s.replace('UNDER_GOALS_', '')} Goals"
+    if s.startswith("OVER_POINTS_"):
+        return f"Over {s.replace('OVER_POINTS_', '')} Points"
+    if s.startswith("UNDER_POINTS_"):
+        return f"Under {s.replace('UNDER_POINTS_', '')} Points"
     if s == "PLUS15_H":
         return f"{home} +1.5 Sets"
     if s == "PLUS15_A":
@@ -3718,6 +3875,18 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return f"{home} 2:0 Sets"
     if s == "SETS20_A":
         return f"{away} 0:2 Sets"
+    if s == "SPREAD_M2.5_H":
+        return f"{home} -2.5 Spread"
+    if s == "SPREAD_M2.5_A":
+        return f"{away} -2.5 Spread"
+    if s == "SPREAD_P7.5_H":
+        return f"{home} +7.5 Shield"
+    if s == "SPREAD_P7.5_A":
+        return f"{away} +7.5 Shield"
+    if s == "PUCKLINE_P1.5_H":
+        return f"{home} +1.5 Puck Line"
+    if s == "PUCKLINE_P1.5_A":
+        return f"{away} +1.5 Puck Line"
     if s.startswith("UNDER_GAMES_"):
         return f"Under {s.replace('UNDER_GAMES_', '')} Games"
     return f"{home if s == 'H' else away} ({side})"
@@ -3871,8 +4040,8 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         tl = str(tier_s or "").lower()
         if su.startswith(("DC_", "DNB_")) or tl in ("dc_shield", "dnb_shield"):
             return "Football Double Chance & DNB Shields"
-        if su.startswith("PLUS15_") or tl == "set_shield":
-            return "Tennis +1.5 Sets Handicap Shield"
+        if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_")) or tl == "set_shield":
+            return "Handicap Shields (+1.5 Sets / Puck Line / Spread)"
         if su.startswith(("OVER_", "UNDER_", "SETS20_")) or tl in ("totals_over", "totals_under", "straight_sets"):
             return "Over/Under Totals & Straight Sets"
         return "Moneyline & 1X2 Bankers"

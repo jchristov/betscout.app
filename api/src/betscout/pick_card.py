@@ -516,6 +516,16 @@ def _humanize_raw_market_codes(text: str, home: str = "", away: str = "") -> str
             s = s.replace(k, v)
     s = re.sub(r"\(?UNDER_GAMES_([0-9.]+)\)?", r"Under \1 Games", s)
     s = re.sub(r"\(?OVER_GOALS_([0-9.]+)\)?", r"Over \1 Goals", s)
+    s = re.sub(r"\(?UNDER_GOALS_([0-9.]+)\)?", r"Under \1 Goals", s)
+    s = re.sub(r"\(?OVER_POINTS_([0-9.]+)\)?", r"Over \1 Points", s)
+    s = re.sub(r"\(?UNDER_POINTS_([0-9.]+)\)?", r"Under \1 Points", s)
+    s = s.replace("(UNDER_2_5)", "Under 2.5 Goals").replace("UNDER_2_5", "Under 2.5 Goals")
+    s = s.replace("SPREAD_M2.5_H", f"{home} -2.5 Spread".strip() if home else "-2.5 Spread")
+    s = s.replace("SPREAD_M2.5_A", f"{away} -2.5 Spread".strip() if away else "-2.5 Spread")
+    s = s.replace("SPREAD_P7.5_H", f"{home} +7.5 Shield".strip() if home else "+7.5 Shield")
+    s = s.replace("SPREAD_P7.5_A", f"{away} +7.5 Shield".strip() if away else "+7.5 Shield")
+    s = s.replace("PUCKLINE_P1.5_H", f"{home} +1.5 Puck Line".strip() if home else "+1.5 Puck Line")
+    s = s.replace("PUCKLINE_P1.5_A", f"{away} +1.5 Puck Line".strip() if away else "+1.5 Puck Line")
     return " ".join(s.split())
 
 

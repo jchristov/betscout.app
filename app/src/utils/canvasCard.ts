@@ -54,6 +54,13 @@ function humanizeCanvasMarketCodes(rawVal?: string | null): string {
   }
   s = s.replace(/\(?UNDER_GAMES_([0-9.]+)\)?/g, 'Under $1 Games');
   s = s.replace(/\(?OVER_GOALS_([0-9.]+)\)?/g, 'Over $1 Goals');
+  s = s.replace(/\(?UNDER_GOALS_([0-9.]+)\)?/g, 'Under $1 Goals');
+  s = s.replace(/\(?OVER_POINTS_([0-9.]+)\)?/g, 'Over $1 Points');
+  s = s.replace(/\(?UNDER_POINTS_([0-9.]+)\)?/g, 'Under $1 Points');
+  s = s.replace(/\(UNDER_2_5\)|UNDER_2_5/g, 'Under 2.5 Goals');
+  s = s.replace(/\(?SPREAD_M2\.5_[HA]\)?/g, '-2.5 Spread');
+  s = s.replace(/\(?SPREAD_P7\.5_[HA]\)?/g, '+7.5 Shield');
+  s = s.replace(/\(?PUCKLINE_P1\.5_[HA]\)?/g, '+1.5 Puck Line');
   return s.replace(/\s+/g, ' ').trim();
 }
 

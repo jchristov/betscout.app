@@ -461,8 +461,8 @@
             v-for="mOpt in [
               { id: 'all', label: 'All Markets' },
               { id: 'moneyline', label: 'Moneyline / 1X2' },
-              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5 Sets)' },
-              { id: 'totals', label: 'Totals (Over/Under & 2:0 Sets)' },
+              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5 Sets, +1.5 Puck, +7.5/-2.5 Spread)' },
+              { id: 'totals', label: 'Totals (Defense-Wall Under / Attack Over & 2:0 Sets)' },
               { id: 'secondary', label: 'All Secondary' },
             ]"
             :key="mOpt.id"

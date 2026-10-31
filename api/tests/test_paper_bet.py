@@ -990,8 +990,10 @@ def test_per_sport_isolated_gates():
     )
     assert curl_sco_ok is True and curl_swe_ok is True
 
-    # 7b. Secondary Market Opportunity Evaluators (Double Chance 1X/X2, DNB, Over 2.5/1.5 Goals, Tennis +1.5 Sets, Under 21.5 Games, 2:0 Sets, NHL Over Totals)
+    # 7b. Secondary Market Opportunity Evaluators (Double Chance 1X/X2, DNB, Over 2.5/1.5 Goals, Under 2.5 Defense-Wall, Tennis +1.5 Sets, Under 21.5 Games, 2:0 Sets, NHL Goalie-Wall Under / Attack Over / +1.5 Puck Line, NBA Sharp-Pace Over / +7.5 Shield, NFL -2.5 FG / +7.5 Shield / Defense-Wall Under / High-Yards Over)
     from betscout.sport_models import (
+        evaluate_nba_secondary_markets,
+        evaluate_nfl_secondary_markets,
         evaluate_nhl_totals_market,
         evaluate_soccer_secondary_markets,
         evaluate_tennis_secondary_markets,
@@ -1016,6 +1018,27 @@ def test_per_sport_isolated_gates():
     soc_sec_types = {x["market_type"] for x in soc_sec}
     assert "DC_1X" in soc_sec_types and "DNB_H" in soc_sec_types and "OVER_2_5" in soc_sec_types
 
+    soc_def_wall = evaluate_soccer_secondary_markets(
+        home="Internazionale",
+        away="Venezia",
+        side="H",
+        score=0.38,
+        thresholds=thrs,
+        p_model=0.72,
+        p_mkt=0.68,
+        best_h=1.36,
+        best_d=4.80,
+        best_a=8.50,
+        factors_tanh_z={"sot_d": 0.70, "dom_rebound": 0.20, "recent_draws": -0.20},
+        exact_score_pred={"lambda_home": 1.65, "mu_away": 0.55},
+        odds_under=1.95,
+        fav_ga_avg=0.50,
+        fav_save_pct=0.82,
+        dog_gf_avg=0.67,
+        dog_sot_for_avg=2.5,
+    )
+    assert any(x["market_type"] == "UNDER_2_5" for x in soc_def_wall)
+
     ten_sec = evaluate_tennis_secondary_markets(
         player_1="Tommy Paul",
         player_2="Luciano Darderi",
@@ -1031,7 +1054,43 @@ def test_per_sport_isolated_gates():
     assert "SET_HANDICAP_PLUS_1_5" in ten_sec_types and "UNDER_21.5_GAMES" in ten_sec_types and "SETS_2_0" in ten_sec_types
 
     nhl_sec = evaluate_nhl_totals_market("Tampa Bay Lightning", "Winnipeg Jets", 6.0, 1.88, 6.75, 65.5)
-    assert len(nhl_sec) == 1 and nhl_sec[0]["tier"] == "totals_over"
+    assert len(nhl_sec) >= 1 and nhl_sec[0]["tier"] == "totals_over"
+    nhl_under_sec = evaluate_nhl_totals_market(
+        "Minnesota Wild", "Seattle Kraken", 6.0, 1.90, 5.20, 52.0, odds_under=1.91, combined_shots_against=53.5, side="H", p_mkt=0.60, p_elo=0.61, sog_diff=4.5, vol_diff=5.0
+    )
+    nhl_u_types = {x["market_type"] for x in nhl_under_sec}
+    assert "UNDER_6.0_GOALS" in nhl_u_types and "PUCKLINE_P1.5_H" in nhl_u_types
+
+    nba_sec = evaluate_nba_secondary_markets(
+        home="Boston Celtics",
+        away="Indiana Pacers",
+        side="H",
+        p_mkt=0.66,
+        p_elo=0.67,
+        fg_pct_diff=3.2,
+        rest_for_pick=0.0,
+        line_total=235.5,
+        odds_over=1.91,
+        exp_total_pts=228.0,
+    )
+    nba_types = {x["market_type"] for x in nba_sec}
+    assert "OVER_235.5_POINTS" in nba_types and "SPREAD_P7.5_H" in nba_types
+
+    nfl_sec = evaluate_nfl_secondary_markets(
+        home="Minnesota Vikings",
+        away="Indianapolis Colts",
+        side="H",
+        p_mkt=0.68,
+        p_elo=0.66,
+        ypp_diff=1.15,
+        yards_diff=68.0,
+        line_total=44.5,
+        odds_under=1.91,
+        comb_ga_avg=35.5,
+        comb_yards_allowed=595.0,
+    )
+    nfl_types = {x["market_type"] for x in nfl_sec}
+    assert "SPREAD_M2.5_H" in nfl_types and "SPREAD_P7.5_H" in nfl_types and "UNDER_44.5_POINTS" in nfl_types
 
     # 7c. Test T-60m 1-Hour Pre-Match Reminder Notification (text-only with emojis, no PNG attachment)
     import sqlite3

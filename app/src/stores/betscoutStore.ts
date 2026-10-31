@@ -521,7 +521,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
         const isSec = Boolean(mt) || ['dc_shield', 'dnb_shield', 'set_shield', 'totals_over', 'totals_under', 'straight_sets'].includes(tr);
         if (marketFilter.value === 'moneyline' && isSec) return false;
         if (marketFilter.value === 'secondary' && !isSec) return false;
-        if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP'))) return false;
+        if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP') || mt.startsWith('SPREAD_') || mt.startsWith('PUCKLINE_'))) return false;
         if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_'))) return false;
       }
       if (dayFilter.value !== 'all') {

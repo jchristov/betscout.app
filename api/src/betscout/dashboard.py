@@ -642,7 +642,7 @@ def build_best_bets_summary(
             "odds_display": f"{odds_val:.2f} (Fair {1.0/max(op_win,0.05):.2f}, EV {op_ev:+.1f}%)",
             "secondary_opportunities": op.get("secondary_opportunities") or [],
         })
-        for sec in (op.get("secondary_opportunities") or [])[:1]:
+        for sec in (op.get("secondary_opportunities") or [])[:2]:
             sec_odds = float(sec.get("odds") or 0.0)
             if sec_odds <= min_odds:
                 continue
