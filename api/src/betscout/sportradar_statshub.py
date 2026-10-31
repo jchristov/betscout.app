@@ -1105,16 +1105,18 @@ def fetch_live_match_timelinedelta(
     matched_m = None
     flipped = False
     clean_sr_mid = str(sr_match_id or "").replace("sr_", "").split("::", 1)[0].strip()
-    if clean_sr_mid and clean_sr_mid.isdigit():
+    if clean_sr_mid and clean_sr_mid.isdigit() and sport != "curling":
         td_direct = fetch_statshub_gismo("match_timelinedelta", clean_sr_mid, client_alias="sportradar", ttl_sec=3.0)
         if isinstance(td_direct, dict) and isinstance(td_direct.get("match"), dict):
-            matched_m = td_direct["match"]
-            m_teams = matched_m.get("teams") or {}
-            th_d = (m_teams.get("home") or {}).get("name") or ""
-            ta_d = (m_teams.get("away") or {}).get("name") or ""
-            if th_d and ta_d and not (_names_match(home, th_d) and _names_match(away, ta_d)):
-                if _names_match(home, ta_d) and _names_match(away, th_d):
-                    flipped = True
+            m_dir = td_direct["match"]
+            if (m_dir.get("result") or {}).get("home") is not None or int(((m_dir.get("status") or {}).get("_id")) or 0) not in (100, 110, 120):
+                matched_m = m_dir
+                m_teams = matched_m.get("teams") or {}
+                th_d = (m_teams.get("home") or {}).get("name") or ""
+                ta_d = (m_teams.get("away") or {}).get("name") or ""
+                if th_d and ta_d and not (_names_match(home, th_d) and _names_match(away, ta_d)):
+                    if _names_match(home, ta_d) and _names_match(away, th_d):
+                        flipped = True
 
     is_womens_q = home.strip().endswith(" W") or away.strip().endswith(" W")
     clean_h_q = home.strip()[:-2].strip() if home.strip().endswith(" W") else home
