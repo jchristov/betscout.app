@@ -545,7 +545,7 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     assert t_mom["set1_pick_games"] == 6 and t_mom["set1_opp_games"] == 7
     assert "liveAnalyzerModal" in html_text and "switchWorkspaceTab" in html_text and "walkForwardAuditPanel" in html_text
 
-    from betscout.webapp import _analyze_live_matchup
+    from betscout.webapp import _analyze_live_matchup, _analyze_single_entity
     with patch("betscout.paper_bet._fetch_sofascore_tennis_odds", return_value={
         "odds_p1": 1.44, "odds_p2": 2.75, "games_line": 22.5,
         "p1_last5_win_rate": 0.80, "p2_last5_win_rate": 0.60,
@@ -553,7 +553,11 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
         "p1_last_tourn": "Almaty", "p2_last_tourn": "Almaty",
     }):
         an_res = _analyze_live_matchup(db, rec_json, "Udinese vs AC Milan")
-        assert an_res["ok"] is True and "verdict" in an_res and "market_recommendations" in an_res
+        assert an_res["ok"] is True and an_res["mode"] == "matchup" and "verdict" in an_res and "market_recommendations" in an_res
+        ent_res = _analyze_single_entity(db, rec_json, "AC Milan")
+        assert ent_res["ok"] is True and ent_res["mode"] == "entity" and "elo_rating" in ent_res and "verdict" in ent_res
+        auto_ent = _analyze_live_matchup(db, rec_json, "AC Milan")
+        assert auto_ent["ok"] is True and auto_ent["mode"] == "entity"
     assert "mispricingRadarSection" in html_text and "printSmartBetTicket" in html_text and "saveSlipPrefsToStorage" in html_text
     assert "inplayAlertsToggleBtn" in html_text and "🔕 Live Alerts: OFF" in html_text
 

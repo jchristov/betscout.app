@@ -93,6 +93,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const marketFilter = ref<'all' | 'moneyline' | 'secondary' | 'shield' | 'totals'>('all');
   const dayFilter = ref<string>('all');
   const minOdds = ref<number>(1.10);
+  const minProb = ref<number>(0.55);
   const searchQuery = ref<string>('');
   const tzMode = ref<'local' | 'utc'>('local');
   const disabledSports = ref<Set<string>>(new Set());
@@ -129,6 +130,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
       sportFilter: sportFilter.value,
       dayFilter: dayFilter.value,
       minOdds: minOdds.value,
+      minProb: minProb.value,
       tzMode: tzMode.value,
       customSelectedMatches: Array.from(customSelectedMatches.value),
       disabledSports: Array.from(disabledSports.value),
@@ -147,6 +149,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
         if (p.dayFilter) dayFilter.value = String(p.dayFilter);
         if (typeof p.minOdds === 'number' && p.minOdds >= 1.05 && p.minOdds <= 2.0) {
           minOdds.value = p.minOdds;
+        }
+        if (typeof p.minProb === 'number' && p.minProb >= 0.5 && p.minProb <= 0.95) {
+          minProb.value = p.minProb;
         }
         if (p.tzMode === 'utc' || p.tzMode === 'local') tzMode.value = p.tzMode;
         if (Array.isArray(p.customSelectedMatches)) {
@@ -186,7 +191,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   }
 
   watch(
-    [sportFilter, dayFilter, minOdds, tzMode],
+    [sportFilter, dayFilter, minOdds, minProb, tzMode],
     () => {
       if (generatedAt.value) {
         generatedAtLocal.value = formatHeaderTimestamp(generatedAt.value, timezone.value, tzMode.value);
@@ -503,6 +508,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     const q = searchQuery.value.trim().toLowerCase();
     return activeBestBets.value.filter((b) => {
       if (Number(b.odds || 0) <= minOdds.value) return false;
+      if (Number(b.win_prob || 0) < minProb.value) return false;
       if (sportFilter.value !== 'all' && b.sport_cat !== sportFilter.value) return false;
       if (marketFilter.value !== 'all') {
         const mt = String((b as any).market_type || '').toUpperCase();
@@ -877,6 +883,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     marketFilter,
     dayFilter,
     minOdds,
+    minProb,
     searchQuery,
     tzMode,
     disabledSports,

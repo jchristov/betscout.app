@@ -398,11 +398,11 @@
 
       <div
         class="card-surface border-t-2 border-t-violet-400 rounded-xl px-3.5 py-3"
-        title="Number of picks currently visible after applying your Sport, Day, Min Odds, and Search filters."
+        title="Number of picks currently visible after applying your Sport, Market, Day, Min Odds, Min Prob, and Search filters."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-violet-300">
           <Icon icon="fa6-solid:wand-magic-sparkles" class="w-3.5 h-3.5 text-violet-400" />
-          <span>Filtered Best Bets (&gt;{{ store.minOdds.toFixed(2) }})</span>
+          <span>Filtered Best Bets (&gt;{{ store.minOdds.toFixed(2) }} · &ge;{{ Math.round(store.minProb * 100) }}%)</span>
         </span>
         <b class="block text-lg font-mono tabular-nums text-violet-200 mt-0.5 whitespace-nowrap">
           {{ store.visibleBestBets.length }} Visible
@@ -441,9 +441,12 @@
             <span>{{ label }}</span>
           </button>
         </div>
+      </div>
 
-        <div class="flex flex-wrap items-center gap-1.5 ml-auto">
-          <b class="text-slate-200">Market:</b>
+      <!-- Row 2: Market Filters (Left-Aligned) -->
+      <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/70">
+        <b class="text-slate-200">Market:</b>
+        <div class="flex flex-wrap items-center gap-1.5">
           <button
             v-for="mOpt in [
               { id: 'all', label: 'All Markets' },
@@ -467,7 +470,7 @@
         </div>
       </div>
 
-      <!-- Row 2: Day Filters + Min Odds, Search & Analyze Match -->
+      <!-- Row 3: Day Filters + Min Odds, Min Prob, Search & Analyze Match / Team -->
       <div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-800/70">
         <b class="text-slate-200">Day:</b>
         <div class="flex flex-wrap gap-1.5">
@@ -507,24 +510,44 @@
             min="1.05"
             max="2.00"
             step="0.05"
-            class="w-24 sm:w-28 accent-sky-400 cursor-pointer"
+            class="w-20 sm:w-24 accent-sky-400 cursor-pointer"
           />
           <span class="font-mono tabular-nums text-amber-300">
-            &gt;<b>{{ store.minOdds.toFixed(2) }}</b> (+{{ Math.round((store.minOdds - 1) * 100) }}%)
+            &gt;<b>{{ store.minOdds.toFixed(2) }}</b>
+          </span>
+          <b class="text-slate-200 ml-1">Min Prob:</b>
+          <input
+            v-model.number="store.minProb"
+            type="range"
+            min="0.50"
+            max="0.95"
+            step="0.01"
+            class="w-20 sm:w-24 accent-emerald-400 cursor-pointer"
+          />
+          <span class="font-mono tabular-nums text-emerald-300">
+            &ge;<b>{{ Math.round(store.minProb * 100) }}%</b>
           </span>
           <input
             v-model="store.searchQuery"
             type="search"
             placeholder="Search team, player, league..."
-            class="bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px] flex-1 sm:min-w-[180px]"
+            class="bg-slate-900/90 text-white border border-slate-700 rounded-lg px-2.5 py-1 text-[11.5px] flex-1 sm:min-w-[160px]"
           />
           <button
             type="button"
-            class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
-            @click="analyzerModalOpen = true"
+            class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-2.5 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
+            @click="openAnalyzerModal('matchup')"
           >
-            <Icon icon="fa6-solid:magnifying-glass" class="w-3.5 h-3.5" />
+            <Icon icon="fa6-solid:magnifying-glass" class="w-3.5 h-3.5 shrink-0" />
             <span>Analyze Match</span>
+          </button>
+          <button
+            type="button"
+            class="btn-press inline-flex items-center gap-1.5 min-h-[32px] px-2.5 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30"
+            @click="openAnalyzerModal('entity')"
+          >
+            <Icon icon="fa6-solid:user-shield" class="w-3.5 h-3.5 shrink-0" />
+            <span>Scout Team / Player</span>
           </button>
         </div>
       </div>
@@ -2166,61 +2189,556 @@
       </div>
     </div>
 
-    <!-- MODAL 2: ON-DEMAND LIVE MATCHUP ANALYZER -->
+    <!-- MODAL 2: ON-DEMAND LIVE MATCHUP & TEAM/PLAYER QUANT ANALYZER -->
     <div
       v-if="analyzerModalOpen"
       class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
       @click.self="analyzerModalOpen = false"
     >
-      <div class="card-surface rounded-2xl max-w-[740px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+      <div class="card-surface rounded-2xl max-w-[780px] w-full max-h-[86vh] flex flex-col overflow-hidden p-5">
+        <!-- Fixed Modal Header -->
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3 pb-2.5 border-b border-slate-700 shrink-0">
           <div>
             <b class="inline-flex items-center gap-1.5 text-sm text-emerald-300">
-              <Icon icon="fa6-solid:magnifying-glass" class="w-4 h-4" />
-              <span>On-Demand Any-Matchup Live Analyzer</span>
+              <Icon :icon="analyzerMode === 'entity' ? 'fa6-solid:user-shield' : 'fa6-solid:magnifying-glass'" class="w-4 h-4" />
+              <span>
+                {{
+                  analyzerMode === 'entity'
+                    ? 'On-Demand Team & Player Quantitative Scout'
+                    : 'On-Demand Any-Matchup Live Analyzer'
+                }}
+              </span>
             </b>
-            <div class="text-slate-300 text-[11px]">
-              Analyze any Tennis or Football matchup — checks live bookmaker odds, Last-5 form, H2H &amp; turnaround
+            <div class="text-slate-300 text-[11px] mt-0.5">
+              {{
+                analyzerMode === 'entity'
+                  ? 'Inspect Elo rating, Last-10 / Last-5 form, Home/Away splits, scoring margin, active picks & Ledger ROI for any team or player'
+                  : 'Analyze any matchup across Football, Tennis & 10 sports — live bookmaker odds, Last-5 form, H2H, rest & 3-market verdicts'
+              }}
             </div>
           </div>
-          <button
-            type="button"
-            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
-            @click="analyzerModalOpen = false"
-          >
-            <span>Close</span>
-            <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
-          </button>
-        </div>
-
-        <div class="flex gap-2 mb-3">
-          <input
-            v-model="analyzerQuery"
-            type="search"
-            placeholder="e.g. Shelton vs Kovacevic, Roma vs Cagliari..."
-            class="flex-1 h-8 bg-slate-950 text-white border border-slate-700 rounded-lg px-3 text-xs"
-            @keydown.enter="runLiveAnalyzer"
-          />
-          <button
-            type="button"
-            class="btn-press h-8 px-3.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
-            @click="runLiveAnalyzer"
-          >
-            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 shrink-0" />
-            <span>Analyze Matchup</span>
-          </button>
-        </div>
-
-        <div v-if="analyzerLoading" class="py-4 text-slate-300">Running live multi-market analysis...</div>
-        <div v-else-if="analyzerResult" class="p-3.5 bg-slate-950 border border-slate-700 rounded-xl space-y-2">
-          <div class="text-sm font-bold text-white">
-            {{ analyzerResult.home }} vs {{ analyzerResult.away }}
-            <span class="text-sky-300 ml-2">({{ analyzerResult.verdict || analyzerResult.sport || 'Analyzed' }})</span>
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              class="btn-press h-8 px-2.5 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5"
+              :class="
+                analyzerMode === 'matchup'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+              "
+              @click="switchAnalyzerMode('matchup')"
+            >
+              <Icon icon="fa6-solid:magnifying-glass" class="w-3 h-3" />
+              <span>Matchup (A vs B)</span>
+            </button>
+            <button
+              type="button"
+              class="btn-press h-8 px-2.5 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5"
+              :class="
+                analyzerMode === 'entity'
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-400/50'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+              "
+              @click="switchAnalyzerMode('entity')"
+            >
+              <Icon icon="fa6-solid:user-shield" class="w-3 h-3" />
+              <span>Team / Player Scout</span>
+            </button>
+            <button
+              type="button"
+              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
+              @click="analyzerModalOpen = false"
+            >
+              <span>Close</span>
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5 shrink-0" />
+            </button>
           </div>
-          <div v-if="analyzerResult.summary" class="text-slate-200">{{ analyzerResult.summary }}</div>
-          <pre v-else class="text-[11px] font-mono text-slate-200 whitespace-pre-wrap">{{
-            JSON.stringify(analyzerResult, null, 2)
-          }}</pre>
+        </div>
+
+        <!-- Search Input + Quick Presets -->
+        <div class="shrink-0 mb-3 space-y-2">
+          <div class="flex gap-2">
+            <input
+              v-model="analyzerQuery"
+              type="search"
+              :placeholder="
+                analyzerMode === 'entity'
+                  ? 'Enter team or player name (e.g. Paris Saint-Germain, Daniil Medvedev, Sporting CP, Sweden)...'
+                  : 'Enter two teams or players separated by vs (e.g. Bayern Munich vs Borussia Dortmund, Medvedev vs Norrie)...'
+              "
+              class="flex-1 h-9 bg-slate-950 text-white border border-slate-700 rounded-lg px-3 text-xs"
+              @keydown.enter="runLiveAnalyzer()"
+            />
+            <button
+              type="button"
+              class="btn-press h-9 px-3.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold leading-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+              @click="runLiveAnalyzer()"
+            >
+              <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 shrink-0" />
+              <span>{{ analyzerMode === 'entity' ? 'Scout Team / Player' : 'Analyze Matchup' }}</span>
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+            <span class="text-slate-400 font-semibold">Quick Try:</span>
+            <template v-if="analyzerMode === 'entity'">
+              <button
+                v-for="sampleEnt in ['Paris Saint-Germain', 'Sporting CP', 'Bayern Munich', 'Daniil Medvedev', 'Anna Blinkova', 'Sweden']"
+                :key="sampleEnt"
+                type="button"
+                class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-sky-300 border border-slate-700/80 font-medium"
+                @click="runQuickAnalyzerSample(sampleEnt, 'entity')"
+              >
+                {{ sampleEnt }}
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-for="sampleMatch in ['Bayern Munich vs Borussia Dortmund', 'Udinese vs AS Roma', 'Leylah Fernandez vs Kamilla Rakhimova', 'Real Betis vs Málaga']"
+                :key="sampleMatch"
+                type="button"
+                class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-slate-700/80 font-medium"
+                @click="runQuickAnalyzerSample(sampleMatch, 'matchup')"
+              >
+                {{ sampleMatch }}
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Scrollable Body with Overflow-Only Muted Dark-Blue Vertical Scrollbar -->
+        <div class="relative flex-1 min-h-0 flex">
+          <div
+            ref="analyzerScrollRef"
+            class="custom-scrollbar flex-1 min-h-0"
+            :class="analyzerScrollShow ? 'pr-2.5' : ''"
+            @scroll="updateAnalyzerScrollbar"
+          >
+            <div v-if="analyzerLoading" class="py-8 flex flex-col items-center justify-center gap-2.5 text-slate-300">
+              <div class="inline-flex items-center gap-2 text-xs font-semibold text-sky-300">
+                <Icon icon="fa6-solid:arrows-rotate" class="w-4 h-4 animate-spin text-sky-400" />
+                <span>Running quantitative model, Elo state, Last-10 form &amp; market calibration...</span>
+              </div>
+            </div>
+
+            <div
+              v-else-if="analyzerResult && !analyzerResult.ok"
+              class="p-4 rounded-xl bg-rose-500/10 border border-rose-400/40 text-rose-200 text-xs"
+            >
+              <b>Could not analyze query:</b> {{ analyzerResult.error || 'No matching records found.' }}
+            </div>
+
+            <!-- VIEW A: INDIVIDUAL TEAM / PLAYER SCOUTING DOSSIER -->
+            <div v-else-if="analyzerResult && analyzerResult.mode === 'entity'" class="space-y-3">
+              <!-- Verdict Banner -->
+              <div
+                class="p-3 rounded-xl border"
+                :class="
+                  analyzerResult.verdict_level === 'strong_bet'
+                    ? 'bg-emerald-500/12 border-emerald-400/50 text-emerald-200'
+                    : analyzerResult.verdict_level === 'lean_bet'
+                      ? 'bg-sky-500/12 border-sky-400/50 text-sky-200'
+                      : 'bg-amber-500/12 border-amber-400/50 text-amber-200'
+                "
+              >
+                <div class="font-extrabold text-xs sm:text-sm">{{ analyzerResult.verdict }}</div>
+                <div v-if="analyzerResult.best_markets" class="text-[11px] text-slate-200 mt-1">
+                  <b>Recommended Markets:</b> {{ analyzerResult.best_markets }}
+                </div>
+              </div>
+
+              <!-- Entity Identity & Last-5 Strip Header -->
+              <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div
+                    v-if="analyzerResult.logo_url"
+                    class="w-11 h-11 rounded-xl bg-slate-900/95 border border-slate-700/80 p-1.5 flex items-center justify-center shrink-0"
+                  >
+                    <img :src="analyzerResult.logo_url" :alt="analyzerResult.entity_name" class="w-full h-full object-contain" />
+                  </div>
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-base font-extrabold text-white">{{ analyzerResult.entity_name }}</span>
+                      <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold border" :class="getSportBadgeTheme(analyzerResult.sport)">
+                        {{ analyzerResult.league_label || analyzerResult.sport }}
+                      </span>
+                      <span class="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-[10.5px] font-mono text-sky-300">
+                        Elo <b>{{ analyzerResult.elo_rating }}</b>
+                      </span>
+                      <span
+                        v-if="analyzerResult.current_streak"
+                        class="px-2 py-0.5 rounded-md text-[10.5px] font-bold font-mono"
+                        :class="
+                          String(analyzerResult.current_streak).endsWith('W')
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                            : String(analyzerResult.current_streak).endsWith('L')
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                        "
+                      >
+                        Streak: {{ analyzerResult.current_streak }}
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">
+                      {{ analyzerResult.total_matches }} Historical Matches Tracked · Overall Win Rate:
+                      <b class="text-slate-200">{{ analyzerResult.win_rate_all_pct }}%</b>
+                      <template v-if="analyzerResult.rest_hours_since_last !== null && analyzerResult.rest_hours_since_last !== undefined">
+                        · Last Match: <b class="text-sky-300">{{ analyzerResult.rest_hours_since_last }}h ago</b>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Last-5 W/D/L Pills -->
+                <div v-if="analyzerResult.last5_strip?.length" class="flex items-center gap-1">
+                  <span class="text-[10.5px] text-slate-400 mr-1 font-semibold">Last 5:</span>
+                  <span
+                    v-for="(resC, idxS) in analyzerResult.last5_strip"
+                    :key="idxS"
+                    class="w-6 h-6 rounded-md inline-flex items-center justify-center text-[11px] font-extrabold border"
+                    :class="
+                      resC === 'W'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                        : resC === 'D'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-400/50'
+                    "
+                  >
+                    {{ resC }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 4-Tile KPI Strip -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Last-10 Form</div>
+                  <div class="text-sm font-extrabold text-emerald-300 font-mono mt-0.5">
+                    {{ analyzerResult.last10_record }} ({{ analyzerResult.win_rate_last10_pct }}%)
+                  </div>
+                  <div class="text-[10.5px] text-slate-400 mt-0.5">Last-5: {{ analyzerResult.win_rate_last5_pct }}% WR</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Venue Splits</div>
+                  <div class="text-[11px] font-bold text-slate-200 font-mono mt-0.5">H: {{ analyzerResult.home_record }}</div>
+                  <div class="text-[11px] font-bold text-slate-300 font-mono mt-0.5">A: {{ analyzerResult.away_record }}</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Scoring &amp; Dominance</div>
+                  <div class="text-sm font-extrabold text-sky-300 font-mono mt-0.5">
+                    {{ analyzerResult.avg_scored }} – {{ analyzerResult.avg_conceded }}
+                    <span :class="analyzerResult.avg_margin >= 0 ? 'text-emerald-300' : 'text-rose-400'">
+                      ({{ analyzerResult.avg_margin >= 0 ? '+' : '' }}{{ analyzerResult.avg_margin }})
+                    </span>
+                  </div>
+                  <div class="text-[10.5px] text-slate-400 mt-0.5">
+                    <template v-if="analyzerResult.avg_sot_diff !== null && analyzerResult.avg_sot_diff !== undefined">
+                      SoT Diff: <b>{{ analyzerResult.avg_sot_diff >= 0 ? '+' : '' }}{{ analyzerResult.avg_sot_diff }}/gm</b>
+                    </template>
+                    <template v-else-if="analyzerResult.game_win_share_pct !== null && analyzerResult.game_win_share_pct !== undefined">
+                      Game Share: <b>{{ analyzerResult.game_win_share_pct }}%</b>
+                    </template>
+                    <template v-else>Avg per match (Last 10)</template>
+                  </div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">BetScout Ledger</div>
+                  <div class="text-sm font-extrabold font-mono mt-0.5">
+                    <span class="text-emerald-300">{{ analyzerResult.ledger_record?.wins || 0 }}W</span> –
+                    <span class="text-rose-400">{{ analyzerResult.ledger_record?.losses || 0 }}L</span>
+                  </div>
+                  <div
+                    class="text-[10.5px] font-mono font-bold mt-0.5"
+                    :class="(analyzerResult.ledger_record?.profit_u || 0) >= 0 ? 'text-emerald-300' : 'text-rose-400'"
+                  >
+                    {{ (analyzerResult.ledger_record?.profit_u || 0) >= 0 ? '+' : '' }}{{ (analyzerResult.ledger_record?.profit_u || 0).toFixed(2) }}u Profit
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quantitative Strengths & Risk Alerts -->
+              <div v-if="analyzerResult.strengths?.length || analyzerResult.risks?.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div v-if="analyzerResult.strengths?.length" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-400/35 space-y-1">
+                  <div class="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">Quantitative Strengths</div>
+                  <div v-for="(st, iSt) in analyzerResult.strengths" :key="iSt" class="text-[11px] text-slate-200 flex items-start gap-1.5">
+                    <span class="text-emerald-400 font-bold">✓</span>
+                    <span>{{ st }}</span>
+                  </div>
+                </div>
+                <div v-if="analyzerResult.risks?.length" class="p-3 rounded-xl bg-amber-500/10 border border-amber-400/35 space-y-1">
+                  <div class="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider">Risk &amp; Caution Signals</div>
+                  <div v-for="(rk, iRk) in analyzerResult.risks" :key="iRk" class="text-[11px] text-slate-200 flex items-start gap-1.5">
+                    <span class="text-amber-400 font-bold">⚠</span>
+                    <span>{{ rk }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Active Upcoming BetScout Picks Involving This Entity -->
+              <div v-if="analyzerResult.upcoming_picks?.length" class="p-3 rounded-xl bg-slate-950/90 border border-emerald-400/40 space-y-2">
+                <div class="text-xs font-extrabold text-emerald-300 flex items-center gap-1.5">
+                  <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5" />
+                  <span>Active BetScout Recommendations Involving {{ analyzerResult.entity_name }}</span>
+                </div>
+                <div
+                  v-for="(up, iUp) in analyzerResult.upcoming_picks"
+                  :key="iUp"
+                  class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs"
+                >
+                  <div>
+                    <b class="text-white">{{ up.match }}</b>
+                    <span class="text-slate-400 ml-1.5 text-[11px]">({{ up.competition }} · {{ up.date_local }})</span>
+                    <div class="text-emerald-300 font-bold mt-0.5">
+                      Pick: {{ up.pick_name }} · Win Prob {{ up.win_prob_pct }}% · Odds {{ up.odds_display || up.odds }}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-press px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-[11px] font-bold"
+                    @click="runQuickAnalyzerSample(up.match, 'matchup')"
+                  >
+                    Analyze Matchup &rarr;
+                  </button>
+                </div>
+              </div>
+
+              <!-- Recent Matches Table -->
+              <div v-if="analyzerResult.recent_matches?.length" class="p-3 rounded-xl bg-slate-950/90 border border-slate-800">
+                <div class="text-xs font-extrabold text-slate-200 mb-2">
+                  Recent Completed Matches ({{ analyzerResult.recent_matches.length }})
+                </div>
+                <div class="space-y-1.5">
+                  <div
+                    v-for="(rm, iRm) in analyzerResult.recent_matches"
+                    :key="iRm"
+                    class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900/75 border border-slate-800/80 text-[11px]"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="w-5 h-5 rounded inline-flex items-center justify-center font-extrabold text-[10px]"
+                        :class="
+                          rm.result === 'W'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                            : rm.result === 'D'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                        "
+                      >
+                        {{ rm.result }}
+                      </span>
+                      <span class="text-slate-400 font-mono">{{ rm.date }}</span>
+                      <span class="text-slate-300">{{ rm.venue_tag }}</span>
+                      <button
+                        type="button"
+                        class="text-white font-bold hover:text-sky-300 hover:underline text-left"
+                        :title="`Scout ${rm.opponent}`"
+                        @click="runQuickAnalyzerSample(rm.opponent, 'entity')"
+                      >
+                        {{ rm.opponent }}
+                      </button>
+                      <span class="text-slate-500 hidden sm:inline">({{ rm.league_label }})</span>
+                    </div>
+                    <div class="flex items-center gap-2 font-mono tabular-nums">
+                      <span v-if="rm.odds_for" class="text-slate-400 text-[10.5px]">@{{ rm.odds_for.toFixed(2) }}</span>
+                      <b class="text-slate-100">{{ rm.score }}</b>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW B: MATCHUP ANALYZER DOSSIER (A vs B) -->
+            <div v-else-if="analyzerResult && analyzerResult.ok" class="space-y-3">
+              <!-- Verdict Banner -->
+              <div
+                class="p-3 rounded-xl border"
+                :class="
+                  analyzerResult.verdict_level === 'strong_bet'
+                    ? 'bg-emerald-500/12 border-emerald-400/50 text-emerald-200'
+                    : analyzerResult.verdict_level === 'lean_bet'
+                      ? 'bg-sky-500/12 border-sky-400/50 text-sky-200'
+                      : 'bg-amber-500/12 border-amber-400/50 text-amber-200'
+                "
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="font-extrabold text-xs sm:text-sm">{{ analyzerResult.verdict }}</div>
+                  <span
+                    v-if="analyzerResult.is_mispriced"
+                    class="px-2 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400 text-emerald-200 text-[10.5px] font-extrabold"
+                  >
+                    💎 MISPRICED EDGE ({{ analyzerResult.fav_edge_pp >= 0 ? '+' : '' }}{{ analyzerResult.fav_edge_pp }}pp · EV
+                    {{ analyzerResult.fav_ev_pct >= 0 ? '+' : '' }}{{ analyzerResult.fav_ev_pct }}%)
+                  </span>
+                </div>
+              </div>
+
+              <!-- Warnings / Gate Alerts -->
+              <div v-if="analyzerResult.warnings?.length" class="space-y-1.5">
+                <div
+                  v-for="(wMsg, idxW) in analyzerResult.warnings"
+                  :key="idxW"
+                  class="px-3 py-2 rounded-xl text-[11.5px] font-semibold border"
+                  :class="
+                    String(wMsg).includes('💎')
+                      ? 'bg-emerald-500/12 border-emerald-400/45 text-emerald-200'
+                      : 'bg-amber-500/12 border-amber-400/45 text-amber-200'
+                  "
+                >
+                  {{ wMsg }}
+                </div>
+              </div>
+
+              <!-- Competitor Comparison & Win Probability Bar -->
+              <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="text-sm sm:text-base font-extrabold text-white hover:text-sky-300 hover:underline"
+                      :title="`Scout ${analyzerResult.home}`"
+                      @click="runQuickAnalyzerSample(analyzerResult.home, 'entity')"
+                    >
+                      {{ analyzerResult.home }}
+                    </button>
+                    <span class="text-slate-500 font-bold">vs</span>
+                    <button
+                      type="button"
+                      class="text-sm sm:text-base font-extrabold text-white hover:text-sky-300 hover:underline"
+                      :title="`Scout ${analyzerResult.away}`"
+                      @click="runQuickAnalyzerSample(analyzerResult.away, 'entity')"
+                    >
+                      {{ analyzerResult.away }}
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px] font-mono">
+                    <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-300">
+                      {{ String(analyzerResult.league || analyzerResult.sport || '').toUpperCase() }}
+                    </span>
+                    <span v-if="analyzerResult.h2h_summary" class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                      H2H: {{ analyzerResult.h2h_summary }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 2-Way Model Probability Progress Bar -->
+                <div>
+                  <div class="flex justify-between text-[11px] font-bold mb-1 tabular-nums">
+                    <span class="text-emerald-300">
+                      {{ analyzerResult.fav_name }}: {{ analyzerResult.fav_prob_pct }}% (Fair @{{ analyzerResult.fav_fair_odds }})
+                    </span>
+                    <span class="text-slate-300">
+                      Market Implied: {{ analyzerResult.fav_mkt_prob_pct }}%
+                      <template v-if="analyzerResult.fav_book_odds"> · Book @{{ Number(analyzerResult.fav_book_odds).toFixed(2) }}</template>
+                    </span>
+                  </div>
+                  <div class="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden flex">
+                    <div
+                      class="h-full bg-gradient-to-r from-emerald-400 to-sky-400"
+                      :style="{ width: `${Math.min(95, Math.max(5, Number(analyzerResult.fav_prob_pct || 50)))}%` }"
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- 4-Tile Matchup Metrics -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Elo Differential</span>
+                    <b class="text-sky-300 font-mono">
+                      {{ Number(analyzerResult.elo_diff_home || 0) >= 0 ? '+' : '' }}{{ analyzerResult.elo_diff_home || 0 }}
+                    </b>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Bookmaker Odds</span>
+                    <b class="text-amber-300 font-mono">
+                      {{ analyzerResult.odds_home ? Number(analyzerResult.odds_home).toFixed(2) : '—' }} /
+                      {{ analyzerResult.odds_away ? Number(analyzerResult.odds_away).toFixed(2) : '—' }}
+                    </b>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Last-5 Win Rate</span>
+                    <b class="text-emerald-300 font-mono">
+                      {{ analyzerResult.p1_last5_pct !== null && analyzerResult.p1_last5_pct !== undefined ? `${analyzerResult.p1_last5_pct}%` : '—' }}
+                      vs
+                      {{ analyzerResult.p2_last5_pct !== null && analyzerResult.p2_last5_pct !== undefined ? `${analyzerResult.p2_last5_pct}%` : '—' }}
+                    </b>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Rest / Turnaround</span>
+                    <b class="text-slate-200 font-mono">
+                      {{ analyzerResult.p1_rest_hours ? `${analyzerResult.p1_rest_hours}h` : 'Rested' }} vs
+                      {{ analyzerResult.p2_rest_hours ? `${analyzerResult.p2_rest_hours}h` : 'Rested' }}
+                    </b>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3-Market Recommendations Grid -->
+              <div v-if="analyzerResult.market_recommendations" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div class="p-3 rounded-xl bg-slate-950/90 border border-emerald-400/40">
+                  <div class="text-[10px] uppercase font-extrabold text-emerald-300 tracking-wider mb-1">1. Primary Moneyline / 1X2</div>
+                  <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.moneyline }}</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950/90 border border-sky-400/40">
+                  <div class="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider mb-1">2. Handicap / Safety Shield</div>
+                  <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.handicap_shield }}</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950/90 border border-violet-400/40">
+                  <div class="text-[10px] uppercase font-extrabold text-violet-300 tracking-wider mb-1">3. Totals &amp; Score Cluster</div>
+                  <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.totals_cluster }}</div>
+                </div>
+              </div>
+
+              <!-- Quick Actions Footer: Scout Either Side or Open Full Match Inspector -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 text-sky-300 border border-slate-700 hover:border-sky-400 text-[11px] font-bold inline-flex items-center gap-1.5"
+                    @click="runQuickAnalyzerSample(analyzerResult.home, 'entity')"
+                  >
+                    <Icon icon="fa6-solid:user-shield" class="w-3 h-3" />
+                    <span>Scout {{ analyzerResult.home }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 text-sky-300 border border-slate-700 hover:border-sky-400 text-[11px] font-bold inline-flex items-center gap-1.5"
+                    @click="runQuickAnalyzerSample(analyzerResult.away, 'entity')"
+                  >
+                    <Icon icon="fa6-solid:user-shield" class="w-3 h-3" />
+                    <span>Scout {{ analyzerResult.away }}</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="btn-press px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-[11px] font-bold inline-flex items-center gap-1.5"
+                  @click="
+                    analyzerModalOpen = false;
+                    openMatchupModal(analyzerResult.home, analyzerResult.away, analyzerResult.league || '');
+                  "
+                >
+                  <Icon icon="fa6-solid:chart-Simple" class="w-3 h-3" />
+                  <span>Open Full H2H &amp; 28-Score Matrix &rarr;</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Muted Dark-Blue Vertical Scrollbar Rail (shown only on overflow) -->
+          <div
+            v-if="analyzerScrollShow"
+            class="w-1.5 rounded-full bg-slate-950/80 border border-slate-800/80 relative shrink-0 ml-1 my-0.5 overflow-hidden cursor-pointer select-none"
+            aria-hidden="true"
+            @mousedown="onAnalyzerRailMouseDown"
+          >
+            <div
+              class="w-full rounded-full bg-[#243b5e] hover:bg-[#31507e] transition-[top,height,background-color] duration-100"
+              :style="{
+                position: 'absolute',
+                left: '0',
+                top: `${analyzerThumbTopPct}%`,
+                height: `${analyzerThumbHeightPct}%`,
+              }"
+            ></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2648,9 +3166,51 @@ function onInspectorRailMouseDown(ev: MouseEvent) {
 }
 
 const analyzerModalOpen = ref<boolean>(false);
+const analyzerMode = ref<'matchup' | 'entity'>('matchup');
 const analyzerQuery = ref<string>('');
 const analyzerLoading = ref<boolean>(false);
 const analyzerResult = ref<Record<string, any> | null>(null);
+const analyzerScrollRef = ref<HTMLElement | null>(null);
+const analyzerScrollShow = ref<boolean>(false);
+const analyzerThumbTopPct = ref<number>(0);
+const analyzerThumbHeightPct = ref<number>(35);
+
+function updateAnalyzerScrollbar() {
+  const el = analyzerScrollRef.value;
+  if (!el) return;
+  const sh = el.scrollHeight;
+  const ch = el.clientHeight;
+  if (sh <= ch + 4) {
+    analyzerScrollShow.value = false;
+    return;
+  }
+  analyzerScrollShow.value = true;
+  const ratio = Math.max(0.16, Math.min(0.92, ch / sh));
+  const maxScroll = Math.max(1, sh - ch);
+  const progress = Math.max(0, Math.min(1, el.scrollTop / maxScroll));
+  analyzerThumbHeightPct.value = ratio * 100;
+  analyzerThumbTopPct.value = progress * (100 - ratio * 100);
+}
+
+function onAnalyzerRailMouseDown(ev: MouseEvent) {
+  const rail = ev.currentTarget as HTMLElement | null;
+  const el = analyzerScrollRef.value;
+  if (!rail || !el) return;
+  const applyFromClientY = (clientY: number) => {
+    const rect = rail.getBoundingClientRect();
+    const rel = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
+    el.scrollTop = rel * Math.max(0, el.scrollHeight - el.clientHeight);
+    updateAnalyzerScrollbar();
+  };
+  applyFromClientY(ev.clientY);
+  const onMove = (mEv: MouseEvent) => applyFromClientY(mEv.clientY);
+  const onUp = () => {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
 
 const shareModalOpen = ref<boolean>(false);
 const shareMessageText = ref<string>('');
@@ -2906,17 +3466,58 @@ async function openMatchupModal(home: string, away: string, league = '') {
   }
 }
 
-async function runLiveAnalyzer() {
-  if (!analyzerQuery.value.trim()) return;
+function openAnalyzerModal(mode: 'matchup' | 'entity' = 'matchup', initialQuery = '') {
+  analyzerMode.value = mode;
+  analyzerScrollShow.value = false;
+  analyzerModalOpen.value = true;
+  if (initialQuery) {
+    analyzerQuery.value = initialQuery;
+    void runLiveAnalyzer(mode);
+  } else {
+    void nextTick(() => {
+      updateAnalyzerScrollbar();
+      setTimeout(updateAnalyzerScrollbar, 80);
+    });
+  }
+}
+
+function switchAnalyzerMode(mode: 'matchup' | 'entity') {
+  analyzerMode.value = mode;
+  analyzerResult.value = null;
+  analyzerScrollShow.value = false;
+}
+
+function runQuickAnalyzerSample(sampleQuery: string, mode: 'matchup' | 'entity') {
+  analyzerMode.value = mode;
+  analyzerQuery.value = sampleQuery;
+  void runLiveAnalyzer(mode);
+}
+
+async function runLiveAnalyzer(explicitMode?: 'matchup' | 'entity') {
+  const q = analyzerQuery.value.trim();
+  if (!q) return;
+  const hasVs = q.toLowerCase().includes(' vs ') || (q.includes(' - ') && q.split(' - ').length === 2);
+  const effectiveMode = explicitMode || (hasVs ? 'matchup' : analyzerMode.value);
+  analyzerMode.value = effectiveMode;
   analyzerLoading.value = true;
+  analyzerScrollShow.value = false;
   try {
-    const qs = new URLSearchParams({ q: analyzerQuery.value.trim() });
-    const r = await fetch(`/api/analyze-live?${qs.toString()}`);
+    const qs = new URLSearchParams({ q, mode: effectiveMode });
+    const endpoint = effectiveMode === 'entity' && !hasVs ? '/api/analyze-entity' : '/api/analyze-live';
+    const r = await fetch(`${endpoint}?${qs.toString()}`);
     analyzerResult.value = await r.json();
+    if (analyzerResult.value?.mode === 'entity') {
+      analyzerMode.value = 'entity';
+    } else if (analyzerResult.value?.mode === 'matchup') {
+      analyzerMode.value = 'matchup';
+    }
   } catch (_) {
     analyzerResult.value = null;
   } finally {
     analyzerLoading.value = false;
+    await nextTick();
+    updateAnalyzerScrollbar();
+    setTimeout(updateAnalyzerScrollbar, 80);
   }
 }
 

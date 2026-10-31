@@ -957,6 +957,487 @@ def _build_match_center_dossier_payload(
     return {"ok": False, "error": f"Match dossier not found for matchId={match_id} ({home} vs {away})."}
 
 
+def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
+    """On-demand quantitative scouting dossier for an individual Team or Player (`GET /api/analyze-entity?q=TeamOrPlayer`).
+    Computes live Elo rating, overall & Last-10 / Last-5 form, current streak, Home/Away splits, scoring & dominance profile,
+    recent match history, active upcoming BetScout picks, and settled Paper-Bet Ledger performance."""
+    import math
+    from collections import defaultdict, deque
+    from .elo import Elo
+    from .espn import resolve_competition_label
+
+    raw_q = (query or "").strip()
+    if not raw_q:
+        return {"ok": False, "mode": "entity", "error": "Enter a team or player name (e.g. 'Sporting CP', 'Daniil Medvedev', 'Bayern Munich')."}
+
+    cache_key = f"entity:{db_path}:{raw_q.lower()}"
+    now_ts = time.time()
+    cached_hit = _ANALYZE_LIVE_CACHE.get(cache_key)
+    if cached_hit and (now_ts - cached_hit[0] < 180.0):
+        return cached_hit[1]
+
+    entity_name = raw_q
+    detected_league = "soccer"
+    detected_sport = "soccer"
+    logo_url: str | None = None
+
+    if db_path.exists():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        tl = raw_q.lower()
+        # 1. Exact or word-boundary match in matches
+        rows_wb = conn.execute(
+            """
+            SELECT name, league, COUNT(*) AS cnt, MAX(kickoff) AS ko FROM (
+                SELECT home AS name, league, kickoff FROM matches
+                WHERE lower(home) = ? OR lower(home) LIKE ? OR lower(home) LIKE ? OR lower(home) LIKE ?
+                UNION ALL
+                SELECT away AS name, league, kickoff FROM matches
+                WHERE lower(away) = ? OR lower(away) LIKE ? OR lower(away) LIKE ? OR lower(away) LIKE ?
+            ) GROUP BY name, league ORDER BY (lower(name) = ?) DESC, ko DESC, cnt DESC LIMIT 5
+            """,
+            (tl, f"% {tl}", f"{tl} %", f"% {tl} %", tl, f"% {tl}", f"{tl} %", f"% {tl} %", tl),
+        ).fetchall()
+        if not rows_wb:
+            rows_wb = conn.execute(
+                """
+                SELECT name, league, COUNT(*) AS cnt, MAX(kickoff) AS ko FROM (
+                    SELECT home AS name, league, kickoff FROM matches WHERE lower(home) LIKE ?
+                    UNION ALL
+                    SELECT away AS name, league, kickoff FROM matches WHERE lower(away) LIKE ?
+                ) GROUP BY name, league ORDER BY ko DESC, cnt DESC LIMIT 5
+                """,
+                (f"%{tl}%", f"%{tl}%"),
+            ).fetchall()
+        if rows_wb:
+            entity_name = str(rows_wb[0]["name"])
+            detected_league = str(rows_wb[0]["league"] or "eng.1").lower()
+            detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
+        else:
+            # Check paper_bets if only in upcoming/recent paper_bets
+            pb_row = conn.execute(
+                """
+                SELECT home, away, league, home_logo, away_logo FROM paper_bets
+                WHERE lower(home) LIKE ? OR lower(away) LIKE ?
+                ORDER BY kickoff DESC LIMIT 1
+                """,
+                (f"%{tl}%", f"%{tl}%"),
+            ).fetchone()
+            if pb_row:
+                if tl in str(pb_row["home"] or "").lower():
+                    entity_name = str(pb_row["home"])
+                    logo_url = pb_row["home_logo"]
+                else:
+                    entity_name = str(pb_row["away"])
+                    logo_url = pb_row["away_logo"]
+                detected_league = str(pb_row["league"] or "eng.1").lower()
+                detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
+
+        # Look up logo from paper_bets if not yet set
+        if not logo_url:
+            lg_row = conn.execute(
+                """
+                SELECT home, away, home_logo, away_logo FROM paper_bets
+                WHERE (home = ? AND home_logo IS NOT NULL) OR (away = ? AND away_logo IS NOT NULL)
+                ORDER BY kickoff DESC LIMIT 1
+                """,
+                (entity_name, entity_name),
+            ).fetchone()
+            if lg_row:
+                logo_url = lg_row["home_logo"] if lg_row["home"] == entity_name else lg_row["away_logo"]
+        conn.close()
+
+    # Compute live Elo, splits, and recent matches from betscout.db
+    elo_rating = 1500.0
+    game_elo_rating: float | None = None
+    game_win_share_pct: float | None = None
+    decider_win_pct: float | None = None
+    avg_sot_diff: float | None = None
+    total_matches = 0
+    wins_all = 0
+    draws_all = 0
+    losses_all = 0
+    home_w = home_d = home_l = 0
+    away_w = away_d = away_l = 0
+    scored_list: list[float] = []
+    conceded_list: list[float] = []
+    recent_matches: list[dict[str, Any]] = []
+    rest_hours_since_last: float | None = None
+
+    if db_path.exists():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        has_details = bool(conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='match_details'").fetchone())
+        if detected_sport == "tennis":
+            ea = Elo(k=28.0, home_adv=0.0)
+            eg = Elo(k=28.0, home_adv=0.0)
+            gh: deque = deque(maxlen=10)
+            dh: deque = deque(maxlen=10)
+            q_elo = (
+                "SELECT m.home, m.away, m.outcome, d.home_games, d.away_games FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
+                if has_details
+                else "SELECT home, away, outcome, NULL as home_games, NULL as away_games FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
+            )
+            for r in conn.execute(q_elo, (detected_league,)):
+                wh = 1.0 if r["outcome"] == "H" else 0.0
+                ea.update(r["home"], r["away"], wh)
+                hg, ag = r["home_games"], r["away_games"]
+                if hg is not None and ag is not None and (hg + ag) > 0:
+                    gs = float(hg) / float(hg + ag)
+                    eg.update(r["home"], r["away"], 1.0 / (1.0 + math.exp(-6.0 * (gs - 0.5))))
+                    if r["home"] == entity_name:
+                        gh.append(gs)
+                        if (hg + ag) >= 26:
+                            dh.append(wh)
+                    elif r["away"] == entity_name:
+                        gh.append(1.0 - gs)
+                        if (hg + ag) >= 26:
+                            dh.append(1.0 - wh)
+                else:
+                    eg.update(r["home"], r["away"], wh)
+            elo_rating = round(float(ea.ratings[entity_name]), 1)
+            game_elo_rating = round(float(eg.ratings[entity_name]), 1)
+            if gh:
+                game_win_share_pct = round((sum(gh) / len(gh)) * 100.0, 1)
+            if dh:
+                decider_win_pct = round((sum(dh) / len(dh)) * 100.0, 1)
+        else:
+            es = Elo(k=20.0, home_adv=(0.0 if detected_sport in ("handball", "darts", "table_tennis", "curling") else 45.0))
+            sot_q: deque = deque(maxlen=6)
+            q_elo = (
+                "SELECT m.home, m.away, m.outcome, d.home_sot, d.away_sot FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
+                if has_details
+                else "SELECT home, away, outcome, NULL as home_sot, NULL as away_sot FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
+            )
+            for r in conn.execute(q_elo, (detected_league,)):
+                sc = {"H": 1.0, "D": 0.5, "A": 0.0}.get(r["outcome"], 0.5)
+                es.update(r["home"], r["away"], sc)
+                if r["home_sot"] is not None and r["away_sot"] is not None:
+                    sd = float(r["home_sot"]) - float(r["away_sot"])
+                    if r["home"] == entity_name:
+                        sot_q.append(sd)
+                    elif r["away"] == entity_name:
+                        sot_q.append(-sd)
+            elo_rating = round(float(es.ratings[entity_name]), 1)
+            if sot_q:
+                avg_sot_diff = round(float(sum(sot_q) / len(sot_q)), 2)
+
+        # Fetch all completed matches for entity_name
+        ent_rows = conn.execute(
+            """
+            SELECT *
+            FROM matches
+            WHERE (home = ? OR away = ?) AND outcome IS NOT NULL
+            ORDER BY kickoff DESC
+            """,
+            (entity_name, entity_name),
+        ).fetchall()
+        total_matches = len(ent_rows)
+        if ent_rows:
+            try:
+                last_ko = datetime.fromisoformat(str(ent_rows[0]["kickoff"]).replace("Z", "+00:00"))
+                diff_h = (datetime.now(timezone.utc) - last_ko).total_seconds() / 3600.0
+                if diff_h >= 0:
+                    rest_hours_since_last = round(diff_h, 1)
+            except Exception:
+                pass
+        for idx_m, m in enumerate(ent_rows):
+            is_h = m["home"] == entity_name
+            opp = m["away"] if is_h else m["home"]
+            hs = float(m["home_score"]) if m["home_score"] is not None else 0.0
+            as_ = float(m["away_score"]) if m["away_score"] is not None else 0.0
+            my_sc = hs if is_h else as_
+            op_sc = as_ if is_h else hs
+            if idx_m < 10:
+                scored_list.append(my_sc)
+                conceded_list.append(op_sc)
+            out_m = m["outcome"]
+            if (is_h and out_m == "H") or (not is_h and out_m == "A"):
+                res_c = "W"
+                wins_all += 1
+                if is_h:
+                    home_w += 1
+                else:
+                    away_w += 1
+            elif out_m == "D":
+                res_c = "D"
+                draws_all += 1
+                if is_h:
+                    home_d += 1
+                else:
+                    away_d += 1
+            else:
+                res_c = "L"
+                losses_all += 1
+                if is_h:
+                    home_l += 1
+                else:
+                    away_l += 1
+            if idx_m < 10:
+                m_keys = m.keys()
+                o_for = (m["odds_home"] if "odds_home" in m_keys else None) if is_h else (m["odds_away"] if "odds_away" in m_keys else None)
+                o_ag = (m["odds_away"] if "odds_away" in m_keys else None) if is_h else (m["odds_home"] if "odds_home" in m_keys else None)
+                recent_matches.append({
+                    "date": str(m["kickoff"] or "")[:10],
+                    "league": str(m["league"] or ""),
+                    "league_label": resolve_competition_label(str(m["league"] or ""), m["home"], m["away"]),
+                    "opponent": opp,
+                    "is_home": is_h,
+                    "venue_tag": "vs" if is_h else "@",
+                    "score": f"{int(hs)}-{int(as_)}" if m["home_score"] is not None and m["away_score"] is not None else res_c,
+                    "result": res_c,
+                    "odds_for": round(float(o_for), 2) if o_for else None,
+                    "odds_against": round(float(o_ag), 2) if o_ag else None,
+                })
+        conn.close()
+
+    # Fallback to Sportradar `stats_team_lastx` if fewer than 3 matches in SQLite
+    if len(recent_matches) < 3:
+        try:
+            from .sportradar_statshub import fetch_statshub_gismo, get_daily_tipico_match_index
+
+            flat_idx = get_daily_tipico_match_index(sport=detected_sport)
+            ent_uid = None
+            for entry in flat_idx:
+                if entity_name.lower() in entry["home"].lower():
+                    ent_uid = ((entry["match_obj"].get("teams") or {}).get("home") or {}).get("uid")
+                    break
+                if entity_name.lower() in entry["away"].lower():
+                    ent_uid = ((entry["match_obj"].get("teams") or {}).get("away") or {}).get("uid")
+                    break
+            if ent_uid:
+                lx = fetch_statshub_gismo("stats_team_lastx", f"{ent_uid}/10", ttl_sec=1800.0) or {}
+                for mx in (lx.get("matches") or [])[:10]:
+                    res_x = mx.get("result") or {}
+                    if res_x.get("home") is None or res_x.get("away") is None:
+                        continue
+                    tms_x = mx.get("teams") or {}
+                    h_x = (tms_x.get("home") or {}).get("name") or ""
+                    a_x = (tms_x.get("away") or {}).get("name") or ""
+                    is_hx = ((tms_x.get("home") or {}).get("uid") == ent_uid)
+                    hs_x, as_x = int(res_x["home"]), int(res_x["away"])
+                    my_s = hs_x if is_hx else as_x
+                    op_s = as_x if is_hx else hs_x
+                    rc_x = "W" if my_s > op_s else ("D" if my_s == op_s else "L")
+                    scored_list.append(float(my_s))
+                    conceded_list.append(float(op_s))
+                    recent_matches.append({
+                        "date": str((mx.get("time") or {}).get("date") or ""),
+                        "league": detected_league,
+                        "league_label": resolve_competition_label(detected_league, h_x, a_x),
+                        "opponent": a_x if is_hx else h_x,
+                        "is_home": is_hx,
+                        "venue_tag": "vs" if is_hx else "@",
+                        "score": f"{hs_x}-{as_x}",
+                        "result": rc_x,
+                        "odds_for": None,
+                        "odds_against": None,
+                    })
+                total_matches = max(total_matches, len(recent_matches))
+                wins_all = sum(1 for x in recent_matches if x["result"] == "W")
+                draws_all = sum(1 for x in recent_matches if x["result"] == "D")
+                losses_all = sum(1 for x in recent_matches if x["result"] == "L")
+        except Exception:
+            pass
+
+    last10 = recent_matches[:10]
+    last5 = recent_matches[:5]
+    l10_w = sum(1 for x in last10 if x["result"] == "W")
+    l10_d = sum(1 for x in last10 if x["result"] == "D")
+    l10_l = sum(1 for x in last10 if x["result"] == "L")
+    l5_w = sum(1 for x in last5 if x["result"] == "W")
+    win_rate_all_pct = round((wins_all / max(1, total_matches)) * 100.0, 1) if total_matches else 50.0
+    win_rate_last10_pct = round((l10_w / max(1, len(last10))) * 100.0, 1) if last10 else win_rate_all_pct
+    win_rate_last5_pct = round((l5_w / max(1, len(last5))) * 100.0, 1) if last5 else win_rate_last10_pct
+
+    # Compute current streak
+    streak_type = last10[0]["result"] if last10 else "W"
+    streak_len = 0
+    for x in last10:
+        if x["result"] == streak_type:
+            streak_len += 1
+        else:
+            break
+    current_streak = f"{streak_len}{streak_type}" if streak_len > 0 else "—"
+
+    avg_scored = round(sum(scored_list) / len(scored_list), 2) if scored_list else 0.0
+    avg_conceded = round(sum(conceded_list) / len(conceded_list), 2) if conceded_list else 0.0
+    avg_margin = round(avg_scored - avg_conceded, 2)
+
+    home_tot = home_w + home_d + home_l
+    away_tot = away_w + away_d + away_l
+    is_3way = detected_sport in ("soccer", "handball")
+    home_record_str = (
+        f"{home_w}W-{home_d}D-{home_l}L ({round(home_w/max(1,home_tot)*100)}%)"
+        if is_3way
+        else f"{home_w}W-{home_l}L ({round(home_w/max(1,home_tot)*100)}%)"
+    ) if home_tot else "—"
+    away_record_str = (
+        f"{away_w}W-{away_d}D-{away_l}L ({round(away_w/max(1,away_tot)*100)}%)"
+        if is_3way
+        else f"{away_w}W-{away_l}L ({round(away_w/max(1,away_tot)*100)}%)"
+    ) if away_tot else "—"
+
+    # Check active upcoming picks in recommendations.json and paper_bets
+    upcoming_picks: list[dict[str, Any]] = []
+    if rec_path.exists():
+        try:
+            rec_d = json.loads(rec_path.read_text(encoding="utf-8"))
+            all_b = build_best_bets_summary(rec_d, min_odds=1.05, sport_filter="all")
+            for b in all_b:
+                if entity_name.lower() in str(b.get("match") or "").lower():
+                    upcoming_picks.append({
+                        "match": b.get("match"),
+                        "competition": b.get("competition") or b.get("sport_league"),
+                        "date_local": b.get("date_local") or b.get("date"),
+                        "pick_name": b.get("pick_name") or b.get("pick"),
+                        "odds": b.get("odds"),
+                        "odds_display": b.get("odds_display"),
+                        "win_prob_pct": round(float(b.get("win_prob") or 0.70) * 100.0, 1),
+                        "min_fair_odds": b.get("min_fair_odds"),
+                        "tier": b.get("tier"),
+                        "exact_score_pick": b.get("exact_score_pick"),
+                    })
+        except Exception:
+            pass
+
+    # Check BetScout Paper-Bet Ledger history involving this entity
+    ledger_wins = 0
+    ledger_losses = 0
+    ledger_profit_u = 0.0
+    ledger_rows: list[dict[str, Any]] = []
+    if db_path.exists():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        from .paper_bet import format_paper_bet_pick_label
+
+        for pb in conn.execute(
+            """
+            SELECT league, event_id, kickoff, home, away, side, logged_best_odds, status, settled_outcome, pnl_best, settled_score
+            FROM paper_bets
+            WHERE (home = ? OR away = ?) AND status = 'SETTLED'
+            ORDER BY kickoff DESC LIMIT 8
+            """,
+            (entity_name, entity_name),
+        ).fetchall():
+            pnl_v = float(pb["pnl_best"] or 0.0)
+            if pnl_v > 0:
+                ledger_wins += 1
+            elif pnl_v < 0:
+                ledger_losses += 1
+            ledger_profit_u += pnl_v
+            ledger_rows.append({
+                "date": str(pb["kickoff"] or "")[:10],
+                "match": f"{pb['home']} vs {pb['away']}",
+                "pick_label": format_paper_bet_pick_label(pb["home"], pb["away"], pb["side"]),
+                "odds": round(float(pb["logged_best_odds"] or 1.0), 2),
+                "score": pb["settled_score"] or pb["settled_outcome"] or "—",
+                "pnl_u": round(pnl_v, 2),
+                "won": pnl_v > 0,
+            })
+        conn.close()
+
+    # Build quantitative strengths, risks & scouting verdict
+    strengths: list[str] = []
+    risks: list[str] = []
+    if win_rate_last10_pct >= 70.0:
+        strengths.append(f"Elite Last-10 momentum: {l10_w}W-{l10_d}D-{l10_l}L ({win_rate_last10_pct:.0f}% win rate, current streak {current_streak}).")
+    elif win_rate_last10_pct >= 55.0:
+        strengths.append(f"Positive Last-10 form: {l10_w}W-{l10_d}D-{l10_l}L ({win_rate_last10_pct:.0f}% win rate).")
+    else:
+        risks.append(f"Sub-par recent form: only {win_rate_last10_pct:.0f}% win rate over last {len(last10)} matches ({current_streak} streak).")
+
+    if avg_margin > 0.35:
+        strengths.append(f"Strong scoring differential: averaging {avg_scored:.2f} scored vs {avg_conceded:.2f} conceded ({avg_margin:+.2f}/match).")
+    elif avg_margin < -0.15:
+        risks.append(f"Negative scoring margin: averaging {avg_scored:.2f} scored vs {avg_conceded:.2f} conceded ({avg_margin:+.2f}/match).")
+
+    if avg_sot_diff is not None:
+        if avg_sot_diff >= 1.5:
+            strengths.append(f"Dominant Shot-on-Target creation: +{avg_sot_diff:.1f} SoT/match differential over last 6 games.")
+        elif avg_sot_diff < 0.0:
+            risks.append(f"Negative Shot-on-Target differential ({avg_sot_diff:+.1f} SoT/match) — vulnerable to regression.")
+
+    if game_win_share_pct is not None:
+        if game_win_share_pct >= 53.5:
+            strengths.append(f"High surface game dominance: winning {game_win_share_pct:.1f}% of all games played (Game-Elo {game_elo_rating}).")
+        elif game_win_share_pct < 49.5:
+            risks.append(f"Negative rolling game-win share ({game_win_share_pct:.1f}%) — prone to extended tiebreak sets.")
+
+    if ledger_wins + ledger_losses > 0:
+        strengths.append(f"Verified BetScout Ledger track record: {ledger_wins}W–{ledger_losses}L ({ledger_profit_u:+.2f}u net profit).")
+
+    if rest_hours_since_last is not None and rest_hours_since_last <= 28.0:
+        risks.append(f"Short turnaround window: last completed match was {rest_hours_since_last:.1f}h ago.")
+
+    if win_rate_last10_pct >= 70.0 and avg_margin >= 0.30 and not (streak_type == "L" and streak_len >= 2):
+        verdict = f"✅ TIER-1 BANKER PROFILE — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Streak {current_streak} · Elo {elo_rating:.0f})"
+        verdict_level = "strong_bet"
+        best_markets = (
+            f"{entity_name} Moneyline & 2:0 Straight Sets / +1.5 Sets Shield"
+            if detected_sport == "tennis"
+            else f"{entity_name} Moneyline / Double Chance Shield & Over Team Totals"
+        )
+    elif win_rate_last10_pct >= 55.0 and avg_margin >= 0.0:
+        verdict = f"⚖️ SOLID CONTENDER PROFILE — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Elo {elo_rating:.0f})"
+        verdict_level = "lean_bet"
+        best_markets = (
+            f"Prefer {entity_name} +1.5 Sets Shield or selective matchup spots"
+            if detected_sport == "tennis"
+            else f"Prefer {entity_name} Draw No Bet (DNB) / Double Chance (1X/X2)"
+        )
+    else:
+        verdict = f"⚠️ CAUTION / FADE CHALK — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Streak {current_streak})"
+        verdict_level = "no_bet"
+        best_markets = f"Avoid backing {entity_name} at short chalk odds; look for opponent handicap shields or Totals"
+
+    _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_ent := {
+        "ok": True,
+        "mode": "entity",
+        "entity_name": entity_name,
+        "sport": detected_sport,
+        "league": detected_league,
+        "league_label": resolve_competition_label(detected_league, entity_name, ""),
+        "logo_url": logo_url,
+        "elo_rating": elo_rating,
+        "game_elo_rating": game_elo_rating,
+        "game_win_share_pct": game_win_share_pct,
+        "decider_win_pct": decider_win_pct,
+        "avg_sot_diff": avg_sot_diff,
+        "total_matches": total_matches,
+        "wins_all": wins_all,
+        "draws_all": draws_all,
+        "losses_all": losses_all,
+        "win_rate_all_pct": win_rate_all_pct,
+        "last10_record": f"{l10_w}W-{l10_d}D-{l10_l}L" if is_3way else f"{l10_w}W-{l10_l}L",
+        "win_rate_last10_pct": win_rate_last10_pct,
+        "win_rate_last5_pct": win_rate_last5_pct,
+        "last5_strip": [x["result"] for x in last5],
+        "current_streak": current_streak,
+        "home_record": home_record_str,
+        "away_record": away_record_str,
+        "avg_scored": avg_scored,
+        "avg_conceded": avg_conceded,
+        "avg_margin": avg_margin,
+        "rest_hours_since_last": rest_hours_since_last,
+        "recent_matches": recent_matches[:8],
+        "upcoming_picks": upcoming_picks,
+        "ledger_record": {
+            "settled": ledger_wins + ledger_losses,
+            "wins": ledger_wins,
+            "losses": ledger_losses,
+            "profit_u": round(ledger_profit_u, 2),
+            "rows": ledger_rows,
+        },
+        "strengths": strengths,
+        "risks": risks,
+        "best_markets": best_markets,
+        "verdict": verdict,
+        "verdict_level": verdict_level,
+    })
+    return out_ent
+
+
 def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str, Any]:
     """On-demand live matchup analyzer (`GET /api/analyze-live?q=Player1 vs Player2`).
     Works for ANY Tennis or Football matchup (even sub-70% non-bankers), combining live 8-Feature Tennis Elo /
@@ -977,12 +1458,10 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     if " vs " in raw_q.lower():
         idx_v = raw_q.lower().index(" vs ")
         p1_q, p2_q = raw_q[:idx_v].strip(), raw_q[idx_v + 4:].strip()
-    elif "-" in raw_q and len(raw_q.split("-")) == 2:
-        p1_q, p2_q = [x.strip() for x in raw_q.split("-", 1)]
+    elif " - " in raw_q and len(raw_q.split(" - ")) == 2:
+        p1_q, p2_q = [x.strip() for x in raw_q.split(" - ", 1)]
     else:
-        parts = raw_q.split()
-        mid = max(1, len(parts) // 2)
-        p1_q, p2_q = " ".join(parts[:mid]), " ".join(parts[mid:])
+        return _analyze_single_entity(db_path, rec_path, raw_q)
 
     if not p1_q or not p2_q:
         return {"ok": False, "error": "Enter two players or teams separated by 'vs' (e.g. 'Medvedev vs Bublik')"}
@@ -1248,6 +1727,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_res := {
         **base_detail,
         "ok": True,
+        "mode": "matchup",
         "sport": detected_sport,
         "league": detected_league,
         "home": h_name,
@@ -1922,9 +2402,13 @@ self.addEventListener('fetch', (event) => {{
                 )
                 return
 
-            if parsed.path == "/api/analyze-live":
+            if parsed.path in ("/api/analyze-live", "/api/analyze-entity"):
                 q_str = (qs.get("q") or [""])[0]
-                self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
+                mode_a = (qs.get("mode") or [""])[0].strip().lower()
+                if parsed.path == "/api/analyze-entity" or mode_a == "entity":
+                    self._send_json(_analyze_single_entity(db_path, rec_path, q_str))
+                else:
+                    self._send_json(_analyze_live_matchup(db_path, rec_path, q_str))
                 return
 
             if parsed.path == "/api/pick-card.png":
