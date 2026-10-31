@@ -343,13 +343,17 @@ def evaluate_nba_gate(
     min_prob: float = 0.58,
     three_pt_diff: float = 0.0,
     tov_margin_diff: float = 0.0,
+    side: str = "H",
+    opp_win_rate_3: float | None = None,
+    opp_last_margin: float | None = None,
 ) -> bool:
     """NBA / Basketball Elo + Rest/B2B + Shooting & Possession-Security Alignment Gate (`78.6%` historical win rate, `+13.00%` ROI).
     Requires:
       - `comp_score >= 0.16` (filters out borderline <0.16 composite matchups like `Denver Nuggets vs Golden State Warriors` `comp=+0.112` and `LA Clippers vs Golden State Warriors` `comp=+0.055`)
       - `p_elo >= p_mkt - 0.08` and `rest_for_pick >= 0.0`
       - Positive FG% diff (`fg_pct_diff > 0.0`) or strong rest/B2B mismatch (`rest_for_pick >= 1.0` and `comp_score >= 0.20`)
-      - 3PT Volume & Turnover-Security Veto: vetoes any favorite that simultaneously trails in rolling 3-pointers made (`three_pt_diff < -1.5`) AND commits more turnovers (`tov_margin_diff < -1.5`).
+      - 3PT Volume & Turnover-Security Veto: vetoes any favorite that simultaneously trails in rolling 3-pointers made (`three_pt_diff < -1.5`) AND commits more turnovers (`tov_margin_diff < -1.5`)
+      - Surging Home Underdog & Blowout-Momentum Veto: vetoes sub-72% road favorites (`side == "A"`) when the home underdog is on a Last-3 winning run (`opp_win_rate_3 >= 0.67`) or coming off a `>= 20`-point blowout victory (`opp_last_margin >= 20.0`) without a rest advantage (`rest_for_pick <= 0.0`, e.g. `Dallas Mavericks 116-111 Houston Rockets` where Dallas was `2-1` in Last 3 and just blew out OKC `120-96` by `+24`).
     """
     if p_mod < min_prob or odds_pick <= 1.10 or comp_score < 0.16:
         return False
@@ -358,6 +362,16 @@ def evaluate_nba_gate(
     if fg_pct_diff <= 0.0 and not (rest_for_pick >= 1.0 and comp_score >= 0.20):
         return False
     if three_pt_diff < -1.5 and tov_margin_diff < -1.5:
+        return False
+    if (
+        str(side).upper() == "A"
+        and p_mod < 0.72
+        and rest_for_pick <= 0.0
+        and (
+            (opp_win_rate_3 is not None and opp_win_rate_3 >= 0.67)
+            or (opp_last_margin is not None and opp_last_margin >= 20.0)
+        )
+    ):
         return False
     return True
 
@@ -402,6 +416,7 @@ def route_major_league_gate(
     pick_last_margin: float | None = None,
     opp_win_rate_3: float | None = None,
     opp_ga_3: float | None = None,
+    opp_last_margin: float | None = None,
 ) -> bool:
     """Dispatch to the isolated per-sport gate for `nhl`, `nba`, `nfl`, `mlb`, or `volleyball`."""
     lg = (league or "").lower().strip()
@@ -453,6 +468,9 @@ def route_major_league_gate(
             min_prob=min_prob,
             three_pt_diff=co_f,
             tov_margin_diff=tov_f,
+            side=side,
+            opp_win_rate_3=opp_win_rate_3,
+            opp_last_margin=opp_last_margin,
         )
     return evaluate_mlb_or_volleyball_gate(
         league=lg,
@@ -518,11 +536,13 @@ def evaluate_european_sport_gate(
     if recent3_diff_fav is not None and recent3_diff_fav < 0.0:
         return False, 0.0, -100.0
     if sp == "table_tennis":
-        if fav_wr is not None and fav_wr < 0.55:
+        if fav_wr is not None and fav_wr < 0.60:
+            return False, 0.0, -100.0
+        if fav_loss_streak >= 1:
             return False, 0.0, -100.0
         if fav_last_lost_5set:
             return False, 0.0, -100.0
-        if fav_session_sets_3h is not None and fav_session_sets_3h >= 13:
+        if fav_session_sets_3h is not None and fav_session_sets_3h >= 12:
             return False, 0.0, -100.0
         if fav_hours_since_last is not None:
             if dog_hours_since_last is not None:
@@ -563,9 +583,16 @@ def evaluate_european_sport_gate(
         return False, round(p_model, 4), ev_pct
 
     if sp == "table_tennis":
-        if best_odds < 1.28 or best_odds > 1.65:
+        if best_odds < 1.28 or best_odds > 1.50:
             return False, round(p_model, 4), ev_pct
         if n_form_home < 4 or n_form_away < 4 or form_diff_fav < 0.20:
+            return False, round(p_model, 4), ev_pct
+        if best_odds >= 1.44 and (
+            (fav_wr is not None and fav_wr < 0.75)
+            or form_diff_fav < 0.45
+            or recent3_diff_fav is None
+            or recent3_diff_fav < 0.33
+        ):
             return False, round(p_model, 4), ev_pct
         if p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct

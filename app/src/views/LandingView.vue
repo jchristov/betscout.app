@@ -260,8 +260,15 @@
               </span>
             </div>
             <span class="inline-flex items-center gap-1.5 text-xs text-slate-300 font-mono tabular-nums">
-              <Icon icon="fa6-solid:clock" class="w-3.5 h-3.5 text-sky-400" />
-              <span>Kickoff: {{ freeTeaser.date_local || freeTeaser.date }}</span>
+              <Icon icon="fa6-solid:clock" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span class="inline-flex flex-wrap items-baseline gap-x-1">
+                <span>Kickoff:</span>
+                <span class="whitespace-nowrap">{{ splitDateTimeParts(freeTeaser.date_local || freeTeaser.date).date }}</span>
+                <span
+                  v-if="splitDateTimeParts(freeTeaser.date_local || freeTeaser.date).time"
+                  class="whitespace-nowrap"
+                >{{ splitDateTimeParts(freeTeaser.date_local || freeTeaser.date).time }}</span>
+              </span>
             </span>
           </div>
 
@@ -724,7 +731,7 @@
                   </button>
                 </td>
                 <td class="py-3 px-4 text-emerald-300 font-bold">
-                  {{ r.side === 'H' ? r.home : r.away }} ({{ r.side }})
+                  {{ r.pick_display || `${r.side === 'H' ? r.home : r.away} (${r.side})` }}
                 </td>
                 <td class="py-3 px-4 font-mono tabular-nums text-slate-200">
                   <b class="text-white font-bold">{{ splitScoreAndInterim(r.settled_score || r.score_str || '—').main }}</b>
@@ -1225,6 +1232,7 @@ import {
   getSportIconColor,
   getSportIconify,
   getTierBadgeClass,
+  splitDateTimeParts,
   splitScoreAndInterim,
 } from '../utils/formatters';
 import { setupIconifyCollections } from '../utils/iconifySetup';

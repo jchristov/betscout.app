@@ -396,6 +396,26 @@ export function splitScoreAndInterim(rawScore?: string | null): { main: string; 
   };
 }
 
+/**
+ * Split a timestamp string (e.g. `2026-10-31 14:30 CET` or `2026-10-31T14:30Z`) into
+ * `{ date: '2026-10-31', time: '14:30 CET' }` so that on narrow screens the line wraps
+ * cleanly between the date and the time+timezone rather than stranding `CET` on a new line.
+ */
+export function splitDateTimeParts(raw?: string | null): { date: string; time: string } {
+  const s = String(raw ?? '').trim();
+  if (!s || s === '—') return { date: s || '—', time: '' };
+  const mSpace = s.match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/);
+  if (mSpace) {
+    return { date: mSpace[1], time: mSpace[2].trim() };
+  }
+  const mIso = s.match(/^(\d{4}-\d{2}-\d{2})T(.+)$/);
+  if (mIso) {
+    const rest = mIso[2].replace(/:00Z$/, 'Z').replace(/Z$/, ' UTC');
+    return { date: mIso[1], time: rest.trim() };
+  }
+  return { date: s, time: '' };
+}
+
 export function getH2HWinnerSide(
   h?: { outcome?: string | null; score?: string | null } | null,
 ): 'H' | 'A' | 'D' {

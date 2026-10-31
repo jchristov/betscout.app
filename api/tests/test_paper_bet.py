@@ -863,6 +863,52 @@ def test_per_sport_isolated_gates():
     assert evaluate_nba_gate(0.683, 0.692, 0.734, 0.112, 8.17, 0.0, 1.38, three_pt_diff=-2.67, tov_margin_diff=-3.67) is False
     assert evaluate_nba_gate(0.763, 0.783, 0.785, 0.242, 3.17, 0.0, 1.22, three_pt_diff=0.0, tov_margin_diff=1.50) is True
     assert evaluate_nba_gate(0.65, 0.66, 0.66, 0.24, -2.1, 1.33, 1.49) is True
+    # Dallas Mavericks vs Houston Rockets (side="A", p_mod=0.6739 < 0.72, rest_for_pick=0.0, opp_win_rate_3=0.67, opp_last_margin=24.0) -> Vetoed!
+    assert (
+        evaluate_nba_gate(
+            0.6739,
+            0.675,
+            0.6543,
+            0.28,
+            3.83,
+            0.0,
+            1.541,
+            three_pt_diff=6.67,
+            tov_margin_diff=2.50,
+            side="A",
+            opp_win_rate_3=0.67,
+            opp_last_margin=24.0,
+        )
+        is False
+    )
+    # New Orleans Pelicans vs Denver Nuggets (side="A", p_mod=0.65, rest_for_pick=1.67 > 0.0, opp_win_rate_3=0.33, opp_last_margin=12.0) -> Passes!
+    assert (
+        evaluate_nba_gate(
+            0.65,
+            0.64,
+            0.609,
+            0.22,
+            1.17,
+            1.67,
+            1.47,
+            three_pt_diff=2.0,
+            tov_margin_diff=-1.0,
+            side="A",
+            opp_win_rate_3=0.33,
+            opp_last_margin=12.0,
+        )
+        is True
+    )
+    # Table Tennis: Krejci vs Hradecky (best_odds=1.48 >= 1.44, fav_wr=0.60 < 0.75, form_diff=0.40 < 0.45) -> Vetoed!
+    tt_hrad_bad, _, _ = evaluate_european_sport_gate(
+        "table_tennis", 0.6621, 0.55, 0.40, 1.48, False, 10, 10, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.60
+    )
+    assert tt_hrad_bad is False
+    # Table Tennis: Sedlak vs Just (best_odds=1.50 >= 1.44, fav_wr=0.90 >= 0.75, form_diff=0.60 >= 0.45, recent3_diff=0.667) -> Passes!
+    tt_sed_ok, _, _ = evaluate_european_sport_gate(
+        "table_tennis", 0.6536, 0.58, 0.60, 1.50, False, 10, 10, recent3_diff_fav=0.667, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.90
+    )
+    assert tt_sed_ok is True
     # Dallas Stars vs Montreal Canadiens (p_mod=0.5886, p_elo=0.5391, p_mkt=0.5934, last_margin=-4.0, opp_wr3=1.0, opp_ga3=0.67) -> Vetoed!
     assert (
         evaluate_nhl_gate(

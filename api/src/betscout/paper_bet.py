@@ -1278,7 +1278,10 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     from .sportradar_statshub import fetch_live_match_timelinedelta
 
                     sr_sp = lg.lower() if (str(eid).startswith("sr_") or lg.lower() in ("table_tennis", "handball", "darts", "snooker", "mma", "curling")) else sp
-                    sr_delta = fetch_live_match_timelinedelta(row["home"], row["away"], sport=sr_sp, date_ymd=row["kickoff"][:10])
+                    sr_mid_arg = str(eid).replace("sr_", "") if str(eid).startswith("sr_") else None
+                    sr_delta = fetch_live_match_timelinedelta(
+                        row["home"], row["away"], sport=sr_sp, date_ymd=row["kickoff"][:10], sr_match_id=sr_mid_arg
+                    )
                     if sr_delta.get("state") in ("pre", "in", "post"):
                         sr_found = True
                     if sr_delta.get("state") == "post" and sr_delta.get("outcome") in ("H", "D", "A"):
@@ -1912,6 +1915,11 @@ def scan_upcoming_other_sports(
                     if opp_dq and len(opp_dq) >= 3 and "ga" in opp_dq[0]
                     else None
                 )
+                opp_last_margin = (
+                    float(list(opp_dq)[-1]["gf"] - list(opp_dq)[-1]["ga"])
+                    if opp_dq and len(opp_dq) >= 1 and "gf" in opp_dq[0]
+                    else None
+                )
                 from .sport_models import evaluate_nhl_totals_market, route_major_league_gate
 
                 nhl_tot_opps: list[dict[str, Any]] = []
@@ -1950,6 +1958,7 @@ def scan_upcoming_other_sports(
                     pick_last_margin=pick_last_margin,
                     opp_win_rate_3=opp_win_rate_3,
                     opp_ga_3=opp_ga_3,
+                    opp_last_margin=opp_last_margin,
                 ):
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(summary, home, away, side)
@@ -3037,7 +3046,13 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
             try:
                 from .sportradar_statshub import fetch_live_match_timelinedelta, fetch_statshub_gismo
 
-                sr_d = fetch_live_match_timelinedelta(r["home"], r["away"], sport=lg.lower(), date_ymd=str(r["kickoff"])[:10])
+                sr_d = fetch_live_match_timelinedelta(
+                    r["home"],
+                    r["away"],
+                    sport=lg.lower(),
+                    date_ymd=str(r["kickoff"])[:10],
+                    sr_match_id=(eid.replace("sr_", "") if eid.startswith("sr_") else None),
+                )
                 fav_uid = sr_d.get("home_uid") if r["side"] == "H" else sr_d.get("away_uid")
                 if fav_uid:
                     lx_d = fetch_statshub_gismo("stats_team_lastx", f"{fav_uid}/5", ttl_sec=60.0) or {}
@@ -3512,6 +3527,10 @@ def settle_pending_paper_combos(db_path: Path) -> int:
 # - BM Caserio Ciudad Real vs Logrono (handball, sr_72982618): Filtered by Handball Draw-Prone & Road Stalemate Veto (side='A', odds=1.60, recent3_diff_fav=0.0, fav_recent_draws=2)
 # - Beveridge vs Wiles (darts, sr_76162490): Filtered by Darts Session Momentum & Decider Hangover Gate (is_tipico=False, odds=1.37 > 1.32, lost 3-4 decider 36m prior)
 # - Villarreal vs Espanyol (esp.1, 401882817): Filtered by Clinical Overperformance & Zero-Rebound Regression Veto (p_mkt=0.6736 < 0.68, dom_rebound=-0.408 < -0.30, recent_draws=-0.436 < -0.40; out-shot on target 3-5 and 5-7 in 2 prior matches)
+# - Dallas Mavericks vs Houston Rockets (nba, 401909283): Filtered by NBA Surging Home Underdog & Blowout-Momentum Veto (side='A', p_mod=0.6739 < 0.72, rest_for_pick=0.0, opp_win_rate_3=0.67, opp_last_margin=+24.0 vs OKC)
+# - Krejci, Richard vs Hradecky, Jakub (table_tennis, sr_76183982): Filtered by Table Tennis >=1.44 Elite Form Gate (best_odds=1.48 >= 1.44, fav_wr=0.60 < 0.75, form_diff=0.40 < 0.45)
+# - Wichowski, Grzegorz vs Wiciok, Piotr (table_tennis, sr_76191888): Filtered by Table Tennis Loss-Streak & 5-Set Decider Hangover Veto (fav_loss_streak=1, fav_last_lost_5set=True)
+# - Slawinski, Kacper vs Buczynski, Witold (table_tennis, sr_76026056): Filtered by Table Tennis Loss-Streak & Pre-Match Session Loss Veto (lost 0-3 to Adamus immediately prior)
 _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("ita.1", "401874988"),
     ("uefa.wchampions", "401916999"),
@@ -3527,6 +3546,10 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("handball", "sr_72982618"),
     ("darts", "sr_76162490"),
     ("esp.1", "401882817"),
+    ("nba", "401909283"),
+    ("table_tennis", "sr_76183982"),
+    ("table_tennis", "sr_76191888"),
+    ("table_tennis", "sr_76026056"),
 )
 
 

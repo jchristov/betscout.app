@@ -18,8 +18,47 @@ export interface PickCardMeta {
   badge?: string;
 }
 
+function humanizeCanvasMarketCodes(rawVal?: string | null): string {
+  let s = String(rawVal ?? '').trim();
+  if (!s) return '';
+  const map: Record<string, string> = {
+    '(PLUS15_H)': '+1.5 Sets',
+    '(PLUS15_A)': '+1.5 Sets',
+    PLUS15_H: '+1.5 Sets',
+    PLUS15_A: '+1.5 Sets',
+    '(SETS20_H)': '2:0 Straight Sets',
+    '(SETS20_A)': '0:2 Straight Sets',
+    SETS20_H: '2:0 Straight Sets',
+    SETS20_A: '0:2 Straight Sets',
+    '(DC_1X)': 'or Draw (1X)',
+    '(DC_X2)': 'or Draw (X2)',
+    DC_1X: 'Double Chance 1X',
+    DC_X2: 'Double Chance X2',
+    '(DNB_H)': 'Draw No Bet (DNB)',
+    '(DNB_A)': 'Draw No Bet (DNB)',
+    DNB_H: 'Draw No Bet (DNB)',
+    DNB_A: 'Draw No Bet (DNB)',
+    '(OVER_2_5)': 'Over 2.5 Goals',
+    OVER_2_5: 'Over 2.5 Goals',
+    '(OVER_1_5)': 'Over 1.5 Goals',
+    OVER_1_5: 'Over 1.5 Goals',
+    SET_SHIELD: '+1.5 Sets Shield',
+    STRAIGHT_SETS: '2:0 Straight Sets',
+    DC_SHIELD: 'Double Chance Shield',
+    DNB_SHIELD: 'Draw No Bet Shield',
+    TOTALS_OVER: 'Over Total Goals',
+    TOTALS_UNDER: 'Under Total Games',
+  };
+  for (const [k, v] of Object.entries(map)) {
+    if (s.includes(k)) s = s.split(k).join(v);
+  }
+  s = s.replace(/\(?UNDER_GAMES_([0-9.]+)\)?/g, 'Under $1 Games');
+  s = s.replace(/\(?OVER_GOALS_([0-9.]+)\)?/g, 'Over $1 Goals');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function splitCanvasKpiVal(rawVal?: string | null): { main: string; sub: string } {
-  const s = String(rawVal ?? '').trim();
+  const s = humanizeCanvasMarketCodes(rawVal);
   if (!s) return { main: '—', sub: '' };
   if (s.includes(' · ')) {
     const idx = s.indexOf(' · ');
@@ -425,7 +464,7 @@ export function renderCanvasPickCard(cv: HTMLCanvasElement | null, meta: PickCar
     250,
   );
 
-  const rawPick = String(meta.pick || 'Top Calibrated Edge');
+  const rawPick = humanizeCanvasMarketCodes(meta.pick || meta.pick_name || 'Top Calibrated Edge');
   let mainPick = rawPick;
   let subPick = '';
   if (rawPick.includes(' · ')) {

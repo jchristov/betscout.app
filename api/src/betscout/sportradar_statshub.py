@@ -817,9 +817,9 @@ def scan_sportradar_european_sports(
                         else (1.10 if sp_slug == "curling" else 1.15)
                     )
                     max_o_ceil = (
-                        1.65
-                        if sp_slug in ("table_tennis", "handball")
-                        else (1.42 if sp_slug == "darts" else (1.50 if sp_slug == "curling" else 1.68))
+                        1.50
+                        if sp_slug in ("table_tennis", "curling")
+                        else (1.65 if sp_slug == "handball" else (1.42 if sp_slug == "darts" else 1.68))
                     )
                     if not oh or not oa or min(oh, oa) < min_o_floor or min(oh, oa) > max_o_ceil:
                         continue
@@ -1090,6 +1090,7 @@ def fetch_live_match_timelinedelta(
     away: str,
     sport: str = "tennis",
     date_ymd: str | None = None,
+    sr_match_id: int | str | None = None,
 ) -> dict[str, Any]:
     """Query Sportradar's 3-second real-time `match_timelinedelta/{matchId}` stream for an ongoing or finished match.
     Returns live sets/goals, period breakdown (`p1`..`p5`), current tennis point score (`gamescore`: `15-30`, server `1`/`2`),
@@ -1103,26 +1104,41 @@ def fetch_live_match_timelinedelta(
         pass
     matched_m = None
     flipped = False
+    clean_sr_mid = str(sr_match_id or "").replace("sr_", "").split("::", 1)[0].strip()
+    if clean_sr_mid and clean_sr_mid.isdigit():
+        td_direct = fetch_statshub_gismo("match_timelinedelta", clean_sr_mid, client_alias="sportradar", ttl_sec=3.0)
+        if isinstance(td_direct, dict) and isinstance(td_direct.get("match"), dict):
+            matched_m = td_direct["match"]
+            m_teams = matched_m.get("teams") or {}
+            th_d = (m_teams.get("home") or {}).get("name") or ""
+            ta_d = (m_teams.get("away") or {}).get("name") or ""
+            if th_d and ta_d and not (_names_match(home, th_d) and _names_match(away, ta_d)):
+                if _names_match(home, ta_d) and _names_match(away, th_d):
+                    flipped = True
+
     is_womens_q = home.strip().endswith(" W") or away.strip().endswith(" W")
     clean_h_q = home.strip()[:-2].strip() if home.strip().endswith(" W") else home
     clean_a_q = away.strip()[:-2].strip() if away.strip().endswith(" W") else away
-    for d_cand in date_candidates:
-        flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
-        for entry in flat:
-            th, ta = entry["home"], entry["away"]
-            t_tr = str(entry.get("tournament") or "").lower()
-            if sport == "curling" and is_womens_q != ("women" in t_tr):
-                continue
-            if _names_match(clean_h_q, th) and _names_match(clean_a_q, ta):
-                matched_m = entry["match_obj"]
-                flipped = False
+    if not matched_m:
+        for d_cand in date_candidates:
+            flat = get_daily_tipico_match_index(sport=sport, date_ymd=d_cand)
+            for entry in flat:
+                if clean_sr_mid and str((entry.get("match_obj") or {}).get("_id") or "") != clean_sr_mid:
+                    continue
+                th, ta = entry["home"], entry["away"]
+                t_tr = str(entry.get("tournament") or "").lower()
+                if sport == "curling" and is_womens_q != ("women" in t_tr):
+                    continue
+                if _names_match(clean_h_q, th) and _names_match(clean_a_q, ta):
+                    matched_m = entry["match_obj"]
+                    flipped = False
+                    break
+                if _names_match(clean_h_q, ta) and _names_match(clean_a_q, th):
+                    matched_m = entry["match_obj"]
+                    flipped = True
+                    break
+            if matched_m:
                 break
-            if _names_match(clean_h_q, ta) and _names_match(clean_a_q, th):
-                matched_m = entry["match_obj"]
-                flipped = True
-                break
-        if matched_m:
-            break
     if not matched_m:
         return {}
 

@@ -26,6 +26,7 @@ from .dashboard import DEFAULT_LOCAL_TZ, _format_local_time, _league_to_sport_ca
 from .espn import LEAGUE_LABELS
 from .paper_bet import (
     build_recommended_2leg_doubles,
+    format_paper_bet_pick_label,
     get_paper_ledger_summary,
     settle_pending_paper_bets,
 )
@@ -143,7 +144,7 @@ def format_telegram_digest(
             pnl_v = float(tr.get("pnl_best") or 0.0)
             badge = "✅ WIN" if pnl_v > 0 else "❌ LOSS"
             sp_emoji = SPORT_EMOJIS.get(_league_to_sport_cat(tr["league"]), "🎯")
-            pick_name = tr["home"] if tr["side"] == "H" else tr["away"]
+            pick_name = format_paper_bet_pick_label(tr["home"], tr["away"], tr["side"])
             sc_str = tr.get("score_str") or "—"
             lines.append(
                 f"  {badge} ({pnl_v:+.2f}u) {sp_emoji} <b>{html.escape(pick_name)}</b> "
@@ -661,7 +662,7 @@ def notify_new_settlements_to_discord(
             pnl_v = float(r.get("pnl_best") or 0.0)
             badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
             sp_emoji = SPORT_EMOJIS.get(_league_to_sport_cat(r["league"]), "🎯")
-            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            pick_name = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
             sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
             esc_info = ""
             if r.get("exact_score_pred"):
@@ -695,7 +696,7 @@ def notify_new_settlements_to_discord(
                     "date_local": _format_local_time(r0["kickoff"]),
                     "ended_at_local": _format_local_time(r0.get("updated_at") or claim_iso),
                     "match": f"{r0['home']} vs {r0['away']} [{r0.get('settled_score') or ''}]",
-                    "pick_name": f"{r0['home'] if r0['side'] == 'H' else r0['away']} ({'WIN' if pnl0 > 0 else 'LOSS'} {pnl0:+.2f}u)",
+                    "pick_name": f"{format_paper_bet_pick_label(r0['home'], r0['away'], r0['side'])} ({'WIN' if pnl0 > 0 else 'LOSS'} {pnl0:+.2f}u)",
                     "tier": r0.get("tier") or "SETTLED",
                     "status_badge": f"{'WIN' if pnl0 > 0 else 'LOSS'} ({pnl0:+.2f}u)",
                     "win_prob": r0.get("p_mkt"),
@@ -712,7 +713,7 @@ def notify_new_settlements_to_discord(
                         "ended_at_local": _format_local_time(r.get("updated_at") or claim_iso),
                         "match": f"{r['home']} vs {r['away']}",
                         "settled_score": r.get("settled_score") or "",
-                        "pick_name": f"{r['home'] if r['side'] == 'H' else r['away']} ({'W' if float(r.get('pnl_best') or 0) > 0 else 'L'} {float(r.get('pnl_best') or 0):+.2f}u)",
+                        "pick_name": f"{format_paper_bet_pick_label(r['home'], r['away'], r['side'])} ({'W' if float(r.get('pnl_best') or 0) > 0 else 'L'} {float(r.get('pnl_best') or 0):+.2f}u)",
                         "win_prob": r.get("p_mkt"),
                         "odds": r.get("logged_best_odds"),
                         "odds_display": f"{float(r.get('logged_best_odds') or 1.0):.2f}",
@@ -755,7 +756,7 @@ def notify_new_settlements_to_discord(
                     pnl_v = float(r.get("pnl_best") or 0.0)
                     badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
                     sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
-                    pick_name = r["home"] if r["side"] == "H" else r["away"]
+                    pick_name = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
                     sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
                     sp_lines.append(
                         f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — *{r['home']} vs {r['away']}* [`{sc_str}`]"
@@ -833,7 +834,7 @@ def notify_new_settlements_to_discord(
                             pnl_v = float(r.get("pnl_best") or 0.0)
                             badge = "✅ **WIN**" if pnl_v > 0 else "❌ **LOSS**"
                             sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
-                            pick_name = r["home"] if r["side"] == "H" else r["away"]
+                            pick_name = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
                             sc_str = r.get("settled_score") or f"Winner: {r.get('settled_outcome')}"
                             sp_lines.append(
                                 f"• {badge} (`{pnl_v:+.2f}u`) {sp_emoji} **{pick_name}** @ **{r['logged_best_odds']:.2f}** — *{r['home']} vs {r['away']}* [`{sc_str}`]"
@@ -927,7 +928,7 @@ def notify_new_picks_to_discord(
         def _format_pick_bullet(r: dict[str, Any]) -> str:
             sp_c = _league_to_sport_cat(r["league"])
             sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
-            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            pick_lbl = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
             comp_lbl = LEAGUE_LABELS.get(r["league"], str(r["league"]).upper())
             ko_loc = _format_local_time(r["kickoff"])
             wp_v = _row_win_prob(r)
@@ -936,7 +937,7 @@ def notify_new_picks_to_discord(
             esc_str = f" · 🎲 Score Target: **{r['exact_score_pred']}**" if r.get("exact_score_pred") else ""
             return (
                 f"• {sp_emoji} **{r['home']} vs {r['away']}** (*{comp_lbl}* · 🕒 `{ko_loc}`)\n"
-                f"  👉 Pick: **{pick_name} ({r['side']})** @ **{odds_v:.2f}** "
+                f"  👉 Pick: **{pick_lbl}** @ **{odds_v:.2f}** "
                 f"(Win Prob `{wp_v*100:.1f}%`, Min Fair `{fair_o:.2f}`, Tier `{r.get('tier') or 'high_conf'}`){esc_str}"
             )
 
@@ -944,14 +945,14 @@ def notify_new_picks_to_discord(
             wp_v = _row_win_prob(r)
             fair_o = 1.0 / max(wp_v, 0.05)
             odds_v = float(r.get("logged_best_odds") or 1.25)
-            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            pick_lbl = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
             return {
                 "sport_cat": _league_to_sport_cat(r["league"]),
                 "competition": LEAGUE_LABELS.get(r["league"], str(r["league"]).upper()),
                 "announced_at_local": _format_local_time(r.get("logged_at") or claim_iso),
                 "date_local": _format_local_time(r["kickoff"]),
                 "match": f"{r['home']} vs {r['away']}",
-                "pick_name": f"{pick_name} ({r['side']})",
+                "pick_name": pick_lbl,
                 "tier": r.get("tier") or "HIGH-CONF",
                 "badge": str(r.get("tier") or "LIVE AI PICK").upper(),
                 "win_prob": wp_v,
@@ -1201,7 +1202,7 @@ def notify_t60_reminders_to_discord(
         def _format_reminder_bullet(r: dict[str, Any]) -> str:
             sp_c = _league_to_sport_cat(r["league"])
             sp_emoji = SPORT_EMOJIS.get(sp_c, "🎯")
-            pick_name = r["home"] if r["side"] == "H" else r["away"]
+            pick_lbl = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
             comp_lbl = LEAGUE_LABELS.get(r["league"], str(r["league"]).upper())
             ko_loc = _format_local_time(r["kickoff"])
             mins_left = _minutes_until(r["kickoff"])
@@ -1213,7 +1214,7 @@ def notify_t60_reminders_to_discord(
             esc_str = f" · 🎲 Target: **{r['exact_score_pred']}**" if r.get("exact_score_pred") else ""
             return (
                 f"• ⏳ **T-{mins_left}m** | {sp_emoji} **{r['home']} vs {r['away']}** (*{comp_lbl}* · 🕒 `{ko_loc}`)\n"
-                f"  ✅ Pick: **{pick_name} ({r['side']})** @ **{odds_v:.2f}** "
+                f"  ✅ Pick: **{pick_lbl}** @ **{odds_v:.2f}** "
                 f"(Win Prob `{wp_v*100:.1f}%`, Fair `{fair_o:.2f}`, Tier `{r.get('tier') or 'high_conf'}`){clv_tag}{esc_str}"
             )
 
@@ -1382,7 +1383,7 @@ def send_free_teaser_to_discord(
                 )
                 odds_v = float(r.get("logged_best_odds") or 1.25)
                 fair_o = round(1.0 / max(wp_v, 0.05), 2)
-                pick_name = r["home"] if r["side"] == "H" else r["away"]
+                pick_lbl = format_paper_bet_pick_label(r["home"], r["away"], r["side"])
                 all_bets.append({
                     "sport_cat": _league_to_sport_cat(r["league"]),
                     "competition": LEAGUE_LABELS.get(r["league"], str(r["league"]).upper()),
@@ -1390,7 +1391,7 @@ def send_free_teaser_to_discord(
                     "date_local": _format_local_time(r["kickoff"]),
                     "announced_at_local": _format_local_time(r.get("logged_at") or r["kickoff"]),
                     "match": f"{r['home']} vs {r['away']}",
-                    "pick_name": f"{pick_name} ({r['side']})",
+                    "pick_name": pick_lbl,
                     "tier": r.get("tier") or "HIGH-CONF",
                     "win_prob": wp_v,
                     "odds": odds_v,

@@ -44,18 +44,18 @@
     </div>
 
     <!-- Main Dashboard Header -->
-    <header class="card-surface flex items-start gap-3 sm:gap-3.5 rounded-2xl px-3.5 sm:px-4 py-3.5 mb-3.5">
+    <header class="card-surface flex items-start gap-2.5 sm:gap-3.5 rounded-2xl px-3 sm:px-4 py-3 sm:py-3.5 mb-3.5">
       <router-link
         to="/"
-        class="w-[40px] h-[40px] sm:w-[42px] sm:h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.22)] hover:scale-105 transition-transform"
+        class="w-[38px] h-[38px] sm:w-[42px] sm:h-[42px] flex items-center justify-center shrink-0 mt-0.5 rounded-xl ring-1 ring-white/15 shadow-[0_0_16px_rgba(56,189,248,0.22)] hover:scale-105 transition-transform"
         title="Back to BetScout Home & Membership Plans"
       >
         <img src="/betscout-logo.svg?v=7.3" width="42" height="42" alt="BetScout" />
       </router-link>
 
-      <div class="flex-1 min-w-0 flex flex-col gap-2.5">
+      <div class="flex-1 min-w-0 flex flex-col gap-2">
         <!-- Top Row -->
-        <div class="flex flex-wrap justify-between items-start gap-2.5">
+        <div class="flex flex-wrap justify-between items-start gap-2">
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
               <h1 class="m-0 text-lg sm:text-xl font-extrabold tracking-tight leading-none whitespace-nowrap">
@@ -68,15 +68,22 @@
                 <span>LIVE AI</span>
               </span>
             </div>
-            <span class="text-xs text-slate-300 font-medium">
+            <span class="text-[11px] sm:text-xs text-slate-300 font-medium">
               Sports Edge, Exact-Score &amp; Paper-Betting Intelligence
             </span>
           </div>
 
           <div class="flex flex-wrap items-center justify-end gap-1.5 text-[11px] text-slate-300 ml-auto self-start tabular-nums">
-            <span class="inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
-              <Icon icon="fa6-solid:clock" class="w-3 h-3 text-sky-400" />
-              <span>Updated: <b class="text-white">{{ store.generatedAtLocal }}</b></span>
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2 py-0.5">
+              <Icon icon="fa6-solid:clock" class="w-3 h-3 text-sky-400 shrink-0" />
+              <span class="inline-flex flex-wrap items-baseline gap-x-1">
+                <span>Updated:</span>
+                <b class="text-white whitespace-nowrap">{{ splitDateTimeParts(store.generatedAtLocal).date }}</b>
+                <b
+                  v-if="splitDateTimeParts(store.generatedAtLocal).time"
+                  class="text-white whitespace-nowrap"
+                >{{ splitDateTimeParts(store.generatedAtLocal).time }}</b>
+              </span>
             </span>
             <span class="hidden md:inline-flex items-center gap-1.5 bg-slate-900/80 border border-slate-700/80 rounded-lg px-2.5 py-0.5">
               <Icon icon="fa6-solid:circle-check" class="w-3 h-3 text-emerald-400" />
@@ -91,10 +98,10 @@
               <span>Local Cache: <b class="text-cyan-300">{{ store.lastLocalCacheTime }}</b></span>
             </span>
             <span
-              class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-full px-2.5 py-0.5 text-[11px]"
+              class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-full px-2 sm:px-2.5 py-0.5 text-[11px]"
             >
               <span
-                class="w-2 h-2 rounded-full"
+                class="w-2 h-2 rounded-full shrink-0"
                 :class="
                   store.streamStatus === 'online'
                     ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
@@ -103,7 +110,7 @@
                       : 'bg-amber-400'
                 "
               ></span>
-              <span>
+              <span class="hidden sm:inline">
                 {{
                   store.streamStatus === 'online'
                     ? 'Connected'
@@ -116,16 +123,16 @@
           </div>
         </div>
 
-        <!-- Bottom Action Row -->
-        <div class="flex flex-wrap justify-between items-center gap-2 w-full">
+        <!-- Bottom Action Row (Icon-only on small screens so Left + Right groups fit on a single row!) -->
+        <div class="flex flex-nowrap sm:flex-wrap justify-between items-center gap-1.5 sm:gap-2 w-full overflow-x-auto no-scrollbar">
           <!-- Admin Action Buttons -->
-          <div v-if="store.isAdmin" class="flex flex-wrap items-center gap-1.5">
+          <div v-if="store.isAdmin" class="flex flex-nowrap items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               type="button"
               :disabled="store.actionBusy"
               title="Sync &amp; Settle"
               aria-label="Sync &amp; Settle"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50 hover:bg-sky-500/30 disabled:opacity-50 shrink-0"
               @click="store.syncAndSettle(false)"
             >
               <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5 shrink-0" :class="store.actionBusy ? 'animate-spin' : ''" />
@@ -136,7 +143,7 @@
               :disabled="store.actionBusy"
               title="Rescan Live"
               aria-label="Rescan Live"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/45 hover:bg-amber-500/25 disabled:opacity-50 shrink-0"
               @click="store.syncAndSettle(true)"
             >
               <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -147,7 +154,7 @@
               :disabled="store.actionBusy"
               title="Full Pipeline"
               aria-label="Full Pipeline"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/45 hover:bg-emerald-500/25 disabled:opacity-50 shrink-0"
               @click="store.runFullPipeline()"
             >
               <Icon icon="fa6-solid:rocket" class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -158,7 +165,7 @@
           <!-- Guest / Pro Banner when not Admin -->
           <div
             v-else
-            class="inline-flex flex-wrap items-center gap-2 bg-sky-500/15 border border-sky-400/40 rounded-xl px-3 py-1 text-[11.5px]"
+            class="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 bg-sky-500/15 border border-sky-400/40 rounded-xl px-2.5 sm:px-3 py-1 text-[11px] sm:text-[11.5px]"
           >
             <span
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
@@ -169,13 +176,13 @@
               "
             >
               <Icon :icon="store.isPro ? 'fa6-solid:lock-open' : 'fa6-solid:lock'" class="w-3 h-3" />
-              <span>{{ store.isPro ? 'PRO READ-ONLY' : 'GUEST PREVIEW' }}</span>
+              <span>{{ store.isPro ? 'PRO' : 'GUEST' }}</span>
             </span>
-            <span v-if="store.isPro" class="text-slate-200">
+            <span v-if="store.isPro" class="hidden sm:inline text-slate-200">
               Signed in as <b>{{ store.userEmail || 'Pro Member' }}</b> · Real-time picks, exact-score targets &amp; SSE
               feed active.
             </span>
-            <span v-else class="text-slate-200">
+            <span v-else class="hidden sm:inline text-slate-200">
               Active picks, exact-score targets &amp; 2-leg combos are reserved for <b>BetScout Pro</b> members.
             </span>
             <button
@@ -188,19 +195,19 @@
             </button>
             <span class="text-slate-500">·</span>
             <router-link to="/#pricing" class="inline-flex items-center gap-1 text-emerald-300 font-bold hover:underline">
-              <span>Membership Plans</span>
+              <span>Plans</span>
               <Icon icon="fa6-solid:arrow-right" class="w-3 h-3" />
             </router-link>
           </div>
 
           <!-- Right Controls -->
-          <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+          <div class="flex flex-nowrap items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
             <button
               v-if="store.canInstallPwa"
               type="button"
               title="Install App"
               aria-label="Install App"
-              class="btn-press min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50"
+              class="btn-press h-8 w-8 sm:w-auto sm:min-h-[34px] inline-flex items-center justify-center gap-1.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-violet-500/20 text-violet-200 border border-violet-400/50 shrink-0"
               @click="store.promptPwaInstall()"
             >
               <Icon icon="fa6-solid:mobile-screen-button" class="w-3.5 h-3.5 text-violet-300 shrink-0" />
@@ -210,7 +217,7 @@
               to="/"
               title="Home &amp; Plans"
               aria-label="Home &amp; Plans"
-              class="btn-press min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline"
+              class="btn-press h-8 w-8 sm:w-auto sm:min-h-[34px] inline-flex items-center justify-center gap-1.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 no-underline shrink-0"
             >
               <Icon icon="fa6-solid:house" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span class="hidden sm:inline">Home &amp; Plans</span>
@@ -220,7 +227,7 @@
               type="button"
               :title="store.userEmail ? `${store.userEmail} (${store.isAdmin ? 'Admin' : 'Pro'})` : 'Sign In'"
               :aria-label="store.userEmail ? `${store.userEmail} (${store.isAdmin ? 'Admin' : 'Pro'})` : 'Sign In'"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold border"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold border shrink-0"
               :class="
                 store.userEmail
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
@@ -242,7 +249,7 @@
               type="button"
               title="Share Picks"
               aria-label="Share Picks"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 hover:bg-emerald-500/30 shrink-0"
               @click="openShareSlateModal()"
             >
               <Icon icon="fa6-solid:share-nodes" class="w-3.5 h-3.5 shrink-0" />
@@ -252,8 +259,8 @@
               type="button"
               title="Settings"
               aria-label="Settings"
-              class="btn-press inline-flex items-center justify-center gap-1.5 min-h-[34px] px-2.5 sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400"
-              @click="settingsModalOpen = true"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 shrink-0"
+              @click="openSettingsModal()"
             >
               <Icon icon="fa6-solid:gear" class="w-3.5 h-3.5 text-slate-300 shrink-0" />
               <span class="hidden sm:inline">Settings</span>
@@ -647,7 +654,13 @@
               <Icon v-else :icon="getSportIconify(tr.sport_cat)" class="w-3.5 h-3.5 shrink-0" />
               <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
             </span>
-            <span class="font-mono tabular-nums text-[11px] text-slate-300">{{ tr.kickoff_local || tr.kickoff }}</span>
+            <span class="font-mono tabular-nums text-[11px] text-slate-300 inline-flex flex-wrap justify-end gap-x-1">
+              <span class="whitespace-nowrap">{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).date }}</span>
+              <span
+                v-if="splitDateTimeParts(tr.kickoff_local || tr.kickoff).time"
+                class="whitespace-nowrap"
+              >{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).time }}</span>
+            </span>
           </div>
           <button
             type="button"
@@ -721,8 +734,14 @@
                   <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap text-slate-400">
-                {{ tr.kickoff_local || tr.kickoff }}
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">
+                <span class="inline-flex flex-wrap gap-x-1">
+                  <span class="whitespace-nowrap">{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).date }}</span>
+                  <span
+                    v-if="splitDateTimeParts(tr.kickoff_local || tr.kickoff).time"
+                    class="whitespace-nowrap"
+                  >{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).time }}</span>
+                </span>
               </td>
               <td class="py-2.5 px-2.5">
                 <button
@@ -846,8 +865,12 @@
                 <span>{{ b.competition || b.sport_league }}</span>
               </span>
             </label>
-            <span class="font-mono tabular-nums text-[11px] text-slate-300">
-              {{ store.tzMode === 'utc' ? b.date : b.date_local }}
+            <span class="font-mono tabular-nums text-[11px] text-slate-300 inline-flex flex-wrap justify-end gap-x-1">
+              <span class="whitespace-nowrap">{{ splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).date }}</span>
+              <span
+                v-if="splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).time"
+                class="whitespace-nowrap"
+              >{{ splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).time }}</span>
             </span>
           </div>
 
@@ -969,8 +992,14 @@
                   <span>{{ b.competition || b.sport_league }}</span>
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400 whitespace-nowrap">
-                {{ store.tzMode === 'utc' ? b.date : b.date_local }}
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">
+                <span class="inline-flex flex-wrap gap-x-1">
+                  <span class="whitespace-nowrap">{{ splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).date }}</span>
+                  <span
+                    v-if="splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).time"
+                    class="whitespace-nowrap"
+                  >{{ splitDateTimeParts(store.tzMode === 'utc' ? b.date : b.date_local).time }}</span>
+                </span>
               </td>
               <td class="py-2.5 px-2.5">
                 <button
@@ -1549,7 +1578,15 @@
                   <span>{{ formatLeagueBadgeLabel(tr.league_label, tr.league, tr.home, tr.away) }}</span>
                 </span>
               </td>
-              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">{{ tr.kickoff_local || tr.kickoff }}</td>
+              <td class="py-2.5 px-2.5 font-mono tabular-nums text-slate-400">
+                <span class="inline-flex flex-wrap gap-x-1">
+                  <span class="whitespace-nowrap">{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).date }}</span>
+                  <span
+                    v-if="splitDateTimeParts(tr.kickoff_local || tr.kickoff).time"
+                    class="whitespace-nowrap"
+                  >{{ splitDateTimeParts(tr.kickoff_local || tr.kickoff).time }}</span>
+                </span>
+              </td>
               <td class="py-2.5 px-2.5">
                 <button
                   type="button"
@@ -2815,18 +2852,18 @@
     <!-- MODAL 4: SETTINGS MODAL -->
     <div
       v-if="settingsModalOpen"
-      class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+      class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3 sm:p-4"
       @click.self="settingsModalOpen = false"
     >
-      <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto p-5">
-        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+      <div class="card-surface rounded-2xl max-w-[640px] w-full max-h-[86vh] flex flex-col overflow-hidden p-4 sm:p-5">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700 shrink-0">
           <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
-            <Icon icon="fa6-solid:gear" class="w-4 h-4" />
+            <Icon icon="fa6-solid:gear" class="w-4 h-4 shrink-0" />
             <span>BetScout Settings, PWA Cache &amp; Sport Toggles</span>
           </b>
           <button
             type="button"
-            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5"
+            class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold leading-none inline-flex items-center justify-center gap-1.5 shrink-0"
             @click="settingsModalOpen = false"
           >
             <span>Close</span>
@@ -2834,7 +2871,13 @@
           </button>
         </div>
 
-        <div class="space-y-4">
+        <div class="relative flex-1 min-h-0 flex">
+          <div
+            ref="settingsScrollRef"
+            class="custom-scrollbar flex-1 min-h-0 space-y-4"
+            :class="settingsScrollShow ? 'pr-2.5' : ''"
+            @scroll="updateSettingsScrollbar"
+          >
           <div class="p-3.5 bg-slate-950/90 border border-slate-700 rounded-xl">
             <b class="block text-emerald-300 mb-2">Active Sports On/Off Filter</b>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -3031,6 +3074,25 @@
               </div>
             </div>
           </div>
+          </div>
+
+          <!-- Muted Dark-Blue Vertical Scrollbar Rail (shown only on overflow) -->
+          <div
+            v-if="settingsScrollShow"
+            class="w-1.5 rounded-full bg-slate-950/80 border border-slate-800/80 relative shrink-0 ml-1 my-0.5 overflow-hidden cursor-pointer select-none"
+            aria-hidden="true"
+            @mousedown="onSettingsRailMouseDown"
+          >
+            <div
+              class="w-full rounded-full bg-[#243b5e] hover:bg-[#31507e] transition-[top,height,background-color] duration-100"
+              :style="{
+                position: 'absolute',
+                left: '0',
+                top: `${settingsThumbTopPct}%`,
+                height: `${settingsThumbHeightPct}%`,
+              }"
+            ></div>
+          </div>
         </div>
       </div>
     </div>
@@ -3061,6 +3123,7 @@ import {
   getTierBadgeClass,
   getWinProbBarColor,
   parseScorePredictionSegments,
+  splitDateTimeParts,
   splitScoreAndInterim,
 } from '../utils/formatters';
 import { setupIconifyCollections } from '../utils/iconifySetup';
@@ -3218,6 +3281,56 @@ const currentShareCardMeta = ref<PickCardMeta | null>(null);
 const pickCardCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 const settingsModalOpen = ref<boolean>(false);
+const settingsScrollRef = ref<HTMLElement | null>(null);
+const settingsScrollShow = ref<boolean>(false);
+const settingsThumbTopPct = ref<number>(0);
+const settingsThumbHeightPct = ref<number>(35);
+
+function updateSettingsScrollbar() {
+  const el = settingsScrollRef.value;
+  if (!el) return;
+  const sh = el.scrollHeight;
+  const ch = el.clientHeight;
+  if (sh <= ch + 4) {
+    settingsScrollShow.value = false;
+    return;
+  }
+  settingsScrollShow.value = true;
+  const ratio = Math.max(0.16, Math.min(0.92, ch / sh));
+  const maxScroll = Math.max(1, sh - ch);
+  const progress = Math.max(0, Math.min(1, el.scrollTop / maxScroll));
+  settingsThumbHeightPct.value = ratio * 100;
+  settingsThumbTopPct.value = progress * (100 - ratio * 100);
+}
+
+function onSettingsRailMouseDown(ev: MouseEvent) {
+  const rail = ev.currentTarget as HTMLElement | null;
+  const el = settingsScrollRef.value;
+  if (!rail || !el) return;
+  const applyFromClientY = (clientY: number) => {
+    const rect = rail.getBoundingClientRect();
+    const rel = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
+    el.scrollTop = rel * Math.max(0, el.scrollHeight - el.clientHeight);
+    updateSettingsScrollbar();
+  };
+  applyFromClientY(ev.clientY);
+  const onMove = (mEv: MouseEvent) => applyFromClientY(mEv.clientY);
+  const onUp = () => {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+function openSettingsModal() {
+  settingsScrollShow.value = false;
+  settingsModalOpen.value = true;
+  void nextTick(() => {
+    updateSettingsScrollbar();
+    setTimeout(updateSettingsScrollbar, 80);
+  });
+}
 const apiKeyInput = ref<string>(store.customApiKey || '');
 const newKeyEmail = ref<string>('support@betscout.app');
 const newKeyTier = ref<string>('enterprise');

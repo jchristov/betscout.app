@@ -475,12 +475,56 @@ def _draw_text_with_muted_vs(
 
 
 
+def _humanize_raw_market_codes(text: str, home: str = "", away: str = "") -> str:
+    """Convert any raw internal market codes (`PLUS15_H`, `SETS20_A`, `DC_1X`, `DNB_H`, `UNDER_GAMES_21.5`, `OVER_2_5`)
+    into human-readable labels so internal enum codes never leak onto notification cards."""
+    import re
+
+    s = str(text or "").strip()
+    if not s:
+        return s
+    replacements = {
+        "(PLUS15_H)": "+1.5 Sets",
+        "(PLUS15_A)": "+1.5 Sets",
+        "PLUS15_H": f"{home} +1.5 Sets".strip() if home else "+1.5 Sets",
+        "PLUS15_A": f"{away} +1.5 Sets".strip() if away else "+1.5 Sets",
+        "(SETS20_H)": "2:0 Straight Sets",
+        "(SETS20_A)": "0:2 Straight Sets",
+        "SETS20_H": f"{home} 2:0 Sets".strip() if home else "2:0 Straight Sets",
+        "SETS20_A": f"{away} 0:2 Sets".strip() if away else "0:2 Straight Sets",
+        "(DC_1X)": "or Draw (1X)",
+        "(DC_X2)": "or Draw (X2)",
+        "DC_1X": f"{home} or Draw (1X)".strip() if home else "Double Chance 1X",
+        "DC_X2": f"{away} or Draw (X2)".strip() if away else "Double Chance X2",
+        "(DNB_H)": "Draw No Bet (DNB)",
+        "(DNB_A)": "Draw No Bet (DNB)",
+        "DNB_H": f"{home} DNB".strip() if home else "Draw No Bet (DNB)",
+        "DNB_A": f"{away} DNB".strip() if away else "Draw No Bet (DNB)",
+        "(OVER_2_5)": "Over 2.5 Goals",
+        "OVER_2_5": "Over 2.5 Goals",
+        "(OVER_1_5)": "Over 1.5 Goals",
+        "OVER_1_5": "Over 1.5 Goals",
+        "SET_SHIELD": "+1.5 Sets Shield",
+        "STRAIGHT_SETS": "2:0 Straight Sets",
+        "DC_SHIELD": "Double Chance Shield",
+        "DNB_SHIELD": "Draw No Bet Shield",
+        "TOTALS_OVER": "Over Total Goals",
+        "TOTALS_UNDER": "Under Total Games",
+    }
+    for k, v in replacements.items():
+        if k in s:
+            s = s.replace(k, v)
+    s = re.sub(r"\(?UNDER_GAMES_([0-9.]+)\)?", r"Under \1 Games", s)
+    s = re.sub(r"\(?OVER_GOALS_([0-9.]+)\)?", r"Over \1 Goals", s)
+    return " ".join(s.split())
+
+
 def _split_primary_and_sub_kpi(raw_val: str) -> tuple[str, str]:
     """Split a composite KPI string like '1.33 (Fair 1.34, EV +2.1%)' or '2:0 (9.8%) · Cluster 2:0/2:1/3:0 (28.5%)'
     into `(primary_headline, secondary_subline)` so neither line is ever cut off inside a KPI box."""
     import re
 
-    s = _strip_non_ascii_symbols(raw_val)
+    s = _humanize_raw_market_codes(_strip_non_ascii_symbols(raw_val))
     if not s:
         return "—", ""
     # Strip trailing ' (H)' or ' (A)' side tags so 'H' or 'A' is never split onto a second row
@@ -630,9 +674,11 @@ def render_pick_card_png(
         b = int(21 + t * 18)
         draw.line([(0, y), (w, y)], fill=(r, g, b))
 
-    tier_raw = _strip_non_ascii_symbols(str(pick_data.get("tier") or "HIGH-CONVICTION")).upper()
-    badge_status = _strip_non_ascii_symbols(
-        str(pick_data.get("status_badge") or pick_data.get("badge") or tier_raw or "LIVE AI PICK")
+    tier_raw = _humanize_raw_market_codes(_strip_non_ascii_symbols(str(pick_data.get("tier") or "HIGH-CONVICTION"))).upper()
+    badge_status = _humanize_raw_market_codes(
+        _strip_non_ascii_symbols(
+            str(pick_data.get("status_badge") or pick_data.get("badge") or tier_raw or "LIVE AI PICK")
+        )
     ).upper()
     raw_pick_probe = _strip_non_ascii_symbols(str(pick_data.get("pick_name") or pick_data.get("pick") or "")).upper()
     pnl_val = pick_data.get("pnl_best")
@@ -789,7 +835,11 @@ def render_pick_card_png(
     )
     draw.text((72, 238), pick_box_hdr, font=f_pick_lbl, fill=(134, 239, 172) if not is_loss_card else (253, 164, 175))
 
-    raw_pick_full = _strip_non_ascii_symbols(str(pick_data.get("pick_name") or pick_data.get("pick") or "Top Model Pick"))
+    raw_pick_full = _humanize_raw_market_codes(
+        _strip_non_ascii_symbols(str(pick_data.get("pick_name") or pick_data.get("pick") or "Top Model Pick")),
+        home=str(pick_data.get("home") or ""),
+        away=str(pick_data.get("away") or ""),
+    )
     main_pick_line = raw_pick_full
     sub_pick_line = ""
     if " · " in raw_pick_full:
@@ -798,6 +848,14 @@ def render_pick_card_png(
     elif " | " in raw_pick_full:
         parts_p = raw_pick_full.split(" | ", 1)
         main_pick_line, sub_pick_line = parts_p[0].strip(), parts_p[1].strip()
+    elif "(" in raw_pick_full and raw_pick_full.endswith(")") and not raw_pick_full.startswith("("):
+        idx_p = raw_pick_full.rfind("(")
+        inner_p = raw_pick_full[idx_p + 1 : -1].strip()
+        if inner_p in ("H", "A", "1X", "X2"):
+            pass
+        elif len(raw_pick_full) > 22:
+            main_pick_line = raw_pick_full[:idx_p].strip()
+            sub_pick_line = _humanize_raw_market_codes(inner_p)
 
     f_pick_main, main_pick_fit = _fit_font_and_text(draw, main_pick_line, max_width=w - 144, start_size=28, min_size=16, bold=True)
     draw.text((72, 266), main_pick_fit, font=f_pick_main, fill=box_border)
