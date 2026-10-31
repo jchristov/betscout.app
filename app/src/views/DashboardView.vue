@@ -308,7 +308,7 @@
 
       <div
         class="card-surface border-t-2 border-t-cyan-400 rounded-xl px-3.5 py-3"
-        title="Realized Flat-Unit Profit (1.00u per pick) and Return on Investment (ROI%) across all settled bets."
+        title="Realized Flat-Unit Profit (1.00u per pick), Euro Profit at your selected 1u stake, and Return on Investment (ROI%) across all settled bets."
       >
         <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-cyan-300">
           <Icon icon="fa6-solid:chart-line" class="w-3.5 h-3.5 text-cyan-400" />
@@ -318,15 +318,18 @@
           class="block text-lg font-mono tabular-nums mt-0.5 whitespace-nowrap"
           :class="profitU >= 0 ? 'text-cyan-300' : 'text-rose-400'"
         >
-          {{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u ({{ roiPct >= 0 ? '+' : '' }}{{ roiPct.toFixed(1) }}%)
+          {{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u
+          <span class="text-emerald-300 text-sm">({{ formatEuroSigned(profitU * store.unitStakeEur) }})</span>
         </b>
         <small class="block text-[10.5px] text-slate-300 mt-1 truncate tabular-nums">
+          <span>ROI: <b class="text-cyan-300">{{ roiPct >= 0 ? '+' : '' }}{{ roiPct.toFixed(1) }}%</b></span>
+          ·
           <span
             class="cursor-help"
             title="Quarter-Kelly Bankroll Growth (¼-Kelly): Compounded percentage bankroll growth using optimal ¼-Kelly fractional staking."
           >
             ¼-Kelly:
-            <b class="text-emerald-300">+{{ Number(store.paperLedger?.kelly_growth_pct || 0).toFixed(2) }}%</b>
+            <b class="text-emerald-300">+{{ Number(store.paperLedger?.kelly_growth_pct || 0).toFixed(1) }}%</b>
           </span>
           ·
           <span class="cursor-help" :title="CLV_TOOLTIP">
@@ -534,6 +537,18 @@
           <span class="font-mono tabular-nums text-emerald-300">
             &ge;<b>{{ Math.round(store.minProb * 100) }}%</b>
           </span>
+          <span class="inline-flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-lg px-2 py-0.5 text-[11px]" title="1 Unit Stake (€) — scales Euro profit in KPI cards, Best Bets, and Settled Ledger">
+            <b class="text-slate-300">1u:</b>
+            <span class="text-amber-300 font-bold">€</span>
+            <input
+              v-model.number="store.unitStakeEur"
+              type="number"
+              min="1"
+              max="5000"
+              step="5"
+              class="w-12 bg-transparent text-amber-300 font-mono font-bold text-[11.5px] focus:outline-none text-right"
+            />
+          </span>
           <input
             v-model="store.searchQuery"
             type="search"
@@ -606,6 +621,66 @@
       <div class="workspace-tabpanel" role="tabpanel">
         <!-- TAB 1: PICKS & LIVE IN-PLAY -->
         <div v-if="activeTab === 'picks'">
+      <!-- Live In-Play Value Opportunities Radar Banner -->
+      <div
+        v-if="liveInPlayOpportunities.length > 0"
+        class="card-surface rounded-2xl p-3.5 mb-3.5 border border-emerald-400/55 bg-gradient-to-r from-emerald-950/40 via-slate-900/90 to-sky-950/40"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div class="inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-emerald-300">
+            <span class="live-blink-dot"></span>
+            <Icon icon="fa6-solid:bolt" class="w-3.5 h-3.5 text-amber-300" />
+            <span>Live In-Play Value Opportunities Radar ({{ liveInPlayOpportunities.length }} Active Signal{{ liveInPlayOpportunities.length !== 1 ? 's' : '' }})</span>
+          </div>
+          <span class="text-[11px] text-slate-300">
+            Real-time Set-1 / SoT Dominance Rebound, Late-Goal Surge &amp; Active In-Play Bankers
+          </span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div
+            v-for="op in liveInPlayOpportunities"
+            :key="`inplay-op-${op.league}:${op.event_id}`"
+            class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/90 border border-emerald-400/40 text-xs"
+          >
+            <div class="space-y-0.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
+                  {{ op.signalBadge }}
+                </span>
+                <button
+                  type="button"
+                  class="font-extrabold text-white hover:text-sky-300"
+                  @click="openMatchupModal(op.home, op.away, op.league)"
+                >
+                  {{ op.home }} vs {{ op.away }}
+                </button>
+              </div>
+              <div class="text-[11px] text-slate-300">
+                Pick: <b class="text-emerald-300">{{ op.pickLabel }}</b> · Live Score:
+                <b class="text-white font-mono">{{ op.live_score || 'LIVE' }}</b> ·
+                <span class="text-sky-300">{{ op.signalDetail }}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                class="btn-press px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-[11px] font-bold"
+                @click="openAnalyzerModal('entity', op.side === 'H' ? op.home : op.away)"
+              >
+                Scout Pick
+              </button>
+              <button
+                type="button"
+                class="btn-press px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-[11px] font-bold"
+                @click="openMatchupModal(op.home, op.away, op.league)"
+              >
+                Inspect Live &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Live In-Play Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-rose-300 m-0">
@@ -744,13 +819,23 @@
                 </span>
               </td>
               <td class="py-2.5 px-2.5">
-                <button
-                  type="button"
-                  class="font-bold text-white hover:text-sky-300 text-left transition-colors"
-                  @click="openMatchupModal(tr.home, tr.away, tr.league)"
-                >
-                  {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
-                </button>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="font-bold text-white hover:text-sky-300 text-left transition-colors"
+                    @click="openMatchupModal(tr.home, tr.away, tr.league)"
+                  >
+                    {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900/90 border border-slate-700/80 text-sky-300 hover:border-sky-400 shrink-0"
+                    :title="`Scout ${tr.side === 'H' ? tr.home : tr.away}`"
+                    @click.stop="openAnalyzerModal('entity', tr.side === 'H' ? tr.home : tr.away)"
+                  >
+                    <Icon icon="fa6-solid:user-shield" class="w-2.5 h-2.5" />
+                  </button>
+                </div>
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -1002,16 +1087,27 @@
                 </span>
               </td>
               <td class="py-2.5 px-2.5">
-                <button
-                  type="button"
-                  class="font-bold text-white hover:text-sky-300 text-left transition-colors"
-                  @click="openMatchupModal(b.home, b.away, b.sport_league)"
-                >
-                  <template v-if="b.home && b.away && !String(b.match || '').includes('🔒')">
-                    {{ b.home }} <span class="text-slate-400 font-normal">vs</span> {{ b.away }}
-                  </template>
-                  <template v-else>{{ b.match }}</template>
-                </button>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="font-bold text-white hover:text-sky-300 text-left transition-colors"
+                    @click="openMatchupModal(b.home, b.away, b.sport_league)"
+                  >
+                    <template v-if="b.home && b.away && !String(b.match || '').includes('🔒')">
+                      {{ b.home }} <span class="text-slate-400 font-normal">vs</span> {{ b.away }}
+                    </template>
+                    <template v-else>{{ b.match }}</template>
+                  </button>
+                  <button
+                    v-if="!String(b.match || '').includes('🔒')"
+                    type="button"
+                    class="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900/90 border border-slate-700/80 text-sky-300 hover:border-sky-400 shrink-0"
+                    :title="`Scout ${b.home || b.pick}`"
+                    @click.stop="openAnalyzerModal('entity', b.home || b.pick)"
+                  >
+                    <Icon icon="fa6-solid:user-shield" class="w-2.5 h-2.5" />
+                  </button>
+                </div>
               </td>
               <td class="py-2.5 px-2.5">
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -1081,6 +1177,12 @@
                     <b :class="Number(b.clv_pct || 0) >= 0 ? 'text-emerald-300' : 'text-rose-400'">
                       {{ Number(b.clv_pct || 0) >= 0 ? '+' : '' }}{{ Number(b.clv_pct || 0).toFixed(1) }}%
                     </b>)
+                  </span>
+                  <span
+                    class="whitespace-nowrap px-1.5 py-0.5 rounded bg-slate-900/90 border border-slate-700/80 text-[10px] font-bold text-emerald-300 cursor-help"
+                    :title="`Recommended Stake (1u = €${store.unitStakeEur}) → Net Profit +€${(store.unitStakeEur * Math.max(0.05, Number(b.odds || 1.3) - 1)).toFixed(2)}`"
+                  >
+                    1u €{{ store.unitStakeEur }} &rarr; +€{{ Math.round(store.unitStakeEur * Math.max(0.05, Number(b.odds || 1.3) - 1)) }}
                   </span>
                   <span
                     v-if="Number(b.clv_pct || 0) >= 3.0"
@@ -1534,7 +1636,7 @@
         Settled Paper-Bets (Completed Results: <b class="text-white">{{ settledCount }}</b> · Wins:
         <b class="text-emerald-300">{{ settledWins }}W</b> · Losses:
         <b class="text-rose-400">{{ settledLosses }}L</b> · Realized Profit:
-        <b class="text-emerald-300">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u</b>)
+        <b class="text-emerald-300">{{ profitU >= 0 ? '+' : '' }}{{ profitU.toFixed(2) }}u ({{ formatEuroSigned(profitU * store.unitStakeEur) }})</b>)
       </h2>
 
       <div class="table-surface rounded-2xl overflow-x-auto mb-1">
@@ -1588,14 +1690,24 @@
                 </span>
               </td>
               <td class="py-2.5 px-2.5">
-                <button
-                  type="button"
-                  class="font-bold text-white hover:text-sky-300 text-left transition-colors cursor-pointer"
-                  title="Click to inspect Match Details, H2H, Last-6 Form &amp; Score Matrix"
-                  @click="openMatchupModal(tr.home, tr.away, tr.league)"
-                >
-                  {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
-                </button>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="font-bold text-white hover:text-sky-300 text-left transition-colors cursor-pointer"
+                    title="Click to inspect Match Details, H2H, Last-6 Form &amp; Score Matrix"
+                    @click="openMatchupModal(tr.home, tr.away, tr.league)"
+                  >
+                    {{ tr.home }} <span class="text-slate-400 font-normal">vs</span> {{ tr.away }}
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900/90 border border-slate-700/80 text-sky-300 hover:border-sky-400 shrink-0"
+                    :title="`Scout ${tr.side === 'H' ? tr.home : tr.away}`"
+                    @click.stop="openAnalyzerModal('entity', tr.side === 'H' ? tr.home : tr.away)"
+                  >
+                    <Icon icon="fa6-solid:user-shield" class="w-2.5 h-2.5" />
+                  </button>
+                </div>
               </td>
               <td class="py-2.5 px-2.5">
                 <b class="text-emerald-300">{{ tr.pick_display || `${tr.side === 'H' ? tr.home : tr.away} (${tr.side})` }}</b>
@@ -1627,8 +1739,8 @@
                 >
                   {{
                     Number(tr.pnl_best || 0) > 0
-                      ? `WIN (+${Number(tr.pnl_best).toFixed(2)}u)`
-                      : `LOSS (${Number(tr.pnl_best).toFixed(2)}u)`
+                      ? `WIN (+${Number(tr.pnl_best).toFixed(2)}u · ${formatEuroSigned(Number(tr.pnl_best) * store.unitStakeEur)})`
+                      : `LOSS (${Number(tr.pnl_best).toFixed(2)}u · ${formatEuroSigned(Number(tr.pnl_best) * store.unitStakeEur)})`
                   }}
                 </span>
               </td>
@@ -3178,6 +3290,80 @@ const customSlipCombinedOdds = computed(() => {
   const selected = store.visibleBestBets.filter((b) => store.customSelectedMatches.has(b.match));
   if (!selected.length) return 1.0;
   return selected.reduce((acc, b) => acc * Number(b.odds || 1), 1.0);
+});
+
+function formatEuroSigned(amountEur: number): string {
+  const val = Number(amountEur || 0);
+  const sign = val >= 0 ? '+' : '-';
+  return `${sign}€${Math.abs(val).toFixed(2)}`;
+}
+
+const liveInPlayOpportunities = computed(() => {
+  const out: Array<{
+    league: string;
+    event_id: string;
+    home: string;
+    away: string;
+    side: string;
+    pickLabel: string;
+    live_score: string;
+    signalBadge: string;
+    signalDetail: string;
+  }> = [];
+  for (const tr of store.liveBets) {
+    let mom: Record<string, any> = {};
+    if (tr.live_momentum && typeof tr.live_momentum === 'object') {
+      mom = tr.live_momentum;
+    } else if (typeof tr.live_momentum_json === 'string' && tr.live_momentum_json.trim().startsWith('{')) {
+      try {
+        mom = JSON.parse(tr.live_momentum_json);
+      } catch (_) {}
+    }
+    const pickTeam = tr.pick_display || `${tr.side === 'H' ? tr.home : tr.away} (${tr.side})`;
+    const sig = String(mom.signal || mom.goal_timing_signal || '').toUpperCase();
+    const badge = String(mom.badge || mom.goal_timing_badge || '').trim();
+    if (sig.includes('REBOUND') || badge.toUpperCase().includes('REBOUND')) {
+      out.push({
+        league: tr.league,
+        event_id: tr.event_id,
+        home: tr.home,
+        away: tr.away,
+        side: tr.side,
+        pickLabel: pickTeam,
+        live_score: tr.live_score || tr.score_str || 'LIVE',
+        signalBadge: badge || '🔥 DOMINANCE REBOUND EDGE',
+        signalDetail:
+          mom.sot_diff !== undefined
+            ? `SoT ${mom.sot_for_pick}–${mom.sot_opp} (+${mom.sot_diff}) · Poss ${Math.round(Number(mom.poss_pct || 55))}%`
+            : `Pre-Match Banker @ ${Number(tr.logged_best_odds || 1.3).toFixed(2)}`,
+      });
+    } else if (sig.includes('GOAL') || badge.toUpperCase().includes('GOAL')) {
+      out.push({
+        league: tr.league,
+        event_id: tr.event_id,
+        home: tr.home,
+        away: tr.away,
+        side: tr.side,
+        pickLabel: pickTeam,
+        live_score: tr.live_score || tr.score_str || 'LIVE',
+        signalBadge: badge || '⚡ LIVE GOAL WINDOW EDGE',
+        signalDetail: `High 15m scoring window active · Odds @ ${Number(tr.logged_best_odds || 1.3).toFixed(2)}`,
+      });
+    } else {
+      out.push({
+        league: tr.league,
+        event_id: tr.event_id,
+        home: tr.home,
+        away: tr.away,
+        side: tr.side,
+        pickLabel: pickTeam,
+        live_score: tr.live_score || tr.score_str || 'LIVE',
+        signalBadge: Number(tr.live_pnl || 0) > 0 ? '🟢 IN-PLAY LEADING' : '⚡ ACTIVE IN-PLAY BANKER',
+        signalDetail: `Logged @ ${Number(tr.logged_best_odds || 1.3).toFixed(2)} · Real-time telemetry active`,
+      });
+    }
+  }
+  return out;
 });
 
 // Modals state

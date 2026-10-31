@@ -94,6 +94,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const dayFilter = ref<string>('all');
   const minOdds = ref<number>(1.10);
   const minProb = ref<number>(0.55);
+  const unitStakeEur = ref<number>(25);
   const searchQuery = ref<string>('');
   const tzMode = ref<'local' | 'utc'>('local');
   const disabledSports = ref<Set<string>>(new Set());
@@ -131,6 +132,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
       dayFilter: dayFilter.value,
       minOdds: minOdds.value,
       minProb: minProb.value,
+      unitStakeEur: unitStakeEur.value,
       tzMode: tzMode.value,
       customSelectedMatches: Array.from(customSelectedMatches.value),
       disabledSports: Array.from(disabledSports.value),
@@ -152,6 +154,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
         }
         if (typeof p.minProb === 'number' && p.minProb >= 0.5 && p.minProb <= 0.95) {
           minProb.value = p.minProb;
+        }
+        if (typeof p.unitStakeEur === 'number' && p.unitStakeEur >= 1 && p.unitStakeEur <= 10000) {
+          unitStakeEur.value = p.unitStakeEur;
         }
         if (p.tzMode === 'utc' || p.tzMode === 'local') tzMode.value = p.tzMode;
         if (Array.isArray(p.customSelectedMatches)) {
@@ -191,7 +196,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   }
 
   watch(
-    [sportFilter, dayFilter, minOdds, minProb, tzMode],
+    [sportFilter, dayFilter, minOdds, minProb, unitStakeEur, tzMode],
     () => {
       if (generatedAt.value) {
         generatedAtLocal.value = formatHeaderTimestamp(generatedAt.value, timezone.value, tzMode.value);
@@ -884,6 +889,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     dayFilter,
     minOdds,
     minProb,
+    unitStakeEur,
     searchQuery,
     tzMode,
     disabledSports,

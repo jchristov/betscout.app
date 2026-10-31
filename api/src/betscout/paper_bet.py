@@ -3007,12 +3007,16 @@ def _upsert_paper_bet(db_path: Path, pick: dict[str, Any], now_iso: str) -> None
 
 
 def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
-    """Inspect pending soccer paper bets kicking off within the next 90 minutes.
-    If official 11-player starting XIs are announced:
-      - If `evaluate_starting_xi_gate` flags `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`,
-        remove the bet from active PENDING `paper_bets` and return it in `vetoed_alerts`.
-      - Otherwise, persist the confirmed `starting_xi_gate` (`CONFIRMED_XI` / `CONFIRMED_XI_DEF_ROTATED`),
-        latest closing odds, and `clv_pct` in `paper_bets` and `recommendations.json`."""
+    """Inspect all pending paper bets kicking off within the next 90 minutes across ALL 10 sports:
+      1. **T-60m Closing-Line Steam & Reverse-Line-Movement (RLM) Guard (All Sports):**
+         Fetches live closing odds from Sportradar (`Tipico` + `UOF`), SofaScore (`Tennis`), or ESPN (`Soccer` / `US Sports`).
+         Updates `latest_close_odds` and `clv_pct = (logged_best_odds / close_odds) - 1.0`.
+         If the market price drifts out against our pick by `>= 6.0%` (`clv_pct <= -0.06`, indicating a late star scratch or sharp RLM steam),
+         purges the pick from active `PENDING` `paper_bets` and records `VETOED_ADVERSE_RLM_DRIFT`.
+      2. **T-60m Rapid-Fire Session Momentum Re-Validation (`darts`, `table_tennis`):**
+         Purges any pending pick if the backed player just lost a match within the last 3.5 hours before kickoff (`VETOED_SESSION_LOSS`).
+      3. **T-60m Official Starting XI Gate (`soccer`):**
+         Purges any pending Football pick if `evaluate_starting_xi_gate` flags `VETOED_DEPLETED_XI` or `VETOED_DEPLETED_DEFENSE`."""
     if not db_path.exists():
         return []
     conn = _open_db(db_path)
@@ -3025,7 +3029,6 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         """
         SELECT * FROM paper_bets
         WHERE status = 'PENDING'
-          AND lower(league) NOT IN ('atp', 'wta', 'nba', 'nhl', 'nfl', 'mlb')
           AND kickoff >= ? AND kickoff <= ?
         """,
         (now_iso, soon_iso),
@@ -3034,77 +3037,208 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     if not rows:
         return []
 
-    xi_hist = _build_team_player_attack_history(db_path, db_path.parent / "cache", leagues=EXPANDED_SOCCER_LEAGUES)
+    has_soccer_rows = any(
+        r["league"].lower() not in ("atp", "wta", "nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb", "darts", "table_tennis", "handball", "snooker", "mma", "curling")
+        for r in rows
+    )
+    xi_hist = (
+        _build_team_player_attack_history(db_path, db_path.parent / "cache", leagues=EXPANDED_SOCCER_LEAGUES)
+        if has_soccer_rows
+        else {}
+    )
     vetoed_alerts: list[dict[str, Any]] = []
     confirmed_updates: dict[tuple[str, str], dict[str, Any]] = {}
     for r in rows:
         lg, eid = r["league"], str(r["event_id"])
+        lg_l = lg.lower()
+        base_eid = eid.split("::", 1)[0]
         backed = r["home"] if r["side"] == "H" else r["away"]
-        if lg.lower() in ("darts", "table_tennis"):
-            # T-60m Rapid-Fire Session Momentum Re-Validation for Darts & Table Tennis:
-            # Purge any pending pick if the backed player just lost a match within the last 3.5 hours before kickoff.
-            try:
-                from .sportradar_statshub import fetch_live_match_timelinedelta, fetch_statshub_gismo
+        logged_best = float(r["logged_best_odds"] or 1.25)
 
-                sr_d = fetch_live_match_timelinedelta(
-                    r["home"],
-                    r["away"],
-                    sport=lg.lower(),
-                    date_ymd=str(r["kickoff"])[:10],
-                    sr_match_id=(eid.replace("sr_", "") if eid.startswith("sr_") else None),
+        if lg_l in ("darts", "table_tennis", "handball", "curling", "snooker", "mma"):
+            try:
+                from .sportradar_statshub import (
+                    fetch_live_match_timelinedelta,
+                    fetch_statshub_gismo,
+                    lookup_sportradar_daily_odds,
                 )
-                fav_uid = sr_d.get("home_uid") if r["side"] == "H" else sr_d.get("away_uid")
-                if fav_uid:
-                    lx_d = fetch_statshub_gismo("stats_team_lastx", f"{fav_uid}/5", ttl_sec=60.0) or {}
-                    ko_uts = int(datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp())
-                    prior_ms = [
-                        mx
-                        for mx in (lx_d.get("matches") or [])
-                        if int(((mx.get("time") or {}).get("uts")) or 0) < ko_uts
-                        and str(mx.get("_id")) != eid.replace("sr_", "")
-                    ]
-                    prior_ms.sort(key=lambda mx: int(((mx.get("time") or {}).get("uts")) or 0), reverse=True)
-                    if prior_ms:
-                        m0 = prior_ms[0]
-                        m0_uts = int(((m0.get("time") or {}).get("uts")) or 0)
-                        if (ko_uts - m0_uts) <= int(3.5 * 3600):
-                            tms_0 = m0.get("teams") or {}
-                            is_h0 = ((tms_0.get("home") or {}).get("uid") == fav_uid)
-                            rh0 = int(((m0.get("result") or {}).get("home")) or 0)
-                            ra0 = int(((m0.get("result") or {}).get("away")) or 0)
-                            my_s0 = rh0 if is_h0 else ra0
-                            op_s0 = ra0 if is_h0 else rh0
-                            if my_s0 < op_s0 and (my_s0 + op_s0) > 0:
-                                c_del = _open_db(db_path)
-                                c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
-                                c_del.commit()
-                                c_del.close()
-                                vetoed_alerts.append({
-                                    "league": lg,
-                                    "event_id": eid,
-                                    "home": r["home"],
-                                    "away": r["away"],
-                                    "backed_team": backed,
-                                    "status": "VETOED_SESSION_LOSS",
-                                    "attack_share": None,
-                                })
+
+                if lg_l in ("darts", "table_tennis"):
+                    sr_d = fetch_live_match_timelinedelta(
+                        r["home"],
+                        r["away"],
+                        sport=lg_l,
+                        date_ymd=str(r["kickoff"])[:10],
+                        sr_match_id=(base_eid.replace("sr_", "") if base_eid.startswith("sr_") else None),
+                    )
+                    fav_uid = sr_d.get("home_uid") if r["side"] == "H" else sr_d.get("away_uid")
+                    if fav_uid:
+                        lx_d = fetch_statshub_gismo("stats_team_lastx", f"{fav_uid}/5", ttl_sec=60.0) or {}
+                        ko_uts = int(datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp())
+                        prior_ms = [
+                            mx
+                            for mx in (lx_d.get("matches") or [])
+                            if int(((mx.get("time") or {}).get("uts")) or 0) < ko_uts
+                            and str(mx.get("_id")) != base_eid.replace("sr_", "")
+                        ]
+                        prior_ms.sort(key=lambda mx: int(((mx.get("time") or {}).get("uts")) or 0), reverse=True)
+                        if prior_ms:
+                            m0 = prior_ms[0]
+                            m0_uts = int(((m0.get("time") or {}).get("uts")) or 0)
+                            if (ko_uts - m0_uts) <= int(3.5 * 3600):
+                                tms_0 = m0.get("teams") or {}
+                                is_h0 = ((tms_0.get("home") or {}).get("uid") == fav_uid)
+                                rh0 = int(((m0.get("result") or {}).get("home")) or 0)
+                                ra0 = int(((m0.get("result") or {}).get("away")) or 0)
+                                my_s0 = rh0 if is_h0 else ra0
+                                op_s0 = ra0 if is_h0 else rh0
+                                if my_s0 < op_s0 and (my_s0 + op_s0) > 0:
+                                    c_del = _open_db(db_path)
+                                    c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                                    c_del.commit()
+                                    c_del.close()
+                                    vetoed_alerts.append({
+                                        "league": lg,
+                                        "event_id": eid,
+                                        "home": r["home"],
+                                        "away": r["away"],
+                                        "backed_team": backed,
+                                        "status": "VETOED_SESSION_LOSS",
+                                        "attack_share": None,
+                                    })
+                                    continue
+
+                # Check live closing odds & RLM drift for European sports
+                if r["side"] in ("H", "A"):
+                    sr_o = lookup_sportradar_daily_odds(r["home"], r["away"], sport=lg_l, date_ymd=str(r["kickoff"])[:10])
+                    cur_close_sr = sr_o.get("odds_home") if r["side"] == "H" else sr_o.get("odds_away")
+                    if cur_close_sr and float(cur_close_sr) > 1.01:
+                        clv_sr = (logged_best / float(cur_close_sr)) - 1.0
+                        if clv_sr <= -0.06:
+                            c_del = _open_db(db_path)
+                            c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                            c_del.commit()
+                            c_del.close()
+                            vetoed_alerts.append({
+                                "league": lg,
+                                "event_id": eid,
+                                "home": r["home"],
+                                "away": r["away"],
+                                "backed_team": backed,
+                                "status": "VETOED_ADVERSE_RLM_DRIFT",
+                                "attack_share": None,
+                            })
+                        else:
+                            c_upd = _open_db(db_path)
+                            c_upd.execute(
+                                "UPDATE paper_bets SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (round(float(cur_close_sr), 3), clv_sr, now_iso, lg, eid),
+                            )
+                            c_upd.commit()
+                            c_upd.close()
             except Exception:
                 pass
             continue
-        if lg.lower() in ("handball", "snooker", "mma", "curling"):
+
+        if lg_l in ("atp", "wta"):
+            if r["side"] in ("H", "A"):
+                try:
+                    ymd_t = str(r["kickoff"])[:10].replace("-", "")
+                    sf_o = _fetch_sofascore_tennis_odds(r["home"], r["away"], ymd_t)
+                    cur_close_t = sf_o.get("odds_p1") if r["side"] == "H" else sf_o.get("odds_p2")
+                    if cur_close_t and float(cur_close_t) > 1.01:
+                        clv_t = (logged_best / float(cur_close_t)) - 1.0
+                        if clv_t <= -0.06:
+                            c_del = _open_db(db_path)
+                            c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                            c_del.commit()
+                            c_del.close()
+                            vetoed_alerts.append({
+                                "league": lg,
+                                "event_id": eid,
+                                "home": r["home"],
+                                "away": r["away"],
+                                "backed_team": backed,
+                                "status": "VETOED_ADVERSE_RLM_DRIFT",
+                                "attack_share": None,
+                            })
+                        else:
+                            c_upd = _open_db(db_path)
+                            c_upd.execute(
+                                "UPDATE paper_bets SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (round(float(cur_close_t), 3), clv_t, now_iso, lg, eid),
+                            )
+                            c_upd.commit()
+                            c_upd.close()
+                except Exception:
+                    pass
             continue
-        s_url = f"{BASE}/soccer/{lg}/summary?event={eid}"
+
+        if lg_l in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba", "nhl", "nfl", "mlb"):
+            if r["side"] in ("H", "A"):
+                try:
+                    sp_map_us = {"nhl": "hockey", "nfl": "football", "mlb": "baseball"}
+                    sp_us = sp_map_us.get(lg_l, "basketball")
+                    lg_slug_us = {"ncaam": "mens-college-basketball", "ncaaw": "womens-college-basketball"}.get(lg_l, lg_l)
+                    sum_us = _fetch_live_json(f"{BASE}/{sp_us}/{lg_slug_us}/summary?event={base_eid}", ttl_sec=30.0)
+                    inj_us = _evaluate_us_sport_injuries_and_news(sum_us or {}, r["home"], r["away"], r["side"])
+                    if inj_us.get("vetoed"):
+                        c_del = _open_db(db_path)
+                        c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                        c_del.commit()
+                        c_del.close()
+                        vetoed_alerts.append({
+                            "league": lg,
+                            "event_id": eid,
+                            "home": r["home"],
+                            "away": r["away"],
+                            "backed_team": backed,
+                            "status": "VETOED_DEPLETED_ROSTER",
+                            "attack_share": None,
+                        })
+                        continue
+                    pr_us = _two_way_team_odds(sum_us or {}, sp_us)
+                    cur_close_us = pr_us.get("odds_home") if r["side"] == "H" else pr_us.get("odds_away")
+                    if cur_close_us and float(cur_close_us) > 1.01:
+                        clv_us = (logged_best / float(cur_close_us)) - 1.0
+                        if clv_us <= -0.06:
+                            c_del = _open_db(db_path)
+                            c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                            c_del.commit()
+                            c_del.close()
+                            vetoed_alerts.append({
+                                "league": lg,
+                                "event_id": eid,
+                                "home": r["home"],
+                                "away": r["away"],
+                                "backed_team": backed,
+                                "status": "VETOED_ADVERSE_RLM_DRIFT",
+                                "attack_share": None,
+                            })
+                        else:
+                            c_upd = _open_db(db_path)
+                            c_upd.execute(
+                                "UPDATE paper_bets SET latest_close_odds = ?, clv_pct = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
+                                (round(float(cur_close_us), 3), clv_us, now_iso, lg, eid),
+                            )
+                            c_upd.commit()
+                            c_upd.close()
+                except Exception:
+                    pass
+            continue
+
+        s_url = f"{BASE}/soccer/{lg}/summary?event={base_eid}"
         summary = _fetch_live_json(s_url, ttl_sec=30.0)
         if not summary:
             continue
         gate = evaluate_starting_xi_gate(summary, lg, backed, r["side"], xi_hist)
-        det = _extract_soccer_details(lg, eid, r["kickoff"], summary)
+        det = _extract_soccer_details(lg, base_eid, r["kickoff"], summary)
         close_h, close_a = det[7], det[9]
         pri = _soccer_odds(summary)
         cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or float(r["latest_close_odds"])
-        logged_best = float(r["logged_best_odds"])
         clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
-        if gate.get("vetoed"):
+        if gate.get("vetoed") or (r["side"] in ("H", "A") and clv_pct <= -0.06):
+            v_status = gate["status"] if gate.get("vetoed") else "VETOED_ADVERSE_RLM_DRIFT"
             c_del = _open_db(db_path)
             c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()
@@ -3115,8 +3249,8 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                 "home": r["home"],
                 "away": r["away"],
                 "backed_team": backed,
-                "status": gate["status"],
-                "attack_share": gate["attack_share"],
+                "status": v_status,
+                "attack_share": gate.get("attack_share"),
             })
         else:
             c_upd = _open_db(db_path)
@@ -3126,7 +3260,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
             )
             c_upd.commit()
             c_upd.close()
-            confirmed_updates[(lg, str(eid))] = gate
+            confirmed_updates[(lg, str(base_eid))] = gate
 
     # Sync updated starting_xi_gate status into recommendations.json if present
     rec_path = db_path.parent / "recommendations.json"
