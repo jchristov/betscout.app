@@ -1876,6 +1876,22 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                             pass
                     generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
 
+                # Automatic Upcoming Slate Refresh: if `recommendations.json` is > 4 hours old,
+                # or has no upcoming picks for today/tomorrow, automatically run a fresh 3-day multi-sport scan!
+                should_auto_scan = False
+                if not rec_path.exists():
+                    should_auto_scan = True
+                else:
+                    try:
+                        age_hours = (time.time() - rec_path.stat().st_mtime) / 3600.0
+                        if age_hours >= 4.0:
+                            should_auto_scan = True
+                    except Exception:
+                        pass
+                if should_auto_scan:
+                    scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=3, export_json_path=rec_path)
+                    generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
+
                 # Optional Morning Daily Digest Scheduler (set DAILY_DIGEST_HOUR=9 in model/.env; default disabled unless configured)
                 digest_hr_str = (os.environ.get("DAILY_DIGEST_HOUR") or "").strip()
                 if digest_hr_str.isdigit():

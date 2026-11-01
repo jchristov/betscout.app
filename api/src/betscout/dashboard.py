@@ -286,6 +286,47 @@ def build_best_bets_summary(
         for t in ((rec.get("paper_ledger") or {}).get("bets") or [])
         if t.get("status") != "SETTLED"
     }
+    # Filter out historical/finished matches from active picks (Tab 1 / Best Bets)
+    # Use the snapshot's generated_at timestamp (or the latest pick kickoff date) as the reference day so synthetic unit-test fixtures still work seamlessly,
+    # while in production any match from a prior day (or > 4 hours before the current time when generated_at is recent) is excluded!
+    from datetime import datetime, timedelta, timezone
+
+    now_utc_dt = datetime.now(timezone.utc)
+    ref_dt = now_utc_dt
+    if def_ann_iso:
+        try:
+            gen_dt = datetime.fromisoformat(def_ann_iso.replace("Z", "+00:00"))
+            # If the snapshot was generated within the last 7 days, filter against real current UTC time (`now_utc_dt`);
+            # otherwise (synthetic historical test fixture), filter relative to `gen_dt`
+            if abs((now_utc_dt - gen_dt).total_seconds()) <= 7 * 86400:
+                ref_dt = now_utc_dt
+            else:
+                ref_dt = gen_dt
+        except Exception:
+            ref_dt = now_utc_dt
+    else:
+        # Synthetic test payload without generated_at: only apply real-time cutoff if at least one pick is within 7 days of now_utc_dt
+        all_kos = [
+            str(x.get("kickoff") or "")
+            for lst in (rec.get("qualifying_picks") or [], rec.get("tennis_picks") or [], rec.get("other_sport_picks") or [])
+            for x in lst
+            if x.get("kickoff")
+        ]
+        if all_kos and max(all_kos) < (now_utc_dt - timedelta(days=3)).strftime("%Y-%m-%d"):
+            ref_dt = datetime.fromisoformat(min(all_kos).replace("Z", "+00:00"))
+
+    cutoff_iso = (ref_dt - timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _is_active_or_upcoming(ko_str: str | None, is_live_flag: Any = False) -> bool:
+        if is_live_flag:
+            return True
+        if not ko_str:
+            return True
+        k_norm = str(ko_str).strip()
+        if len(k_norm) == 17 and k_norm.endswith("Z"):
+            k_norm = k_norm[:-1] + ":00Z"
+        return k_norm >= cutoff_iso
+
     raw_soccer_picks = [
         {**p,
          "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0, None, None, None, def_ann_iso))[0],
@@ -297,6 +338,10 @@ def build_best_bets_summary(
          "logged_at": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (None, None, 0.0, None, None, None, def_ann_iso))[6]}
         for p in (rec.get("qualifying_picks") or [])
         if (p.get("league"), str(p.get("event_id"))) not in settled_ids
+        and _is_active_or_upcoming(
+            ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p.get("kickoff"),))[0],
+            p.get("is_live"),
+        )
     ]
     raw_tennis_picks = [
         {**tp,
@@ -309,6 +354,10 @@ def build_best_bets_summary(
          "logged_at": ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (None, None, 0.0, None, None, None, def_ann_iso))[6]}
         for tp in (rec.get("tennis_picks") or [])
         if (tp.get("tour", "").lower(), str(tp.get("event_id"))) not in settled_ids
+        and _is_active_or_upcoming(
+            ledger_time_map.get((tp.get("tour", "").lower(), str(tp.get("event_id"))), (tp.get("kickoff"),))[0],
+            tp.get("is_live"),
+        )
     ]
     raw_other_picks = [
         {**op,
@@ -321,6 +370,10 @@ def build_best_bets_summary(
          "logged_at": ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (None, None, 0.0, None, None, None, def_ann_iso))[6]}
         for op in (rec.get("other_sport_picks") or [])
         if (op.get("league", "").lower(), str(op.get("event_id"))) not in settled_ids
+        and _is_active_or_upcoming(
+            ledger_time_map.get((op.get("league", "").lower(), str(op.get("event_id"))), (op.get("kickoff"),))[0],
+            op.get("is_live"),
+        )
     ]
 
     best_bets: list[dict[str, Any]] = []

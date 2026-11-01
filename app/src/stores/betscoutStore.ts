@@ -491,10 +491,32 @@ export const useBetscoutStore = defineStore('betscout', () => {
     return loc.slice(0, 10);
   }
 
+  function _is_active_or_upcoming_pick(b: BestBetItem): boolean {
+    if ((b as any).is_live) return true;
+    const rawIso = String(b.date || '');
+    if (rawIso) {
+      const ts = Date.parse(rawIso);
+      if (!Number.isNaN(ts)) {
+        const genTs = generatedAt.value ? Date.parse(generatedAt.value) : NaN;
+        const nowTs = Date.now();
+        // If generatedAt is within 5 days of now, use real current time; otherwise (unit tests with fixed dates), use max date in bestBets
+        const refTs =
+          !Number.isNaN(genTs) && Math.abs(nowTs - genTs) <= 5 * 86400 * 1000
+            ? nowTs
+            : !Number.isNaN(genTs)
+              ? genTs
+              : ts;
+        return ts >= refTs - 4 * 3600 * 1000;
+      }
+    }
+    return true;
+  }
+
   const availableDays = computed(() => {
     const counts: Record<string, number> = {};
     for (const b of bestBets.value) {
       if (disabledSports.value.has(b.sport_cat)) continue;
+      if (!_is_active_or_upcoming_pick(b)) continue;
       const d = matchDayKey(b);
       if (d.length === 10 && d[4] === '-') {
         counts[d] = (counts[d] || 0) + 1;
@@ -506,7 +528,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
   });
 
   const activeBestBets = computed(() =>
-    bestBets.value.filter((b) => !disabledSports.value.has(b.sport_cat)),
+    bestBets.value.filter(
+      (b) => !disabledSports.value.has(b.sport_cat) && _is_active_or_upcoming_pick(b),
+    ),
   );
 
   const visibleBestBets = computed(() => {

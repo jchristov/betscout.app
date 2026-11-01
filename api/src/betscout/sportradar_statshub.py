@@ -794,9 +794,9 @@ def scan_sportradar_european_sports(
                 comp_label = f"{rc_name} · {t_name}".strip(" ·")
                 for m in t.get("matches") or []:
                     st = m.get("status")
-                    st_id = int(st.get("_id") or 0) if isinstance(st, dict) else 0
+                    st_id = int(st.get("_id") or 0) if isinstance(st, dict) else (int(st) if isinstance(st, int) else 0)
                     res_m = m.get("result") or {}
-                    if st_id not in (0, 61) or res_m.get("home") is not None or m.get("inlivescore"):
+                    if st_id not in (0, 61) or res_m.get("home") is not None:
                         continue
                     mid = str(m.get("_id") or "")
                     if not mid:

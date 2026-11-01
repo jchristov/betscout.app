@@ -2114,7 +2114,7 @@ def scan_upcoming_other_sports(
     try:
         from .sportradar_statshub import scan_sportradar_european_sports
 
-        for offset_d in range(min(days_ahead, 2)):
+        for offset_d in range(min(days_ahead + 1, 3)):
             d_ymd = (base_dt + timedelta(days=offset_d)).strftime("%Y-%m-%d")
             sr_euro_picks = scan_sportradar_european_sports(
                 date_ymd=d_ymd,
