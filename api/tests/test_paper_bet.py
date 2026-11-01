@@ -976,19 +976,20 @@ def test_per_sport_isolated_gates():
         "darts", 0.7745, 0.58, 0.40, 1.25, False, 10, 10, recent3_diff_fav=0.667, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.80
     )
     assert darts_grv_ok is True
-    # Curling: Austria vs Germany (Germany @ 1.24, fav_wr=0.10, form_diff=0.0, recent3_diff=0.0) -> Vetoed!
+    # Curling: Austria vs Germany (Germany @ 1.24, fav_wr=0.10, form_diff=0.0, recent3_diff=0.0) & Scotland vs Italy (5-6 loss where form_diff=0.20 < 0.30, recent3_diff=0.0 < 0.33) -> Vetoed!
     curl_ger_bad, _, _ = evaluate_european_sport_gate(
         "curling", 0.75, 0.50, 0.0, 1.24, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=1, dog_win_streak=0, fav_wr=0.10
     )
     assert curl_ger_bad is False
-    # Curling: Scotland vs Italy (Scotland @ 1.33, fav_wr=0.90, form_diff=0.20, recent3_diff=0.0) & Czechia vs Sweden (Sweden @ 1.33, fav_wr=0.90, form_diff=0.50, recent3_diff=0.333) -> Pass!
-    curl_sco_ok, _, _ = evaluate_european_sport_gate(
+    curl_sco_bad, _, _ = evaluate_european_sport_gate(
         "curling", 0.72, 0.58, 0.20, 1.33, False, 10, 10, recent3_diff_fav=0.0, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.90
     )
+    assert curl_sco_bad is False
+    # Czechia vs Sweden (Sweden @ 1.33, fav_wr=0.90, form_diff=0.50, recent3_diff=0.333) -> Passes!
     curl_swe_ok, _, _ = evaluate_european_sport_gate(
         "curling", 0.72, 0.62, 0.50, 1.33, False, 10, 10, recent3_diff_fav=0.333, fav_loss_streak=0, dog_win_streak=0, fav_wr=0.90
     )
-    assert curl_sco_ok is True and curl_swe_ok is True
+    assert curl_swe_ok is True
 
     # 7b. Secondary Market Opportunity Evaluators (Double Chance 1X/X2, DNB, Over 2.5/1.5 Goals, Under 2.5 Defense-Wall, Tennis +1.5 Sets, Under 21.5 Games, 2:0 Sets, NHL Goalie-Wall Under / Attack Over / +1.5 Puck Line, NBA Sharp-Pace Over / +7.5 Shield, NFL -2.5 FG / +7.5 Shield / Defense-Wall Under / High-Yards Over)
     from betscout.sport_models import (
@@ -1091,6 +1092,48 @@ def test_per_sport_isolated_gates():
     )
     nfl_types = {x["market_type"] for x in nfl_sec}
     assert "SPREAD_M2.5_H" in nfl_types and "SPREAD_P7.5_H" in nfl_types and "UNDER_44.5_POINTS" in nfl_types
+
+    # 7b-2. Test Football Bayern vs Dortmund Top-25% Indiscipline/Draw-Trap Veto, Tennis Vacherot vs Fritz Decider Veto, and 4-Outcome Tennis Set-Score Distribution
+    from betscout.exact_score import predict_tennis_set_scores
+
+    assert (
+        evaluate_soccer_gate(
+            "ger.1",
+            0.223,
+            thrs,
+            0.711,
+            1.8,
+            {"p_mkt": 0.96, "vig_neg": -0.738, "sot_d": 0.905, "discipline": -0.296, "h2h_adv": 0.289, "dom_rebound": -0.408, "recent_draws": 0.438},
+        )
+        == "pass"
+    )
+    t_fritz_ok, _, _, t_fritz_reason = evaluate_tennis_gate(
+        0.7285, 1.27, 3.60, game_win_pct_diff=0.049, form_6m_diff=0.333, game_elo_diff=66.0, all_elo_diff=153.2, h2h_n=1, decider_diff=-0.20, tourn_wins_diff=0
+    )
+    assert t_fritz_ok is False and t_fritz_reason == "VETO_WEAK_DECIDER_RESILIENCE"
+    t_fern_ok, _, _, _ = evaluate_tennis_gate(
+        0.7277, 1.383, 3.10, game_win_pct_diff=0.027, form_6m_diff=0.20, game_elo_diff=77.0, all_elo_diff=131.2, h2h_n=2, decider_diff=-0.20, tourn_wins_diff=1
+    )
+    assert t_fern_ok is True
+
+    set_dist_h = predict_tennis_set_scores(
+        win_prob=0.76,
+        side="H",
+        game_win_pct_diff=0.065,
+        form_6m_diff=0.35,
+        best_of=3,
+        tour="ATP",
+        surface="hard",
+        fav_straight_sets_rate=0.78,
+        dog_set_steal_rate=0.22,
+        decider_diff=0.25,
+    )
+    dist_map = set_dist_h["distribution"]
+    assert set(dist_map.keys()) == {"2:0", "2:1", "1:2", "0:2"}
+    assert abs(sum(dist_map.values()) - 1.0) <= 0.01
+    assert set_dist_h["straight_sets_prob"] == dist_map["2:0"]
+    assert set_dist_h["plus_1_5_sets_prob"] >= 0.85
+    assert "three_set_dogfight_prob" in set_dist_h
 
     # 7c. Test T-60m 1-Hour Pre-Match Reminder Notification (text-only with emojis, no PNG attachment)
     import sqlite3

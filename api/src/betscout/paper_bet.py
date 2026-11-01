@@ -388,6 +388,8 @@ def scan_upcoming_tennis(
     game_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
     win6_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
     decider_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=10))
+    ss_win_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=12))
+    set_steal_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=12))
     tourn_wins: dict[tuple[str, str, str], int] = defaultdict(int)
     last_match: dict[tuple[str, str], tuple[datetime, str, float]] = {}
     h2h: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0])
@@ -432,6 +434,16 @@ def scan_upcoming_tennis(
         es.update(h, a, float(won_h))
         win6_hist[hk].append(float(won_h))
         win6_hist[ak].append(float(1 - won_h))
+        hs_val, as_val = r.get("home_score"), r.get("away_score")
+        if hs_val is not None and as_val is not None:
+            sh_i, sa_i = int(hs_val), int(as_val)
+            if max(sh_i, sa_i) == 2 and min(sh_i, sa_i) in (0, 1):
+                if sh_i == 2:
+                    ss_win_hist[hk].append(1.0 if sa_i == 0 else 0.0)
+                    set_steal_hist[ak].append(1.0 if sa_i == 1 else 0.0)
+                else:
+                    ss_win_hist[ak].append(1.0 if sh_i == 0 else 0.0)
+                    set_steal_hist[hk].append(1.0 if sh_i == 1 else 0.0)
         if won_h:
             tourn_wins[(lg, h, yw)] += 1
         else:
@@ -614,6 +626,10 @@ def scan_upcoming_tennis(
                         if not t_passed:
                             continue
                         t_side = "H" if p_h >= 0.5 else "A"
+                        fav_k = hk if t_side == "H" else ak
+                        dog_k = ak if t_side == "H" else hk
+                        fav_ss_rate = float(np.mean(ss_win_hist[fav_k])) if len(ss_win_hist[fav_k]) >= 3 else None
+                        dog_steal_rate = float(np.mean(set_steal_hist[dog_k])) if len(set_steal_hist[dog_k]) >= 3 else None
                         best_of_sets = 5 if any(gs in t_name.lower() for gs in ("australian open", "roland garros", "french open", "wimbledon", "us open")) and lg == "atp" else 3
                         set_pred = predict_tennis_set_scores(
                             win_prob=win_prob,
@@ -622,6 +638,10 @@ def scan_upcoming_tennis(
                             form_6m_diff=form_diff_pick,
                             best_of=best_of_sets,
                             tour=lg.upper(),
+                            surface=surf,
+                            fav_straight_sets_rate=fav_ss_rate,
+                            dog_set_steal_rate=dog_steal_rate,
+                            decider_diff=decider_diff_pick,
                         )
                         # Expected total games for Best-of-3: ~20.2 games on 2:0, ~31.0 games on 2:1
                         p_20_match = min(max(set_pred["straight_sets_prob"] / max(win_prob, 0.5), 0.45), 0.90)
@@ -1955,6 +1975,11 @@ def scan_upcoming_other_sports(
                     if opp_dq and len(opp_dq) >= 1 and "gf" in opp_dq[0]
                     else None
                 )
+                opp_goal_diff = (
+                    float(np.mean([x["gf"] - x["ga"] for x in opp_dq]))
+                    if opp_dq and len(opp_dq) >= 3 and "gf" in opp_dq[0]
+                    else None
+                )
                 from .sport_models import (
                     evaluate_nba_secondary_markets,
                     evaluate_nfl_secondary_markets,
@@ -2053,6 +2078,7 @@ def scan_upcoming_other_sports(
                     opp_win_rate_3=opp_win_rate_3,
                     opp_ga_3=opp_ga_3,
                     opp_last_margin=opp_last_margin,
+                    opp_goal_diff=opp_goal_diff,
                 ):
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(summary, home, away, side)
@@ -3833,6 +3859,14 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76183982"),
     ("table_tennis", "sr_76191888"),
     ("table_tennis", "sr_76026056"),
+    ("ger.1", "401884754"),
+    ("atp", "185158"),
+    ("handball", "sr_72841792"),
+    ("curling", "sr_74516762"),
+    ("table_tennis", "sr_76224560"),
+    ("table_tennis", "sr_76216746"),
+    ("table_tennis", "sr_76218340"),
+    ("table_tennis", "sr_76216682"),
 )
 
 
