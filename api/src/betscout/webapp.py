@@ -949,6 +949,34 @@ def _build_match_center_dossier_payload(
                     },
                 },
             },
+            "home_last_matches": [
+                {
+                    "time": {"date": m.get("date")},
+                    "teams": {"home": {"name": m.get("home")}, "away": {"name": m.get("away")}},
+                    "result": {
+                        "home": int(str(m.get("score") or "0-0").split("-")[0]) if "-" in str(m.get("score") or "") and str(m.get("score") or "").split("-")[0].strip().isdigit() else 0,
+                        "away": int(str(m.get("score") or "0-0").split("-")[1].split()[0]) if "-" in str(m.get("score") or "") and str(m.get("score") or "").split("-")[1].split()[0].strip().isdigit() else 0,
+                        "winner": ("home" if m.get("result") == "W" else ("away" if m.get("result") == "L" else None))
+                        if str(m.get("home") or "").lower() == h_name.lower()
+                        else ("away" if m.get("result") == "W" else ("home" if m.get("result") == "L" else None)),
+                    },
+                }
+                for m in (local_detail.get("form_home") or [])
+            ],
+            "away_last_matches": [
+                {
+                    "time": {"date": m.get("date")},
+                    "teams": {"home": {"name": m.get("home")}, "away": {"name": m.get("away")}},
+                    "result": {
+                        "home": int(str(m.get("score") or "0-0").split("-")[0]) if "-" in str(m.get("score") or "") and str(m.get("score") or "").split("-")[0].strip().isdigit() else 0,
+                        "away": int(str(m.get("score") or "0-0").split("-")[1].split()[0]) if "-" in str(m.get("score") or "") and str(m.get("score") or "").split("-")[1].split()[0].strip().isdigit() else 0,
+                        "winner": ("home" if m.get("result") == "W" else ("away" if m.get("result") == "L" else None))
+                        if str(m.get("home") or "").lower() == a_name.lower()
+                        else ("away" if m.get("result") == "W" else ("home" if m.get("result") == "L" else None)),
+                    },
+                }
+                for m in (local_detail.get("form_away") or [])
+            ],
             "h2h_edge": local_detail.get("h2h_edge"),
             "win_prob_bar": local_detail.get("win_prob_bar"),
             "local_detail": local_detail,

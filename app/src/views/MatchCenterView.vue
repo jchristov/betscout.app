@@ -551,12 +551,37 @@
                         <div
                           v-for="(lm, i) in homeLastMatches.slice(0, 6)"
                           :key="i"
-                          class="py-1 border-b border-slate-800/70 flex justify-between font-mono tabular-nums"
+                          class="py-1.5 border-b border-slate-800/70 flex items-center justify-between gap-2 font-mono tabular-nums"
                         >
-                          <span class="font-sans truncate max-w-[165px]">
-                            {{ lm.home }} <span class="text-slate-400">vs</span> {{ lm.away }}
-                          </span>
-                          <b class="text-white">{{ lm.score }}</b>
+                          <div class="flex items-center gap-1.5 min-w-0">
+                            <span
+                              class="w-5 h-5 rounded inline-flex items-center justify-center font-extrabold text-[10px] shrink-0"
+                              :class="
+                                lm.result === 'W'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                                  : lm.result === 'D'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                                    : 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                              "
+                            >
+                              {{ lm.result }}
+                            </span>
+                            <span class="font-sans truncate max-w-[145px]">
+                              <span :class="lm.isEntityHome ? 'text-white font-semibold' : 'text-slate-300'">{{ lm.home }}</span>
+                              <span class="text-slate-500 mx-0.5">vs</span>
+                              <span :class="!lm.isEntityHome ? 'text-white font-semibold' : 'text-slate-300'">{{ lm.away }}</span>
+                            </span>
+                          </div>
+                          <b
+                            class="shrink-0"
+                            :class="
+                              lm.result === 'W'
+                                ? 'text-emerald-300'
+                                : lm.result === 'D'
+                                  ? 'text-amber-300'
+                                  : 'text-rose-300'
+                            "
+                          >{{ lm.score }}</b>
                         </div>
                       </div>
                       <div>
@@ -564,12 +589,37 @@
                         <div
                           v-for="(lm, i) in awayLastMatches.slice(0, 6)"
                           :key="i"
-                          class="py-1 border-b border-slate-800/70 flex justify-between font-mono tabular-nums"
+                          class="py-1.5 border-b border-slate-800/70 flex items-center justify-between gap-2 font-mono tabular-nums"
                         >
-                          <span class="font-sans truncate max-w-[165px]">
-                            {{ lm.home }} <span class="text-slate-400">vs</span> {{ lm.away }}
-                          </span>
-                          <b class="text-white">{{ lm.score }}</b>
+                          <div class="flex items-center gap-1.5 min-w-0">
+                            <span
+                              class="w-5 h-5 rounded inline-flex items-center justify-center font-extrabold text-[10px] shrink-0"
+                              :class="
+                                lm.result === 'W'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                                  : lm.result === 'D'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                                    : 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                              "
+                            >
+                              {{ lm.result }}
+                            </span>
+                            <span class="font-sans truncate max-w-[145px]">
+                              <span :class="lm.isEntityHome ? 'text-white font-semibold' : 'text-slate-300'">{{ lm.home }}</span>
+                              <span class="text-slate-500 mx-0.5">vs</span>
+                              <span :class="!lm.isEntityHome ? 'text-white font-semibold' : 'text-slate-300'">{{ lm.away }}</span>
+                            </span>
+                          </div>
+                          <b
+                            class="shrink-0"
+                            :class="
+                              lm.result === 'W'
+                                ? 'text-emerald-300'
+                                : lm.result === 'D'
+                                  ? 'text-amber-300'
+                                  : 'text-rose-300'
+                            "
+                          >{{ lm.score }}</b>
                         </div>
                       </div>
                     </div>
@@ -1026,20 +1076,63 @@ const h2hMeetings = computed(() => {
 const homeMissing = computed(() => dossier.value?.home_missing_players || []);
 const awayMissing = computed(() => dossier.value?.away_missing_players || []);
 
+function normalizeNameTokens(name: string): string[] {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/,/g, ' ')
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2);
+}
+
+function isSameEntity(teamObj: any, targetTeamObj: any, targetName: string): boolean {
+  const uidA = teamObj?.uid || teamObj?._id;
+  const uidB = targetTeamObj?.uid || targetTeamObj?._id;
+  if (uidA && uidB && Number(uidA) === Number(uidB)) return true;
+  const nA = String(teamObj?.name || '').toLowerCase().trim();
+  const nB = String(targetName || '').toLowerCase().trim();
+  if (!nA || !nB) return false;
+  if (nA === nB || nA.includes(nB) || nB.includes(nA)) return true;
+  const tokA = normalizeNameTokens(nA);
+  const tokB = normalizeNameTokens(nB);
+  return tokA.length > 0 && tokB.every((t) => tokA.includes(t));
+}
+
+function formatLastMatchesForEntity(list: any[], targetTeamObj: any, targetName: string) {
+  return (list || []).map((lm: any) => {
+    const hName = lm.teams?.home?.name || '';
+    const aName = lm.teams?.away?.name || '';
+    const hs = Number(lm.result?.home ?? 0);
+    const as_ = Number(lm.result?.away ?? 0);
+    const isEntityHome = isSameEntity(lm.teams?.home, targetTeamObj, targetName) || !isSameEntity(lm.teams?.away, targetTeamObj, targetName);
+    const myScore = isEntityHome ? hs : as_;
+    const oppScore = isEntityHome ? as_ : hs;
+    let result: 'W' | 'D' | 'L' = 'D';
+    if (lm.result?.winner === 'home') {
+      result = isEntityHome ? 'W' : 'L';
+    } else if (lm.result?.winner === 'away') {
+      result = isEntityHome ? 'L' : 'W';
+    } else if (myScore > oppScore) {
+      result = 'W';
+    } else if (myScore < oppScore) {
+      result = 'L';
+    }
+    return {
+      home: hName,
+      away: aName,
+      score: `${lm.result?.home ?? ''}-${lm.result?.away ?? ''}`,
+      result,
+      isEntityHome,
+    };
+  });
+}
+
 const homeLastMatches = computed(() =>
-  (dossier.value?.home_last_matches || []).map((lm: any) => ({
-    home: lm.teams?.home?.name || '',
-    away: lm.teams?.away?.name || '',
-    score: `${lm.result?.home ?? ''}-${lm.result?.away ?? ''}`,
-  })),
+  formatLastMatchesForEntity(dossier.value?.home_last_matches || [], homeTeam.value, homeName.value),
 );
 
 const awayLastMatches = computed(() =>
-  (dossier.value?.away_last_matches || []).map((lm: any) => ({
-    home: lm.teams?.home?.name || '',
-    away: lm.teams?.away?.name || '',
-    score: `${lm.result?.home ?? ''}-${lm.result?.away ?? ''}`,
-  })),
+  formatLastMatchesForEntity(dossier.value?.away_last_matches || [], awayTeam.value, awayName.value),
 );
 
 function parseLeadingNum(v: any): number {

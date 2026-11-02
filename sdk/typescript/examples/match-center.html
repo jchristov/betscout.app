@@ -1524,11 +1524,23 @@
       // Last Matches for Home & Away
       document.getElementById('last-home-title').innerHTML = `${crestImg(hTeam, 18)}${hTeam.name} — Last Completed Matches`;
       document.getElementById('last-away-title').innerHTML = `${crestImg(aTeam, 18)}${aTeam.name} — Last Completed Matches`;
-      const renderMatchList = (list) => (list || []).slice(0, 8).map((lm) => {
+      const isSameEntityHtml = (tm, targetTm) => {
+        const uA = tm?.uid || tm?._id;
+        const uB = targetTm?.uid || targetTm?._id;
+        if (uA && uB && Number(uA) === Number(uB)) return true;
+        const nA = String(tm?.name || '').toLowerCase().trim();
+        const nB = String(targetTm?.name || '').toLowerCase().trim();
+        return Boolean(nA && nB && (nA === nB || nA.includes(nB) || nB.includes(nA)));
+      };
+      const renderMatchList = (list, targetTm) => (list || []).slice(0, 8).map((lm) => {
         const lhS = Number(lm.result?.home ?? 0);
         const laS = Number(lm.result?.away ?? 0);
         const lhWon = lm.result?.winner === 'home' || lhS > laS;
         const laWon = lm.result?.winner === 'away' || laS > lhS;
+        const isTargetHome = isSameEntityHtml(lm.teams?.home, targetTm) || !isSameEntityHtml(lm.teams?.away, targetTm);
+        const resChar = (isTargetHome ? lhWon : laWon) ? 'W' : ((isTargetHome ? laWon : lhWon) ? 'L' : 'D');
+        const badgeClass = resChar === 'W' ? 'wdl-w' : (resChar === 'D' ? 'wdl-d' : 'wdl-l');
+        const scoreColor = resChar === 'W' ? 'var(--accent-green)' : (resChar === 'D' ? 'var(--accent-amber)' : 'var(--accent-red)');
         const lhCell = lhWon
           ? `<strong>${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</strong>`
           : `<span style="color:var(--text-secondary);">${crestImg(lm.teams?.home, 16)}${lm.teams?.home?.name || ''}</span>`;
@@ -1539,15 +1551,15 @@
         const interimHtml = pList ? ` <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">(${pList})</span>` : '';
         return `
         <tr>
-          <td>${lm.time?.date || '—'}</td>
+          <td><span class="wdl-badge ${badgeClass}" style="width:18px;height:18px;font-size:0.65rem;margin-right:6px;">${resChar}</span>${lm.time?.date || '—'}</td>
           <td>${lhCell}</td>
-          <td><strong>${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong>${interimHtml}</td>
+          <td><strong style="color:${scoreColor};">${lm.result?.home ?? ''} - ${lm.result?.away ?? ''}</strong>${interimHtml}</td>
           <td>${laCell}</td>
         </tr>
       `;
       }).join('');
-      document.getElementById('home-last-matches-tbody').innerHTML = renderMatchList(d.home_last_matches);
-      document.getElementById('away-last-matches-tbody').innerHTML = renderMatchList(d.away_last_matches);
+      document.getElementById('home-last-matches-tbody').innerHTML = renderMatchList(d.home_last_matches, hTeam);
+      document.getElementById('away-last-matches-tbody').innerHTML = renderMatchList(d.away_last_matches, aTeam);
 
       // Tab 2: Match Statistics
       renderMatchStatistics(d);
