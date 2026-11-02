@@ -321,3 +321,28 @@ All commercial APIs listed on [`developer.sportradar.com/getting-started/docs/ge
 | **Betting Splits v3** (`/betting-splits/v3/production/...` & Push Stream) | **Dual-Mode** | Commercial `api.sportradar.com/betting-splits/v3/...` + Tokenless Retail (`tipico/en/` `_bookmakerId: 176`) vs. Global Consensus (`sportradar/en/` `_bookmakerId: 0` + Live `_bookmakerId: 6908`) divergence | `buildBettingSplitsUrl`, `buildBettingSplitsPushUrl`, `getBettingSplits` (`bets_percentage`, `stake_percentage`, `sharp_divergence_pct`, `direction`) |
 | **Images, Flags, Jerseys & Venues** | **Full** | `https://img.sportradar.com/ls/crest/{size}/{uid}.png`, `/ls/teams/{ncaaSize}/{uid}.png`, `/ls/crest/4x3/{iso2}.svg`, `stats_team_info` (`homejersey`/`awayjersey`/`gkjersey`), `stats_season_venues/{sid}`, `stats_season_venuestats/{vid}/{sid}`, Wikimedia REST API portrait resolver | `getTeamLogoUrl`, `getCountryFlagUrl`, `renderTeamJerseySvg`, `resolvePlayerHeadshotUrl`, `resolveCompetitionCrestUrl`, `renderMonogramCrestDataUri`, `parseVenueCoordinates`, `getSeasonVenues`, `getVenueSeasonStats` |
 
+---
+
+## 8. Crucial Quirks & Field Semantics Discovered in Production (`unified_sport_matches` & `stats_match_form`)
+
+When consuming Sportradar Gismo feeds across high-frequency European sports (`table_tennis`, `darts`, `handball`, `curling`, `snooker`), pay attention to these non-obvious field semantics:
+
+1. **`inlivescore: true` Means "Live-Scout Coverage Booked" — NOT "Currently In-Play":**
+   - In `unified_sport_matches/{sportId}/{YYYY-MM-DD}/0`, Sportradar sets `inlivescore: true` on future pre-match fixtures (especially in Table Tennis TT Elite Series & Czech Liga Pro, and Darts Modus Super Series) to indicate that live point-by-point scouting coverage is **scheduled** for the match, even while `status` is `None` (`status_id == 0`, Not Started) and `result` is `{"home": null, "away": null, "period": "nt"}`.
+   - **Rule:** Never use `m.get("inlivescore")` to filter out live/started matches during pre-match scanning! Always check `status_id in (0, 61)` (`0` = Not Started, `61` = Delayed/Postponed) and `result.get("home") is None`.
+   - Conversely, to detect whether a match is **actually in-play**, check `status_id not in (0, 60, 61, 70, 80, 90, 100, 110, 120)` (or `result.get("period") not in (None, "nt", "ft", "ap", "aet")`).
+
+2. **Timestamp Field Location (`time.uts` vs `_dt.uts`):**
+   - Depending on the sport and endpoint, the UNIX kickoff timestamp (`uts`) in `unified_sport_matches` may reside at `m["time"]["uts"]` (with `m["_dt"] == None`, as in Table Tennis and Darts) or at `m["_dt"]["uts"]`.
+   - **Rule:** Always extract the kickoff timestamp via `((m.get("_dt") or m.get("time") or {}).get("uts"))`.
+
+3. **Chronological Ordering of `stats_match_form` vs `stats_team_lastx`:**
+   - In `stats_match_form/{matchId}`, `teams.{home|away}.form` lists **`form[0]` as the most recent match** (`form[:3]` are the 3 most recent matches, matching `streak: {type, value}`).
+   - However, `stats_match_form` only updates periodically for tournament standings, whereas `stats_team_lastx/{teamUid}/10` contains the exact `time.uts` and set/leg scores (`result.home`, `result.away`) of matches completed minutes earlier in the same rapid-fire session.
+   - **Rule:** For rapid-fire session sports (`table_tennis`, `darts`, `snooker`, `handball`, `curling`), always sort `stats_team_lastx` by `time.uts` descending (`time.uts < candidate_ko_uts`) to compute true Last-3 form, immediate loss streaks, 3.5-hour session set workload (`fav_session_sets_3h`), 5-set / deciding-leg hangover (`fav_last_lost_5set`), and direct H2H results against today's opponent.
+
+4. **Candidate Pre-Filtering Before Sorting/Slicing (`scan_sportradar_european_sports`):**
+   - High-frequency sports like Table Tennis (`500+` matches/day) include many heavy chalk lines (`1.05–1.25`). If you sort all candidates by `p_mkt` descending and slice `sport_cands[:max_eval_cands]` *before* applying the sport's odds band (`[1.28, 1.50]` for Table Tennis), the top slice will consist entirely of `<1.28` matches that later get rejected, resulting in zero picks.
+   - **Rule:** Always apply the sport-specific `min_o_floor` and `max_o_ceil` bounds when building `sport_cands` *before* sorting and slicing.
+
+
