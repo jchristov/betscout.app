@@ -658,6 +658,7 @@ def execute_mcp_tool(
                 "verdict": analysis.get("verdict"),
                 "verdict_level": analysis.get("verdict_level"),
                 "sportradar_match_id": (analysis.get("live_intel") or {}).get("sr_match_id"),
+                "deep_stats": analysis.get("deep_stats"),
             }
             return {"content": [{"type": "text", "text": json.dumps(compact, indent=2, default=str)}], "isError": False}
 
@@ -842,6 +843,7 @@ def execute_mcp_tool(
                     "away": (dossier.get("away_missing_players") or [])[:10],
                 },
                 "local_db_pick": local_detail.get("pick_detail") if local_detail else None,
+                "deep_stats": local_detail.get("deep_stats") if local_detail else None,
                 "cache_stats": get_gismo_cache_stats(),
             }
             return {"content": [{"type": "text", "text": json.dumps(summary, indent=2, default=str)}], "isError": False}

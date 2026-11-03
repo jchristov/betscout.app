@@ -626,6 +626,170 @@
                   </div>
                 </div>
               </div>
+
+              <!-- BETSCOUT DEEP QUANT & LONG-TERM H2H INTELLIGENCE -->
+              <div
+                v-if="dossier.deep_stats && dossier.deep_stats.available"
+                class="card-surface rounded-2xl p-5 border border-emerald-400/35 space-y-4 mt-5"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
+                      BetScout Deep Quant Engine
+                    </span>
+                    <b class="text-sm text-white">Long-Term H2H (2012–2026), 133k-Match Calibration, 300+-Field Splits &amp; Market Consensus</b>
+                  </div>
+                  <span
+                    v-if="dossier.deep_stats.h2h_long_term?.total_meetings"
+                    class="text-xs font-mono text-sky-300"
+                  >
+                    {{ dossier.deep_stats.h2h_long_term.total_meetings }} Tracked H2H Meetings ({{ dossier.deep_stats.h2h_long_term.span_years }})
+                  </span>
+                </div>
+
+                <!-- Key Quantitative Insights -->
+                <div v-if="dossier.deep_stats.key_insights?.length" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div
+                    v-for="(ins, iIns) in dossier.deep_stats.key_insights"
+                    :key="iIns"
+                    class="px-3 py-2 rounded-xl bg-slate-900/85 border border-slate-800 text-xs text-slate-200 flex items-start gap-2"
+                  >
+                    <span class="text-emerald-400 font-bold shrink-0">◆</span>
+                    <span>{{ ins }}</span>
+                  </div>
+                </div>
+
+                <!-- Long-Term H2H Deep Breakdown -->
+                <div
+                  v-if="dossier.deep_stats.h2h_long_term?.total_meetings"
+                  class="p-3.5 rounded-xl bg-slate-950/85 border border-slate-800 space-y-2.5"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <b class="text-sky-300">
+                      Long-Term H2H Analytics ({{ dossier.deep_stats.h2h_long_term.span_years }} · {{ dossier.deep_stats.h2h_long_term.total_meetings }} Matches)
+                    </b>
+                    <div class="flex flex-wrap gap-2 font-mono text-[11px]">
+                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-emerald-300">
+                        Avg Goals: {{ dossier.deep_stats.h2h_long_term.avg_total_goals }}
+                      </span>
+                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-amber-300">
+                        BTTS: {{ dossier.deep_stats.h2h_long_term.btts_pct }}%
+                      </span>
+                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-sky-300">
+                        Over 2.5: {{ dossier.deep_stats.h2h_long_term.over_25_pct }}%
+                      </span>
+                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-violet-300">
+                        Over 1.5: {{ dossier.deep_stats.h2h_long_term.over_15_pct }}%
+                      </span>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+                    <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                      <span class="text-slate-400 block text-[10px] uppercase font-sans font-bold">{{ homeName }} H2H Wins</span>
+                      <b class="text-sky-300">{{ dossier.deep_stats.h2h_long_term.home_wins }}W ({{ dossier.deep_stats.h2h_long_term.home_win_pct }}%)</b>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                      <span class="text-slate-400 block text-[10px] uppercase font-sans font-bold">H2H Draws</span>
+                      <b class="text-slate-200">{{ dossier.deep_stats.h2h_long_term.draws }}D ({{ dossier.deep_stats.h2h_long_term.draw_pct }}%)</b>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                      <span class="text-slate-400 block text-[10px] uppercase font-sans font-bold">{{ awayName }} H2H Wins</span>
+                      <b class="text-amber-300">{{ dossier.deep_stats.h2h_long_term.away_wins }}W ({{ dossier.deep_stats.h2h_long_term.away_win_pct }}%)</b>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                      <span class="text-slate-400 block text-[10px] uppercase font-sans font-bold">Same-Venue ({{ homeName }} Home)</span>
+                      <b class="text-emerald-300">
+                        {{ dossier.deep_stats.h2h_long_term.when_home_hosted?.home_wins || 0 }}W-{{ dossier.deep_stats.h2h_long_term.when_home_hosted?.draws || 0 }}D-{{ dossier.deep_stats.h2h_long_term.when_home_hosted?.away_wins || 0 }}L
+                      </b>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 133k-Match Market Calibration & Season xG Comparison -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                  <div
+                    v-if="dossier.deep_stats.market_calibration?.outcomes?.length"
+                    class="p-3.5 rounded-xl bg-slate-950/85 border border-slate-800 space-y-2"
+                  >
+                    <b class="text-xs text-emerald-300 block">
+                      133,011-Match Empirical Odds Calibration ({{ dossier.deep_stats.market_calibration.bookmaker || 'Bookmaker' }})
+                    </b>
+                    <div
+                      v-for="(oc, iOc) in dossier.deep_stats.market_calibration.outcomes"
+                      :key="iOc"
+                      class="flex justify-between items-center py-1 border-b border-slate-800/80 text-xs font-mono"
+                    >
+                      <span class="text-white font-bold">{{ oc.outcome }} (@{{ oc.odd }})</span>
+                      <span class="text-slate-300">
+                        Mkt {{ oc.market_pct }}% &rarr; Actual <b class="text-emerald-300">{{ oc.global_actual_pct }}%</b>
+                        <span :class="oc.global_delta_pp >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                          ({{ oc.global_delta_pp >= 0 ? '+' : '' }}{{ oc.global_delta_pp }}pp, n={{ oc.global_sample }})
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="dossier.deep_stats.xg_comparison?.home || dossier.deep_stats.xg_comparison?.away"
+                    class="p-3.5 rounded-xl bg-slate-950/85 border border-slate-800 space-y-2"
+                  >
+                    <b class="text-xs text-sky-300 block">Season Expected Goals (xG) Regression Profile</b>
+                    <div
+                      v-for="(sideObj, sideKey) in dossier.deep_stats.xg_comparison"
+                      :key="sideKey"
+                      class="flex justify-between items-center py-1 border-b border-slate-800/80 text-xs font-mono"
+                    >
+                      <span class="text-white font-bold">{{ sideObj.team_name }} ({{ sideObj.played }} GP)</span>
+                      <span class="text-slate-300">
+                        {{ sideObj.goals_for }}G vs <b class="text-sky-300">{{ sideObj.xg_for }} xG</b>
+                        <span :class="sideObj.goals_minus_xg <= 0 ? 'text-emerald-300' : 'text-amber-300'">
+                          ({{ sideObj.goals_minus_xg >= 0 ? '+' : '' }}{{ sideObj.goals_minus_xg }}G)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Crowd & Algorithmic Expert Consensus -->
+                <div
+                  v-if="dossier.deep_stats.external_consensus?.crowd_consensus || dossier.deep_stats.external_consensus?.expert_preview"
+                  class="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
+                >
+                  <div
+                    v-if="dossier.deep_stats.external_consensus?.crowd_consensus"
+                    class="p-3.5 rounded-xl bg-slate-950/85 border border-amber-400/35 space-y-1.5 text-xs"
+                  >
+                    <div class="flex justify-between items-center">
+                      <b class="text-amber-300">Crowd Tipster Consensus</b>
+                      <span class="font-mono text-[11px] text-slate-400">
+                        {{ dossier.deep_stats.external_consensus.crowd_consensus.total_event_tips }} Total Tips
+                      </span>
+                    </div>
+                    <div v-if="dossier.deep_stats.external_consensus.crowd_consensus.top_tip" class="text-white font-bold">
+                      Top Pick: <span class="text-emerald-300">{{ dossier.deep_stats.external_consensus.crowd_consensus.top_tip.selection }}</span>
+                      ({{ dossier.deep_stats.external_consensus.crowd_consensus.top_tip.market }}) —
+                      <span class="font-mono text-amber-300">{{ dossier.deep_stats.external_consensus.crowd_consensus.top_tip.confidence_pct }}% Confidence</span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="dossier.deep_stats.external_consensus?.expert_preview"
+                    class="p-3.5 rounded-xl bg-slate-950/85 border border-sky-400/35 space-y-1.5 text-xs"
+                  >
+                    <b class="text-sky-300 block">Algorithmic &amp; Expert Preview</b>
+                    <div v-if="dossier.deep_stats.external_consensus.expert_preview.prediction_pick" class="text-white font-bold">
+                      Expert Pick: <span class="text-emerald-300">{{ dossier.deep_stats.external_consensus.expert_preview.prediction_pick }}</span>
+                    </div>
+                    <div
+                      v-for="(kp, iKp) in (dossier.deep_stats.external_consensus.expert_preview.key_points || []).slice(0, 3)"
+                      :key="iKp"
+                      class="text-[11px] text-slate-300"
+                    >
+                      • {{ kp }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- TAB 2: MATCH BOXSCORE STATISTICS -->

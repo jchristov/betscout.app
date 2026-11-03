@@ -2310,9 +2310,61 @@
               </span>
               <span class="font-mono tabular-nums">
                 <b :class="getH2HScoreColorClass(h, inspectorData)">{{ splitScoreAndInterim(h.score).main }}</b>
-                <span v-if="splitScoreAndInterim(h.score).interim" class="text-slate-400 font-normal ml-1">{{ splitScoreAndInterim(h.score).interim }}</span>
+              <span v-if=" splitScoreAndInterim(h.score).interim" class="text-slate-400 font-normal ml-1">{{ splitScoreAndInterim(h.score).interim }}</span>
                 <span class="text-slate-400 font-normal ml-1">({{ h.date }})</span>
               </span>
+            </div>
+          </div>
+
+          <!-- Deep Quant & Long-Term H2H, 300+-Field Splits & Market Consensus in Inspector Modal -->
+          <div
+            v-if="inspectorData.deep_stats && inspectorData.deep_stats.available"
+            class="p-3.5 rounded-xl bg-slate-900/80 border border-emerald-400/35 space-y-2.5 text-[11.5px]"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <b class="text-emerald-300">BetScout Deep Quant &amp; Long-Term H2H ({{ inspectorData.deep_stats.h2h_long_term?.span_years || '2012–2026' }})</b>
+              <span v-if="inspectorData.deep_stats.h2h_long_term?.total_meetings" class="font-mono text-sky-300">
+                {{ inspectorData.deep_stats.h2h_long_term.total_meetings }} H2H · Avg {{ inspectorData.deep_stats.h2h_long_term.avg_total_goals }}G · BTTS {{ inspectorData.deep_stats.h2h_long_term.btts_pct }}% · O2.5 {{ inspectorData.deep_stats.h2h_long_term.over_25_pct }}%
+              </span>
+            </div>
+            <div v-if="inspectorData.deep_stats.key_insights?.length" class="space-y-1">
+              <div
+                v-for="(ins, idxIns) in inspectorData.deep_stats.key_insights.slice(0, 6)"
+                :key="idxIns"
+                class="text-slate-200 flex items-start gap-1.5"
+              >
+                <span class="text-emerald-400 font-bold">◆</span>
+                <span>{{ ins }}</span>
+              </div>
+            </div>
+            <div
+              v-if="inspectorData.deep_stats.team_splits?.home || inspectorData.deep_stats.team_splits?.away"
+              class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]"
+            >
+              <div v-if="inspectorData.deep_stats.team_splits?.home" class="p-2 rounded-lg bg-slate-950/90 border border-slate-800">
+                <b class="text-sky-300 block mb-0.5">{{ inspectorData.home }} Season Splits</b>
+                <div class="text-slate-300">
+                  O2.5: {{ inspectorData.deep_stats.team_splits.home.goals_Toggle?.over_25_pct }}% ·
+                  BTTS: {{ inspectorData.deep_stats.team_splits.home.goals_Toggle?.btts_pct }}% ·
+                  1H O0.5: {{ inspectorData.deep_stats.team_splits.home.half_splits?.ht_over_05_pct }}%
+                </div>
+                <div class="text-slate-400">
+                  Corners: {{ inspectorData.deep_stats.team_splits.home.corners_and_cards?.corners_per_game }}/g ·
+                  Cards: {{ inspectorData.deep_stats.team_splits.home.corners_and_cards?.cards_per_game }}/g
+                </div>
+              </div>
+              <div v-if="inspectorData.deep_stats.team_splits?.away" class="p-2 rounded-lg bg-slate-950/90 border border-slate-800">
+                <b class="text-amber-300 block mb-0.5">{{ inspectorData.away }} Season Splits</b>
+                <div class="text-slate-300">
+                  O2.5: {{ inspectorData.deep_stats.team_splits.away.goals_Toggle?.over_25_pct }}% ·
+                  BTTS: {{ inspectorData.deep_stats.team_splits.away.goals_Toggle?.btts_pct }}% ·
+                  1H O0.5: {{ inspectorData.deep_stats.team_splits.away.half_splits?.ht_over_05_pct }}%
+                </div>
+                <div class="text-slate-400">
+                  Corners: {{ inspectorData.deep_stats.team_splits.away.corners_and_cards?.corners_per_game }}/g ·
+                  Cards: {{ inspectorData.deep_stats.team_splits.away.corners_and_cards?.cards_per_game }}/g
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2833,6 +2885,32 @@
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-violet-400/40">
                   <div class="text-[10px] uppercase font-extrabold text-violet-300 tracking-wider mb-1">3. Totals &amp; Score Cluster</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.totals_cluster }}</div>
+                </div>
+              </div>
+
+              <!-- Long-Term H2H & Deep Quant Insights in Live Matchup Analyzer -->
+              <div
+                v-if="analyzerResult.deep_stats && analyzerResult.deep_stats.available"
+                class="p-3 rounded-xl bg-slate-950/90 border border-emerald-400/35 space-y-2 text-[11px]"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <b class="text-emerald-300 uppercase tracking-wider">BetScout Long-Term H2H &amp; Quant Signals</b>
+                  <span v-if="analyzerResult.deep_stats.h2h_long_term?.total_meetings" class="font-mono text-sky-300">
+                    {{ analyzerResult.deep_stats.h2h_long_term.total_meetings }} Meetings ({{ analyzerResult.deep_stats.h2h_long_term.span_years }}) ·
+                    Avg {{ analyzerResult.deep_stats.h2h_long_term.avg_total_goals }}G ·
+                    BTTS {{ analyzerResult.deep_stats.h2h_long_term.btts_pct }}% ·
+                    O2.5 {{ analyzerResult.deep_stats.h2h_long_term.over_25_pct }}%
+                  </span>
+                </div>
+                <div v-if="analyzerResult.deep_stats.key_insights?.length" class="space-y-1">
+                  <div
+                    v-for="(ins, iF) in analyzerResult.deep_stats.key_insights.slice(0, 5)"
+                    :key="iF"
+                    class="text-slate-200 flex items-start gap-1.5"
+                  >
+                    <span class="text-emerald-400 font-bold">◆</span>
+                    <span>{{ ins }}</span>
+                  </div>
                 </div>
               </div>
 

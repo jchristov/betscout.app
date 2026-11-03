@@ -797,6 +797,58 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
     except Exception:
         pass
 
+    # Enrich soccer matchups with FunStats.fyi + OLBG + SportyTrader intelligence
+    # (long-term 20-match H2H, 300+-field standings splits, 133k-match calibration, streaks, xG, consensus)
+    funstats_intel: dict[str, Any] | None = None
+    if not is_individual_sport and sp_hint in ("soccer", "football", ""):
+        try:
+            from .funstats import lookup_funstats_match_intel
+
+            funstats_intel = lookup_funstats_match_intel(h, a, league_hint=lg or None)
+            if isinstance(funstats_intel, dict) and funstats_intel.get("available"):
+                if not home_img_url and (funstats_intel.get("home_team") or {}).get("logo"):
+                    home_img_url = str(funstats_intel["home_team"]["logo"])
+                if not away_img_url and (funstats_intel.get("away_team") or {}).get("logo"):
+                    away_img_url = str(funstats_intel["away_team"]["logo"])
+                lt_h2h = funstats_intel.get("h2h_long_term")
+                if isinstance(lt_h2h, dict) and int(lt_h2h.get("total_meetings") or 0) > len(h2h_rows):
+                    h2h_rows = []
+                    for m in (lt_h2h.get("meetings") or [])[:15]:
+                        gh_m = int(m.get("home_goals") or 0)
+                        ga_m = int(m.get("away_goals") or 0)
+                        out_code = "H" if gh_m > ga_m else ("A" if ga_m > gh_m else "D")
+                        h2h_rows.append(
+                            {
+                                "date": m.get("date"),
+                                "home": m.get("home"),
+                                "away": m.get("away"),
+                                "score": m.get("score"),
+                                "outcome": out_code,
+                                "winner": m.get("winner_for_matchup"),
+                                "league": m.get("league"),
+                            }
+                        )
+                    tot_m = int(lt_h2h.get("total_meetings") or 0)
+                    if tot_m > 0:
+                        hw = int(lt_h2h.get("home_wins") or 0)
+                        dr = int(lt_h2h.get("draws") or 0)
+                        aw = int(lt_h2h.get("away_wins") or 0)
+                        h2h_edge_bar = {
+                            "total": tot_m,
+                            "home_wins": hw,
+                            "draws": dr,
+                            "away_wins": aw,
+                            "home_pct": round(100.0 * hw / tot_m, 1),
+                            "draw_pct": round(100.0 * dr / tot_m, 1),
+                            "away_pct": round(100.0 * aw / tot_m, 1),
+                            "avg_total_goals": lt_h2h.get("avg_total_goals"),
+                            "btts_pct": lt_h2h.get("btts_pct"),
+                            "over_25_pct": lt_h2h.get("over_25_pct"),
+                            "span_years": lt_h2h.get("span_years"),
+                        }
+        except Exception:
+            funstats_intel = None
+
     result_payload = {
         "ok": True,
         "home": h,
@@ -815,6 +867,7 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         "pick_detail": model_pick_detail,
         "live_intel": statshub_intel,
         "statshub": statshub_intel,
+        "deep_stats": funstats_intel,
     }
     _MATCHUP_DETAIL_CACHE[cache_key] = (now_ts, result_payload)
     return result_payload
@@ -917,6 +970,7 @@ def _build_match_center_dossier_payload(
             "tournament_flag_url": get_country_flag_url(tour_iso, fmt="svg", ratio="4x3"),
             "tournament_crest_url": resolve_competition_crest_url(tour_name),
             "local_detail": local_detail,
+            "deep_stats": local_detail.get("deep_stats") if isinstance(local_detail, dict) else None,
         }
 
     # Fallback when match is in local DB (`local_detail`) without a live Sportradar match_id
@@ -932,8 +986,8 @@ def _build_match_center_dossier_payload(
             "sport_name": "Tennis" if is_ten else sp_cat.capitalize(),
             "home_is_club": not is_ten,
             "away_is_club": not is_ten,
-            "home_headshot_url": resolve_player_headshot_url(h_name),
-            "away_headshot_url": resolve_player_headshot_url(a_name),
+            "home_headshot_url": local_detail.get("home_headshot_url") or resolve_player_headshot_url(h_name),
+            "away_headshot_url": local_detail.get("away_headshot_url") or resolve_player_headshot_url(a_name),
             "home_flag_url": "",
             "away_flag_url": "",
             "tournament_flag_url": "",
@@ -980,6 +1034,7 @@ def _build_match_center_dossier_payload(
             "h2h_edge": local_detail.get("h2h_edge"),
             "win_prob_bar": local_detail.get("win_prob_bar"),
             "local_detail": local_detail,
+            "deep_stats": local_detail.get("deep_stats"),
         }
 
     return {"ok": False, "error": f"Match dossier not found for matchId={match_id} ({home} vs {away})."}
@@ -1419,6 +1474,29 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
         verdict_level = "no_bet"
         best_markets = f"Avoid backing {entity_name} at short chalk odds; look for opponent handicap shields or Totals"
 
+    funstats_team_intel: dict[str, Any] | None = None
+    if detected_sport == "soccer":
+        try:
+            from .funstats import lookup_funstats_team_intel
+
+            funstats_team_intel = lookup_funstats_team_intel(entity_name, league_hint=detected_league)
+            if isinstance(funstats_team_intel, dict):
+                if not logo_url and funstats_team_intel.get("team_logo"):
+                    logo_url = str(funstats_team_intel["team_logo"])
+                xg_prof = funstats_team_intel.get("xg_profile")
+                if isinstance(xg_prof, dict):
+                    gmx = float(xg_prof.get("goals_minus_xg") or 0.0)
+                    if gmx <= -3.0:
+                        strengths.append(
+                            f"xG Underperformance: {xg_prof.get('goals_for')}G scored off {xg_prof.get('xg_for')} xG ({gmx:+.2f}G — positive regression candidate)."
+                        )
+                    elif gmx >= 4.0:
+                        risks.append(
+                            f"xG Overperformance: {xg_prof.get('goals_for')}G scored off {xg_prof.get('xg_for')} xG ({gmx:+.2f}G — negative regression watch)."
+                        )
+        except Exception:
+            funstats_team_intel = None
+
     _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_ent := {
         "ok": True,
         "mode": "entity",
@@ -1462,6 +1540,7 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
         "best_markets": best_markets,
         "verdict": verdict,
         "verdict_level": verdict_level,
+        "deep_team_stats": funstats_team_intel,
     })
     return out_ent
 
@@ -1555,6 +1634,18 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             a_name, detected_league = cands_2[0]
             detected_sport = "tennis" if detected_league in ("atp", "wta") else _league_to_sport_cat(detected_league)
         conn.close()
+    else:
+        # When `betscout.db` is not present locally, check if `h_name` / `a_name` are football clubs on FunStats
+        try:
+            from .funstats import _search_funstats_team
+
+            fs_t1 = _search_funstats_team(h_name)
+            fs_t2 = _search_funstats_team(a_name)
+            if fs_t1 or fs_t2:
+                detected_sport = "soccer"
+                detected_league = str((fs_t1 or fs_t2 or {}).get("league_id") or "soccer")
+        except Exception:
+            pass
 
     base_detail = _lookup_matchup_detail(db_path, rec_path, h_name, a_name, detected_league)
     pk_existing = base_detail.get("pick_detail") or {}
@@ -1632,8 +1723,20 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
     p2_tourn = sf_odds.get("p2_last_tourn")
 
     h2h_list = base_detail.get("h2h") or []
-    h_wins = sum(1 for m in h2h_list if (m["home"] == h_name and m["outcome"] == "H") or (m["away"] == h_name and m["outcome"] == "A"))
-    a_wins = sum(1 for m in h2h_list if (m["home"] == a_name and m["outcome"] == "H") or (m["away"] == a_name and m["outcome"] == "A"))
+    h_wins = sum(
+        1
+        for m in h2h_list
+        if m.get("winner") == "home"
+        or (m.get("home") == h_name and m.get("outcome") == "H")
+        or (m.get("away") == h_name and m.get("outcome") == "A")
+    )
+    a_wins = sum(
+        1
+        for m in h2h_list
+        if m.get("winner") == "away"
+        or (m.get("home") == a_name and m.get("outcome") == "H")
+        or (m.get("away") == a_name and m.get("outcome") == "A")
+    )
 
     if p1_f5 is None and base_detail.get("form_home"):
         fh = base_detail["form_home"]
@@ -1752,6 +1855,16 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         verdict = f"⚖️ SOLID VALUE LEAN — {mkt_1}"
         verdict_level = "lean_bet"
 
+    funstats_live = base_detail.get("deep_stats") if isinstance(base_detail, dict) else None
+    h2h_sum_str = f"{h_name} {h_wins} – {a_wins} {a_name}"
+    if isinstance(funstats_live, dict) and isinstance(funstats_live.get("h2h_long_term"), dict):
+        lt = funstats_live["h2h_long_term"]
+        if int(lt.get("total_meetings") or 0) > (h_wins + a_wins):
+            h2h_sum_str = (
+                f"{h_name} {lt.get('home_wins', 0)}W – {lt.get('draws', 0)}D – {lt.get('away_wins', 0)}W {a_name} "
+                f"({lt.get('total_meetings')} meetings, {lt.get('span_years')})"
+            )
+
     _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_res := {
         **base_detail,
         "ok": True,
@@ -1760,7 +1873,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "league": detected_league,
         "home": h_name,
         "away": a_name,
-        "h2h_summary": f"{h_name} {h_wins} – {a_wins} {a_name}",
+        "h2h_summary": h2h_sum_str,
         "elo_diff_home": elo_diff_1,
         "game_elo_diff_home": game_elo_diff_1,
         "game_share_diff_home": game_share_diff_1,
@@ -1790,6 +1903,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "warnings": warnings,
         "verdict": verdict,
         "verdict_level": verdict_level,
+        "deep_stats": funstats_live,
     })
     return out_res
 
@@ -2389,10 +2503,33 @@ self.addEventListener('fetch', (event) => {{
                     res_v1 = _analyze_live_matchup(db_path, rec_path, q_v1)
                     self._send_json(res_v1, status=(200 if res_v1.get("ok") else 400), extra_headers=rl_headers)
                     return
+                if parsed.path in ("/api/v1/deep-stats", "/api/v1/funstats"):
+                    from .funstats import lookup_funstats_match_intel, lookup_funstats_team_intel
+
+                    home_fs = (qs.get("home") or [""])[0].strip()
+                    away_fs = (qs.get("away") or [""])[0].strip()
+                    team_fs = (qs.get("team") or qs.get("q") or [""])[0].strip()
+                    lg_fs = (qs.get("league") or [""])[0].strip() or None
+                    if home_fs and away_fs:
+                        intel = lookup_funstats_match_intel(home_fs, away_fs, league_hint=lg_fs)
+                        self._send_json({"ok": bool(intel), "deep_stats": intel}, extra_headers=rl_headers)
+                        return
+                    if " vs " in team_fs.lower():
+                        p1, p2 = [x.strip() for x in re.split(r"\s+vs\s+", team_fs, maxsplit=1, flags=re.IGNORECASE)]
+                        intel = lookup_funstats_match_intel(p1, p2, league_hint=lg_fs)
+                        self._send_json({"ok": bool(intel), "deep_stats": intel}, extra_headers=rl_headers)
+                        return
+                    if team_fs:
+                        t_intel = lookup_funstats_team_intel(team_fs, league_hint=lg_fs)
+                        self._send_json({"ok": bool(t_intel), "deep_team_stats": t_intel}, extra_headers=rl_headers)
+                        return
+                    self._send_json({"ok": False, "error": "Provide ?home=...&away=... or ?team=..."}, status=400, extra_headers=rl_headers)
+                    return
                 self._send_json({"ok": False, "error": "Unknown /api/v1 endpoint"}, status=404, extra_headers=rl_headers)
                 return
 
             if parsed.path in ("/api/data", "/api/snapshot"):
+                from .funstats import get_funstats_cache_stats
                 from .monetization import get_monetization_config, list_api_keys, list_subscriber_webhooks, list_subscribers
                 from .sportradar_statshub import get_gismo_cache_stats
 
@@ -2424,7 +2561,31 @@ self.addEventListener('fetch', (event) => {{
                     "subscriber_webhooks": list_subscriber_webhooks(db_path, active_only=False) if is_admin_d else [],
                 }
                 snap["gismo_cache"] = get_gismo_cache_stats()
+                snap["deep_stats_cache"] = get_funstats_cache_stats()
                 self._send_json(snap)
+                return
+
+            if parsed.path in ("/api/deep-stats", "/api/funstats"):
+                from .funstats import lookup_funstats_match_intel, lookup_funstats_team_intel
+
+                home_fs = (qs.get("home") or [""])[0].strip()
+                away_fs = (qs.get("away") or [""])[0].strip()
+                team_fs = (qs.get("team") or qs.get("q") or [""])[0].strip()
+                lg_fs = (qs.get("league") or [""])[0].strip() or None
+                if home_fs and away_fs:
+                    intel = lookup_funstats_match_intel(home_fs, away_fs, league_hint=lg_fs)
+                    self._send_json({"ok": bool(intel), "deep_stats": intel})
+                    return
+                if " vs " in team_fs.lower():
+                    p1, p2 = [x.strip() for x in re.split(r"\s+vs\s+", team_fs, maxsplit=1, flags=re.IGNORECASE)]
+                    intel = lookup_funstats_match_intel(p1, p2, league_hint=lg_fs)
+                    self._send_json({"ok": bool(intel), "deep_stats": intel})
+                    return
+                if team_fs:
+                    t_intel = lookup_funstats_team_intel(team_fs, league_hint=lg_fs)
+                    self._send_json({"ok": bool(t_intel), "deep_team_stats": t_intel})
+                    return
+                self._send_json({"ok": False, "error": "Provide ?home=...&away=... or ?team=..."}, status=400)
                 return
 
             if parsed.path == "/api/matchup":
@@ -2492,6 +2653,7 @@ self.addEventListener('fetch', (event) => {{
                 return
 
             if parsed.path in ("/api/healthz", "/healthz", "/api/cache-stats"):
+                from .funstats import get_funstats_cache_stats
                 from .sportradar_statshub import get_gismo_cache_stats
 
                 self._send_json({
@@ -2501,6 +2663,7 @@ self.addEventListener('fetch', (event) => {{
                     "data_dir": str(data_dir),
                     "firebase_auth_enabled": get_firebase_auth_config()["enabled"],
                     "gismo_cache": get_gismo_cache_stats(),
+                    "deep_stats_cache": get_funstats_cache_stats(),
                 })
                 return
 
