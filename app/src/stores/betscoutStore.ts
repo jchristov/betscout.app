@@ -499,9 +499,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
       if (!Number.isNaN(ts)) {
         const genTs = generatedAt.value ? Date.parse(generatedAt.value) : NaN;
         const nowTs = Date.now();
-        // If generatedAt is within 5 days of now, use real current time; otherwise (unit tests with fixed dates), use max date in bestBets
+        // If generatedAt is within 3 days of now, use real current time; otherwise (unit tests with fixed dates), use generatedAt
         const refTs =
-          !Number.isNaN(genTs) && Math.abs(nowTs - genTs) <= 5 * 86400 * 1000
+          !Number.isNaN(genTs) && Math.abs(nowTs - genTs) <= 3 * 86400 * 1000
             ? nowTs
             : !Number.isNaN(genTs)
               ? genTs

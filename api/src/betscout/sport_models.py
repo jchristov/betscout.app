@@ -107,6 +107,7 @@ def evaluate_tennis_gate(
     cur_tourn_city: str = "",
     game_elo_diff: float | None = None,
     all_elo_diff: float | None = None,
+    surf_elo_diff: float | None = None,
     h2h_n: int = 0,
     open_odds: float | None = None,
     decider_diff: float | None = None,
@@ -118,6 +119,7 @@ def evaluate_tennis_gate(
        Vetoes sub-80% favorites arriving from a different city/tournament with <= 38h rest against a rested opponent,
        or trailing by >=1 current-tournament court win (`tourn_wins_diff <= -1`) or >=20pp in 3-set decider win rate
        (`decider_diff < -0.20`, or `decider_diff <= -0.20` without court-win & GameElo>=70 confirmation, e.g. `Tallon Griekspoor vs Jiri Lehecka` and `Valentin Vacherot vs Taylor Fritz`).
+       Also vetoes sub-76% favorites who trail in Surface Elo (`surf_elo_diff < 0.0`) on today's court surface (e.g. `Ignacio Buse vs Zizou Bergs` `2-0` where Bergs had `surf_elo_diff = -14.6`).
     2. **Stale-Elo / Zero-Recent-Form Veto:**
        Vetoes favorites whose rolling 6-month Game-Win% diff (`game_win_pct_diff <= 0.0`) AND 6-month Match-Win% diff
        (`form_6m_diff <= 0.0`) are both non-positive (e.g. `Samsonova vs Watson`).
@@ -133,7 +135,9 @@ def evaluate_tennis_gate(
        Blends 75% model + 25% devigged bookmaker probability, vetoing >=15pp market disagreements (`p_mkt_devig < 0.60`)
        or negative EV (`ev_pct < -1.5` when `win_prob < 0.80`).
     """
-    # 0. Court-Acclimatization & 3-Set Decider Resilience Veto (e.g. Griekspoor vs Lehecka & Vacherot vs Fritz)
+    # 0. Court-Acclimatization, Surface-Elo Deficit & 3-Set Decider Resilience Veto
+    if win_prob < 0.76 and surf_elo_diff is not None and surf_elo_diff < 0.0:
+        return False, win_prob, None, "VETO_NEGATIVE_SURFACE_ELO"
     if win_prob < 0.80:
         if decider_diff is not None and decider_diff < -0.20:
             return False, win_prob, None, "VETO_WEAK_DECIDER_RESILIENCE"

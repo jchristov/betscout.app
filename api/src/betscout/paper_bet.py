@@ -203,12 +203,12 @@ def _build_team_player_attack_history(
                 FROM team_matches
             )
             SELECT league, event_id, kickoff, home, away,
-                   MAX(CASE WHEN tside = 'home' AND rn_lg <= 6 THEN 1 ELSE 0 END) AS inc_lg_h,
-                   MAX(CASE WHEN tside = 'home' AND rn_all <= 6 THEN 1 ELSE 0 END) AS inc_all_h,
-                   MAX(CASE WHEN tside = 'away' AND rn_lg <= 6 THEN 1 ELSE 0 END) AS inc_lg_a,
-                   MAX(CASE WHEN tside = 'away' AND rn_all <= 6 THEN 1 ELSE 0 END) AS inc_all_a
+                   MAX(CASE WHEN tside = 'home' AND rn_lg <= 12 THEN 1 ELSE 0 END) AS inc_lg_h,
+                   MAX(CASE WHEN tside = 'home' AND rn_all <= 12 THEN 1 ELSE 0 END) AS inc_all_h,
+                   MAX(CASE WHEN tside = 'away' AND rn_lg <= 12 THEN 1 ELSE 0 END) AS inc_lg_a,
+                   MAX(CASE WHEN tside = 'away' AND rn_all <= 12 THEN 1 ELSE 0 END) AS inc_all_a
             FROM ranked
-            WHERE rn_lg <= 6 OR rn_all <= 6
+            WHERE rn_lg <= 12 OR rn_all <= 12
             GROUP BY league, event_id, kickoff, home, away
             ORDER BY kickoff, event_id
             """,
@@ -618,6 +618,7 @@ def scan_upcoming_tennis(
                             cur_tourn_city=cur_t_city,
                             game_elo_diff=round(sgn * d_elo_games * 400.0, 1),
                             all_elo_diff=round(sgn * d_elo_all * 400.0, 1),
+                            surf_elo_diff=round(sgn * d_elo_surf * 400.0, 1),
                             h2h_n=n_p,
                             open_odds=open_book_odds,
                             decider_diff=decider_diff_pick,
@@ -3867,6 +3868,7 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76216746"),
     ("table_tennis", "sr_76218340"),
     ("table_tennis", "sr_76216682"),
+    ("atp", "186465"),
 )
 
 

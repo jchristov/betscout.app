@@ -296,9 +296,9 @@ def build_best_bets_summary(
     if def_ann_iso:
         try:
             gen_dt = datetime.fromisoformat(def_ann_iso.replace("Z", "+00:00"))
-            # If the snapshot was generated within the last 7 days, filter against real current UTC time (`now_utc_dt`);
+            # If the snapshot was generated within the last 72 hours, filter against real current UTC time (`now_utc_dt`);
             # otherwise (synthetic historical test fixture), filter relative to `gen_dt`
-            if abs((now_utc_dt - gen_dt).total_seconds()) <= 7 * 86400:
+            if abs((now_utc_dt - gen_dt).total_seconds()) <= 3 * 86400:
                 ref_dt = now_utc_dt
             else:
                 ref_dt = gen_dt

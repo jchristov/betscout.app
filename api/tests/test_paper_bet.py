@@ -1112,9 +1112,14 @@ def test_per_sport_isolated_gates():
     )
     assert t_fritz_ok is False and t_fritz_reason == "VETO_WEAK_DECIDER_RESILIENCE"
     t_fern_ok, _, _, _ = evaluate_tennis_gate(
-        0.7277, 1.383, 3.10, game_win_pct_diff=0.027, form_6m_diff=0.20, game_elo_diff=77.0, all_elo_diff=131.2, h2h_n=2, decider_diff=-0.20, tourn_wins_diff=1
+        0.7277, 1.383, 3.10, game_win_pct_diff=0.027, form_6m_diff=0.20, game_elo_diff=77.0, all_elo_diff=131.2, surf_elo_diff=149.8, h2h_n=2, decider_diff=-0.20, tourn_wins_diff=1
     )
     assert t_fern_ok is True
+    # Ignacio Buse vs Zizou Bergs (Bergs @ 1.28, win_prob=0.7157 < 0.76, surf_elo_diff=-14.6 < 0.0) -> Vetoed by VETO_NEGATIVE_SURFACE_ELO!
+    t_bergs_ok, _, _, t_bergs_reason = evaluate_tennis_gate(
+        0.7157, 1.28, 3.60, game_win_pct_diff=0.06, form_6m_diff=0.20, game_elo_diff=67.8, all_elo_diff=113.6, surf_elo_diff=-14.6, h2h_n=1, decider_diff=0.0, tourn_wins_diff=0
+    )
+    assert t_bergs_ok is False and t_bergs_reason == "VETO_NEGATIVE_SURFACE_ELO"
 
     set_dist_h = predict_tennis_set_scores(
         win_prob=0.76,
