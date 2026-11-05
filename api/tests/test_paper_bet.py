@@ -1156,9 +1156,65 @@ def test_per_sport_isolated_gates():
         recent_draws_raw=0.10,
         h2h_draw_rate=0.15,
         league="uefa.europa",
-        deep_stats={"available": True, "team_splits": {"home": {"goals_over_under": {"full_time": {"over_2_5_pct": 66.0}}}, "away": {"goals_over_under": {"full_time": {"over_2_5_pct": 64.0}}}}},
+        deep_stats={
+            "available": True,
+            "team_splits": {
+                "home": {
+                    "goals_Toggle": {"over_25_pct": 66.0, "btts_pct": 65.0},
+                    "half_splits": {"ht_over_05_pct": 80.0},
+                    "corners_and_cards": {"corners_per_game": 11.2, "corners_over_95_pct": 68.0, "cards_per_game": 4.8, "cards_over_35_pct": 66.0},
+                },
+                "away": {
+                    "goals_Toggle": {"over_25_pct": 64.0, "btts_pct": 62.0},
+                    "half_splits": {"ht_over_05_pct": 78.0},
+                    "corners_and_cards": {"corners_per_game": 10.6, "corners_over_95_pct": 64.0, "cards_per_game": 4.6, "cards_over_35_pct": 65.0},
+                },
+            },
+        },
     )
-    assert any(x["market_type"] == "DC_1X" for x in uefa_sec) and any(x["market_type"] == "OVER_2_5" for x in uefa_sec)
+    uefa_types = {x["market_type"] for x in uefa_sec}
+    assert {"DC_1X", "OVER_2_5", "BTTS_YES", "HT_OVER_0_5", "CORNERS_OVER_9_5", "CARDS_OVER_3_5"}.issubset(uefa_types)
+
+    from betscout.sport_models import evaluate_european_secondary_markets
+
+    hb_sec = evaluate_european_secondary_markets(
+        sport_slug="handball",
+        home="Goppingen",
+        away="Gummersbach",
+        side="A",
+        p_model=0.72,
+        p_mkt=0.68,
+        best_odds=1.45,
+        form_diff_fav=0.35,
+        recent3_diff_fav=0.333,
+        parsed_markets={"total_line": 58.5, "odds_over": 1.85},
+    )
+    assert {x["market_type"] for x in hb_sec} == {"DC_X2", "OVER_58.5_GOALS"}
+
+    tt_sec = evaluate_european_secondary_markets(
+        sport_slug="table_tennis",
+        home="Wagner, Mark Robin",
+        away="Nohejl, Vaclav (2005)",
+        side="A",
+        p_model=0.78,
+        p_mkt=0.74,
+        best_odds=1.32,
+        form_diff_fav=0.40,
+        fav_wr=0.80,
+    )
+    assert any(x["market_type"] == "SET_HANDICAP_PLUS_1_5" and x["side"] == "PLUS15_A" for x in tt_sec)
+
+    mma_sec = evaluate_european_secondary_markets(
+        sport_slug="mma",
+        home="Mkhwanazi, Godfrey",
+        away="Hinda, Veja",
+        side="A",
+        p_model=0.76,
+        p_mkt=0.73,
+        best_odds=1.37,
+        form_diff_fav=0.30,
+    )
+    assert any(x["market_type"] == "OVER_1_5_ROUNDS" for x in mma_sec)
 
     set_dist_h = predict_tennis_set_scores(
         win_prob=0.76,

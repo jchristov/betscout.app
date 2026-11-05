@@ -10,6 +10,8 @@ export const SPORT_EMOJIS: Record<string, string> = {
   darts: '🎯',
   table_tennis: '🏓',
   curling: '🥌',
+  mma: '🥊',
+  snooker: '🎱',
 };
 
 /**
@@ -29,6 +31,8 @@ export const SPORT_FA6_ICONIFY_NAMES: Record<string, string> = {
   darts: 'fa6-solid:bullseye',
   table_tennis: 'fa6-solid:table-tennis-paddle-ball',
   curling: 'fa6-solid:bullseye',
+  mma: 'fa6-solid:hand-fist',
+  snooker: 'fa6-solid:circle-dot',
 };
 
 /**
@@ -48,6 +52,8 @@ export const SPORT_ICONIFY_NAMES: Record<string, string> = {
   darts: 'betscout-sport:darts',
   table_tennis: 'betscout-sport:table_tennis',
   curling: 'betscout-sport:curling',
+  mma: 'betscout-sport:mma',
+  snooker: 'betscout-sport:snooker',
 };
 
 export const SPORT_CLEAN_LABELS: Record<string, string> = {
@@ -63,6 +69,8 @@ export const SPORT_CLEAN_LABELS: Record<string, string> = {
   darts: 'Darts',
   table_tennis: 'Table Tennis',
   curling: 'Curling',
+  mma: 'MMA',
+  snooker: 'Snooker',
 };
 
 export const SPORT_LABELS: Record<string, string> = {
@@ -78,11 +86,15 @@ export const SPORT_LABELS: Record<string, string> = {
   darts: '🎯 Darts',
   table_tennis: '🏓 Table Tennis',
   curling: '🥌 Curling',
+  mma: '🥊 MMA',
+  snooker: '🎱 Snooker',
 };
 
 export function getSportIconify(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
   if (SPORT_ICONIFY_NAMES[low]) return SPORT_ICONIFY_NAMES[low];
+  if (low.includes('mma') || low.includes('ufc') || low.includes('bellator') || low.includes('pfl') || low.includes('cage') || low.includes('efc')) return 'betscout-sport:mma';
+  if (low.includes('snooker')) return 'betscout-sport:snooker';
   if (low.includes('curling')) return 'betscout-sport:curling';
   if (low.includes('table tennis') || low.includes('table_tennis') || low.includes('wtt')) return 'betscout-sport:table_tennis';
   if (low.includes('handball')) return 'betscout-sport:handball';
@@ -152,6 +164,14 @@ export function formatLeagueBadgeLabel(
 
   if (lg === 'darts' || rawLabel.toUpperCase() === 'DARTS') {
     return 'Darts · MODUS Super Series';
+  }
+
+  if (lg === 'mma' || rawLabel.toUpperCase() === 'MMA') {
+    return 'MMA · Championship Bout';
+  }
+
+  if (lg === 'snooker' || rawLabel.toUpperCase() === 'SNOOKER') {
+    return 'Snooker · World Snooker Tour';
   }
 
   return rawLabel || (league || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -269,12 +289,18 @@ export function getSportIconColor(catOrLeague?: string | null): string {
   if (low.includes('handball')) return 'text-indigo-400';
   if (low.includes('darts')) return 'text-red-400';
   if (low.includes('curling')) return 'text-sky-400';
+  if (low.includes('mma') || low.includes('ufc')) return 'text-rose-400';
+  if (low.includes('snooker')) return 'text-red-400';
   if (low === 'all') return 'text-sky-400';
   return 'text-emerald-400';
 }
 
 export function getSportBadgeTheme(catOrLeague?: string | null): string {
   const low = String(catOrLeague || '').toLowerCase().trim();
+  if (low.includes('mma') || low.includes('ufc'))
+    return 'bg-rose-500/15 text-rose-300 border-rose-400/40';
+  if (low.includes('snooker'))
+    return 'bg-red-500/15 text-red-300 border-red-400/40';
   if (low.includes('curling'))
     return 'bg-sky-500/15 text-sky-300 border-sky-400/40';
   if (low.includes('table tennis') || low.includes('table_tennis'))

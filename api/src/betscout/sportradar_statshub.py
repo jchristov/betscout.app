@@ -874,6 +874,7 @@ def scan_sportradar_european_sports(
                         "p_mkt": round(p_mkt_fav, 4),
                         "best_odds": round(best_o, 2),
                         "is_tipico": is_tipico_src,
+                        "parsed_markets": parsed_m,
                     })
 
         # Sort by highest market conviction & Tipico availability, then enrich top candidates with `stats_match_form` + SQLite Elo + Per-Sport Gate
@@ -1060,6 +1061,21 @@ def scan_sportradar_european_sports(
             )
             if not passed:
                 continue
+            from .sport_models import evaluate_european_secondary_markets
+
+            euro_sec_opps = evaluate_european_secondary_markets(
+                sport_slug=sp_slug,
+                home=cand["home"],
+                away=cand["away"],
+                side=cand["side"],
+                p_model=p_model,
+                p_mkt=cand["p_mkt"],
+                best_odds=cand["best_odds"],
+                form_diff_fav=form_diff_fav,
+                recent3_diff_fav=recent3_diff_fav,
+                fav_wr=fav_wr,
+                parsed_markets=cand.get("parsed_markets"),
+            )
             seen_matchup_pairs.add(pair_key)
             fav_pick_counts[cand["pick"]] = fav_pick_counts.get(cand["pick"], 0) + 1
             picks_out.append({
@@ -1081,6 +1097,7 @@ def scan_sportradar_european_sports(
                 "composite_score": round(p_model, 4),
                 "bookmaker_source": "Primary" if cand["is_tipico"] else "Consensus",
                 "form_diff_fav": round(form_diff_fav, 3),
+                "secondary_opportunities": euro_sec_opps,
             })
     return picks_out
 

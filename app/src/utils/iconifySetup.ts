@@ -243,6 +243,12 @@ const BETSCOUT_SPORT_SUBSET = {
     curling: {
       body: `<circle cx="32" cy="34" r="24" fill="#0f172a" stroke="#38bdf8" stroke-width="5"/><circle cx="32" cy="34" r="15" fill="none" stroke="#f8fafc" stroke-width="4.5"/><circle cx="32" cy="34" r="7" fill="#ef4444"/><path d="M22 14h16a4 4 0 0 1 4 4v4" fill="none" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>`,
     },
+    mma: {
+      body: `<polygon points="22,6 42,6 58,22 58,42 42,58 22,58 6,42 6,22" fill="#0f172a" stroke="#f43f5e" stroke-width="4.5"/><path d="M20 34c0-9 5.5-15 13.5-15c6.5 0 11.5 4.2 11.5 10.5c0 4.8-2.6 8.5-6.5 10.2V45a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-5.3C21.2 38.2 20 36.3 20 34Z" fill="#ef4444" stroke="#fda4af" stroke-width="2.5"/><path d="M16 32c0-4 2.5-7 6-7h2v11h-2c-3.5 0-6-1.8-6-4Z" fill="#dc2626" stroke="#fda4af" stroke-width="2.2"/><rect x="26.5" y="42" width="12" height="6" rx="2" fill="#f8fafc"/>`,
+    },
+    snooker: {
+      body: `<circle cx="32" cy="32" r="25" fill="#dc2626" stroke="#fca5a5" stroke-width="4"/><circle cx="24" cy="23" r="6" fill="#ffffff" fill-opacity="0.45"/>`,
+    },
   },
 };
 

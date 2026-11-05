@@ -87,6 +87,8 @@ SPORT_FILTER_LABELS: dict[str, str] = {
     "darts": "Darts",
     "table_tennis": "Table Tennis",
     "curling": "Curling",
+    "mma": "MMA",
+    "snooker": "Snooker",
 }
 
 SPORT_ICONS: dict[str, str] = {

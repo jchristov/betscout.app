@@ -1573,6 +1573,28 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     is_push = True
                 else:
                     won = outcome == "A"
+            elif side_up in ("BTTS_YES", "BTTS_NO"):
+                if hs_g is None or as_g is None:
+                    continue
+                both_scored = (hs_g >= 1 and as_g >= 1)
+                won = both_scored if side_up == "BTTS_YES" else (not both_scored)
+            elif side_up == "HT_OVER_0_5":
+                if hs_g is None or as_g is None:
+                    continue
+                if "(" in final_sc:
+                    ht_part = final_sc.split("(", 1)[1].split(")", 1)[0].split(",")[0].strip()
+                    if "-" in ht_part:
+                        h1_s, a1_s = ht_part.split("-", 1)
+                        if h1_s.strip().isdigit() and a1_s.strip().isdigit():
+                            won = (int(h1_s.strip()) + int(a1_s.strip())) >= 1
+                        else:
+                            continue
+                    else:
+                        continue
+                elif (hs_g + as_g) == 0:
+                    won = False
+                else:
+                    continue
             elif side_up in ("OVER_2_5", "OVER_1_5", "UNDER_2_5") or side_up.startswith(("OVER_GOALS_", "UNDER_GOALS_", "OVER_POINTS_", "UNDER_POINTS_")):
                 if hs_g is None or as_g is None:
                     continue
@@ -3995,6 +4017,18 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return "Over 1.5 Goals"
     if s == "UNDER_2_5":
         return "Under 2.5 Goals"
+    if s == "BTTS_YES":
+        return "Both Teams To Score (Yes)"
+    if s == "BTTS_NO":
+        return "BTTS No (Clean-Sheet Wall)"
+    if s == "HT_OVER_0_5":
+        return "1st Half Over 0.5 Goals"
+    if s == "CORNERS_OVER_9_5":
+        return "Over 9.5 Corners"
+    if s == "CARDS_OVER_3_5":
+        return "Over 3.5 Cards"
+    if s == "OVER_1_5_ROUNDS":
+        return "Over 1.5 Rounds"
     if s.startswith("OVER_GOALS_"):
         return f"Over {s.replace('OVER_GOALS_', '')} Goals"
     if s.startswith("UNDER_GOALS_"):
@@ -4178,7 +4212,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             return "Football Double Chance & DNB Shields"
         if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_")) or tl == "set_shield":
             return "Handicap Shields (+1.5 Sets / Puck Line / Spread)"
-        if su.startswith(("OVER_", "UNDER_", "SETS20_")) or tl in ("totals_over", "totals_under", "straight_sets"):
+        if su.startswith(("OVER_", "UNDER_", "SETS20_", "BTTS_", "HT_OVER_", "CORNERS_", "CARDS_")) or tl in ("totals_over", "totals_under", "straight_sets"):
             return "Over/Under Totals & Straight Sets"
         return "Moneyline & 1X2 Bankers"
 

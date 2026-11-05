@@ -546,7 +546,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
         if (marketFilter.value === 'moneyline' && isSec) return false;
         if (marketFilter.value === 'secondary' && !isSec) return false;
         if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP') || mt.startsWith('SPREAD_') || mt.startsWith('PUCKLINE_'))) return false;
-        if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_'))) return false;
+        if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_') || mt.startsWith('BTTS_') || mt.startsWith('HT_OVER_') || mt.startsWith('CORNERS_') || mt.startsWith('CARDS_'))) return false;
       }
       if (dayFilter.value !== 'all') {
         const d = matchDayKey(b);
@@ -584,6 +584,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
       'darts',
       'table_tennis',
       'curling',
+      'mma',
+      'snooker',
     ];
     const counts: Record<string, number> = {};
     for (const b of activeBestBets.value) {
@@ -617,6 +619,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
       'darts',
       'table_tennis',
       'curling',
+      'mma',
+      'snooker',
     ];
     const counts: Record<string, number> = {};
     for (const b of activeBestBets.value) {

@@ -20,6 +20,8 @@ SPORT_LABELS: dict[str, str] = {
     "darts": "DARTS",
     "table_tennis": "TABLE TENNIS",
     "curling": "CURLING",
+    "mma": "MMA / UFC",
+    "snooker": "SNOOKER",
 }
 
 SPORT_EMOJIS: dict[str, str] = {
@@ -34,6 +36,8 @@ SPORT_EMOJIS: dict[str, str] = {
     "darts": "🎯",
     "table_tennis": "🏓",
     "curling": "🥌",
+    "mma": "🥊",
+    "snooker": "🎱",
 }
 
 
@@ -41,6 +45,10 @@ def _infer_sport_cat(raw_val: str | None) -> str:
     low = str(raw_val or "").lower().strip()
     if not low:
         return "soccer"
+    if any(k in low for k in ("mma", "ufc", "bellator", "pfl", "cage", "efc")):
+        return "mma"
+    if any(k in low for k in ("snooker",)):
+        return "snooker"
     if any(k in low for k in ("curling",)):
         return "curling"
     if any(k in low for k in ("table_tennis", "table tennis", "tt star", "tt-star", "tt elite", "ittf", "wtt")):
@@ -123,6 +131,18 @@ def _render_sport_icon_rgba(sport_cat: str, size: int = 30) -> Image.Image:
         r_in = int(r * 0.28)
         draw.ellipse([(cx - r_mid, cy - r_mid), (cx + r_mid, cy + r_mid)], outline=(248, 250, 252, 255), width=6)
         draw.ellipse([(cx - r_in, cy - r_in), (cx + r_in, cy + r_in)], fill=(239, 68, 68, 255))
+    elif sp == "mma":
+        oct_pts = [
+            (cx + r * math.cos(math.radians(22.5 + i * 45)), cy + r * math.sin(math.radians(22.5 + i * 45)))
+            for i in range(8)
+        ]
+        draw.polygon(oct_pts, fill=(15, 23, 42, 255), outline=(244, 63, 94, 255), width=6)
+        r_gl = int(r * 0.52)
+        draw.ellipse([(cx - r_gl, cy - r_gl - 4), (cx + r_gl, cy + int(r_gl * 0.75))], fill=(239, 68, 68, 255), outline=(253, 164, 175, 255), width=5)
+        draw.rectangle([(cx - int(r_gl * 0.55), cy + int(r_gl * 0.45)), (cx + int(r_gl * 0.55), cy + int(r_gl * 0.95))], fill=(248, 250, 252, 255))
+    elif sp == "snooker":
+        draw.ellipse(bbox, fill=(220, 38, 38, 255), outline=(252, 165, 165, 255), width=6)
+        draw.ellipse([(cx - int(r * 0.45), cy - int(r * 0.45)), (cx - int(r * 0.10), cy - int(r * 0.10))], fill=(255, 255, 255, 160))
     elif sp in ("volleyball", "handball"):
         col_fill = (56, 189, 248, 255) if sp == "volleyball" else (245, 158, 11, 255)
         draw.ellipse(bbox, fill=(15, 23, 42, 255), outline=col_fill, width=6)
