@@ -303,6 +303,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
         const data = await resp.json();
         isOffline.value = false;
         applySnapshot(data, true);
+        if (pendingOfflineQueueCount.value > 0) {
+          flushOfflineQueue();
+        }
         if (data.auth?.enabled && data.auth?.api_key) {
           await initFirebaseClient(data.auth);
         }
@@ -326,22 +329,29 @@ export const useBetscoutStore = defineStore('betscout', () => {
     pendingOfflineQueueCount.value = list.length;
   }
 
+  function clearOfflineQueue() {
+    safeStorageSet(BETSCOUT_OFFLINE_QUEUE_KEY, '[]');
+    pendingOfflineQueueCount.value = 0;
+  }
+
   async function flushOfflineQueue() {
     const raw = safeStorageGet(BETSCOUT_OFFLINE_QUEUE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      pendingOfflineQueueCount.value = 0;
+      return;
+    }
     let list: any[] = [];
     try {
       list = JSON.parse(raw);
     } catch (_) {}
+    clearOfflineQueue();
     if (!Array.isArray(list) || !list.length) return;
-
-    safeStorageSet(BETSCOUT_OFFLINE_QUEUE_KEY, '[]');
-    pendingOfflineQueueCount.value = 0;
 
     for (const item of list) {
       try {
         if (item.type === 'track-live' && item.payload?.query) {
-          await trackLiveMatchup(item.payload.query);
+          // Do not re-enqueue on replay failure so stale/unresolvable items never get stuck in an infinite loop
+          await trackLiveMatchup(item.payload.query, false);
         } else if (item.type === 'settings' && item.payload) {
           await fetch('/api/settings', {
             method: 'POST',
@@ -733,12 +743,14 @@ export const useBetscoutStore = defineStore('betscout', () => {
     }
   }
 
-  async function trackLiveMatchup(query: string) {
+  async function trackLiveMatchup(query: string, enqueueOnFail = true) {
     const q = query.trim();
     if (!q) return null;
     if (isOffline.value) {
-      enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
-      showToast(`Queued "${q}" in local storage — will pin automatically when online.`);
+      if (enqueueOnFail) {
+        enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
+        showToast(`Queued "${q}" in local storage — will pin automatically when online.`);
+      }
       return null;
     }
     actionBusy.value = true;
@@ -758,8 +770,12 @@ export const useBetscoutStore = defineStore('betscout', () => {
       showToast(`Could not track "${q}": ${data.error || 'Not found'}`);
       return null;
     } catch (err) {
-      enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
-      showToast(`Offline: queued "${q}" for sync when connection returns.`);
+      if (enqueueOnFail && typeof navigator !== 'undefined' && navigator.onLine === false) {
+        enqueueOfflineAction({ type: 'track-live', payload: { query: q } });
+        showToast(`Offline: queued "${q}" for sync when connection returns.`);
+      } else if (enqueueOnFail) {
+        showToast(`Could not pin "${q}" (${err})`);
+      }
       return null;
     } finally {
       actionBusy.value = false;
@@ -794,7 +810,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
         body: JSON.stringify({ disabled_sports: Array.from(next) }),
       });
     } catch (_) {
-      enqueueOfflineAction({ type: 'settings', payload: { disabled_sports: Array.from(next) } });
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        enqueueOfflineAction({ type: 'settings', payload: { disabled_sports: Array.from(next) } });
+      }
     }
   }
 
@@ -938,6 +956,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     hydrateFromLocalStorage,
     savePrefsToLocalStorage,
     flushOfflineQueue,
+    clearOfflineQueue,
     promptPwaInstall,
     applySnapshot,
     fetchSnapshot,

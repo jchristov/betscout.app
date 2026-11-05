@@ -32,15 +32,25 @@
           </template>
         </span>
       </div>
-      <button
-        v-if="!store.isOffline && store.pendingOfflineQueueCount > 0"
-        type="button"
-        class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
-        @click="store.flushOfflineQueue()"
-      >
-        <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" />
-        <span>Sync Queued Changes Now</span>
-      </button>
+      <div v-if="!store.isOffline && store.pendingOfflineQueueCount > 0" class="flex items-center gap-1.5">
+        <button
+          type="button"
+          class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+          @click="store.flushOfflineQueue()"
+        >
+          <Icon icon="fa6-solid:arrows-rotate" class="w-3.5 h-3.5" />
+          <span>Sync Queued Changes Now</span>
+        </button>
+        <button
+          type="button"
+          class="btn-press inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-slate-900/90 text-slate-300 border border-slate-700 hover:text-white"
+          title="Dismiss queued action"
+          @click="store.clearOfflineQueue()"
+        >
+          <Icon icon="fa6-solid:xmark" class="w-3 h-3" />
+          <span>Dismiss</span>
+        </button>
+      </div>
     </div>
 
     <!-- Main Dashboard Header -->
