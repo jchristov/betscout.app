@@ -11,6 +11,25 @@ import {
 export const BETSCOUT_SNAPSHOT_CACHE_KEY = 'betscout_snapshot_cache_v2';
 export const BETSCOUT_USER_PREFS_KEY = 'betscout_user_prefs_v2';
 export const BETSCOUT_OFFLINE_QUEUE_KEY = 'betscout_offline_queue_v2';
+export const BETSCOUT_MY_TICKETS_KEY = 'betscout_my_tickets_v1';
+
+export interface UserTrackedLeg {
+  match: string;
+  pick: string;
+  sport_cat: string;
+  odds: number;
+  win_prob: number;
+}
+
+export interface UserTrackedTicket {
+  id: string;
+  title: string;
+  stakeEur: number;
+  combinedOdds: number;
+  payoutEur: number;
+  createdAt: string;
+  legs: UserTrackedLeg[];
+}
 
 function safeStorageGet(key: string): string | null {
   try {
@@ -99,6 +118,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const tzMode = ref<'local' | 'utc'>('local');
   const disabledSports = ref<Set<string>>(new Set());
   const customSelectedMatches = ref<Set<string>>(new Set());
+  const myTickets = ref<UserTrackedTicket[]>([]);
 
   // Auth Token state
   const firebaseIdToken = ref<string>('');
@@ -173,6 +193,14 @@ export const useBetscoutStore = defineStore('betscout', () => {
       try {
         const q = JSON.parse(rawQueue);
         if (Array.isArray(q)) pendingOfflineQueueCount.value = q.length;
+      } catch (_) {}
+    }
+
+    const rawTickets = safeStorageGet(BETSCOUT_MY_TICKETS_KEY);
+    if (rawTickets) {
+      try {
+        const tk = JSON.parse(rawTickets);
+        if (Array.isArray(tk)) myTickets.value = tk;
       } catch (_) {}
     }
 
@@ -897,6 +925,26 @@ export const useBetscoutStore = defineStore('betscout', () => {
     }
   }
 
+  function addMyTicket(ticket: Omit<UserTrackedTicket, 'id' | 'createdAt'>) {
+    const newTk: UserTrackedTicket = {
+      ...ticket,
+      id: `tk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: new Date().toISOString(),
+    };
+    const next = [newTk, ...myTickets.value].slice(0, 25);
+    myTickets.value = next;
+    safeStorageSet(BETSCOUT_MY_TICKETS_KEY, JSON.stringify(next));
+    showToast(`Saved "${newTk.title}" (€${newTk.stakeEur.toFixed(2)} -> €${newTk.payoutEur.toFixed(2)}) to My Active Tickets!`);
+    return newTk;
+  }
+
+  function removeMyTicket(ticketId: string) {
+    const next = myTickets.value.filter((t) => t.id !== ticketId);
+    myTickets.value = next;
+    safeStorageSet(BETSCOUT_MY_TICKETS_KEY, JSON.stringify(next));
+    showToast('Removed ticket from My Active Tickets.');
+  }
+
   return {
     loading,
     actionBusy,
@@ -940,6 +988,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     tzMode,
     disabledSports,
     customSelectedMatches,
+    myTickets,
     customApiKey,
     availableDays,
     activeBestBets,
@@ -957,6 +1006,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
     savePrefsToLocalStorage,
     flushOfflineQueue,
     clearOfflineQueue,
+    addMyTicket,
+    removeMyTicket,
     promptPwaInstall,
     applySnapshot,
     fetchSnapshot,

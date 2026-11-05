@@ -1259,6 +1259,24 @@
                   </span>
                   <button
                     type="button"
+                    class="btn-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-emerald-400/50 hover:border-emerald-300 text-emerald-300 text-[10px] font-bold"
+                    title="Send this combo to the Combo Saver Hedge & Cash-Out Calculator"
+                    @click="sendComboToSaver(100, Number((100 * combo.combinedOdds).toFixed(2)), combo.legs[combo.legs.length - 1]?.odds || 1.35, (combo.legs[combo.legs.length - 1]?.win_prob || 0.72) * 100)"
+                  >
+                    <Icon icon="fa6-solid:scale-balanced" class="w-2.5 h-2.5" />
+                    <span>Hedge Calc</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-sky-400/50 hover:border-sky-300 text-sky-300 text-[10px] font-bold"
+                    title="Save to My Active Tickets"
+                    @click="saveComboToMyTickets(combo.title, 100, combo.combinedOdds, combo.legs)"
+                  >
+                    <Icon icon="fa6-solid:bookmark" class="w-2.5 h-2.5" />
+                    <span>Track</span>
+                  </button>
+                  <button
+                    type="button"
                     class="btn-press inline-flex items-center p-1 rounded bg-slate-900 border border-slate-700 hover:border-sky-400 text-sky-300"
                     @click="openShareBoosterModal(combo)"
                   >
@@ -1756,6 +1774,97 @@
         </div>
       </section>
 
+      <!-- My Active Tickets ("My Bets" Personal Slip Tracker with Live Leg Grading & 1-Click Hedge) -->
+      <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5 border border-sky-400/40">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <Icon icon="fa6-solid:bookmark" class="w-4 h-4 text-sky-400" />
+            <b class="text-sm text-sky-300">My Active Tickets ({{ store.myTickets.length }} Saved)</b>
+            <span class="text-slate-300 text-xs">
+              Tracks your saved Combos &amp; Singles against live/settled match scores and alerts you when the final leg is ready to hedge
+            </span>
+          </div>
+          <button
+            v-if="slipComboLegs.length >= 1"
+            type="button"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/50 text-xs font-bold"
+            @click="saveComboToMyTickets(`${slipComboLegs.length}-Leg Studio Ticket`, betBudget, slipComboOdds, slipComboLegs)"
+          >
+            <Icon icon="fa6-solid:plus" class="w-3 h-3" />
+            <span>Save Current €{{ betBudget }} Slip ({{ slipComboOdds.toFixed(2) }}x)</span>
+          </button>
+        </div>
+
+        <div v-if="!store.myTickets.length" class="text-xs text-slate-400 py-2">
+          No saved tickets yet. Click <b>Track</b> on any Banker Booster Combo, 2-Leg Double, or click <b>Save Current Slip</b> above to track live leg progress and hedge opportunities!
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+          <div
+            v-for="tk in enrichedMyTickets"
+            :key="tk.id"
+            class="card-surface rounded-xl p-3.5 border-t-2"
+            :class="tk.readyToHedge ? 'border-t-emerald-400 ring-1 ring-emerald-400/40' : 'border-t-sky-400'"
+          >
+            <div class="flex justify-between items-center gap-2 mb-2">
+              <div class="flex items-center gap-1.5">
+                <b class="text-white">{{ tk.title }}</b>
+                <span
+                  v-if="tk.readyToHedge"
+                  class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+                >
+                  🔥 FINAL LEG HEDGE READY
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 font-mono tabular-nums">
+                <span>€{{ tk.stakeEur.toFixed(2) }} &rarr; <b class="text-emerald-300">€{{ tk.payoutEur.toFixed(2) }}</b></span>
+                <button
+                  type="button"
+                  class="btn-press px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-[10px] font-sans font-bold"
+                  @click="sendComboToSaver(tk.stakeEur, tk.payoutEur, tk.lastLegOdds, tk.lastLegWinPct)"
+                >
+                  Hedge Calc
+                </button>
+                <button
+                  type="button"
+                  class="btn-press p-1 rounded bg-slate-900 border border-slate-700 text-slate-400 hover:text-rose-300"
+                  title="Remove ticket"
+                  @click="store.removeMyTicket(tk.id)"
+                >
+                  <Icon icon="fa6-solid:trash" class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div class="divide-y divide-slate-800/80">
+              <div
+                v-for="(lg, lIdx) in tk.gradedLegs"
+                :key="lIdx"
+                class="py-1 flex justify-between items-center text-[11px]"
+              >
+                <span class="truncate max-w-[260px]">
+                  <b
+                    class="mr-1 px-1.5 py-0.2 rounded text-[9.5px]"
+                    :class="
+                      lg.status === 'WON'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : lg.status === 'LOST'
+                          ? 'bg-rose-500/20 text-rose-300'
+                          : lg.status === 'LIVE'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-slate-800 text-slate-300'
+                    "
+                  >{{ lg.status }}</b>
+                  <span class="text-white font-semibold">{{ lg.pick }}</span>
+                  <span class="text-slate-400 ml-1">({{ lg.match }})</span>
+                </span>
+                <span class="font-mono tabular-nums text-amber-300 shrink-0">
+                  {{ lg.scoreStr ? `${lg.scoreStr} · ` : '' }}@{{ lg.odds.toFixed(2) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-300 mb-2.5">
@@ -1777,9 +1886,29 @@
                   {{ d.combo_label }}
                 </span>
               </div>
-              <div class="font-mono tabular-nums text-xs">
-                Odds: <b class="text-amber-300">{{ Number(d.combined_odds).toFixed(2) }}</b> · WinProb:
-                <b class="text-emerald-300">{{ (Number(d.combined_prob) * 100).toFixed(1) }}%</b>
+              <div class="font-mono tabular-nums text-xs flex items-center gap-1.5">
+                <span>
+                  Odds: <b class="text-amber-300">{{ Number(d.combined_odds).toFixed(2) }}</b> · WinProb:
+                  <b class="text-emerald-300">{{ (Number(d.combined_prob) * 100).toFixed(1) }}%</b>
+                </span>
+                <button
+                  type="button"
+                  class="btn-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-emerald-400/50 text-emerald-300 text-[10px] font-sans font-bold"
+                  title="Send this 2-Leg Double to the Combo Saver Hedge Calculator"
+                  @click="sendComboToSaver(betBudget, Number((betBudget * Number(d.combined_odds || 1)).toFixed(2)), Number(d.leg_2?.odds || 1.35), Number(d.leg_2?.win_prob || 0.72) * 100)"
+                >
+                  <Icon icon="fa6-solid:scale-balanced" class="w-2.5 h-2.5" />
+                  <span>Hedge Calc</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-sky-400/50 text-sky-300 text-[10px] font-sans font-bold"
+                  title="Save to My Active Tickets"
+                  @click="saveComboToMyTickets(d.combo_label || `2-Leg Double #${idx + 1}`, betBudget, Number(d.combined_odds || 1), [d.leg_1, d.leg_2])"
+                >
+                  <Icon icon="fa6-solid:bookmark" class="w-2.5 h-2.5" />
+                  <span>Track</span>
+                </button>
               </div>
             </div>
             <div class="space-y-1 text-xs">
@@ -3563,6 +3692,74 @@ const comboSaverCalc = computed(() => {
   };
 });
 
+function sendComboToSaver(stake: number, fullPayout: number, finalLegOdds: number, finalLegWinPct: number) {
+  comboSaverStake.value = Math.max(1, Math.round(Number(stake || 100)));
+  comboSaverPayout.value = Math.max(2, Number(Number(fullPayout || 250).toFixed(2)));
+  const legO = Math.max(1.08, Number(finalLegOdds || 1.35));
+  const oppImplied = Math.max(0.06, 1.04 - 1.0 / legO);
+  comboSaverOppOdds.value = Number(Math.max(1.15, Math.min(8.5, 1.0 / oppImplied)).toFixed(2));
+  const wPct = Math.min(96, Math.max(15, Math.round(Number(finalLegWinPct || 68))));
+  comboSaverWinPct.value = wPct;
+  // Estimate typical bookmaker cash-out offer (~88% of current fair value prior to final leg)
+  comboSaverCashout.value = Number(((fullPayout / legO) * 0.89).toFixed(2));
+  activeTab.value = 'studio';
+  store.showToast('Loaded combo into Combo Saver Hedge & Cash-Out Calculator!');
+}
+
+function saveComboToMyTickets(title: string, stakeEur: number, combinedOdds: number, legs: any[]) {
+  const normLegs = (legs || []).filter(Boolean).map((l: any) => ({
+    match: String(l.match || `${l.home || ''} vs ${l.away || ''}`),
+    pick: String(l.pick_name || l.pick || ''),
+    sport_cat: String(l.sport_cat || l.league || 'soccer'),
+    odds: Number(l.odds || 1.3),
+    win_prob: Number(l.win_prob || 0.72),
+  }));
+  if (!normLegs.length) return;
+  store.addMyTicket({
+    title,
+    stakeEur: Number(stakeEur || 100),
+    combinedOdds: Number(combinedOdds || 1.8),
+    payoutEur: Number((Number(stakeEur || 100) * Number(combinedOdds || 1.8)).toFixed(2)),
+    legs: normLegs,
+  });
+}
+
+const enrichedMyTickets = computed(() => {
+  const allLedgerBets = store.paperLedger?.bets || [];
+  return store.myTickets.map((tk) => {
+    const gradedLegs = (tk.legs || []).map((lg) => {
+      const mLow = String(lg.match || '').toLowerCase();
+      const hitRow = allLedgerBets.find((b: any) => {
+        const bMatch = `${b.home || ''} vs ${b.away || ''}`.toLowerCase();
+        return bMatch && (bMatch === mLow || mLow.includes(String(b.home || '').toLowerCase()));
+      });
+      let status: 'PENDING' | 'LIVE' | 'WON' | 'LOST' = 'PENDING';
+      let scoreStr = '';
+      if (hitRow) {
+        scoreStr = hitRow.live_score || hitRow.score_str || hitRow.settled_score || '';
+        if (hitRow.status === 'SETTLED') {
+          status = Number(hitRow.pnl_best || 0) > 0 ? 'WON' : 'LOST';
+        } else if (hitRow.is_live || hitRow.status === 'LIVE') {
+          status = 'LIVE';
+        }
+      }
+      return { ...lg, status, scoreStr };
+    });
+    const wonCount = gradedLegs.filter((x) => x.status === 'WON').length;
+    const lostCount = gradedLegs.filter((x) => x.status === 'LOST').length;
+    const pendingLegs = gradedLegs.filter((x) => x.status === 'PENDING' || x.status === 'LIVE');
+    const lastLeg = pendingLegs[pendingLegs.length - 1] || gradedLegs[gradedLegs.length - 1];
+    const readyToHedge = gradedLegs.length >= 2 && lostCount === 0 && wonCount === gradedLegs.length - 1 && pendingLegs.length === 1;
+    return {
+      ...tk,
+      gradedLegs,
+      readyToHedge,
+      lastLegOdds: Number(lastLeg?.odds || 1.35),
+      lastLegWinPct: Number((lastLeg?.win_prob || 0.7) * 100),
+    };
+  });
+});
+
 // Sorting state for Best Bets Table
 const sortKey = ref<'date' | 'comp' | 'match' | 'win_prob' | 'fair' | 'odds'>('date');
 const sortDir = ref<'asc' | 'desc'>('asc');
@@ -3632,7 +3829,19 @@ const liveInPlayOpportunities = computed(() => {
     const pickTeam = tr.pick_display || `${tr.side === 'H' ? tr.home : tr.away} (${tr.side})`;
     const sig = String(mom.signal || mom.goal_timing_signal || '').toUpperCase();
     const badge = String(mom.badge || mom.goal_timing_badge || '').trim();
-    if (sig.includes('REBOUND') || badge.toUpperCase().includes('REBOUND')) {
+    if (sig === 'SET1_DEFICIT_REBOUND_EDGE') {
+      out.push({
+        league: tr.league,
+        event_id: tr.event_id,
+        home: tr.home,
+        away: tr.away,
+        side: tr.side,
+        pickLabel: pickTeam,
+        live_score: tr.live_score || tr.score_str || 'LIVE',
+        signalBadge: '🎾 SET-1 COMEBACK VALUE (~2.35x Live)',
+        signalDetail: `Dropped close 1st set (${mom.set1_pick_games || 4}-${mom.set1_opp_games || 6}) · Pre-match ${mom.pre_win_prob_pct || 75}% Banker`,
+      });
+    } else if (sig.includes('REBOUND') || badge.toUpperCase().includes('REBOUND')) {
       out.push({
         league: tr.league,
         event_id: tr.event_id,

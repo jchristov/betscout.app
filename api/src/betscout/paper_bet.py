@@ -3991,6 +3991,8 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("atp", "186483::SET_HANDICAP_PLUS_1_5"),
     ("atp", "186481"),
     ("table_tennis", "sr_76391532"),
+    ("uefa.europa.conf", "401915831"),
+    ("uefa.europa.conf", "401915742"),
 )
 
 

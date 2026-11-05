@@ -1214,6 +1214,32 @@ def test_per_sport_isolated_gates():
         best_odds=1.37,
         form_diff_fav=0.30,
     )
+    # UEFA Away-Draw & Indiscipline Veto (e.g. AGF 0-0 Braga @ 2.05 where p_mkt=0.5405 < 0.60,
+    # and Lincoln Red Imps 1-0 Hajduk Split where away favorite had extreme indiscipline disc_z=-0.95 and recent_draws=-0.733)
+    assert (
+        evaluate_soccer_gate(
+            "uefa.europa.conf",
+            0.12,
+            thrs,
+            0.5405,
+            2.1,
+            {"p_mkt": 0.65, "vig_neg": 0.20, "sot_d": 0.55, "discipline": 0.10, "h2h_adv": 0.0, "dom_rebound": 0.25, "recent_draws": 0.10},
+            side="A",
+        )
+        == "pass"
+    )
+    assert (
+        evaluate_soccer_gate(
+            "uefa.europa.conf",
+            0.18,
+            thrs,
+            0.7472,
+            2.5,
+            {"p_mkt": 0.988, "vig_neg": 0.53, "sot_d": 0.976, "discipline": -0.95, "h2h_adv": -0.189, "dom_rebound": -0.408, "recent_draws": -0.733},
+            side="A",
+        )
+        == "pass"
+    )
     assert any(x["market_type"] == "OVER_1_5_ROUNDS" for x in mma_sec)
 
     set_dist_h = predict_tennis_set_scores(

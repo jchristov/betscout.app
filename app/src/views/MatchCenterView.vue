@@ -205,9 +205,17 @@
 
             <!-- Center Scoreboard -->
             <div class="lg:col-span-4 flex flex-col items-center justify-center text-center bg-slate-950/85 border border-slate-800 rounded-2xl p-3.5">
-              <span class="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/45 mb-1">
-                {{ matchStatusName }}
-              </span>
+              <div class="flex flex-wrap items-center justify-center gap-1.5 mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/45">
+                  {{ matchStatusName }}
+                </span>
+                <span
+                  v-if="liveReboundOrTimingBadge"
+                  class="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 animate-pulse"
+                >
+                  {{ liveReboundOrTimingBadge }}
+                </span>
+              </div>
               <div class="text-3xl font-black font-mono tabular-nums text-white tracking-tight my-1 flex items-center gap-2">
                 <span v-if="isTennis && activeServer === '1'" class="text-base" title="Active Server">🎾</span>
                 <span>{{ mainScoreHome }} - {{ mainScoreAway }}</span>
@@ -1093,6 +1101,22 @@ const formWdlHome = computed(() => dossier.value?.form_wdl?.home || []);
 const formWdlAway = computed(() => dossier.value?.form_wdl?.away || []);
 
 const matchStatusName = computed(() => liveMatch.value?.status?.name || 'Scheduled');
+const liveReboundOrTimingBadge = computed(() => {
+  const pd = dossier.value?.local_detail?.pick_detail || {};
+  const mom = pd.live_momentum || {};
+  if (mom.goal_timing_badge) return String(mom.goal_timing_badge);
+  if (mom.signal === 'SET1_DEFICIT_REBOUND_EDGE') return '🎾 SET-1 DEFICIT REBOUND EDGE (~2.35x Live)';
+  if (mom.signal === 'DOMINANCE_REBOUND_EDGE') return '🔥 DOMINANCE REBOUND EDGE';
+  if (isTennis.value && periodKeys.value.length >= 2) {
+    const p1 = periodsObj.value?.p1;
+    if (p1 && Math.abs(Number(p1.home || 0) - Number(p1.away || 0)) <= 2 && Number(p1.home || 0) + Number(p1.away || 0) >= 10) {
+      if ((winProbSummary.value.homePct >= 68 && Number(p1.home) < Number(p1.away)) || (winProbSummary.value.awayPct >= 68 && Number(p1.away) < Number(p1.home))) {
+        return '🎾 SET-1 FAVORITE COMEBACK EDGE';
+      }
+    }
+  }
+  return '';
+});
 const mainScoreHome = computed(() => liveMatch.value?.result?.home ?? 0);
 const mainScoreAway = computed(() => liveMatch.value?.result?.away ?? 0);
 const activeServer = computed(() => String(liveMatch.value?.gamescore?.service ?? ''));

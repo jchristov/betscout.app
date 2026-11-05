@@ -91,6 +91,14 @@ def evaluate_soccer_gate(
     is_uefa = lg.startswith("uefa.") or lg.startswith("fifa.")
     is_secondary_dom = lg in SECONDARY_DOMESTIC_SOCCER_LEAGUES
 
+    # 1e. UEFA Away-Draw & Indiscipline Veto (e.g. AGF 0-0 Braga @ 2.05 where p_mkt=0.5405 < 0.60,
+    # and Lincoln Red Imps 1-0 Hajduk Split where away favorite had extreme indiscipline disc_z=-0.95 and recent_draws=-0.733):
+    if is_uefa and str(side).upper() == "A":
+        if p_mkt < 0.60 and score < thresholds.get("top_15pct", 0.2565):
+            return "pass"
+        if disc_z <= -0.80 and draws_z <= -0.50:
+            return "pass"
+
     # 2. Secondary Domestic League Gate (applies to ALL tiers, including top_8pct)
     if is_secondary_dom:
         if h2h_z < 0.20 or sot_z < 0.45 or disc_z < 0.0:
