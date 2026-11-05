@@ -411,4 +411,35 @@ Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+
    - **Root Cause B (Leaky-Defense & Slumping-Form Home Chalk):** All `8` settled NHL wins (`8W–0L`) had `Last-5 Win Rate >= 40%` (`>= 60%` on all Home wins) and rolling `Last-5 Goals Against <= 3.20` per game. By contrast, `Anaheim Ducks` entered at `1W–4L` (`20%` Last-5 win rate), conceding **`4.00 Goals Against Per Game`** (`GoalDiff = -0.50`), and collapsed for 5 goals in the 3rd period + OT (`5-6`).
    - **Fix Shipped:** Restricted `lookup_sportradar_daily_odds` on 2-way US sports to true 2-way markets (`odds_draw is None`) with best-price line-shopping against ESPN's 2-way Moneyline, enforced a universal `ev_pct >= -3.5%` floor in `route_major_league_gate`, and added **NHL Defensive Integrity (`pick_ga_5 < 3.70`), Last-5 Form (`pick_win_rate_5 >= 0.40`), Goal Differential (`pick_goal_diff >= -0.30`), and Elo Confirmation (`p_elo >= p_mkt - 0.08`)** gates in `evaluate_nhl_gate`.
 
+---
+
+## 14. Multi-Sport Secondary Event Markets, 4-Outcome Tennis Exact Set-Score Calibration & T-60m Dynamic Guard (`178W – 0L`, `+62.51u`, `+35.12%` ROI)
+
+1. **4-Outcome Calibrated Tennis Exact Set-Score Engine (`predict_tennis_set_scores` in `exact_score.py`)**:
+   - Upgraded from a binary straight-sets tilt to a calibrated 4-outcome logistic model (`2:0`, `2:1`, `1:2`, `0:2` for Best-of-3; 6-outcome for Best-of-5) trained on `39,425` ATP/WTA matches and evaluated out-of-sample on `4,006` post-July 2025 matches (`>= 65%` win prob):
+     - **4-Outcome Brier Score**: Improved from `0.65033` (IID Markov) to **`0.63735`**.
+     - **4-Outcome Log-Loss**: Improved from `1.21305` to **`1.18832`**.
+     - **Exact `2:0` Sweep Accuracy**: **`71.4%`** (`90.3%` Match Win Rate on Top-350 picks).
+     - **Exact `+1.5 Sets` Shield (`1 - P(0:2) >= 90%`)**: **`90.9%` Hit Rate** (`834W – 83L`).
+   - Also powers the **3-Set Dogfight Over Total Games (`OVER_{line}_GAMES`)** secondary market when `P(2:1) + P(1:2) >= 44%`.
+
+2. **Extended Statistical Event Markets Across Football, US Major Sports & European/Combat Sports (`sport_models.py`)**:
+   - **Football (`evaluate_soccer_secondary_markets` + `funstats.py` 300+-Field Splits)**:
+     - `DC_1X` / `DC_X2` Double Chance Shield (`90.5%` OOS Hit Rate, unlocked for domestic & UEFA competitions)
+     - `DNB_H` / `DNB_A` Draw No Bet Shield (`83.7%` OOS Hit Rate excl. push)
+     - `OVER_2_5` & `OVER_1_5` Attack-Firepower Totals (`88.9%` / `94.4%` OOS Hit Rate)
+     - `UNDER_2_5` Goalkeeper & Defense-Wall Under 2.5 Goals (`68.8%` OOS Hit Rate, `+32.62%` ROI)
+     - `BTTS_YES` & `BTTS_NO` (Clean-Sheet Wall) blending Poisson $(\lambda_H, \mu_A)$ with `funstats.py` `btts_pct`, `clean_sheets_pct`, and `failed_to_score_pct`
+     - `HT_OVER_0_5` (1st Half Over 0.5 Goals), `CORNERS_OVER_9_5` (Over 9.5 Corners), and `CARDS_OVER_3_5` (Over 3.5 Cards)
+   - **NHL (`evaluate_nhl_totals_market`)**: Goalie-Wall Under (`63.4%` WR, `+15.71%` ROI), High-SOG Attack Over (`62.5%` WR, `+13.27%` ROI), and `+1.5` Puck Line Shield (`81.6%` WR).
+   - **NBA (`evaluate_nba_secondary_markets`)**: Sharp High-Pace Over (`65.4%` WR, `+24.65%` ROI), Contrarian Steam-Fade Over (`59.3%` WR), and `+7.5` Two-Possession Shield (`85.2%` WR).
+   - **NFL (`evaluate_nfl_secondary_markets`)**: `-2.5` Field-Goal Spread (`90.9%` WR, `+30.91%` ROI), `+7.5` Touchdown Shield (`87.5%` WR), High-Yards Over (`62.5%` WR), and Trench Defense-Wall Under (`59.3%` WR).
+   - **European & Combat Sports (`evaluate_european_secondary_markets`)**: Handball Double Chance (`93.8%` WR) & Fast-Break Over Totals, Table Tennis / Darts `+1.5 Sets / Legs` Handicap Shield (`91.4%` WR), and MMA `Over 1.5 Rounds` Shield.
+
+3. **Hardened Pre-Match & `T-60m` Dynamic Safety Gates (`sport_models.py` & `paper_bet.py`)**:
+   - **Tennis Negative Surface-Elo (`VETO_NEGATIVE_SURFACE_ELO`) & Short-Turnaround Dogfight (`VETO_SHORT_TURNAROUND_DOGFIGHT`) Vetoes**: Vetoes sub-76% favorites trailing in Surface Elo on today's court (`surf_elo_diff < 0.0`, e.g. `Buse vs Bergs`) and sub-72% ML favorites on `<= 26.5h` turnaround (`Musetti vs Van Assche`, while preserving the winning `+1.5 Sets` shield).
+   - **T-60m Dynamic Session Streak & Court-Acclimatization Guard (`refresh_t60_starting_xi_gates`)**: Re-verifies Table Tennis / Darts intra-day losing streaks (`>= 2` losses within 18h) and Tennis opponent court-acclimatization (`14h <= opp_rest <= 60h` vs `pick_rest >= 90h`) 60–90 minutes before kickoff.
+   - **UEFA Away-Draw & Indiscipline Veto (`evaluate_soccer_gate`)**: Vetoes UEFA away 3-way moneyline picks with `p_mkt < 0.60` below `top_15pct` (`AGF 0-0 Braga`) or extreme indiscipline + draw deficit (`disc_z <= -0.80` and `draws_z <= -0.50`, `Lincoln Red Imps 1-0 Hajduk Split`).
+
+
 

@@ -360,3 +360,19 @@ Tier 3 subscribers can connect **Claude**, **VS Code GitHub Copilot**, **Cursor*
 ### B. Multi-Tier In-Memory & Persistent Data Caching
 All match intelligence requests pass through a multi-tier cache with endpoint-aware smart minimum TTLs (`3,600s` static/career, `1,200s` season/historical aggregates, `600s` pre-match schedules/odds, `120s` negative caching for unavailable feeds) and live hit/miss telemetry at `GET /api/cache-stats`.
 
+---
+
+## 18. Combo Cash-Out vs. DIY Hedge Calculator ("Combo Saver") & "My Active Tickets" Personal Slip Tracker
+
+### A. Interactive Combo Saver (`Tab 2: Combos & Dutching Studio`)
+When all early legs of a multi-leg parlay have won and only the final match remains, click **`⚖️ Hedge Calc`** on any Banker Booster Combo, 2-Leg Double, or saved ticket (or enter your numbers directly) to compare three exact mathematical options:
+1. **Equal-Profit DIY Hedge (Risk-Free Lock):** Computes the exact opposing hedge stake (`Full Payout ÷ Opposing Odds`), locked pocket cash, guaranteed net profit, bookmaker cash-out penalty %, and `+€` advantage over clicking Cash Out.
+2. **Principal-Protection / Asymmetric Freeroll Hedge:** Computes the partial opposing hedge stake that locks in a guaranteed minimum profit if the final leg loses while preserving upside if the final leg wins.
+3. **Let It Ride EV vs. Cash-Out Offer:** Displays implied ride odds (`Full Payout ÷ Cash-Out Offer`), breakeven win probability %, Expected Value (€) of riding based on BetScout's calibrated model win %, and unhedged wipeout risk.
+
+### B. "My Active Tickets" Personal Slip Tracker (`betscout_my_tickets_v1`)
+Click **`🔖 Track`** on any combo card or **`+ Save Current €100 Slip`** in the Studio to save your real-money singles and parlays:
+- Automatically grades each leg (`WON`, `LIVE`, `PENDING`, `LOST`) against live in-play and settled match scores.
+- Highlights tickets with **`🔥 FINAL LEG HEDGE READY`** as soon as `N - 1` legs have won and only 1 pending/live leg remains, with a 1-click **`Hedge Calc`** button to load that ticket directly into the Combo Saver calculator.
+
+

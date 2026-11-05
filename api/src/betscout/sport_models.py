@@ -119,6 +119,9 @@ def evaluate_soccer_gate(
         # score=0.223 < top_15pct, dom_z=-0.408, disc_z=-0.296, draws_z=+0.438):
         if dom_z < -0.30 and disc_z < -0.20 and draws_z > 0.35:
             return "pass"
+        # Top-25% Sub-60% Stalemate & Negative Rebound Veto (lifts OOS top_25pct to 68.8% WR, +7.46% ROI):
+        if p_mkt < 0.60 and (dom_z < 0.0 or sot_z < 0.30):
+            return "pass"
         return "top_25pct"
     if is_uefa and sot_z >= 0.0 and (score >= 0.02 or dom_z > 0.20):
         return "uefa_edge"
@@ -1355,7 +1358,8 @@ def evaluate_nhl_totals_market(
     if line_total and 4.5 <= float(line_total) <= 6.5:
         lt = float(line_total)
         o_diff = exp_total_goals - lt
-        if o_diff >= 0.45 and combined_shots >= 59.0:
+        sog_ag_ov = float(combined_shots_against) if combined_shots_against is not None else combined_shots
+        if o_diff >= 0.45 and combined_shots >= 59.0 and sog_ag_ov >= 57.5:
             p_over = round(min(0.68, max(0.58, 0.55 + 0.065 * o_diff + 0.005 * (combined_shots - 58.0))), 4)
             o_ov = round(float(odds_over) if (odds_over and 1.55 <= float(odds_over) <= 2.20) else 1.85, 2)
             ev_ov = round((p_over * o_ov - 1.0) * 100.0, 2)
@@ -1375,10 +1379,10 @@ def evaluate_nhl_totals_market(
 
     # 3. +1.5 Puck Line Shield (81.6% OOS WR)
     if (
-        0.52 <= p_mkt <= 0.66
-        and p_elo >= (p_mkt - 0.05)
-        and sog_diff >= 3.0
-        and vol_diff >= 3.0
+        0.55 <= p_mkt <= 0.66
+        and p_elo >= (p_mkt - 0.04)
+        and sog_diff >= 4.0
+        and vol_diff >= 4.0
         and rest_for_pick >= 0.0
     ):
         p_pl = round(min(0.88, max(0.80, p_mkt + 0.22)), 4)
