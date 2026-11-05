@@ -1575,6 +1575,177 @@
         </div>
       </section>
 
+      <!-- Combo Cash-Out vs. DIY Hedge Calculator ("Combo Saver" Widget) -->
+      <section class="card-surface rounded-2xl p-4 sm:p-5 mb-5">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-3.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <Icon icon="fa6-solid:scale-balanced" class="w-4 h-4 text-emerald-400" />
+            <b class="text-sm text-emerald-300">Combo Cash-Out vs. DIY Hedge Calculator ("Combo Saver")</b>
+            <span class="text-slate-300">
+              Won all legs except the final match? Compare the bookmaker's cash-out offer against a DIY opposing hedge or letting it ride
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <label class="inline-flex items-center gap-1">
+              <span class="text-slate-300 font-semibold">Original Stake (€):</span>
+              <input
+                v-model.number="comboSaverStake"
+                type="number"
+                min="1"
+                step="10"
+                class="w-18 bg-slate-950 text-white border border-slate-700 rounded-lg px-2 py-1 font-bold font-mono tabular-nums"
+              />
+            </label>
+            <label class="inline-flex items-center gap-1">
+              <span class="text-slate-300 font-semibold">Full Payout (€):</span>
+              <input
+                v-model.number="comboSaverPayout"
+                type="number"
+                min="2"
+                step="10"
+                class="w-20 bg-slate-950 text-emerald-300 border border-emerald-400/60 rounded-lg px-2 py-1 font-extrabold font-mono tabular-nums"
+              />
+            </label>
+            <label class="inline-flex items-center gap-1">
+              <span class="text-slate-300 font-semibold">Cash-Out Offer (€):</span>
+              <input
+                v-model.number="comboSaverCashout"
+                type="number"
+                min="0"
+                step="5"
+                class="w-20 bg-slate-950 text-amber-300 border border-amber-400/60 rounded-lg px-2 py-1 font-extrabold font-mono tabular-nums"
+              />
+            </label>
+            <label class="inline-flex items-center gap-1">
+              <span class="text-slate-300 font-semibold">Opposing Odds:</span>
+              <input
+                v-model.number="comboSaverOppOdds"
+                type="number"
+                min="1.05"
+                step="0.05"
+                class="w-18 bg-slate-950 text-sky-300 border border-sky-400/60 rounded-lg px-2 py-1 font-extrabold font-mono tabular-nums"
+              />
+            </label>
+            <label class="inline-flex items-center gap-1">
+              <span class="text-slate-300 font-semibold">Final Leg Win %:</span>
+              <input
+                v-model.number="comboSaverWinPct"
+                type="number"
+                min="5"
+                max="98"
+                step="1"
+                class="w-16 bg-slate-950 text-violet-300 border border-violet-400/60 rounded-lg px-2 py-1 font-extrabold font-mono tabular-nums"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+          <!-- Card 1: Equal-Profit Full Hedge -->
+          <div class="card-surface border-t-2 border-t-emerald-400 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <b>1 · Equal-Profit DIY Hedge (Risk-Free Lock)</b>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 font-mono tabular-nums">
+                  {{ comboSaverCalc.hedgeBeatsCashout >= 0 ? `+€${comboSaverCalc.hedgeBeatsCashout.toFixed(2)} vs Cash-Out` : `€${comboSaverCalc.hedgeBeatsCashout.toFixed(2)}` }}
+                </span>
+              </div>
+              <p class="text-slate-300 text-[11px] mb-2.5">
+                Let your combo ticket ride and place a single opposing hedge bet at <b class="text-sky-300">@{{ comboSaverOppOdds.toFixed(2) }}</b> to lock identical profit regardless of who wins.
+              </p>
+              <div class="space-y-1 font-mono tabular-nums">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">Opposing Hedge Stake:</span>
+                  <b class="text-sky-300">€{{ comboSaverCalc.equalHedgeStake.toFixed(2) }}</b>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">Locked Pocket Cash:</span>
+                  <b class="text-white">€{{ comboSaverCalc.equalPocketCash.toFixed(2) }}</b>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="font-sans text-slate-300">Guaranteed Net Profit:</span>
+                  <b class="text-emerald-300">{{ formatEuroSigned(comboSaverCalc.equalNetProfit) }}</b>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between font-mono tabular-nums text-[11px]">
+              <span>Bookie Cash-Out Penalty: <b class="text-rose-300">{{ comboSaverCalc.cashoutPenaltyPct.toFixed(1) }}%</b></span>
+              <b class="text-emerald-300">{{ comboSaverCalc.recommendedAction }}</b>
+            </div>
+          </div>
+
+          <!-- Card 2: Freeroll / Principal Protection Hedge -->
+          <div class="card-surface border-t-2 border-t-sky-400 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <b>2 · Principal-Protection / +50% Lock Hedge</b>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
+                  ASYMMETRIC UPSIDE
+                </span>
+              </div>
+              <p class="text-slate-300 text-[11px] mb-2.5">
+                Smaller opposing hedge that guarantees <b class="text-emerald-300">+€{{ comboSaverCalc.freerollMinProfit.toFixed(2) }}</b> minimum net profit if the final leg loses while keeping big upside if it wins.
+              </p>
+              <div class="space-y-1 font-mono tabular-nums">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">Partial Hedge Stake:</span>
+                  <b class="text-sky-300">€{{ comboSaverCalc.freerollHedgeStake.toFixed(2) }}</b>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">If Final Leg Loses (Net):</span>
+                  <b class="text-amber-300">{{ formatEuroSigned(comboSaverCalc.freerollMinProfit) }}</b>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="font-sans text-slate-300">If Final Leg Wins (Net):</span>
+                  <b class="text-emerald-300">{{ formatEuroSigned(comboSaverCalc.freerollMaxProfit) }}</b>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between font-mono tabular-nums text-[11px]">
+              <span>Total Outlay: <b>€{{ (comboSaverStake + comboSaverCalc.freerollHedgeStake).toFixed(2) }}</b></span>
+              <span class="text-sky-300 font-bold">Zero Downside Risk</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Let It Ride vs. Bookmaker Cash-Out -->
+          <div class="card-surface border-t-2 border-t-amber-400 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <b>3 · Let It Ride EV vs. Cash-Out Offer</b>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50 font-mono tabular-nums">
+                  Breakeven: {{ comboSaverCalc.breakevenWinPct.toFixed(1) }}%
+                </span>
+              </div>
+              <p class="text-slate-300 text-[11px] mb-2.5">
+                Declining €{{ comboSaverCashout.toFixed(2) }} to chase €{{ comboSaverPayout.toFixed(2) }} is equivalent to staking €{{ comboSaverCashout.toFixed(2) }} at <b class="text-amber-300">@{{ comboSaverCalc.impliedRideOdds.toFixed(2) }}</b>.
+              </p>
+              <div class="space-y-1 font-mono tabular-nums">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">Cash-Out Guaranteed Net:</span>
+                  <b class="text-amber-300">{{ formatEuroSigned(comboSaverCashout - comboSaverStake) }}</b>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="font-sans text-slate-300">Expected Value of Riding:</span>
+                  <b :class="comboSaverCalc.rideEvEur >= comboSaverCashout ? 'text-emerald-300' : 'text-rose-300'">
+                    €{{ comboSaverCalc.rideEvEur.toFixed(2) }} ({{ formatEuroSigned(comboSaverCalc.rideEvEur - comboSaverCashout) }})
+                  </b>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="font-sans text-slate-300">Unhedged Wipeout Risk:</span>
+                  <b class="text-rose-300">{{ (100 - comboSaverWinPct).toFixed(1) }}% (-€{{ comboSaverStake.toFixed(2) }})</b>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-700/60 flex justify-between font-mono tabular-nums text-[11px]">
+              <span>Model Win Prob: <b>{{ comboSaverWinPct.toFixed(1) }}%</b></span>
+              <b :class="comboSaverWinPct >= 72 ? 'text-emerald-300' : 'text-amber-300'">
+                {{ comboSaverWinPct >= 72 ? 'High-Conviction Ride / Partial Hedge' : 'Hedge or Cash Out Recommended' }}
+              </b>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Recommended 2-Leg High-Probability Combos -->
       <section v-if="store.recommendedDoubles.length">
         <h2 class="inline-flex items-center gap-2 text-sm font-bold text-sky-300 mb-2.5">
@@ -3330,6 +3501,57 @@ const trackQuickInput = ref<string>('');
 const betBudget = ref<number>(100);
 const selectedDutchMatch = ref<string>('');
 const dutchStake = ref<number>(25);
+
+// Combo Cash-Out vs. DIY Hedge Calculator ("Combo Saver") state
+const comboSaverStake = ref<number>(100);
+const comboSaverPayout = ref<number>(453);
+const comboSaverCashout = ref<number>(208);
+const comboSaverOppOdds = ref<number>(2.00);
+const comboSaverWinPct = ref<number>(52);
+
+const comboSaverCalc = computed(() => {
+  const stake = Math.max(1, Number(comboSaverStake.value || 100));
+  const payout = Math.max(stake, Number(comboSaverPayout.value || 453));
+  const cashout = Math.max(0, Number(comboSaverCashout.value || 208));
+  const oppOdds = Math.max(1.05, Number(comboSaverOppOdds.value || 2.0));
+  const winProb = Math.min(0.99, Math.max(0.01, Number(comboSaverWinPct.value || 52) / 100));
+
+  const equalHedgeStake = payout / oppOdds;
+  const equalPocketCash = payout - equalHedgeStake;
+  const equalNetProfit = equalPocketCash - stake;
+  const hedgeBeatsCashout = equalPocketCash - cashout;
+
+  const freerollTargetNet = Math.max(0, (equalNetProfit) * 0.55);
+  const freerollHedgeStake = (stake + freerollTargetNet) / Math.max(0.05, oppOdds - 1.0);
+  const freerollMinProfit = freerollHedgeStake * (oppOdds - 1.0) - stake;
+  const freerollMaxProfit = payout - stake - freerollHedgeStake;
+
+  const impliedRideOdds = cashout > 0 ? payout / cashout : 1.0;
+  const breakevenWinPct = cashout > 0 ? (cashout / payout) * 100 : 0;
+  const rideEvEur = winProb * payout;
+  const cashoutPenaltyPct = rideEvEur > 0 ? Math.max(0, ((rideEvEur - cashout) / rideEvEur) * 100) : 0;
+  const recommendedAction =
+    hedgeBeatsCashout >= 3
+      ? 'DIY Hedge Beats Cash-Out'
+      : winProb >= 0.75
+        ? 'Ride or Partial Hedge'
+        : 'Take Cash-Out';
+
+  return {
+    equalHedgeStake,
+    equalPocketCash,
+    equalNetProfit,
+    hedgeBeatsCashout,
+    freerollHedgeStake,
+    freerollMinProfit,
+    freerollMaxProfit,
+    impliedRideOdds,
+    breakevenWinPct,
+    rideEvEur,
+    cashoutPenaltyPct,
+    recommendedAction,
+  };
+});
 
 // Sorting state for Best Bets Table
 const sortKey = ref<'date' | 'comp' | 'match' | 'win_prob' | 'fair' | 'odds'>('date');

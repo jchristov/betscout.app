@@ -20,6 +20,8 @@ def evaluate_soccer_gate(
     p_mkt: float,
     ev_pct: float,
     factors_tanh_z: dict[str, float],
+    deep_stats: dict[str, Any] | None = None,
+    side: str = "H",
 ) -> str:
     """Classify a Football (`soccer`) candidate into a conviction tier (`top_8pct`, `top_10pct`,
     `top_15pct`, `top_25pct`, `uefa_edge`) or `'pass'` using competition-specific gates:
@@ -34,6 +36,10 @@ def evaluate_soccer_gate(
        Prevents heavy-vig chalk upsets against surging underdogs with negative H2H (e.g. `Sporting CP 1-2 Académico de Viseu`).
     3. **UEFA / FIFA International Gate:**
        Allows cross-border club/national fixtures with `sot_d >= 0.0` and (`score >= 0.02` or `dom_rebound > 0.20`).
+    4. **Deep Statistical Splits, xG Regression & 20-Match Long-Term H2H Gate (`deep_stats`):**
+       When `deep_stats` (`funstats.py`) is available:
+         - Vetoes sub-68% favorites overperforming season xG by `>= +5.0` goals (`goals_minus_xg >= 5.0`) when `dom_z < 0.0`.
+         - Vetoes `top_25pct`/`uefa_edge` picks when 20-match long-term H2H (`total_matches >= 6`) shows `>= 45%` draw rate or `< 30%` win rate for the backed club.
     """
     lg = (league or "").lower().strip()
     sot_z = float(factors_tanh_z.get("sot_d", 0.0))
@@ -41,6 +47,22 @@ def evaluate_soccer_gate(
     disc_z = float(factors_tanh_z.get("discipline", 0.0))
     h2h_z = float(factors_tanh_z.get("h2h_adv", 0.0))
     draws_z = float(factors_tanh_z.get("recent_draws", 0.0))
+
+    if isinstance(deep_stats, dict) and deep_stats.get("available"):
+        side_key = "home" if str(side).upper() == "H" else "away"
+        xg_row = (deep_stats.get("xg_comparison") or {}).get(side_key)
+        if isinstance(xg_row, dict):
+            g_minus_xg = float(xg_row.get("goals_minus_xg") or 0.0)
+            if p_mkt < 0.68 and g_minus_xg >= 5.0 and dom_z < 0.0:
+                return "pass"
+        h2h_lt = deep_stats.get("h2h_long_term") or {}
+        n_lt = int(h2h_lt.get("total_matches") or 0)
+        if n_lt >= 6 and score < thresholds.get("top_15pct", 0.2565):
+            lt_w_key = "home_win_pct" if str(side).upper() == "H" else "away_win_pct"
+            lt_win_pct = float(h2h_lt.get(lt_w_key) or 50.0)
+            lt_draw_pct = float(h2h_lt.get("draw_pct") or 25.0)
+            if lt_draw_pct >= 45.0 or lt_win_pct < 30.0:
+                return "pass"
 
     # 1. Universal Stalemate-Draw & Foul-Trouble Veto
     # Catches stalemate/foul-trouble traps up to p_mkt < 0.65 (e.g. Toulouse 0-0 Troyes and Bayern Munich W 2-2 Real Madrid W)
@@ -149,6 +171,16 @@ def evaluate_tennis_gate(
             return False, win_prob, None, "VETO_WEAK_DECIDER_RESILIENCE"
         if tourn_wins_diff is not None and tourn_wins_diff <= -1:
             return False, win_prob, None, "VETO_COURT_ACCLIMATIZATION deficit"
+
+    # 0a-2. Short-Turnaround (<26.5h) Sub-72% Dogfight Veto (e.g. Lorenzo Musetti vs Luca Van Assche 5-7, 6-3, 4-6 where
+    # Musetti had 25.8h rest and 69.2% model win_prob; +1.5 Sets Shield won, but 3-set ML lost on short turnaround):
+    if (
+        win_prob < 0.72
+        and isinstance(pick_rest_h, (int, float))
+        and float(pick_rest_h) <= 26.5
+        and (tourn_wins_diff is None or tourn_wins_diff <= 0)
+    ):
+        return False, win_prob, None, "VETO_SHORT_TURNAROUND_DOGFIGHT"
 
     # 0b. Compressed-Turnaround + Negative Physical Endurance / Decider Veto:
     # When a sub-78% favorite has negative 3-set decider resilience (`decider_diff < 0.0`)
@@ -736,6 +768,8 @@ def evaluate_soccer_secondary_markets(
     dog_gf_avg: float | None = None,
     dog_sot_for_avg: float | None = None,
     comb_sot_for_avg: float | None = None,
+    league: str = "",
+    deep_stats: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Evaluate out-of-sample validated high-conviction Football secondary markets:
     1. **Double Chance Shield (`1X` / `X2`):**
@@ -762,17 +796,38 @@ def evaluate_soccer_secondary_markets(
     pick_team = home if side == "H" else away
     ml_odds = best_h if side == "H" else best_a
     sot_z = float(factors_tanh_z.get("sot_d", 0.0))
+    dom_z = float(factors_tanh_z.get("dom_rebound", 0.0))
+    lg_norm = str(league or "").lower().strip()
+    is_uefa_comp = lg_norm.startswith("uefa.") or lg_norm in ("ucl", "uel", "uecl")
     opportunities: list[dict[str, Any]] = []
 
-    # 1. Double Chance Shield (1X / X2)
+    # Extract optional FunStats deep splits (Over 2.5 %, clean-sheet %, xG, and 20-match H2H)
+    ds_over25_boost = 0.0
+    ds_under25_boost = 0.0
+    if isinstance(deep_stats, dict) and deep_stats.get("available"):
+        ts_h = (deep_stats.get("team_splits") or {}).get("home") or {}
+        ts_a = (deep_stats.get("team_splits") or {}).get("away") or {}
+        ov_h = float(((ts_h.get("goals_over_under") or {}).get("full_time") or {}).get("over_2_5_pct") or 0.0)
+        ov_a = float(((ts_a.get("goals_over_under") or {}).get("full_time") or {}).get("over_2_5_pct") or 0.0)
+        if ov_h > 0 and ov_a > 0:
+            avg_ov25 = 0.5 * (ov_h + ov_a)
+            if avg_ov25 >= 62.0:
+                ds_over25_boost = 0.025
+            elif avg_ov25 <= 42.0:
+                ds_under25_boost = 0.025
+
+    # 1. Double Chance Shield (1X / X2) — also unlocked for UEFA Champions/Europa/Conference League edges (`is_uefa_comp`)
     dc_code = "1X" if side == "H" else "X2"
     syn_dc = (1.0 / (1.0 / best_h + 1.0 / best_d)) if side == "H" else (1.0 / (1.0 / best_d + 1.0 / best_a))
     sr_dc = sr_m.get("double_chance_1x" if side == "H" else "double_chance_x2")
     dc_odds = round(max(float(syn_dc), float(sr_dc or 0.0)), 2)
     p_dc = round(min(0.95, max(p_model + 0.19, 1.0 / max(dc_odds, 1.05) + 0.025)), 4)
     ev_dc = round((p_dc * dc_odds - 1.0) * 100.0, 2)
+    qualifies_dc_tier = (score >= thresholds.get("top_15pct", 0.2565)) or (
+        is_uefa_comp and sot_z >= 0.25 and (score >= 0.12 or dom_z >= 0.20)
+    )
     if (
-        score >= thresholds.get("top_15pct", 0.2565)
+        qualifies_dc_tier
         and 1.48 <= ml_odds <= 2.35
         and 1.13 <= dc_odds <= 1.45
         and sot_z >= 0.25
@@ -822,15 +877,21 @@ def evaluate_soccer_secondary_markets(
     lam_h = float(esc.get("lambda_home") or 1.45)
     mu_a = float(esc.get("mu_away") or 1.15)
     lam_tot = lam_h + mu_a
+    qualifies_ov_tier = (score >= thresholds.get("top_10pct", 0.3246)) or (
+        is_uefa_comp and score >= thresholds.get("top_25pct", 0.1579)
+    )
     if (
-        score >= thresholds.get("top_10pct", 0.3246)
+        qualifies_ov_tier
         and p_mkt >= 0.62
         and sot_z >= 0.45
         and recent_draws_raw <= 0.17
         and h2h_draw_rate <= 0.22
         and lam_tot >= 2.85
     ):
-        p_o25 = round(min(0.88, max(0.62, 1.0 - (1.0 + lam_tot + 0.5 * (lam_tot**2)) * math.exp(-lam_tot) + 0.12)), 4)
+        p_o25 = round(
+            min(0.88, max(0.62, 1.0 - (1.0 + lam_tot + 0.5 * (lam_tot**2)) * math.exp(-lam_tot) + 0.12 + ds_over25_boost)),
+            4,
+        )
         mkt_line = float(sr_m.get("line_total") or line_total or 2.5)
         raw_ov = float(sr_m.get("odds_over") or odds_over or 0.0)
         o25_odds = round(raw_ov if (mkt_line == 2.5 and 1.45 <= raw_ov <= 2.20) else max(1.52, round(0.95 / p_o25, 2)), 2)
@@ -880,7 +941,10 @@ def evaluate_soccer_secondary_markets(
     ):
         mkt_line_u = float(sr_m.get("line_total") or line_total or 2.5)
         raw_un = float(sr_m.get("odds_under") or odds_under or 0.0)
-        p_u25 = round(min(0.74, max(0.64, (1.0 + lam_tot + 0.5 * (lam_tot**2)) * math.exp(-lam_tot) + 0.08)), 4)
+        p_u25 = round(
+            min(0.74, max(0.64, (1.0 + lam_tot + 0.5 * (lam_tot**2)) * math.exp(-lam_tot) + 0.08 + ds_under25_boost)),
+            4,
+        )
         u25_odds = round(raw_un if (mkt_line_u == 2.5 and 1.65 <= raw_un <= 2.25) else max(1.72, round(1.12 / p_u25, 2)), 2)
         ev_u25 = round((p_u25 * u25_odds - 1.0) * 100.0, 2)
         if ev_u25 >= 2.0:

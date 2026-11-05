@@ -2692,16 +2692,42 @@ def scan_upcoming_and_log_paper_bets(
 
                 from .sport_models import evaluate_soccer_gate, evaluate_soccer_secondary_markets
 
+                fav_Side_c = str(best_candidate["side"])
                 tier = evaluate_soccer_gate(
                     league=lg.key,
-                    score= float(best_candidate["score"]),
+                    score=float(best_candidate["score"]),
                     thresholds=thresholds,
                     p_mkt=float(best_candidate.get("p_mkt") or 0.5),
                     ev_pct=float(best_candidate.get("ev_pct") or 0.0),
                     factors_tanh_z=best_candidate["factors_tanh_z"],
+                    side=fav_Side_c,
                 )
+                deep_stats_cand: dict[str, Any] | None = None
+                if tier != "pass":
+                    try:
+                        from .funstats import lookup_funstats_match_intel
+
+                        deep_stats_cand = lookup_funstats_match_intel(
+                            home=home,
+                            away=away,
+                            league_hint=lg.key,
+                            date_ymd=kickoff[:10],
+                            include_external_consensus=False,
+                        )
+                        if isinstance(deep_stats_cand, dict) and deep_stats_cand.get("available"):
+                            tier = evaluate_soccer_gate(
+                                league=lg.key,
+                                score=float(best_candidate["score"]),
+                                thresholds=thresholds,
+                                p_mkt=float(best_candidate.get("p_mkt") or 0.5),
+                                ev_pct=float(best_candidate.get("ev_pct") or 0.0),
+                                factors_tanh_z=best_candidate["factors_tanh_z"],
+                                deep_stats=deep_stats_cand,
+                                side=fav_Side_c,
+                            )
+                    except Exception:
+                        deep_stats_cand = None
                 best_candidate["tier"] = tier
-                fav_Side_c = str(best_candidate["side"])
                 fav_oh = oh if fav_Side_c == "H" else oa
                 dog_oh = oa if fav_Side_c == "H" else oh
                 fav_ga_avg_v = float(np.mean([x.get("ga", 1.1) for x in fav_oh])) if fav_oh else None
@@ -2738,6 +2764,8 @@ def scan_upcoming_and_log_paper_bets(
                     dog_gf_avg=dog_gf_avg_v,
                     dog_sot_for_avg=dog_sot_for_v,
                     comb_sot_for_avg=comb_sot_for_v,
+                    league=lg.key,
+                    deep_stats=deep_stats_cand,
                 )
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
@@ -3283,6 +3311,31 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                                         "attack_share": None,
                                     })
                                     continue
+                            # Also veto if the backed player entered a >=2 match losing streak from earlier today (within 18h)
+                            if len(prior_ms) >= 2 and (ko_uts - m0_uts) <= int(18.0 * 3600):
+                                losses_top2 = 0
+                                for mx2 in prior_ms[:2]:
+                                    t2 = mx2.get("teams") or {}
+                                    ih2 = ((t2.get("home") or {}).get("uid") == fav_uid)
+                                    rh2 = int(((mx2.get("result") or {}).get("home")) or 0)
+                                    ra2 = int(((mx2.get("result") or {}).get("away")) or 0)
+                                    if (rh2 if ih2 else ra2) < (ra2 if ih2 else rh2) and (rh2 + ra2) > 0:
+                                        losses_top2 += 1
+                                if losses_top2 >= 2:
+                                    c_del = _open_db(db_path)
+                                    c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                                    c_del.commit()
+                                    c_del.close()
+                                    vetoed_alerts.append({
+                                        "league": lg,
+                                        "event_id": eid,
+                                        "home": r["home"],
+                                        "away": r["away"],
+                                        "backed_team": backed,
+                                        "status": "VETOED_SESSION_LOSS_STREAK",
+                                        "attack_share": None,
+                                    })
+                                    continue
 
                 # Check live closing odds & RLM drift for European sports
                 if r["side"] in ("H", "A"):
@@ -3317,12 +3370,54 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
             continue
 
         if lg_l in ("atp", "wta"):
-            if r["side"] in ("H", "A"):
+            if r["side"] in ("H", "A") or str(r["side"]).startswith("PLUS15_"):
                 try:
                     ymd_t = str(r["kickoff"])[:10].replace("-", "")
                     sf_o = _fetch_sofascore_tennis_odds(r["home"], r["away"], ymd_t)
-                    cur_close_t = sf_o.get("odds_p1") if r["side"] == "H" else sf_o.get("odds_p2")
-                    if cur_close_t and float(cur_close_t) > 1.01:
+                    is_h_side = r["side"] in ("H", "PLUS15_H")
+                    cur_close_t = sf_o.get("odds_p1") if is_h_side else sf_o.get("odds_p2")
+                    pick_rest_t = sf_o.get("p1_rest_hours") if is_h_side else sf_o.get("p2_rest_hours")
+                    opp_rest_t = sf_o.get("p2_rest_hours") if is_h_side else sf_o.get("p1_rest_hours")
+                    pick_f5_t = sf_o.get("p1_last5_win_rate") if is_h_side else sf_o.get("p2_last5_win_rate")
+                    opp_f5_t = sf_o.get("p2_last5_win_rate") if is_h_side else sf_o.get("p1_last5_win_rate")
+                    # T-60m Tennis Dynamic Rest, Court-Acclimatization & Form Re-Verification:
+                    # 1. If backed ML favorite has < 26.5h turnaround on a sub-72% pick, veto ML (keep +1.5 Sets Shield)
+                    # 2. If opponent has already played & won a round in this tournament within the last 55h while favorite has been idle (>96h rest,
+                    #    meaning `tourn_wins_diff <= -1` now that the previous round has completed, e.g. Buse vs Medvedev & Etcheverry vs De Minaur), veto!
+                    is_t60_court_deficit = (
+                        isinstance(opp_rest_t, (int, float))
+                        and 14.0 <= float(opp_rest_t) <= 60.0
+                        and (pick_rest_t is None or float(pick_rest_t) >= 90.0)
+                        and float(r["composite_score"] or 0.72) < 0.78
+                    )
+                    is_t60_short_rest_ml = (
+                        r["side"] in ("H", "A")
+                        and isinstance(pick_rest_t, (int, float))
+                        and float(pick_rest_t) <= 26.5
+                        and float(r["composite_score"] or 0.72) < 0.72
+                    )
+                    is_t60_form_collapse = (
+                        pick_f5_t is not None
+                        and opp_f5_t is not None
+                        and float(pick_f5_t) <= 0.25
+                        and float(opp_f5_t) >= 0.60
+                    )
+                    if is_t60_court_deficit or is_t60_short_rest_ml or is_t60_form_collapse:
+                        c_del = _open_db(db_path)
+                        c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                        c_del.commit()
+                        c_del.close()
+                        vetoed_alerts.append({
+                            "league": lg,
+                            "event_id": eid,
+                            "home": r["home"],
+                            "away": r["away"],
+                            "backed_team": backed,
+                            "status": "VETOED_T60_COURT_ACCLIMATIZATION" if is_t60_court_deficit else "VETOED_SHORT_TURNAROUND_DOGFIGHT",
+                            "attack_share": None,
+                        })
+                        continue
+                    if r["side"] in ("H", "A") and cur_close_t and float(cur_close_t) > 1.01:
                         clv_t = (logged_best / float(cur_close_t)) - 1.0
                         if clv_t <= -0.06:
                             c_del = _open_db(db_path)
@@ -3869,6 +3964,11 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76218340"),
     ("table_tennis", "sr_76216682"),
     ("atp", "186465"),
+    ("atp", "186499"),
+    ("atp", "186483"),
+    ("atp", "186483::SET_HANDICAP_PLUS_1_5"),
+    ("atp", "186481"),
+    ("table_tennis", "sr_76391532"),
 )
 
 
