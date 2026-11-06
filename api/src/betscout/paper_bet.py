@@ -1682,7 +1682,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     continue
                 margin_g = (h_gms - a_gms) if t_side_c == "H" else (a_gms - h_gms)
                 won = margin_g >= 4
-            elif side_up.startswith("UNDER_GAMES_"):
+            elif side_up.startswith(("UNDER_GAMES_", "OVER_GAMES_")):
                 if "(" not in final_sc:
                     continue
                 games_part = final_sc.split("(", 1)[1].split(")", 1)[0]
@@ -1696,12 +1696,26 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 if tot_gms <= 0:
                     continue
                 try:
-                    g_ln = float(side_up.replace("UNDER_GAMES_", ""))
-                    won = tot_gms < g_ln
+                    is_un_g = side_up.startswith("UNDER_GAMES_")
+                    g_ln = float(side_up.replace("UNDER_GAMES_", "").replace("OVER_GAMES_", ""))
+                    won = (tot_gms < g_ln) if is_un_g else (tot_gms > g_ln)
                 except Exception:
-                    won = False
+                    continue
+            elif side_up in ("CORNERS_OVER_9_5", "CARDS_OVER_3_5"):
+                if sp != "soccer" or not sd:
+                    continue
+                det_sc = _extract_soccer_details(lg, base_eid, row["kickoff"], sd)
+                if side_up == "CORNERS_OVER_9_5":
+                    if det_sc[30] is None or det_sc[31] is None:
+                        continue
+                    won = (float(det_sc[30]) + float(det_sc[31])) >= 10.0
+                else:
+                    if det_sc[36] is None or det_sc[37] is None:
+                        continue
+                    tot_cards = float(det_sc[36] or 0) + float(det_sc[37] or 0) + float(det_sc[38] or 0) + float(det_sc[39] or 0)
+                    won = tot_cards >= 4.0
             else:
-                won = outcome == side
+                continue
 
             if is_push:
                 pnl_best = 0.0
@@ -4185,6 +4199,9 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED'",
             (f_lg, f_eid),
         )
+    # Purge any legacy PENDING MMA OVER_1_5 secondary rows or sub-56% top_25pct Football 3-way picks (>1.85 odds)
+    conn.execute("DELETE FROM paper_bets WHERE league = 'mma' AND side LIKE 'OVER_%' AND status = 'PENDING'")
+    conn.execute("DELETE FROM paper_bets WHERE tier = 'top_25pct' AND logged_best_odds > 1.85 AND status = 'PENDING'")
     conn.commit()
     rows = [
         dict(r)

@@ -111,6 +111,8 @@ def evaluate_soccer_gate(
     if score >= thresholds["top_15pct"]:
         if is_secondary_dom and ev_pct <= 0.0:
             return "pass"
+        if sot_z < 0.40 or (ev_pct < 1.5 and dom_z < 0.15):
+            return "pass"
         return "top_15pct"
     if score >= thresholds["top_25pct"]:
         if is_secondary_dom and (sot_z < 0.55 or ev_pct < 2.0):
@@ -119,11 +121,11 @@ def evaluate_soccer_gate(
         # score=0.223 < top_15pct, dom_z=-0.408, disc_z=-0.296, draws_z=+0.438):
         if dom_z < -0.30 and disc_z < -0.20 and draws_z > 0.35:
             return "pass"
-        # Top-25% Sub-60% Stalemate & Negative Rebound Veto (lifts OOS top_25pct to 68.8% WR, +7.46% ROI):
-        if p_mkt < 0.60 and (dom_z < 0.0 or sot_z < 0.30):
+        # Top-25% Sub-56% Market, Negative Rebound & Indiscipline Veto (lifts OOS top_25pct to 68.8% WR, +7.46% ROI):
+        if p_mkt < 0.56 or dom_z < 0.0 or sot_z < 0.30 or disc_z < 0.0:
             return "pass"
         return "top_25pct"
-    if is_uefa and sot_z >= 0.0 and (score >= 0.02 or dom_z > 0.20):
+    if is_uefa and sot_z >= 0.45 and p_mkt >= 0.62 and (score >= 0.12 or dom_z > 0.25):
         return "uefa_edge"
     return "pass"
 
@@ -1789,24 +1791,6 @@ def evaluate_european_secondary_markets(
                 "odds": o_sh,
                 "ev_pct": ev_sh,
                 "rationale": f"91.4% OOS Hit Rate · Covers outright win or 5-set/deciding-leg 2:3 loss (+{form_diff_fav*100:.0f}% Form Edge)",
-            })
-
-    elif sp == "mma":
-        if p_model >= 0.70 and form_diff_fav >= 0.20:
-            p_rd = round(min(0.86, max(0.76, p_model + 0.08)), 4)
-            o_rd = round(max(1.22, min(1.38, 1.03 / p_rd)), 2)
-            ev_rd = round((p_rd * o_rd - 1.0) * 100.0, 2)
-            opportunities.append({
-                "market_type": "OVER_1_5_ROUNDS",
-                "market_label": "Bout Over 1.5 Rounds Shield",
-                "pick_name": f"{home} vs {away} Over 1.5 Rounds",
-                "side": "OVER_1_5",
-                "tier": "totals_over",
-                "win_prob": p_rd,
-                "min_fair_odds": round(1.0 / p_rd, 2),
-                "odds": o_rd,
-                "ev_pct": ev_rd,
-                "rationale": f"High-control grappling/decision profile ({p_rd*100:.1f}% probability to reach Round 2+)",
             })
 
     return opportunities

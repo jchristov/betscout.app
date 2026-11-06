@@ -1241,7 +1241,8 @@ def test_per_sport_isolated_gates():
         )
         == "pass"
     )
-    assert any(x["market_type"] == "OVER_1_5_ROUNDS" for x in mma_sec)
+    assert mma_sec == []
+    assert "ASIAN_HCAP_M1.0_H" in soc_sec_types
 
     set_dist_h = predict_tennis_set_scores(
         win_prob=0.76,
