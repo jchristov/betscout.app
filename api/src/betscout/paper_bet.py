@@ -1626,6 +1626,16 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             won = tot_g < ln_v
                     except Exception:
                         won = False
+            elif side_up.startswith(("ASIAN_HCAP_M1.0_",)):
+                if hs_g is None or as_g is None:
+                    continue
+                t_side_c = "H" if side_up.endswith("_H") else "A"
+                margin_pick = (hs_g - as_g) if t_side_c == "H" else (as_g - hs_g)
+                if margin_pick == 1:
+                    won = False
+                    is_push = True
+                else:
+                    won = margin_pick >= 2
             elif side_up.startswith(("SPREAD_M2.5_", "SPREAD_P7.5_", "PUCKLINE_P1.5_")):
                 if hs_g is None or as_g is None:
                     continue
@@ -1642,7 +1652,9 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 if outcome == t_side_c:
                     won = True
                 elif hs_g is not None and as_g is not None:
-                    won = (hs_g if t_side_c == "H" else as_g) >= 1
+                    my_s_g = hs_g if t_side_c == "H" else as_g
+                    op_s_g = as_g if t_side_c == "H" else hs_g
+                    won = (my_s_g + 1.5) > op_s_g
                 else:
                     won = False
             elif side_up in ("SETS20_H", "SETS20_A"):
@@ -3312,22 +3324,65 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                 )
 
                 if lg_l in ("darts", "table_tennis"):
+                    clean_mid_t60 = base_eid.replace("sr_", "") if base_eid.startswith("sr_") else None
                     sr_d = fetch_live_match_timelinedelta(
                         r["home"],
                         r["away"],
                         sport=lg_l,
                         date_ymd=str(r["kickoff"])[:10],
-                        sr_match_id=(base_eid.replace("sr_", "") if base_eid.startswith("sr_") else None),
+                        sr_match_id=clean_mid_t60,
                     )
-                    fav_uid = sr_d.get("home_uid") if r["side"] == "H" else sr_d.get("away_uid")
+                    is_h_pick_t60 = str(r["side"]).upper() in ("H", "PLUS15_H")
+                    fav_uid = sr_d.get("home_uid") if is_h_pick_t60 else sr_d.get("away_uid")
+                    dog_uid = sr_d.get("away_uid") if is_h_pick_t60 else sr_d.get("home_uid")
+                    if not fav_uid and clean_mid_t60 and clean_mid_t60.isdigit():
+                        mf_t60 = fetch_statshub_gismo("stats_match_form", clean_mid_t60, ttl_sec=60.0) or {}
+                        tf_t60 = mf_t60.get("teams") or {}
+                        h_u_f = (((tf_t60.get("home") or {}).get("team")) or {}).get("uid")
+                        a_u_f = (((tf_t60.get("away") or {}).get("team")) or {}).get("uid")
+                        fav_uid = h_u_f if is_h_pick_t60 else a_u_f
+                        dog_uid = a_u_f if is_h_pick_t60 else h_u_f
+                    ko_uts = int(datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp())
+                    if dog_uid:
+                        lx_dog = fetch_statshub_gismo("stats_team_lastx", f"{dog_uid}/5", ttl_sec=60.0) or {}
+                        dog_ms = [
+                            mx
+                            for mx in (lx_dog.get("matches") or [])
+                            if int(((mx.get("time") or {}).get("uts")) or 0) < ko_uts
+                            and str(mx.get("_id")) != (clean_mid_t60 or "")
+                        ]
+                        dog_ms.sort(key=lambda mx: int(((mx.get("time") or {}).get("uts")) or 0), reverse=True)
+                        if len(dog_ms) >= 3:
+                            dog_w3 = 0
+                            for dmx in dog_ms[:3]:
+                                dtms = dmx.get("teams") or {}
+                                dih = ((dtms.get("home") or {}).get("uid") == dog_uid)
+                                drh = int(((dmx.get("result") or {}).get("home")) or 0)
+                                dra = int(((dmx.get("result") or {}).get("away")) or 0)
+                                if (drh if dih else dra) > (dra if dih else drh):
+                                    dog_w3 += 1
+                            if dog_w3 >= 3:
+                                c_del = _open_db(db_path)
+                                c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+                                c_del.commit()
+                                c_del.close()
+                                vetoed_alerts.append({
+                                    "league": lg,
+                                    "event_id": eid,
+                                    "home": r["home"],
+                                    "away": r["away"],
+                                    "backed_team": backed,
+                                    "status": "VETOED_DOG_WIN_STREAK",
+                                    "attack_share": None,
+                                })
+                                continue
                     if fav_uid:
                         lx_d = fetch_statshub_gismo("stats_team_lastx", f"{fav_uid}/5", ttl_sec=60.0) or {}
-                        ko_uts = int(datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp())
                         prior_ms = [
                             mx
                             for mx in (lx_d.get("matches") or [])
                             if int(((mx.get("time") or {}).get("uts")) or 0) < ko_uts
-                            and str(mx.get("_id")) != base_eid.replace("sr_", "")
+                            and str(mx.get("_id")) != (clean_mid_t60 or "")
                         ]
                         prior_ms.sort(key=lambda mx: int(((mx.get("time") or {}).get("uts")) or 0), reverse=True)
                         if prior_ms:
@@ -3340,7 +3395,8 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                                 ra0 = int(((m0.get("result") or {}).get("away")) or 0)
                                 my_s0 = rh0 if is_h0 else ra0
                                 op_s0 = ra0 if is_h0 else rh0
-                                if my_s0 < op_s0 and (my_s0 + op_s0) > 0:
+                                is_sub45m_5set = (ko_uts - m0_uts) <= 2700 and (my_s0 + op_s0) >= 5 and lg_l == "table_tennis"
+                                if (my_s0 < op_s0 and (my_s0 + op_s0) > 0) or is_sub45m_5set:
                                     c_del = _open_db(db_path)
                                     c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
                                     c_del.commit()
@@ -3351,7 +3407,7 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
                                         "home": r["home"],
                                         "away": r["away"],
                                         "backed_team": backed,
-                                        "status": "VETOED_SESSION_LOSS",
+                                        "status": "VETOED_5SET_FATIGUE" if is_sub45m_5set else "VETOED_SESSION_LOSS",
                                         "attack_share": None,
                                     })
                                     continue
@@ -4015,6 +4071,13 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76391532"),
     ("uefa.europa.conf", "401915831"),
     ("uefa.europa.conf", "401915742"),
+    ("handball", "sr_72944002"),
+    ("handball", "sr_72944002::DC_X2"),
+    ("table_tennis", "sr_76483356"),
+    ("table_tennis", "sr_76472558"),
+    ("table_tennis", "sr_76472558::SET_HANDICAP_PLUS_1_5"),
+    ("uefa.europa", "401915532"),
+    ("uefa.europa.conf", "401915818"),
 )
 
 
@@ -4035,6 +4098,10 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return f"{home} DNB"
     if s == "DNB_A":
         return f"{away} DNB"
+    if s == "ASIAN_HCAP_M1.0_H":
+        return f"{home} -1.0 Asian Hcap"
+    if s == "ASIAN_HCAP_M1.0_A":
+        return f"{away} -1.0 Asian Hcap"
     if s == "OVER_2_5":
         return "Over 2.5 Goals"
     if s == "OVER_1_5":
@@ -4115,7 +4182,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
     for f_lg, f_eid in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
         conn.execute(
-            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED' AND pnl_best < 0",
+            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED'",
             (f_lg, f_eid),
         )
     conn.commit()

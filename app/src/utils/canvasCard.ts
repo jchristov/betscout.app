@@ -72,6 +72,7 @@ function humanizeCanvasMarketCodes(rawVal?: string | null): string {
   s = s.replace(/\(?SPREAD_P7\.5_[HA]\)?/g, '+7.5 Shield');
   s = s.replace(/\(?PUCKLINE_P1\.5_[HA]\)?/g, '+1.5 Puck Line');
   s = s.replace(/\(?GAMES_HCAP_M3\.5_[HA]\)?/g, '-3.5 Games Handicap');
+  s = s.replace(/\(?ASIAN_HCAP_M1\.0_[HA]\)?/g, '-1.0 Asian Handicap');
   s = s.replace(/\(UNDER_2_5_SETS\)|UNDER_2_5_SETS/g, 'Under 2.5 Sets');
   return s.replace(/\s+/g, ' ').trim();
 }

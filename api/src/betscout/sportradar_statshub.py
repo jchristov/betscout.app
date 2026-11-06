@@ -1187,6 +1187,8 @@ def fetch_live_match_timelinedelta(
         if dt_uts_m
         else None
     )
+    h_uid_m = (((m.get("teams") or matched_m.get("teams") or {}).get("away" if flipped else "home")) or {}).get("uid")
+    a_uid_m = (((m.get("teams") or matched_m.get("teams") or {}).get("home" if flipped else "away")) or {}).get("uid")
     if st_id == 70:  # cancelled
         return {}
     if st_id in (0, 60, 61):  # not_started / postponed / delayed
@@ -1194,6 +1196,8 @@ def fetch_live_match_timelinedelta(
             "sr_match_id": mid,
             "sr_season_id": matched_m.get("_seasonid"),
             "status_id": st_id,
+            "home_uid": h_uid_m,
+            "away_uid": a_uid_m,
             "state": "pre",
             "status_desc": st_name,
             "start_utc": start_utc_m,
@@ -1210,6 +1214,8 @@ def fetch_live_match_timelinedelta(
             "sr_match_id": mid,
             "sr_season_id": matched_m.get("_seasonid"),
             "status_id": st_id,
+            "home_uid": h_uid_m,
+            "away_uid": a_uid_m,
             "state": "pre",
             "status_desc": st_name,
             "start_utc": start_utc_m,

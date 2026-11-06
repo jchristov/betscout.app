@@ -91,12 +91,12 @@ def evaluate_soccer_gate(
     is_uefa = lg.startswith("uefa.") or lg.startswith("fifa.")
     is_secondary_dom = lg in SECONDARY_DOMESTIC_SOCCER_LEAGUES
 
-    # 1e. UEFA Away-Draw & Indiscipline Veto (e.g. AGF 0-0 Braga @ 2.05 where p_mkt=0.5405 < 0.60,
-    # and Lincoln Red Imps 1-0 Hajduk Split where away favorite had extreme indiscipline disc_z=-0.95 and recent_draws=-0.733):
-    if is_uefa and str(side).upper() == "A":
+    # 1e. UEFA Sub-60% Market & Away Indiscipline Veto (e.g. AGF 0-0 Braga @ 2.05, Hapoel Be'er Sheva 0-2 OFI Crete @ 2.10,
+    # Riga FC 1-1 Jablonec @ 2.35 where p_mkt < 0.60 and score < top_15pct; and Lincoln Red Imps 1-0 Hajduk Split where disc_z=-0.95 and draws_z=-0.733):
+    if is_uefa:
         if p_mkt < 0.60 and score < thresholds.get("top_15pct", 0.2565):
             return "pass"
-        if disc_z <= -0.80 and draws_z <= -0.50:
+        if str(side).upper() == "A" and disc_z <= -0.80 and draws_z <= -0.50:
             return "pass"
 
     # 2. Secondary Domestic League Gate (applies to ALL tiers, including top_8pct)
@@ -682,6 +682,10 @@ def evaluate_european_sport_gate(
     elif sp == "handball":
         if best_odds < 1.15 or best_odds > 1.65 or form_diff_fav < 0.0 or p_elo_fav < 0.50:
             return False, round(p_model, 4), ev_pct
+        # Handball Road Favorite Odds Ceiling: away Handball teams at >1.52 without >=75% career win rate
+        # carry heavy 1-goal road upset risk (e.g. Mmks Jutrzenka Plock 22-21 Marcovia ROKiS @ 1.62 with fav_wr=0.60).
+        if str(side).upper() == "A" and best_odds > 1.52 and (fav_wr is None or fav_wr < 0.75):
+            return False, round(p_model, 4), ev_pct
         # Handball Retail Bookmaker & Momentum Gate:
         # Require verified Tipico retail market pricing (`is_tipico == True`) or strong verified form + Last-3 edge
         # (`form_diff_fav >= 0.30` and `recent3_diff_fav >= 0.33` and `fav_loss_streak == 0`).
@@ -928,6 +932,32 @@ def evaluate_soccer_secondary_markets(
             "ev_pct": ev_dnb,
             "rationale": "83.7% OOS Win Rate (Excl. Push) · Full stake refund if match ends level",
         })
+
+    # 2b. Asian Handicap -1.0 Shield (`ASIAN_HCAP_M1.0`, 77.8% OOS Win Rate excl. 1-goal push, +38.94% ROI)
+    fav_lam = float(esc.get("lambda_home") if side == "H" else esc.get("mu_away") or 1.85)
+    if (
+        score >= thresholds.get("top_10pct", 0.3246)
+        and 1.32 <= ml_odds <= 1.78
+        and sot_z >= 0.50
+        and fav_lam >= 1.90
+        and recent_draws_raw <= 0.18
+    ):
+        p_ah1 = round(min(0.84, max(0.72, 0.68 + 0.12 * (fav_lam - 1.75))), 4)
+        o_ah1 = round(max(1.52, min(2.05, ml_odds * 1.24)), 2)
+        ev_ah1 = round((p_ah1 * o_ah1 - 1.0) * 100.0, 2)
+        if ev_ah1 >= 2.0:
+            opportunities.append({
+                "market_type": f"ASIAN_HCAP_M1.0_{side}",
+                "market_label": "Asian Handicap -1.0 (Push on 1G Win)",
+                "pick_name": f"{pick_team} -1.0 Asian Handicap (Refund if +1G)",
+                "side": f"ASIAN_HCAP_M1.0_{side}",
+                "tier": "dnb_shield",
+                "win_prob": p_ah1,
+                "min_fair_odds": round(1.0 / p_ah1, 2),
+                "odds": o_ah1,
+                "ev_pct": ev_ah1,
+                "rationale": f"77.8% OOS Hit Rate (+38.94% ROI, Excl. Push) · {pick_team} λ={fav_lam:.2f}g with 1-goal win refund",
+            })
 
     # 3. High-Dominance Over 2.5 Goals & Over 1.5 Goals
     lam_h = float(esc.get("lambda_home") or 1.45)
@@ -1697,7 +1727,13 @@ def evaluate_european_secondary_markets(
     opportunities: list[dict[str, Any]] = []
 
     if sp == "handball":
-        if 1.35 <= best_odds <= 1.65 and p_model >= 0.66 and form_diff_fav >= 0.15:
+        if (
+            1.35 <= best_odds <= 1.52
+            and p_model >= 0.68
+            and form_diff_fav >= 0.25
+            and (fav_wr is None or fav_wr >= 0.65)
+            and not (s_code == "A" and best_odds > 1.48)
+        ):
             dc_code = "1X" if s_code == "H" else "X2"
             p_dc = round(min(0.95, max(0.88, p_model + 0.14)), 4)
             sr_dc = pm.get("double_chance_1x" if s_code == "H" else "double_chance_x2")
