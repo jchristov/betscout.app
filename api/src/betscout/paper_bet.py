@@ -4199,9 +4199,11 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED'",
             (f_lg, f_eid),
         )
-    # Purge any legacy PENDING MMA OVER_1_5 secondary rows or sub-56% top_25pct Football 3-way picks (>1.85 odds)
+    # Purge any legacy PENDING MMA OVER_1_5 secondary rows, stale ungradeable >36h PENDING rows, or >1.85 sub-top10pct 3-way Football ML picks
+    cutoff_stale_iso = (datetime.now(timezone.utc) - timedelta(hours=36)).strftime("%Y-%m-%dT%H:%M:%SZ")
     conn.execute("DELETE FROM paper_bets WHERE league = 'mma' AND side LIKE 'OVER_%' AND status = 'PENDING'")
-    conn.execute("DELETE FROM paper_bets WHERE tier = 'top_25pct' AND logged_best_odds > 1.85 AND status = 'PENDING'")
+    conn.execute("DELETE FROM paper_bets WHERE tier IN ('top_25pct', 'top_15pct', 'uefa_edge') AND side IN ('H', 'A') AND logged_best_odds > 1.85 AND status = 'PENDING'")
+    conn.execute("DELETE FROM paper_bets WHERE status = 'PENDING' AND is_live = 0 AND kickoff < ?", (cutoff_stale_iso,))
     conn.commit()
     rows = [
         dict(r)
