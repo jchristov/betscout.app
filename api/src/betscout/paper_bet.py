@@ -674,6 +674,7 @@ def scan_upcoming_tennis(
                             game_elo_diff=round(sgn * d_elo_games * 400.0, 1),
                             set_score_pred=set_pred,
                             totals_market=t_tot_mkt,
+                            surf_elo_diff=round(sgn * d_elo_surf * 400.0, 1),
                         )
                         p1_hs, p1_flag = _extract_tennis_media(p1)
                         p2_hs, p2_flag = _extract_tennis_media(p2)
@@ -1648,6 +1649,27 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 if hs_g is None or as_g is None:
                     continue
                 won = (hs_g == 2 and as_g == 0) if side_up.endswith("_H") else (hs_g == 0 and as_g == 2)
+            elif side_up == "UNDER_2_5_SETS":
+                if hs_g is None or as_g is None:
+                    continue
+                won = (hs_g + as_g) == 2
+            elif side_up.startswith("GAMES_HCAP_M3.5_"):
+                if "(" not in final_sc:
+                    continue
+                t_side_c = "H" if side_up.endswith("_H") else "A"
+                games_part = final_sc.split("(", 1)[1].split(")", 1)[0]
+                h_gms = a_gms = 0
+                for sp_s in games_part.split(","):
+                    sp_c = sp_s.replace("Ret.", "").strip()
+                    if "-" in sp_c:
+                        ga_s, gb_s = sp_c.split("-", 1)
+                        if ga_s.strip().isdigit() and gb_s.strip().isdigit():
+                            h_gms += int(ga_s.strip())
+                            a_gms += int(gb_s.strip())
+                if (h_gms + a_gms) <= 0:
+                    continue
+                margin_g = (h_gms - a_gms) if t_side_c == "H" else (a_gms - h_gms)
+                won = margin_g >= 4
             elif side_up.startswith("UNDER_GAMES_"):
                 if "(" not in final_sc:
                     continue
@@ -4047,6 +4069,12 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return f"{home} 2:0 Sets"
     if s == "SETS20_A":
         return f"{away} 0:2 Sets"
+    if s == "UNDER_2_5_SETS":
+        return "Under 2.5 Sets (2-Set Finish)"
+    if s == "GAMES_HCAP_M3.5_H":
+        return f"{home} -3.5 Games"
+    if s == "GAMES_HCAP_M3.5_A":
+        return f"{away} -3.5 Games"
     if s == "SPREAD_M2.5_H":
         return f"{home} -2.5 Spread"
     if s == "SPREAD_M2.5_A":
@@ -4212,7 +4240,7 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         tl = str(tier_s or "").lower()
         if su.startswith(("DC_", "DNB_")) or tl in ("dc_shield", "dnb_shield"):
             return "Football Double Chance & DNB Shields"
-        if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_")) or tl == "set_shield":
+        if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_", "GAMES_HCAP_")) or tl == "set_shield":
             return "Handicap Shields (+1.5 Sets / Puck Line / Spread)"
         if su.startswith(("OVER_", "UNDER_", "SETS20_", "BTTS_", "HT_OVER_", "CORNERS_", "CARDS_")) or tl in ("totals_over", "totals_under", "straight_sets"):
             return "Over/Under Totals & Straight Sets"

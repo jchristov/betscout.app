@@ -1048,11 +1048,12 @@ def test_per_sport_isolated_gates():
         game_win_pct_diff=0.068,
         form_6m_diff=0.35,
         game_elo_diff=112.0,
-        set_score_pred={"best_of": 3, "straight_sets_score": "2:0", "straight_sets_prob": 0.68, "straight_sets_fair_odds": 1.47},
+        set_score_pred={"best_of": 3, "straight_sets_score": "2:0", "straight_sets_prob": 0.69, "straight_sets_fair_odds": 1.45, "three_set_dogfight_prob": 0.25},
         totals_market={"expected_games": 20.1, "games_line": 21.5, "prob": 0.64, "book_odds": 1.76},
+        surf_elo_diff=45.0,
     )
     ten_sec_types = {x["market_type"] for x in ten_sec}
-    assert "SET_HANDICAP_PLUS_1_5" in ten_sec_types and "UNDER_21.5_GAMES" in ten_sec_types and "SETS_2_0" in ten_sec_types
+    assert {"SET_HANDICAP_PLUS_1_5", "UNDER_21.5_GAMES", "SETS_2_0", "GAMES_HCAP_M3.5_H", "UNDER_2_5_SETS"}.issubset(ten_sec_types)
 
     nhl_sec = evaluate_nhl_totals_market("Tampa Bay Lightning", "Winnipeg Jets", 6.0, 1.88, 6.75, 65.5)
     assert len(nhl_sec) >= 1 and nhl_sec[0]["tier"] == "totals_over"
