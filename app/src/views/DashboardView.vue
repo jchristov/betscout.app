@@ -1141,7 +1141,17 @@
                 </div>
               </td>
               <td class="py-2.5 px-2.5 font-mono tabular-nums whitespace-nowrap">
-                <div class="font-bold text-emerald-300">{{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%</div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-bold text-emerald-300">{{ (Number(b.win_prob || 0.5) * 100).toFixed(1) }}%</span>
+                  <span
+                    v-if="b.edge_score"
+                    class="px-1.5 py-0.2 rounded text-[10px] font-bold border"
+                    :class="Number(b.edge_score) >= 85 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50' : 'bg-sky-500/15 text-sky-300 border-sky-400/40'"
+                    :title="`Quantitative Conviction Score: ${b.edge_score}/100 (blends Win Prob, EV%, Model Edge & Tier)`"
+                  >
+                    {{ b.edge_score }}/100
+                  </span>
+                </div>
                 <div class="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden mt-1">
                   <div
                     class="h-full rounded-full"
@@ -3072,13 +3082,43 @@
               >
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div class="font-extrabold text-xs sm:text-sm">{{ analyzerResult.verdict }}</div>
-                  <span
-                    v-if="analyzerResult.is_mispriced"
-                    class="px-2 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400 text-emerald-200 text-[10.5px] font-extrabold"
-                  >
-                    💎 MISPRICED EDGE ({{ analyzerResult.fav_edge_pp >= 0 ? '+' : '' }}{{ analyzerResult.fav_edge_pp }}pp · EV
-                    {{ analyzerResult.fav_ev_pct >= 0 ? '+' : '' }}{{ analyzerResult.fav_ev_pct }}%)
-                  </span>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span
+                      v-if="analyzerResult.edge_score"
+                      class="px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/50 text-sky-200 text-[10.5px] font-extrabold font-mono"
+                    >
+                      EDGE SCORE {{ analyzerResult.edge_score }}/100
+                    </span>
+                    <span
+                      v-if="analyzerResult.is_mispriced"
+                      class="px-2 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400 text-emerald-200 text-[10.5px] font-extrabold"
+                    >
+                      💎 MISPRICED EDGE ({{ analyzerResult.fav_edge_pp >= 0 ? '+' : '' }}{{ analyzerResult.fav_edge_pp }}pp · EV
+                      {{ analyzerResult.fav_ev_pct >= 0 ? '+' : '' }}{{ analyzerResult.fav_ev_pct }}%)
+                    </span>
+                    <button
+                      type="button"
+                      class="btn-press px-2.5 py-0.5 rounded-full bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/60 text-emerald-200 text-[10.5px] font-extrabold inline-flex items-center gap-1"
+                      @click="
+                        saveComboToMyTickets(
+                          `${analyzerResult.fav_name} ML (${analyzerResult.home} vs ${analyzerResult.away})`,
+                          store.comboAllocBudget || 100,
+                          Number(analyzerResult.fav_book_odds || analyzerResult.fav_fair_odds || 1.35),
+                          [
+                            {
+                              match: `${analyzerResult.home} vs ${analyzerResult.away}`,
+                              pick_name: `${analyzerResult.fav_name} ML`,
+                              sport_cat: analyzerResult.sport || 'soccer',
+                              odds: Number(analyzerResult.fav_book_odds || analyzerResult.fav_fair_odds || 1.35),
+                              win_prob: Number(analyzerResult.fav_prob_pct || 70) / 100,
+                            },
+                          ],
+                        )
+                      "
+                    >
+                      <span>+ Track Pick</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3225,9 +3265,33 @@
                   >
                     <div class="flex items-center justify-between gap-2">
                       <b class="text-white">{{ sec.pick_name }}</b>
-                      <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono font-bold text-[10.5px]">
-                        {{ (Number(sec.win_prob || 0) * 100).toFixed(1) }}% · @{{ Number(sec.odds || 1.5).toFixed(2) }}
-                      </span>
+                      <div class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono font-bold text-[10.5px]">
+                          {{ (Number(sec.win_prob || 0) * 100).toFixed(1) }}% · @{{ Number(sec.odds || 1.5).toFixed(2) }}
+                        </span>
+                        <button
+                          type="button"
+                          class="btn-press px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-200 text-[10px] font-bold"
+                          @click="
+                            saveComboToMyTickets(
+                              `${sec.pick_name} (${analyzerResult.home} vs ${analyzerResult.away})`,
+                              store.comboAllocBudget || 100,
+                              Number(sec.odds || 1.5),
+                              [
+                                {
+                                  match: `${analyzerResult.home} vs ${analyzerResult.away}`,
+                                  pick_name: sec.pick_name,
+                                  sport_cat: analyzerResult.sport || 'soccer',
+                                  odds: Number(sec.odds || 1.5),
+                                  win_prob: Number(sec.win_prob || 0.65),
+                                },
+                              ],
+                            )
+                          "
+                        >
+                          + Track
+                        </button>
+                      </div>
                     </div>
                     <div class="text-slate-400 text-[10.5px]">{{ sec.rationale }}</div>
                   </div>

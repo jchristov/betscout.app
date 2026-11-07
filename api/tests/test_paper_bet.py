@@ -1685,3 +1685,150 @@ def test_notify_new_picks_to_discord_dry_run(tmp_path: Path):
     assert "NEW HIGH-CONVICTION PRE-MATCH PICK" in res["preview"]
     assert "Genoa vs Juventus" in res["preview"]
 
+
+def test_mma_zero_sample_debut_and_loss_streak_veto_and_edge_score():
+    from betscout.dashboard import build_best_bets_summary
+    from betscout.sport_models import (
+        evaluate_european_sport_gate,
+        evaluate_soccer_gate,
+        evaluate_tennis_gate,
+        evaluate_tennis_secondary_markets,
+    )
+
+    # 1. MMA Zero-Sample Debut Veto (Zhou, Jiaqiang vs Usubyan, Mamuka @ 1.46 where Usubyan had n_form_away=0)
+    ok_usubyan, _, _ = evaluate_european_sport_gate(
+        sport_slug="mma",
+        p_mkt=0.66,
+        p_elo_fav=0.50,
+        form_diff_fav=0.50,
+        best_odds=1.46,
+        is_tipico=False,
+        n_form_home=1,
+        n_form_away=0,
+        fav_wr=None,
+        fav_loss_streak=0,
+        side="A",
+    )
+    assert ok_usubyan is False
+
+    # 2. MMA Losing-Streak Veto (Djabrailov vs Bortoluzzi @ 1.39 with fav_loss_streak=1)
+    ok_djab, _, _ = evaluate_european_sport_gate(
+        sport_slug="mma",
+        p_mkt=0.70,
+        p_elo_fav=0.52,
+        form_diff_fav=0.50,
+        best_odds=1.39,
+        is_tipico=False,
+        n_form_home=4,
+        n_form_away=3,
+        fav_wr=0.50,
+        fav_loss_streak=1,
+        side="H",
+    )
+    assert ok_djab is False
+
+    # 3. MMA Undefeated Verified Fighter Passes (Kondratavicius vs Petroski @ 1.35, 4-0 form)
+    ok_kond, p_kond, _ = evaluate_european_sport_gate(
+        sport_slug="mma",
+        p_mkt=0.71,
+        p_elo_fav=0.55,
+        form_diff_fav=0.60,
+        best_odds=1.35,
+        is_tipico=False,
+        n_form_home=4,
+        n_form_away=10,
+        fav_wr=1.0,
+        fav_loss_streak=0,
+        side="H",
+    )
+    assert ok_kond is True and p_kond >= 0.74
+
+    # 4. Tennis QF/SF Confirmed Tour Banker with Equal 80%-vs-80% Streak (Shelton vs Van Assche)
+    t_ok, t_prob, _, t_reason = evaluate_tennis_gate(
+        win_prob=0.772,
+        book_odds=1.25,
+        opp_book_odds=3.80,
+        game_win_pct_diff=0.073,
+        form_6m_diff=0.0,
+        pick_rest_h=24.5,
+        opp_rest_h=22.2,
+        game_elo_diff=78.0,
+        all_elo_diff=142.0,
+        surf_elo_diff=118.0,
+        h2h_n=0,
+        decider_diff=0.0,
+        tourn_wins_diff=0,
+    )
+    assert t_ok is True and t_reason == "PASS" and t_prob >= 0.75
+    t_sec = evaluate_tennis_secondary_markets(
+        player_1="Luca Van Assche",
+        player_2="Ben Shelton",
+        side="A",
+        win_prob=t_prob,
+        game_win_pct_diff=0.073,
+        form_6m_diff=0.0,
+        game_elo_diff=78.0,
+    )
+    assert any(s["market_type"] == "SET_HANDICAP_PLUS_1_5" for s in t_sec)
+
+    # 5. Football Venue-Specific Shot-on-Target Deficit Veto in sub-top_10pct
+    thresholds = {"top_8pct": 0.366, "top_10pct": 0.325, "top_15pct": 0.256, "top_25pct": 0.158}
+    assert (
+        evaluate_soccer_gate(
+            league="esp.1",
+            score=0.28,
+            thresholds=thresholds,
+            p_mkt=0.58,
+            ev_pct=3.5,
+            factors_tanh_z={
+                "sot_d": 0.48,
+                "venue_sot_d": -0.55,
+                "discipline": 0.20,
+                "h2h_adv": 0.25,
+                "dom_rebound": 0.25,
+                "recent_draws": 0.10,
+            },
+            side="A",
+        )
+        == "pass"
+    )
+
+    # 6. build_best_bets_summary suppresses sub-top_10pct >1.85 3-way row when DC shield exists and computes edge_score
+    bb = build_best_bets_summary(
+        {
+            "generated_at": "2026-11-07T09:00:00Z",
+            "qualifying_picks": [
+                {
+                    "league": "esp.1",
+                    "event_id": "401882811",
+                    "kickoff": "2026-11-07T17:30Z",
+                    "home": "Osasuna",
+                    "away": "Athletic Club",
+                    "side": "A",
+                    "tier": "top_15pct",
+                    "action": "PAPER_BET",
+                    "p_model": 0.5041,
+                    "p_mkt": 0.46,
+                    "best_odds": 2.05,
+                    "ev_pct": 3.33,
+                    "secondary_opportunities": [
+                        {
+                            "market_type": "DOUBLE_CHANCE",
+                            "pick_name": "Athletic Club or Draw (X2)",
+                            "side": "DC_X2",
+                            "tier": "dc_shield",
+                            "win_prob": 0.8063,
+                            "min_fair_odds": 1.24,
+                            "odds": 1.28,
+                            "ev_pct": 3.21,
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    assert len(bb) == 1
+    assert bb[0]["pick_name"] == "Athletic Club or Draw (X2)"
+    assert 60 <= bb[0]["edge_score"] <= 99
+
+

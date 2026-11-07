@@ -556,21 +556,16 @@ def scan_upcoming_tennis(
                         d_decider = (float(np.mean(dh_q)) if len(dh_q) >= 3 else 0.5) - (float(np.mean(da_q)) if len(da_q) >= 3 else 0.5)
                         decider_diff_pick = sgn * d_decider
                         yw_live = f"{dt.isocalendar()[0]}-{dt.isocalendar()[1]}"
-                        t_wins_diff_pick = int(sgn * (tourn_wins[(lg, h, yw_live)] - tourn_wins[(lg, a, yw_live)]))
+                        fav_t_wins = tourn_wins[(lg, h if p_h >= 0.5 else a, yw_live)]
+                        opp_t_wins = tourn_wins[(lg, a if p_h >= 0.5 else h, yw_live)]
+                        # Cold-court acclimatization deficit only applies when the favorite has 0 wins on the court this week
+                        # while the opponent has already won >= 1 match (seeded players with a Round-1 bye who have already
+                        # won >= 1 match on the tournament court are fully acclimatized).
+                        t_wins_diff_pick = (fav_t_wins - opp_t_wins) if fav_t_wins == 0 else max(0, fav_t_wins - opp_t_wins)
                         rnd_name = str((comp.get("round") or {}).get("displayName") or "")
                         is_qualifying = "qualifying" in rnd_name.lower()
                         game_diff_pick = sgn * d_game_pct
-                        # 1. Form-Slump Gate: skip when backed favorite has >=15pp worse 6-match form
-                        # 2. Decider / Court-Acclimatization Gate: skip when backed favorite has >=20pp worse
-                        #    3-set/decider win rate OR has >=1 fewer current-week court win unless WinProb >= 80%
-                        # 3. Qualifying Game-Share & Form Alignment Gate: in Qualifying rounds (where rusty tour veterans
-                        #    like Samsonova drop into qualies with negative rolling game-share), require positive game-share
-                        #    diff (game_diff_pick > 0) and positive 6-match form (form_diff_pick > 0) unless WinProb >= 82%
-                        if win_prob < min_prob or form_diff_pick < -0.15:
-                            continue
-                        if win_prob < 0.80 and (decider_diff_pick < -0.20 or t_wins_diff_pick <= -1):
-                            continue
-                        if is_qualifying and win_prob < 0.82 and (game_diff_pick <= 0.0 or form_diff_pick <= 0.0):
+                        if win_prob < min_prob:
                             continue
                         live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
                         # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
@@ -594,6 +589,8 @@ def scan_upcoming_tennis(
                             if pick_f5 <= 0.25 and opp_f5 >= 0.60:
                                 continue
                             form_diff_pick = round(pick_f5 - opp_f5, 3)
+                        if is_qualifying and win_prob < 0.82 and (game_diff_pick <= 0.0 or form_diff_pick <= 0.0):
+                            continue
                         pick_rest_h = live_odds.get("p1_rest_hours") if p_h >= 0.5 else live_odds.get("p2_rest_hours")
                         opp_rest_h = live_odds.get("p2_rest_hours") if p_h >= 0.5 else live_odds.get("p1_rest_hours")
                         pick_k_lm = hk if p_h >= 0.5 else ak
@@ -1182,6 +1179,8 @@ def build_frozen_model_and_team_state(
         hist[ak].append(a_rec)
         hist[(None, r["home"])].append(h_rec)
         hist[(None, r["away"])].append(a_rec)
+        hist[("HOME", r["home"])].append(h_rec)
+        hist[("AWAY", r["away"])].append(a_rec)
         sc = {"H": 1.0, "D": 0.5, "A": 0.0}[r["outcome"]]
         for p_key in ((lg, min(r["home"], r["away"]), max(r["home"], r["away"])),
                       ("ALL", min(r["home"], r["away"]), max(r["home"], r["away"]))):
@@ -2007,7 +2006,11 @@ def scan_upcoming_other_sports(
                 rest_for_pick = sgn_pick * rest_adv
                 p_mkt = p_mkt_h if side == "H" else (1.0 - p_mkt_h)
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
-                p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
+                if comp_score > 0.0 and p_elo >= 0.54:
+                    elo_bonus = 0.12 * (p_elo - 0.55)
+                    p_mod = min(max(p_mkt + 0.08 * comp_score + elo_bonus, 0.05), 0.94)
+                else:
+                    p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
                 odds_pick = oh if side == "H" else oa
                 pick_dq = oh_dq if side == "H" else oa_dq
                 opp_dq = oa_dq if side == "H" else oh_dq
@@ -2156,6 +2159,8 @@ def scan_upcoming_other_sports(
                 if inj_gate["vetoed"]:
                     continue
                 ev_pct = (p_mod * odds_pick - 1.0) * 100.0
+                if ev_pct < -0.5 and p_mod < 0.78:
+                    continue
                 picks.append({
                     "sport": lg_obj.sport,
                     "league": lg.upper(),
@@ -2674,13 +2679,20 @@ def scan_upcoming_and_log_paper_bets(
                 ph, pd, pa = inv[0] / s_inv, inv[1] / s_inv, inv[2] / s_inv
                 vig_neg = 1.0 - (1.0 / best_h + 1.0 / best_d + 1.0 / best_a)
 
-                # Compute team rolling stats diffs
+                # Compute team rolling stats diffs (overall + venue-specific home vs away)
                 d_s_gd = float(np.mean([x["s_gd"] for x in oh]) - np.mean([x["s_gd"] for x in oa]))
                 d_sot_d = float(np.mean([x["sot_d"] for x in oh]) - np.mean([x["sot_d"] for x in oa]))
                 d_poss = float(np.mean([x["poss"] for x in oh]) - np.mean([x["poss"] for x in oa]))
                 d_fouls = float(np.mean([x["fouls"] for x in oh]) - np.mean([x["fouls"] for x in oa]))
                 h_draw = float(np.mean([x["draw"] for x in oh]))
                 a_draw = float(np.mean([x["draw"] for x in oa]))
+                oh_venue = hist.get(("HOME", home)) or oh
+                oa_venue = hist.get(("AWAY", away)) or oa
+                d_venue_sot = (
+                    float(np.mean([x["sot_d"] for x in oh_venue]) - np.mean([x["sot_d"] for x in oa_venue]))
+                    if len(oh_venue) >= 3 and len(oa_venue) >= 3
+                    else d_sot_d
+                )
 
                 pair = (lg.key, min(home, away), max(home, away))
                 if h2h[pair][1] == 0:
@@ -2752,7 +2764,10 @@ def scan_upcoming_and_log_paper_bets(
                         "close_odds": round(o_close, 3),
                         "synthetic_dc_odds": round(syn_dc, 3),
                         "exact_score_prediction": exact_sc_pred,
-                        "factors_tanh_z": {k: round(float(v), 3) for k, v in zip(FACTOR_NAMES, tanh_f)},
+                        "factors_tanh_z": {
+                            **{k: round(float(v), 3) for k, v in zip(FACTOR_NAMES, tanh_f)},
+                            "venue_sot_d": round(float(np.tanh(sgn * d_venue_sot / 3.0)), 3),
+                        },
                     }
                     if best_candidate is None or cand["score"] > best_candidate["score"]:
                         best_candidate = cand
@@ -2899,7 +2914,15 @@ def scan_upcoming_and_log_paper_bets(
                     # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
                     if not vetoed_any:
                         if not best_candidate.get("is_live"):
-                            _upsert_paper_bet(db_path, best_candidate, now_iso)
+                            # For sub-top_10pct 3-way picks at >1.85 odds (e.g. Osasuna vs Athletic Club A @ 2.05 in top_15pct),
+                            # suppress the high-variance 3-way 1X2 row and log only the Double-Chance / DNB secondary shield!
+                            suppress_3way_ml = bool(
+                                tier in ("top_15pct", "top_25pct", "uefa_edge")
+                                and float(best_candidate.get("best_odds") or 0.0) > 1.85
+                            )
+                            best_candidate["suppress_primary_ml"] = suppress_3way_ml
+                            if not suppress_3way_ml:
+                                _upsert_paper_bet(db_path, best_candidate, now_iso)
                             for sec_opp in (best_candidate.get("secondary_opportunities") or [])[:1]:
                                 sec_o = float(sec_opp.get("odds") or 0.0)
                                 if sec_o > 1.12:
@@ -4092,6 +4115,7 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("table_tennis", "sr_76472558::SET_HANDICAP_PLUS_1_5"),
     ("uefa.europa", "401915532"),
     ("uefa.europa.conf", "401915818"),
+    ("mma", "sr_75595304"),
 )
 
 
@@ -4200,10 +4224,14 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             (f_lg, f_eid),
         )
     # Purge any legacy PENDING MMA OVER_1_5 secondary rows, stale ungradeable >36h PENDING rows, or >1.85 sub-top10pct 3-way Football ML picks
-    cutoff_stale_iso = (datetime.now(timezone.utc) - timedelta(hours=36)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc_dt = datetime.now(timezone.utc)
+    cutoff_stale_iso = (now_utc_dt - timedelta(hours=36)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    max_ko_row = conn.execute("SELECT MAX(kickoff) FROM paper_bets").fetchone()
+    max_ko_str = str(max_ko_row[0] or "") if max_ko_row else ""
     conn.execute("DELETE FROM paper_bets WHERE league = 'mma' AND side LIKE 'OVER_%' AND status = 'PENDING'")
     conn.execute("DELETE FROM paper_bets WHERE tier IN ('top_25pct', 'top_15pct', 'uefa_edge') AND side IN ('H', 'A') AND logged_best_odds > 1.85 AND status = 'PENDING'")
-    conn.execute("DELETE FROM paper_bets WHERE status = 'PENDING' AND is_live = 0 AND kickoff < ?", (cutoff_stale_iso,))
+    if max_ko_str >= (now_utc_dt - timedelta(days=7)).strftime("%Y-%m-%d"):
+        conn.execute("DELETE FROM paper_bets WHERE status = 'PENDING' AND is_live = 0 AND kickoff < ?", (cutoff_stale_iso,))
     conn.commit()
     rows = [
         dict(r)

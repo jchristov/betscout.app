@@ -908,7 +908,8 @@ def scan_sportradar_european_sports(
             a_f_list = a_f_obj.get("form") or []
             h_wr = (sum(1.0 for x in h_f_list if x.get("type") == "W") / len(h_f_list)) if h_f_list else 0.5
             a_wr = (sum(1.0 for x in a_f_list if x.get("type") == "W") / len(a_f_list)) if a_f_list else 0.5
-            fav_wr = h_wr if cand["side"] == "H" else a_wr
+            fav_f_list = h_f_list if cand["side"] == "H" else a_f_list
+            fav_wr = (h_wr if cand["side"] == "H" else a_wr) if fav_f_list else None
             form_diff_fav = (h_wr - a_wr) if cand["side"] == "H" else (a_wr - h_wr)
             # In Sportradar `stats_match_form`, `form[0]` is the most recent match (`form[:3]` are the 3 most recent matches, matching `streak`)
             h_r3 = (sum(1.0 for x in h_f_list[:3] if x.get("type") == "W") / len(h_f_list[:3])) if len(h_f_list) >= 3 else 0.5
@@ -917,8 +918,9 @@ def scan_sportradar_european_sports(
             fav_st_obj = (h_f_obj.get("streak") if cand["side"] == "H" else a_f_obj.get("streak")) or {}
             dog_st_obj = (a_f_obj.get("streak") if cand["side"] == "H" else h_f_obj.get("streak")) or {}
             fav_loss_streak = int(fav_st_obj.get("value") or 0) if fav_st_obj.get("type") == "L" else 0
+            if fav_loss_streak == 0 and fav_f_list and fav_f_list[0].get("type") == "L":
+                fav_loss_streak = 1
             dog_win_streak = int(dog_st_obj.get("value") or 0) if dog_st_obj.get("type") == "W" else 0
-            fav_f_list = h_f_list if cand["side"] == "H" else a_f_list
             fav_recent_draws = sum(1 for x in fav_f_list[:5] if x.get("type") == "D")
             if (len(h_f_list) >= 4 and len(a_f_list) >= 4 and form_diff_fav < 0.0) or fav_loss_streak >= 2 or dog_win_streak >= 3:
                 continue

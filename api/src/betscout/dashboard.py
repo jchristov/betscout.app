@@ -329,6 +329,25 @@ def build_best_bets_summary(
             k_norm = k_norm[:-1] + ":00Z"
         return k_norm >= cutoff_iso
 
+    def _compute_edge_score(win_prob: float, ev_pct: float, edge_pp: float, tier: str = "") -> int:
+        tier_bonus = {
+            "top_8pct": 12.0,
+            "top_10pct": 10.0,
+            "banker_70pct": 10.0,
+            "set_shield": 12.0,
+            "dnb_shield": 11.0,
+            "dc_shield": 11.0,
+            "top_15pct": 8.0,
+            "high_conf": 8.0,
+            "totals_over": 8.0,
+            "totals_under": 8.0,
+            "straight_sets": 9.0,
+        }.get(str(tier).lower(), 6.0)
+        wp_component = max(0.0, min(55.0, (win_prob - 0.45) * 115.0))
+        ev_component = max(-6.0, min(22.0, ev_pct * 1.4))
+        edge_component = max(-4.0, min(11.0, edge_pp * 1.2))
+        return int(round(max(52.0, min(99.0, 22.0 + wp_component + ev_component + edge_component + tier_bonus))))
+
     raw_soccer_picks = [
         {**p,
          "kickoff": ledger_time_map.get((p.get("league"), str(p.get("event_id"))), (p["kickoff"], p.get("time_valid", True), 0.0, None, None, None, def_ann_iso))[0],
@@ -440,40 +459,50 @@ def build_best_bets_summary(
             odds_val = tipico_1x2_pick
             p_ev_pct = round((p_win_val * odds_val - 1.0) * 100.0, 2)
         is_mispriced = bool(p_ev_pct >= 2.0 and p_edge_pp >= 2.0)
-        best_bets.append({
-            "date": p["kickoff"],
-            "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
-            "announced_at_local": _format_local_time(str(p.get("logged_at") or def_ann_iso)) if (p.get("logged_at") or def_ann_iso) else "",
-            "day_key": _match_day_key(p["kickoff"]),
-            "time_valid": p.get("time_valid", True),
-            "sport_cat": "soccer",
-            "sport_icon": _sport_icon("soccer"),
-            "competition": f"{lg_label}{live_tag}",
-            "competition_logo": _resolve_comp_logo(p["league"], p.get("competition_logo")),
-            "sport_league": f"Football · {lg_label}{live_tag}",
-            "home": p["home"],
-            "away": p["away"],
-            "home_logo": p.get("home_logo"),
-            "away_logo": p.get("away_logo"),
-            "match": f"{p['home']} vs {p['away']}",
-            "pick_name": f"{pick_team} ({p['side']})",
-            "pick_logo": p.get("home_logo") if p["side"] == "H" else p.get("away_logo"),
-            "tier": p["tier"],
-            "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
-            "win_prob": round(p_win_val, 4),
-            "p_mkt": round(p_mkt_val, 4),
-            "edge_pp": p_edge_pp,
-            "ev_pct": p_ev_pct,
-            "is_mispriced": is_mispriced,
-            "mispricing_drivers": driver_str,
-            "min_fair_odds": f_odds_val,
-            "exact_score_pick": esc_str,
-            "score_cluster_items": score_cluster_items,
-            "odds": round(odds_val, 3),
-            "clv_pct": round(p_clv, 2),
-            "odds_display": f"{odds_val:.2f} (Fair {f_odds_val:.2f}, EV {p_ev_pct:+.1f}%)",
-            "secondary_opportunities": p.get("secondary_opportunities") or [],
-        })
+        suppress_3way = bool(
+            p.get("suppress_primary_ml")
+            or (
+                p.get("tier") in ("top_15pct", "top_25pct", "uefa_edge")
+                and odds_val > 1.85
+                and (p.get("secondary_opportunities") or [])
+            )
+        )
+        if not suppress_3way:
+            best_bets.append({
+                "date": p["kickoff"],
+                "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
+                "announced_at_local": _format_local_time(str(p.get("logged_at") or def_ann_iso)) if (p.get("logged_at") or def_ann_iso) else "",
+                "day_key": _match_day_key(p["kickoff"]),
+                "time_valid": p.get("time_valid", True),
+                "sport_cat": "soccer",
+                "sport_icon": _sport_icon("soccer"),
+                "competition": f"{lg_label}{live_tag}",
+                "competition_logo": _resolve_comp_logo(p["league"], p.get("competition_logo")),
+                "sport_league": f"Football · {lg_label}{live_tag}",
+                "home": p["home"],
+                "away": p["away"],
+                "home_logo": p.get("home_logo"),
+                "away_logo": p.get("away_logo"),
+                "match": f"{p['home']} vs {p['away']}",
+                "pick_name": f"{pick_team} ({p['side']})",
+                "pick_logo": p.get("home_logo") if p["side"] == "H" else p.get("away_logo"),
+                "tier": p["tier"],
+                "pick": f"{pick_team} ({p['side']}) [{p['tier']}]",
+                "win_prob": round(p_win_val, 4),
+                "p_mkt": round(p_mkt_val, 4),
+                "edge_pp": p_edge_pp,
+                "ev_pct": p_ev_pct,
+                "edge_score": _compute_edge_score(p_win_val, p_ev_pct, p_edge_pp, p["tier"]),
+                "is_mispriced": is_mispriced,
+                "mispricing_drivers": driver_str,
+                "min_fair_odds": f_odds_val,
+                "exact_score_pick": esc_str,
+                "score_cluster_items": score_cluster_items,
+                "odds": round(odds_val, 3),
+                "clv_pct": round(p_clv, 2),
+                "odds_display": f"{odds_val:.2f} (Fair {f_odds_val:.2f}, EV {p_ev_pct:+.1f}%)",
+                "secondary_opportunities": p.get("secondary_opportunities") or [],
+            })
         for sec in (p.get("secondary_opportunities") or [])[:1]:
             sec_odds = float(sec.get("odds") or 0.0)
             if sec_odds <= min_odds:
@@ -483,6 +512,7 @@ def build_best_bets_summary(
             sec_ev = float(sec.get("ev_pct") or round((sec_prob * sec_odds - 1.0) * 100.0, 2))
             sec_mkt_p = round(1.0 / max(sec_odds * 1.04, 1.05), 4)
             sec_edge_pp = round((sec_prob - sec_mkt_p) * 100.0, 2)
+            sec_tier = str(sec.get("tier") or "dc_shield")
             best_bets.append({
                 "date": p["kickoff"],
                 "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
@@ -501,13 +531,14 @@ def build_best_bets_summary(
                 "match": f"{p['home']} vs {p['away']}",
                 "pick_name": str(sec.get("pick_name") or ""),
                 "pick_logo": p.get("home_logo") if p["side"] == "H" else p.get("away_logo"),
-                "tier": str(sec.get("tier") or "dc_shield"),
+                "tier": sec_tier,
                 "market_type": str(sec.get("market_type") or "SECONDARY"),
                 "pick": f"{sec.get('pick_name')} [{sec.get('tier')}]",
                 "win_prob": round(sec_prob, 4),
                 "p_mkt": sec_mkt_p,
                 "edge_pp": sec_edge_pp,
                 "ev_pct": round(sec_ev, 2),
+                "edge_score": _compute_edge_score(sec_prob, sec_ev, sec_edge_pp, sec_tier),
                 "is_mispriced": bool(sec_ev >= 2.0 and sec_edge_pp >= 2.0),
                 "mispricing_drivers": str(sec.get("rationale") or driver_str),
                 "min_fair_odds": sec_fair,
@@ -595,6 +626,7 @@ def build_best_bets_summary(
             "p_mkt": tp_mkt,
             "edge_pp": tp_edge_pp,
             "ev_pct": tp_ev,
+            "edge_score": _compute_edge_score(tp_win, tp_ev, tp_edge_pp, tp.get("tier") or "banker_70pct"),
             "is_mispriced": bool(live_book and tp_ev >= 2.0 and tp_edge_pp >= 2.0),
             "mispricing_drivers": t_driver_str,
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
@@ -642,6 +674,7 @@ def build_best_bets_summary(
                 "p_mkt": sec_mkt_p,
                 "edge_pp": sec_edge_pp,
                 "ev_pct": round(sec_ev, 2),
+                "edge_score": _compute_edge_score(sec_prob, sec_ev, sec_edge_pp, str(sec.get("tier") or "set_shield")),
                 "is_mispriced": bool(sec_ev >= 2.0 and sec_edge_pp >= 2.0),
                 "mispricing_drivers": str(sec.get("rationale") or t_driver_str),
                 "min_fair_odds": sec_fair,
@@ -688,6 +721,7 @@ def build_best_bets_summary(
             "p_mkt": round(op_mkt, 4),
             "edge_pp": op_edge_pp,
             "ev_pct": op_ev,
+            "edge_score": _compute_edge_score(op_win, op_ev, op_edge_pp, op.get("tier") or "high_conf"),
             "is_mispriced": bool(op_ev >= 2.0 and op_edge_pp >= 2.0),
             "mispricing_drivers": f"Elo + Boxscore + Rest Gate (Composite {float(op.get('composite_score') or 0):+.2f})",
             "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
@@ -731,6 +765,7 @@ def build_best_bets_summary(
                 "p_mkt": sec_mkt_p,
                 "edge_pp": sec_edge_pp,
                 "ev_pct": round(sec_ev, 2),
+                "edge_score": _compute_edge_score(sec_prob, sec_ev, sec_edge_pp, str(sec.get("tier") or "totals_over")),
                 "is_mispriced": bool(sec_ev >= 2.0 and sec_edge_pp >= 2.0),
                 "mispricing_drivers": str(sec.get("rationale") or "High-Volume Totals Edge"),
                 "min_fair_odds": sec_fair,

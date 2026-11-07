@@ -2221,6 +2221,23 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
                 f"({lt.get('total_meetings')} meetings, {lt.get('span_years')})"
             )
 
+    verdict_tier_bonus = 12.0 if verdict_level == "strong_bet" else (8.0 if verdict_level == "lean_bet" else -10.0)
+    live_edge_score = int(
+        round(
+            max(
+                35.0,
+                min(
+                    99.0,
+                    22.0
+                    + max(0.0, min(55.0, (fav_prob - 0.45) * 115.0))
+                    + max(-8.0, min(22.0, float(fav_ev_pct or 0.0) * 1.4))
+                    + max(-6.0, min(11.0, float(fav_edge_pp or 0.0) * 1.2))
+                    + verdict_tier_bonus,
+                ),
+            )
+        )
+    )
+
     _ANALYZE_LIVE_CACHE[cache_key] = (now_ts, out_res := {
         **base_detail,
         "ok": True,
@@ -2248,6 +2265,7 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "fav_mkt_prob_pct": round(fav_mkt_prob * 100.0, 1),
         "fav_edge_pp": fav_edge_pp,
         "fav_ev_pct": fav_ev_pct,
+        "edge_score": live_edge_score,
         "is_mispriced": is_mispriced_live,
         "fav_fair_odds": round(1.0 / max(fav_prob, 0.05), 2),
         "fav_book_odds": fav_odds,
@@ -2387,6 +2405,14 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                         age_hours = (time.time() - rec_path.stat().st_mtime) / 3600.0
                         if age_hours >= 4.0:
                             should_auto_scan = True
+                        else:
+                            rec_chk = json.loads(rec_path.read_text(encoding="utf-8"))
+                            gen_iso = str(rec_chk.get("generated_at") or "").strip()
+                            if gen_iso:
+                                gen_dt = datetime.fromisoformat(gen_iso.replace("Z", "+00:00"))
+                                gen_age_h = (datetime.now(timezone.utc) - gen_dt).total_seconds() / 3600.0
+                                if gen_age_h >= 4.0:
+                                    should_auto_scan = True
                     except Exception:
                         pass
                 if should_auto_scan:

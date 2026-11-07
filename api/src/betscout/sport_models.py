@@ -104,6 +104,10 @@ def evaluate_soccer_gate(
         if h2h_z < 0.20 or sot_z < 0.45 or disc_z < 0.0:
             return "pass"
 
+    venue_sot_z = float(factors_tanh_z.get("venue_sot_d", sot_z))
+    if score < thresholds.get("top_10pct", 0.3246) and venue_sot_z < -0.45:
+        return "pass"
+
     if score >= thresholds["top_8pct"]:
         return "top_8pct"
     if score >= thresholds["top_10pct"]:
@@ -284,7 +288,18 @@ def evaluate_tennis_gate(
 
     ev_pct = round((blended_prob * book_odds - 1.0) * 100.0, 2) if book_odds else None
     is_confirmed_tour_banker = (
-        p_mkt_devig >= 0.70 and win_prob >= 0.69 and game_win_pct_diff >= 0.025 and form_6m_diff >= 0.20
+        p_mkt_devig >= 0.70
+        and win_prob >= 0.69
+        and game_win_pct_diff >= 0.025
+        and (
+            form_6m_diff >= 0.20
+            or (
+                win_prob >= 0.75
+                and game_win_pct_diff >= 0.05
+                and form_6m_diff >= 0.0
+                and (game_elo_diff or 0.0) >= 65.0
+            )
+        )
     )
     if ev_pct is not None and ev_pct < -1.5 and blended_prob < 0.80 and not is_confirmed_tour_banker:
         return False, blended_prob, ev_pct, "VETO_NEGATIVE_EV"
@@ -754,8 +769,25 @@ def evaluate_european_sport_gate(
         )
         if not is_strong_form_curl:
             return False, round(p_model, 4), ev_pct
+    elif sp == "mma":
+        # MMA / Combat Promotion Experience & Momentum Gate (catches Zhou, Jiaqiang 1-0 Usubyan, Mamuka @ 1.46
+        # where Usubyan had 0 tracked fights in the promotion `n_form_fav == 0`, and Djabrailov @ 1.39 coming off a loss):
+        # 1. Require odds in [1.20, 1.50] and form_diff_fav >= 0.15.
+        # 2. Never back a fighter coming off a loss (`fav_loss_streak >= 1`) or with < 50% win rate (`fav_wr < 0.50`).
+        # 3. When form sample counts are provided (`n_form_home + n_form_away > 0`) and `best_odds > 1.32`,
+        #    require the backed favorite to have at least 1 verified promotion fight (`n_form_fav >= 1`) and `fav_wr >= 0.50`.
+        n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
+        if best_odds < 1.20 or best_odds > 1.50 or form_diff_fav < 0.15 or fav_loss_streak >= 1:
+            return False, round(p_model, 4), ev_pct
+        if fav_wr is not None and fav_wr < 0.50:
+            return False, round(p_model, 4), ev_pct
+        if (n_form_home + n_form_away) > 0 and best_odds > 1.32 and (n_form_fav < 1 or fav_wr is None):
+            return False, round(p_model, 4), ev_pct
     else:
-        if best_odds < 1.20 or best_odds > 1.68 or form_diff_fav < 0.15:
+        n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
+        if best_odds < 1.20 or best_odds > 1.68 or form_diff_fav < 0.15 or fav_loss_streak >= 1:
+            return False, round(p_model, 4), ev_pct
+        if (n_form_home + n_form_away) > 0 and best_odds > 1.35 and n_form_fav < 1:
             return False, round(p_model, 4), ev_pct
 
     return True, round(p_model, 4), ev_pct
@@ -1229,9 +1261,9 @@ def evaluate_tennis_secondary_markets(
     # 1. +1.5 Sets Handicap Shield (Wins >= 1 Set)
     if (
         0.72 <= win_prob <= 0.86
-        and game_win_pct_diff >= 0.045
-        and form_6m_diff >= 0.20
-        and game_elo_diff >= 70.0
+        and (game_win_pct_diff >= 0.045 or (game_win_pct_diff >= 0.025 and game_elo_diff >= 100.0))
+        and (form_6m_diff >= 0.20 or (win_prob >= 0.75 and game_win_pct_diff >= 0.05 and form_6m_diff >= 0.0))
+        and game_elo_diff >= 65.0
     ):
         p_plus15 = round(
             min(
