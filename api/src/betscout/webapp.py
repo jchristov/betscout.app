@@ -438,7 +438,7 @@ def _build_live_snapshot(
     if ledger:
         ledger["bets"] = filtered_bets
         ledger["pending_count"] = sum(1 for t in filtered_bets if t.get("status") == "PENDING" and not t.get("is_live"))
-        ledger["live_count"] = sum(1 for t in filtered_bets if t.get("status") == "PENDING" and t.get("is_live"))
+        ledger["live_count"] = sum(1 for t in filtered_bets if t.get("status") in ("PENDING", "LIVE") and t.get("is_live"))
     rec["paper_ledger"] = ledger
     if role == "free":
         from .monetization import get_monetization_config, redact_recommendations_for_free_tier
