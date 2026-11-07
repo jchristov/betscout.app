@@ -459,6 +459,31 @@ def build_best_bets_summary(
             odds_val = tipico_1x2_pick
             p_ev_pct = round((p_win_val * odds_val - 1.0) * 100.0, 2)
         is_mispriced = bool(p_ev_pct >= 2.0 and p_edge_pp >= 2.0)
+        xi_g = p.get("starting_xi_gate") or {}
+        inj_g = ((p.get("news_signal") or {}).get("injury_gate")) or {}
+        xi_st_raw = str(xi_g.get("status") or "")
+        inj_st_raw = str(inj_g.get("status") or "")
+        if xi_st_raw == "CONFIRMED_FULL_STRENGTH_XI":
+            xi_status = "CONFIRMED"
+            att_pct = round(float(xi_g.get("attack_share_starting") or 1.0) * 100)
+            xi_badge = f"✓ XI Confirmed ({att_pct}% Att)"
+            xi_tooltip = (
+                f"Official T-60m Starting XI Confirmed: {xi_g.get('starters_count', 11)} starters · "
+                f"{att_pct}% attack share · GK {'starting' if xi_g.get('gk_starting', True) else 'rotated'}"
+            )
+        elif inj_st_raw.startswith("TRACKED"):
+            b_out = inj_g.get("backed_out") or []
+            o_out = inj_g.get("opp_out") or []
+            xi_status = "SQUAD_TRACKED"
+            xi_badge = f"🛡 Squad {len(b_out)}v{len(o_out)} Out" if len(o_out) > len(b_out) else f"⏱ T-60m XI ({len(b_out)}v{len(o_out)} Out)"
+            xi_tooltip = (
+                f"Pre-Match Squad & Injury Gate ({inj_st_raw}): Backed Out [{', '.join(b_out) if b_out else 'None'}] · "
+                f"Opponent Out [{', '.join(o_out) if o_out else 'None'}]"
+            )
+        else:
+            xi_status = "AWAITING"
+            xi_badge = "⏱ T-60m XI Guard"
+            xi_tooltip = "Automated T-60m Starting XI & Defensive Spine Gate active (verifies GK, >=50% defensive spine & >=45% attack share 60m prior to kickoff)"
         suppress_3way = bool(
             p.get("suppress_primary_ml")
             or (
@@ -493,6 +518,9 @@ def build_best_bets_summary(
                 "edge_pp": p_edge_pp,
                 "ev_pct": p_ev_pct,
                 "edge_score": _compute_edge_score(p_win_val, p_ev_pct, p_edge_pp, p["tier"]),
+                "xi_status": xi_status,
+                "xi_badge": xi_badge,
+                "xi_tooltip": xi_tooltip,
                 "is_mispriced": is_mispriced,
                 "mispricing_drivers": driver_str,
                 "min_fair_odds": f_odds_val,
@@ -539,6 +567,9 @@ def build_best_bets_summary(
                 "edge_pp": sec_edge_pp,
                 "ev_pct": round(sec_ev, 2),
                 "edge_score": _compute_edge_score(sec_prob, sec_ev, sec_edge_pp, sec_tier),
+                "xi_status": xi_status,
+                "xi_badge": xi_badge,
+                "xi_tooltip": xi_tooltip,
                 "is_mispriced": bool(sec_ev >= 2.0 and sec_edge_pp >= 2.0),
                 "mispricing_drivers": str(sec.get("rationale") or driver_str),
                 "min_fair_odds": sec_fair,

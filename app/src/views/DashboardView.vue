@@ -919,6 +919,15 @@
           </button>
           <button
             type="button"
+            class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+            title="Auto-select up to 3 uncorrelated 90+/100 Edge Score shields across distinct matches and open in Combos & Dutching Studio"
+            @click="selectTop90EdgeCombo()"
+          >
+            <Icon icon="fa6-solid:bolt" class="w-3 h-3" />
+            <span>Build Top 90+ Edge Combo</span>
+          </button>
+          <button
+            type="button"
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50"
             @click="activeTab = 'studio'"
           >
@@ -995,6 +1004,20 @@
             >
               <Icon icon="fa6-solid:wand-magic-sparkles" class="w-2.5 h-2.5" />
               <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
+            </span>
+            <span
+              v-if="b.xi_badge"
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border"
+              :class="
+                b.xi_status === 'CONFIRMED'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                  : b.xi_status === 'SQUAD_TRACKED'
+                    ? 'bg-sky-500/20 text-sky-300 border-sky-400/50'
+                    : 'bg-slate-800/90 text-slate-300 border-slate-700'
+              "
+              :title="b.xi_tooltip || ''"
+            >
+              {{ b.xi_badge }}
             </span>
           </div>
 
@@ -1137,6 +1160,20 @@
                   >
                     <Icon icon="fa6-solid:wand-magic-sparkles" class="w-2.5 h-2.5" />
                     <span>EDGE +{{ Number(b.edge_pp || 0).toFixed(1) }}pp</span>
+                  </span>
+                  <span
+                    v-if="b.xi_badge"
+                    class="pill-tip inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-help"
+                    :class="
+                      b.xi_status === 'CONFIRMED'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                        : b.xi_status === 'SQUAD_TRACKED'
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-400/50'
+                          : 'bg-slate-800/90 text-slate-300 border-slate-700'
+                    "
+                    :title="b.xi_tooltip || ''"
+                  >
+                    {{ b.xi_badge }}
                   </span>
                 </div>
               </td>
@@ -1347,6 +1384,15 @@
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="btn-press inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-[11px] font-bold"
+              title="Auto-select top 3 uncorrelated 90+/100 Edge Score shields across distinct matches"
+              @click="selectTop90EdgeCombo()"
+            >
+              <Icon icon="fa6-solid:bolt" class="w-3 h-3" />
+              <span>Load Top 90+ Edge Combo</span>
+            </button>
             <b>Ready to Bet (€):</b>
             <input
               v-model.number="betBudget"
@@ -1870,6 +1916,21 @@
                   {{ lg.scoreStr ? `${lg.scoreStr} · ` : '' }}@{{ lg.odds.toFixed(2) }}
                 </span>
               </div>
+            </div>
+            <div
+              v-if="tk.readyToHedge || tk.liveCashoutEstEur > 0"
+              class="mt-2.5 pt-2 border-t border-slate-800 flex flex-wrap justify-between items-center gap-2 text-[10.5px] font-mono tabular-nums"
+            >
+              <span class="text-slate-300">
+                Est. Cash-Out: <b class="text-amber-300">~€{{ tk.liveCashoutEstEur.toFixed(2) }}</b>
+                (Fair €{{ tk.fairCashoutEur.toFixed(2) }})
+              </span>
+              <span v-if="tk.readyToHedge" class="text-emerald-300 font-bold">
+                DIY Hedge €{{ tk.diyHedgeStakeEur.toFixed(2) }} @{{ tk.oppOddsEst.toFixed(2) }} &rarr; Lock +€{{ tk.diyLockedNetProfitEur.toFixed(2) }} Net
+              </span>
+              <span v-else class="text-sky-300">
+                {{ tk.wonCount }}/{{ tk.gradedLegs.length }} Won · {{ tk.liveCount }} In-Play
+              </span>
             </div>
           </div>
         </div>
@@ -3824,6 +3885,35 @@ function saveComboToMyTickets(title: string, stakeEur: number, combinedOdds: num
   });
 }
 
+function selectTop90EdgeCombo() {
+  const candidates = [...store.visibleBestBets]
+    .filter((b: any) => Number(b.edge_score || 0) >= 88 && Number(b.odds || 0) >= 1.12 && Number(b.odds || 0) <= 1.65)
+    .sort((a: any, b: any) => Number(b.edge_score || 0) - Number(a.edge_score || 0) || Number(b.win_prob || 0) - Number(a.win_prob || 0));
+  const chosen: any[] = [];
+  const usedMatches = new Set<string>();
+  for (const c of candidates) {
+    const mKey = String(c.match || '');
+    if (!mKey || usedMatches.has(mKey)) continue;
+    chosen.push(c);
+    usedMatches.add(mKey);
+    if (chosen.length >= 3) break;
+  }
+  if (!chosen.length) {
+    store.showToast('No 88+/100 Edge Score shields match current filter.');
+    return;
+  }
+  store.clearCustomSelection();
+  for (const c of chosen) {
+    store.toggleCustomMatch(c);
+  }
+  activeTab.value = 'studio';
+  const combOdds = chosen.reduce((acc, x) => acc * Number(x.odds || 1.25), 1.0);
+  const combProb = chosen.reduce((acc, x) => acc * Number(x.win_prob || 0.8), 1.0);
+  store.showToast(
+    `Selected Top ${chosen.length}-Leg 90+ Edge Combo (${combOdds.toFixed(2)}x · ${(combProb * 100).toFixed(1)}% Hit Prob)!`,
+  );
+}
+
 const enrichedMyTickets = computed(() => {
   const allLedgerBets = store.paperLedger?.bets || [];
   return store.myTickets.map((tk) => {
@@ -3846,16 +3936,33 @@ const enrichedMyTickets = computed(() => {
       return { ...lg, status, scoreStr };
     });
     const wonCount = gradedLegs.filter((x) => x.status === 'WON').length;
+    const liveCount = gradedLegs.filter((x) => x.status === 'LIVE').length;
     const lostCount = gradedLegs.filter((x) => x.status === 'LOST').length;
     const pendingLegs = gradedLegs.filter((x) => x.status === 'PENDING' || x.status === 'LIVE');
     const lastLeg = pendingLegs[pendingLegs.length - 1] || gradedLegs[gradedLegs.length - 1];
     const readyToHedge = gradedLegs.length >= 2 && lostCount === 0 && wonCount === gradedLegs.length - 1 && pendingLegs.length === 1;
+    const lastLegOdds = Math.max(1.08, Number(lastLeg?.odds || 1.35));
+    const oppImplied = Math.max(0.06, 1.04 - 1.0 / lastLegOdds);
+    const oppOddsEst = Number(Math.max(1.15, Math.min(8.5, 1.0 / oppImplied)).toFixed(2));
+    const diyHedgeStakeEur = Number((Number(tk.payoutEur || 200) / oppOddsEst).toFixed(2));
+    const diyLockedNetProfitEur = Number((Number(tk.payoutEur || 200) - diyHedgeStakeEur - Number(tk.stakeEur || 100)).toFixed(2));
+    // Compute current fair cash-out value based on remaining unsettled legs
+    const remainingProductOdds = pendingLegs.reduce((acc, l) => acc * Math.max(1.05, Number(l.odds || 1.3)), 1.0);
+    const fairCashoutEur = lostCount > 0 ? 0 : Number((Number(tk.payoutEur || 200) / remainingProductOdds).toFixed(2));
+    const liveCashoutEstEur = lostCount > 0 ? 0 : Number((fairCashoutEur * 0.89).toFixed(2));
     return {
       ...tk,
       gradedLegs,
+      wonCount,
+      liveCount,
       readyToHedge,
-      lastLegOdds: Number(lastLeg?.odds || 1.35),
+      lastLegOdds,
       lastLegWinPct: Number((lastLeg?.win_prob || 0.7) * 100),
+      oppOddsEst,
+      diyHedgeStakeEur,
+      diyLockedNetProfitEur,
+      fairCashoutEur,
+      liveCashoutEstEur,
     };
   });
 });
