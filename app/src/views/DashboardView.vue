@@ -935,17 +935,17 @@
         </div>
         <div
           v-for="b in sortedBestBets"
-          :key="`mob-bet-${b.date}:${b.match}`"
+          :key="`mob-bet-${b.date}:${store.getBetSelectionKey(b)}`"
           class="card-surface rounded-xl p-3.5"
-          :class="store.customSelectedMatches.has(b.match) ? 'border-emerald-400/70' : ''"
+          :class="store.isCustomBetSelected(b) ? 'border-emerald-400/70' : ''"
         >
           <div class="flex justify-between items-center gap-2 mb-2">
             <label class="inline-flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                :checked="store.customSelectedMatches.has(b.match)"
+                :checked="store.isCustomBetSelected(b)"
                 class="accent-emerald-400 w-4 h-4"
-                @change="store.toggleCustomMatch(b.match)"
+                @change="store.toggleCustomMatch(b)"
               />
               <span
                 class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
@@ -1054,16 +1054,16 @@
             </tr>
             <tr
               v-for="b in sortedBestBets"
-              :key="`${b.date}:${b.match}`"
+              :key="`${b.date}:${store.getBetSelectionKey(b)}`"
               class="border-b border-slate-800/80 last:border-none hover:bg-slate-800/45 transition-colors"
-              :class="store.customSelectedMatches.has(b.match) ? 'bg-sky-500/15' : ''"
+              :class="store.isCustomBetSelected(b) ? 'bg-sky-500/15' : ''"
             >
               <td class="py-2.5 px-2 text-center">
                 <input
                   type="checkbox"
-                  :checked="store.customSelectedMatches.has(b.match)"
+                  :checked="store.isCustomBetSelected(b)"
                   class="accent-emerald-400 cursor-pointer w-3.5 h-3.5"
-                  @change="store.toggleCustomMatch(b.match)"
+                  @change="store.toggleCustomMatch(b)"
                 />
               </td>
               <td class="py-2.5 px-2 text-center">
@@ -2793,7 +2793,7 @@
             <span class="text-slate-400 font-semibold">Quick Try:</span>
             <template v-if="analyzerMode === 'entity'">
               <button
-                v-for="sampleEnt in ['Paris Saint-Germain', 'Sporting CP', 'Bayern Munich', 'Daniil Medvedev', 'Anna Blinkova', 'Sweden']"
+                v-for="sampleEnt in ['Paris Saint-Germain', 'Daniil Medvedev', 'Boston Celtics', 'Tampa Bay Lightning', 'Minnesota Vikings', 'Bayern Munich']"
                 :key="sampleEnt"
                 type="button"
                 class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-sky-300 border border-slate-700/80 font-medium"
@@ -2804,7 +2804,7 @@
             </template>
             <template v-else>
               <button
-                v-for="sampleMatch in ['Bayern Munich vs Borussia Dortmund', 'Udinese vs AS Roma', 'Leylah Fernandez vs Kamilla Rakhimova', 'Real Betis vs Málaga']"
+                v-for="sampleMatch in ['Bayern Munich vs Borussia Dortmund', 'Carlos Alcaraz vs Taylor Fritz', 'Boston Celtics vs Milwaukee Bucks', 'Minnesota Wild vs San Jose Sharks', 'Los Angeles Rams vs Los Angeles Chargers']"
                 :key="sampleMatch"
                 type="button"
                 class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-slate-700/80 font-medium"
@@ -3180,6 +3180,17 @@
                     </b>
                   </div>
                 </div>
+                <!-- Sport-Specific Quantitative Telemetry & Set/Market Breakdown -->
+                <div v-if="analyzerResult.sport_metrics?.length" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
+                  <div
+                    v-for="(sm, iSm) in analyzerResult.sport_metrics"
+                    :key="iSm"
+                    class="p-2 rounded-lg bg-slate-900/95 border border-sky-500/30"
+                  >
+                    <span class="text-sky-300 block text-[10px] uppercase font-bold">{{ sm.label }}</span>
+                    <b class="text-white font-mono text-[11px]">{{ sm.value }}</b>
+                  </div>
+                </div>
               </div>
 
               <!-- 3-Market Recommendations Grid -->
@@ -3195,6 +3206,31 @@
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-violet-400/40">
                   <div class="text-[10px] uppercase font-extrabold text-violet-300 tracking-wider mb-1">3. Totals &amp; Score Cluster</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.totals_cluster }}</div>
+                </div>
+              </div>
+
+              <!-- Validated Secondary Event Market Opportunities (Spreads, Puck Lines, +1.5/-3.5 Games, Totals) -->
+              <div
+                v-if="analyzerResult.secondary_opportunities?.length"
+                class="p-3 rounded-xl bg-slate-950/90 border border-fuchsia-400/40 space-y-2 text-[11px]"
+              >
+                <div class="font-extrabold text-fuchsia-300 uppercase tracking-wider">
+                  High-Conviction Secondary Event Markets ({{ analyzerResult.secondary_opportunities.length }})
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div
+                    v-for="(sec, iSec) in analyzerResult.secondary_opportunities"
+                    :key="iSec"
+                    class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col justify-between gap-1"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <b class="text-white">{{ sec.pick_name }}</b>
+                      <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono font-bold text-[10.5px]">
+                        {{ (Number(sec.win_prob || 0) * 100).toFixed(1) }}% · @{{ Number(sec.odds || 1.5).toFixed(2) }}
+                      </span>
+                    </div>
+                    <div class="text-slate-400 text-[10.5px]">{{ sec.rationale }}</div>
+                  </div>
                 </div>
               </div>
 
@@ -3794,7 +3830,7 @@ const sortedBestBets = computed(() => {
 });
 
 const customSlipCombinedOdds = computed(() => {
-  const selected = store.visibleBestBets.filter((b) => store.customSelectedMatches.has(b.match));
+  const selected = store.visibleBestBets.filter((b) => store.isCustomBetSelected(b));
   if (!selected.length) return 1.0;
   return selected.reduce((acc, b) => acc * Number(b.odds || 1), 1.0);
 });
@@ -4170,7 +4206,7 @@ const workspaceTabs = computed(() => [
 const slipPool = computed(() => {
   const unlocked = store.visibleBestBets.filter((b) => !String(b.match || '').includes('🔒'));
   if (store.customSelectedMatches.size > 0) {
-    const custom = unlocked.filter((b) => store.customSelectedMatches.has(b.match));
+    const custom = unlocked.filter((b) => store.isCustomBetSelected(b));
     if (custom.length) return custom;
   }
   return unlocked;

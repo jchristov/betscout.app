@@ -702,10 +702,23 @@ export const useBetscoutStore = defineStore('betscout', () => {
     ),
   );
 
-  function toggleCustomMatch(matchName: string) {
+  function getBetSelectionKey(b: any): string {
+    if (!b || typeof b === 'string') return String(b || '');
+    const m = String(b.match || `${b.home || ''} vs ${b.away || ''}`);
+    const p = String(b.pick_name || b.pick || b.market_type || b.tier || '');
+    return p ? `${m}::${p}` : m;
+  }
+
+  function isCustomBetSelected(b: any): boolean {
+    const key = getBetSelectionKey(b);
+    return customSelectedMatches.value.has(key);
+  }
+
+  function toggleCustomMatch(betOrKey: any) {
+    const key = getBetSelectionKey(betOrKey);
     const next = new Set(customSelectedMatches.value);
-    if (next.has(matchName)) next.delete(matchName);
-    else next.add(matchName);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
     customSelectedMatches.value = next;
     savePrefsToLocalStorage();
   }
@@ -1013,6 +1026,8 @@ export const useBetscoutStore = defineStore('betscout', () => {
     fetchSnapshot,
     connectLiveStream,
     triggerSignInOut,
+    getBetSelectionKey,
+    isCustomBetSelected,
     toggleCustomMatch,
     clearCustomSelection,
     syncAndSettle,
