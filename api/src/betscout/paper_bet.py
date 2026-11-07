@@ -2222,10 +2222,11 @@ def scan_upcoming_other_sports(
                     "injury_gate": inj_gate,
                 })
 
-    # Also include high-conviction European sports picks from Sportradar StatsHub (Handball, Darts, Table Tennis, Snooker, MMA)
+    # Also include high-conviction European & International sports picks from Sportradar StatsHub (Handball, Darts, Table Tennis, Snooker, MMA, Baseball)
     try:
         from .sportradar_statshub import scan_sportradar_european_sports
 
+        seen_sr_keys: set[tuple[str, str, str, str]] = set()
         for offset_d in range(min(days_ahead + 1, 3)):
             d_ymd = (base_dt + timedelta(days=offset_d)).strftime("%Y-%m-%d")
             sr_euro_picks = scan_sportradar_european_sports(
@@ -2234,7 +2235,15 @@ def scan_upcoming_other_sports(
                 max_picks_per_sport=8,
                 elo_by_lg=elo_by_lg,
             )
-            picks.extend([p for p in sr_euro_picks if str(p.get("sport") or "").lower() not in disabled_sports])
+            for p in sr_euro_picks:
+                sp_l = str(p.get("sport") or "").lower()
+                if sp_l in disabled_sports:
+                    continue
+                dedup_k = (sp_l, str(p.get("home") or ""), str(p.get("away") or ""), str(p.get("kickoff") or "")[:10])
+                if dedup_k in seen_sr_keys:
+                    continue
+                seen_sr_keys.add(dedup_k)
+                picks.append(p)
     except Exception:
         pass
 

@@ -960,7 +960,7 @@ def scan_sportradar_european_sports(
             if len([p for p in picks_out if p["sport"] == sp_slug]) >= sp_cap:
                 break
             pair_key = (min(cand["home"], cand["away"]), max(cand["home"], cand["away"]))
-            if sp_slug == "table_tennis":
+            if sp_slug in ("table_tennis", "baseball"):
                 if pair_key in seen_matchup_pairs:
                     continue
                 if fav_pick_counts.get(cand["pick"], 0) >= 2:
