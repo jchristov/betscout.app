@@ -1321,22 +1321,34 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                         hs_v = int(sr_delta.get("home_score") or 0)
                         as_v = int(sr_delta.get("away_score") or 0)
                         cur_out = "H" if hs_v > as_v else ("A" if as_v > hs_v else "D")
-                        l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2) if cur_out == side else (0.0 if cur_out == "D" else -1.0)
+                        side_u = str(side or "").upper()
+                        is_lead = (
+                            cur_out == side_u
+                            or (side_u == "DC_1X" and cur_out in ("H", "D"))
+                            or (side_u == "DC_X2" and cur_out in ("A", "D"))
+                            or (side_u == "DNB_H" and cur_out == "H")
+                            or (side_u == "DNB_A" and cur_out == "A")
+                            or (side_u.startswith("HT_OVER_") and (hs_v + as_v) >= 1)
+                            or (side_u == "OVER_2_5" and (hs_v + as_v) >= 3)
+                            or (side_u == "PLUS15_H" and (hs_v + 1.5) > as_v)
+                            or (side_u == "PLUS15_A" and (as_v + 1.5) > hs_v)
+                        )
+                        l_pnl = round(float(row["logged_best_odds"]) - 1.0, 2) if is_lead else (0.0 if cur_out == "D" else -1.0)
                         conn.execute(
                             "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                            (l_sc, l_pnl, now_iso, lg, eid),
+                            (l_sc, l_pnl, now_iso, lg, raw_eid),
                         )
                     elif sr_delta.get("state") == "pre" and was_pending:
                         sr_ko = sr_delta.get("start_utc") or ""
                         if sr_ko and (sr_ko != row["kickoff"] or int(row_t_valid) == 0):
                             conn.execute(
                                 "UPDATE paper_bets SET kickoff = ?, time_valid = 1, is_live = 0, live_score = NULL, live_pnl = NULL, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                (sr_ko, now_iso, lg, eid),
+                                (sr_ko, now_iso, lg, raw_eid),
                             )
                         elif row["is_live"]:
                             conn.execute(
                                 "UPDATE paper_bets SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                (lg, eid),
+                                (lg, raw_eid),
                             )
                 except Exception:
                     pass
@@ -1357,7 +1369,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     if (h_lg_url or a_lg_url or c_lg_url) and needs_logos:
                         conn.execute(
                             "UPDATE paper_bets SET comp_logo = COALESCE(?, comp_logo), home_logo = COALESCE(?, home_logo), away_logo = COALESCE(?, away_logo) WHERE league = ? AND event_id = ?",
-                            (c_lg_url, h_lg_url, a_lg_url, lg, eid),
+                            (c_lg_url, h_lg_url, a_lg_url, lg, raw_eid),
                         )
                     new_ko = c0.get("date") or ""
                     c0_st = (c0.get("status") or {}).get("type") or {}
@@ -1368,7 +1380,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     elif was_pending and new_ko and (new_ko != row["kickoff"] or c0_tv != int(row_t_valid)):
                         conn.execute(
                             "UPDATE paper_bets SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                            (new_ko, c0_tv, now_iso, lg, eid),
+                            (new_ko, c0_tv, now_iso, lg, raw_eid),
                         )
                     if not sr_found and c0_st.get("completed"):
                         h_c = _competitor(c0, "home")
@@ -1408,12 +1420,12 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                             )
                             conn.execute(
                                 "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                (l_sc, l_pnl, mom_json, now_iso, lg, eid),
+                                (l_sc, l_pnl, mom_json, now_iso, lg, raw_eid),
                             )
                     elif not sr_found and was_pending and row["is_live"]:
                         conn.execute(
                             "UPDATE paper_bets SET is_live = 0, live_score = NULL, live_pnl = NULL WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                            (lg, eid),
+                            (lg, raw_eid),
                         )
             else:
                 ymd = row["kickoff"][:10].replace("-", "")
@@ -1433,7 +1445,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                 if (p1_hs or p1_fl or p2_hs or p2_fl):
                                     conn.execute(
                                         "UPDATE paper_bets SET comp_logo = COALESCE(?, comp_logo), home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
-                                        (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, eid),
+                                        (t_c_logo, p1_hs or p1_fl, p2_hs or p2_fl, lg, raw_eid),
                                     )
                                 # Also verify that ESPN hasn't redrawn / replaced the opponent in this competition slot
                                 p1_n, p2_n = _team_name(p1_m).strip(), _team_name(p2_m).strip()
@@ -1441,7 +1453,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                     if {p1_n, p2_n} != {row["home"], row["away"]}:
                                         conn.execute(
                                             "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                            (lg, eid),
+                                            (lg, raw_eid),
                                         )
                                         continue
                                 if sr_found:
@@ -1455,7 +1467,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                     ko_to_save = row["kickoff"] if (not c_tv and new_ko.endswith("T04:00Z") and not row["kickoff"].endswith("T04:00Z")) else new_ko
                                     conn.execute(
                                         "UPDATE paper_bets SET kickoff = ?, time_valid = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                        (ko_to_save, c_tv, now_iso, lg, eid),
+                                        (ko_to_save, c_tv, now_iso, lg, raw_eid),
                                     )
                                 if c_st.get("completed"):
                                     p1, p2 = _competitor(comp, "home"), _competitor(comp, "away")
@@ -1498,7 +1510,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                         )
                                         conn.execute(
                                             "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
+                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, raw_eid),
                                         )
                                 elif c_st.get("state") == "pre" and was_pending and row["kickoff"] <= now_iso and not sr_found:
                                     # Last-resort fallback to SofaScore live score ONLY when neither Sportradar nor ESPN has live state
@@ -1537,7 +1549,7 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                                         )
                                         conn.execute(
                                             "UPDATE paper_bets SET is_live = 1, live_score = ?, live_pnl = ?, live_momentum_json = ?, updated_at = ? WHERE league = ? AND event_id = ? AND status = 'PENDING'",
-                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, eid),
+                                            (l_sc, l_pnl, t_mom_json, now_iso, lg, raw_eid),
                                         )
 
         if outcome in ("H", "D", "A"):
@@ -3357,14 +3369,15 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
     conn.executescript(PAPER_SCHEMA)
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    min_t60_iso = (now_dt + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     soon_iso = (now_dt + timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = conn.execute(
         """
         SELECT * FROM paper_bets
-        WHERE status = 'PENDING'
+        WHERE status = 'PENDING' AND is_live = 0
           AND kickoff >= ? AND kickoff <= ?
         """,
-        (now_iso, soon_iso),
+        (min_t60_iso, soon_iso),
     ).fetchall()
     conn.close()
     if not rows:
@@ -3681,8 +3694,8 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         pri = _soccer_odds(summary)
         cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or float(r["latest_close_odds"])
         clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
-        if gate.get("vetoed") or (r["side"] in ("H", "A") and clv_pct <= -0.06):
-            v_status = gate["status"] if gate.get("vetoed") else "VETOED_ADVERSE_RLM_DRIFT"
+        if gate.get("vetoed"):
+            v_status = gate["status"]
             c_del = _open_db(db_path)
             c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()

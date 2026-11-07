@@ -2487,7 +2487,20 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
     def _loop() -> None:
         import os
         from zoneinfo import ZoneInfo
+        from .paper_bet import _upsert_paper_bet
+
         _ensure_baseball_db_backfill(db_path)
+        if db_path.exists() and rec_path.exists():
+            try:
+                rec_boot = json.loads(rec_path.read_text(encoding="utf-8"))
+                now_boot_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                for p_b in rec_boot.get("qualifying_picks") or []:
+                    if p_b.get("action") == "PAPER_BET" and not p_b.get("suppress_primary_ml"):
+                        if not (p_b.get("tier") in ("top_15pct", "top_25pct", "uefa_edge") and float(p_b.get("best_odds") or 0.0) > 1.85):
+                            _upsert_paper_bet(db_path, p_b, now_boot_iso)
+                settle_pending_paper_bets(db_path)
+            except Exception:
+                pass
         while True:
             time.sleep(interval_sec)
             if _PIPELINE_STATUS.get("running") or not db_path.exists():

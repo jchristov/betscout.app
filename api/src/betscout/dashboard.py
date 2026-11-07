@@ -463,12 +463,12 @@ def build_best_bets_summary(
         inj_g = ((p.get("news_signal") or {}).get("injury_gate")) or {}
         xi_st_raw = str(xi_g.get("status") or "")
         inj_st_raw = str(inj_g.get("status") or "")
-        if xi_st_raw == "CONFIRMED_FULL_STRENGTH_XI":
+        if xi_st_raw in ("CONFIRMED_XI", "CONFIRMED_FULL_STRENGTH_XI"):
             xi_status = "CONFIRMED"
-            att_pct = round(float(xi_g.get("attack_share_starting") or 1.0) * 100)
+            att_pct = round(float(xi_g.get("attack_share") or xi_g.get("attack_share_starting") or 1.0) * 100)
             xi_badge = f"✓ XI Confirmed ({att_pct}% Att)"
             xi_tooltip = (
-                f"Official T-60m Starting XI Confirmed: {xi_g.get('starters_count', 11)} starters · "
+                f"Official T-60m Starting XI Confirmed: {xi_g.get('starters_announced') or xi_g.get('starters_count') or 11} starters · "
                 f"{att_pct}% attack share · GK {'starting' if xi_g.get('gk_starting', True) else 'rotated'}"
             )
         elif inj_st_raw.startswith("TRACKED"):
