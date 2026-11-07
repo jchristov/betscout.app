@@ -3641,6 +3641,105 @@ self.addEventListener('fetch', (event) => {{
                         newly_settled = 0
                     else:
                         _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against live scores..."
+                        if rec_path.exists() and db_path.exists():
+                            try:
+                                from .paper_bet import _upsert_paper_bet
+
+                                rec_sync = json.loads(rec_path.read_text(encoding="utf-8"))
+                                now_sync_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                                for p_s in rec_sync.get("qualifying_picks") or []:
+                                    if p_s.get("action") == "PAPER_BET":
+                                        suppress_ml = bool(
+                                            p_s.get("suppress_primary_ml")
+                                            or (
+                                                p_s.get("tier") in ("top_15pct", "top_25pct", "uefa_edge")
+                                                and float(p_s.get("best_odds") or 0.0) > 1.85
+                                            )
+                                        )
+                                        if not suppress_ml:
+                                            _upsert_paper_bet(db_path, p_s, now_sync_iso)
+                                        for sec_s in (p_s.get("secondary_opportunities") or [])[:1]:
+                                            sec_o_s = float(sec_s.get("odds") or 0.0)
+                                            if sec_o_s > 1.12:
+                                                _upsert_paper_bet(
+                                                    db_path,
+                                                    {
+                                                        **p_s,
+                                                        "event_id": f"{p_s['event_id']}::{sec_s.get('market_type')}",
+                                                        "side": str(sec_s.get("side") or "DC_1X"),
+                                                        "tier": str(sec_s.get("tier") or "dc_shield"),
+                                                        "score": float(sec_s.get("win_prob") or 0.78),
+                                                        "p_mkt": float(sec_s.get("win_prob") or 0.78),
+                                                        "open_odds": sec_o_s,
+                                                        "best_odds": sec_o_s,
+                                                        "primary_odds": float(sec_s.get("min_fair_odds") or sec_o_s),
+                                                        "close_odds": sec_o_s,
+                                                    },
+                                                    now_sync_iso,
+                                                )
+                                for tp_s in rec_sync.get("tennis_picks") or []:
+                                    t_o_s = float(tp_s.get("best_odds") or tp_s.get("target_ev3_odds") or 0.0)
+                                    if tp_s.get("win_prob", 0.0) >= 0.70 and t_o_s > 1.10:
+                                        t_side_s = "H" if tp_s["pick"] == tp_s["player_1"] else "A"
+                                        _upsert_paper_bet(
+                                            db_path,
+                                            {
+                                                "league": tp_s["tour"].lower(),
+                                                "event_id": tp_s["event_id"],
+                                                "kickoff": tp_s["kickoff"],
+                                                "time_valid": tp_s.get("time_valid", True),
+                                                "competition_logo": tp_s.get("competition_logo"),
+                                                "home": tp_s["player_1"],
+                                                "away": tp_s["player_2"],
+                                                "home_logo": tp_s.get("home_logo") or tp_s.get("home_flag"),
+                                                "away_logo": tp_s.get("away_logo") or tp_s.get("away_flag"),
+                                                "side": t_side_s,
+                                                "tier": tp_s.get("tier") or "banker_70pct",
+                                                "score": tp_s["win_prob"],
+                                                "p_mkt": tp_s["win_prob"],
+                                                "open_odds": float(tp_s.get("open_odds") or t_o_s),
+                                                "best_odds": t_o_s,
+                                                "primary_odds": tp_s.get("min_fair_odds") or t_o_s,
+                                                "close_odds": t_o_s,
+                                                "synthetic_dc_odds": None,
+                                                "exact_score_pred": None,
+                                                "factors_tanh_z": tp_s.get("factors") or {},
+                                                "news_signal": {"backend": "tennis_surface_game_model"},
+                                            },
+                                            now_sync_iso,
+                                        )
+                                        for sec_t in (tp_s.get("secondary_opportunities") or [])[:1]:
+                                            sec_to = float(sec_t.get("odds") or 0.0)
+                                            if sec_to > 1.12:
+                                                _upsert_paper_bet(
+                                                    db_path,
+                                                    {
+                                                        "league": tp_s["tour"].lower(),
+                                                        "event_id": f"{tp_s['event_id']}::{sec_t.get('market_type')}",
+                                                        "kickoff": tp_s["kickoff"],
+                                                        "time_valid": tp_s.get("time_valid", True),
+                                                        "competition_logo": tp_s.get("competition_logo"),
+                                                        "home": tp_s["player_1"],
+                                                        "away": tp_s["player_2"],
+                                                        "home_logo": tp_s.get("home_logo") or tp_s.get("home_flag"),
+                                                        "away_logo": tp_s.get("away_logo") or tp_s.get("away_flag"),
+                                                        "side": str(sec_t.get("side") or f"PLUS15_{t_side_s}"),
+                                                        "tier": str(sec_t.get("tier") or "set_shield"),
+                                                        "score": float(sec_t.get("win_prob") or 0.85),
+                                                        "p_mkt": float(sec_t.get("win_prob") or 0.85),
+                                                        "open_odds": sec_to,
+                                                        "best_odds": sec_to,
+                                                        "primary_odds": float(sec_t.get("min_fair_odds") or sec_to),
+                                                        "close_odds": sec_to,
+                                                        "synthetic_dc_odds": None,
+                                                        "exact_score_pred": None,
+                                                        "factors_tanh_z": tp_s.get("factors") or {},
+                                                        "news_signal": {"backend": "tennis_secondary_market"},
+                                                    },
+                                                    now_sync_iso,
+                                                )
+                            except Exception:
+                                pass
                         newly_settled = settle_pending_paper_bets(db_path)
                         try:
                             xi_vetoes = refresh_t60_starting_xi_gates(db_path)
