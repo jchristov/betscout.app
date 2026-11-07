@@ -2411,6 +2411,66 @@ def _refresh_inplay_timelinedelta(db_path: Path) -> int:
     return updated
 
 
+def _ensure_baseball_db_backfill(db_path: Path) -> int:
+    """Ensure `betscout.db` contains recent completed Sportradar Baseball (`sport_id=3`) matches alongside MLB."""
+    if not db_path.exists():
+        return 0
+    try:
+        conn = sqlite3.connect(db_path, timeout=20.0)
+        bb_cnt = int((conn.execute("SELECT COUNT(*) FROM matches WHERE sport = 'baseball'").fetchone() or [0])[0])
+        if bb_cnt >= 300:
+            conn.close()
+            return 0
+        from .sportradar_statshub import fetch_statshub_gismo
+
+        now_dt = datetime.now(timezone.utc)
+        added = 0
+        for offset in range(-12, 1):
+            d_ymd = (now_dt + timedelta(days=offset)).strftime("%Y-%m-%d")
+            u = fetch_statshub_gismo("unified_sport_matches", f"3/{d_ymd}/0", ttl_sec=3600.0) or {}
+            mu = (fetch_statshub_gismo("unified_sport_matches_markets", f"3/{d_ymd}/0", client_alias="sportradar", ttl_sec=3600.0) or {}).get("matches") or {}
+            for rc in (u.get("sport") or {}).get("realcategories") or []:
+                for t in rc.get("tournaments") or []:
+                    for m in t.get("matches") or []:
+                        res = m.get("result") or {}
+                        rh, ra = res.get("home"), res.get("away")
+                        if rh is None or ra is None:
+                            continue
+                        mid = str(m.get("_id") or "")
+                        if not mid:
+                            continue
+                        tms = m.get("teams") or {}
+                        hn = str((tms.get("home") or {}).get("name") or "").strip()
+                        an = str((tms.get("away") or {}).get("name") or "").strip()
+                        dt_uts = ((m.get("_dt") or m.get("time") or {}).get("uts")) or 0
+                        if not hn or not an or not dt_uts:
+                            continue
+                        ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        hs, as_ = float(rh), float(ra)
+                        if hs == as_:
+                            continue
+                        out_c = "H" if hs > as_ else "A"
+                        oh = oa = None
+                        for mk in ((mu.get(mid) or {}).get("markets") or []):
+                            if mk.get("_marketId") in (251, 1):
+                                for o_item in (mk.get("outcomes") or []):
+                                    if o_item.get("name") == "{$competitor1}":
+                                        oh = float(o_item.get("odds") or 0) or oh
+                                    elif o_item.get("name") == "{$competitor2}":
+                                        oa = float(o_item.get("odds") or 0) or oa
+                        conn.execute(
+                            "INSERT OR REPLACE INTO matches (event_id, league, sport, kickoff, home, away, home_score, away_score, outcome, odds_home, odds_draw, odds_away, odds_provider, odds_dc_1x, odds_dc_x2, odds_dc_12, line_total, odds_over, odds_under) VALUES (?,?,?,?,?,?,?,?,?,?,NULL,?,?,NULL,NULL,NULL,NULL,NULL,NULL)",
+                            (f"sr_{mid}", "baseball", "baseball", ko_iso, hn, an, hs, as_, out_c, oh, oa, "Sportradar"),
+                        )
+                        added += 1
+        conn.commit()
+        conn.close()
+        _TOTAL_MATCHES_CACHE.clear()
+        return added
+    except Exception:
+        return 0
+
+
 def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> threading.Thread:
     """Start a daemon background thread that periodically settles finished/in-play matches
     and evaluates T-60m starting XI gates for upcoming soccer fixtures."""
@@ -2427,6 +2487,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
     def _loop() -> None:
         import os
         from zoneinfo import ZoneInfo
+        _ensure_baseball_db_backfill(db_path)
         while True:
             time.sleep(interval_sec)
             if _PIPELINE_STATUS.get("running") or not db_path.exists():
