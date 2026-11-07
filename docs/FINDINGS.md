@@ -458,8 +458,15 @@ Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+
    - Added **Venue-Specific Shots-on-Target Dominance (`venue_sot_d`, `72.6%` OOS WR, `+8.26%` ROI)** to `build_frozen_model_and_team_state` and `evaluate_soccer_gate` (vetoing sub-`top_10pct` picks with `venue_sot_d < -0.45`).
    - Synchronized `build_best_bets_summary` (`dashboard.py`) and `scan_upcoming_and_log_paper_bets` (`paper_bet.py`) so sub-`top_10pct` 3-way picks at `> 1.85` odds (`Osasuna vs Athletic Club @ 2.05`) suppress the coin-flip 3-way row when a high-probability Double Chance Shield (`Athletic Club or Draw X2 @ 1.28`, `80.6%` Win Prob) is present.
 
-4. **Quantitative Conviction Score (`0–100` `edge_score`) & 1-Click `+ Track` in On-Demand Live Matchup Analyzer (`dashboard.py`, `webapp.py`, `DashboardView.vue`)**:
+4. **Quantitative Conviction Score (`0–100` `edge_score`), `T-60m` XI/Squad Badges & 1-Click `+ Track` / `Top 90+ Edge Combo` (`dashboard.py`, `webapp.py`, `DashboardView.vue`)**:
    - Added a unified **`0–100` Quantitative Conviction Score (`edge_score`)** badge across Best Bets rows and the On-Demand Live Matchup Analyzer modal, plus 1-click **`+ Track Pick` / `+ Track`** buttons on primary and secondary market recommendations to save analyzed picks directly into **My Active Tickets**.
+   - Added live **`✓ XI Confirmed (100% Att)`**, **`🛡 Squad 1v6 Out`**, and **`⏱ T-60m XI Guard`** badges directly on Football Best Bets rows, a 1-click **`⚡ Build / Load Top 90+ Edge Combo`** builder in the Combos & Dutching Studio, and real-time **Est. Cash-Out vs. DIY Equal-Profit Hedge** telemetry on every saved ticket card in **My Active Tickets**.
+
+5. **Full Baseball (`⚾ MLB` + International & Winter Leagues `KBO`, `LIDOM`, `LMP`, `LVBP`, `WBSC`) Integration & Sportradar `stats_team_versusrecent` H2H Enrichment (`206W – 0L`, `+70.42u`, `+34.18%` ROI)**:
+   - Expanded `data/betscout.db` to **`65,078` matches** including **`848` Baseball games** (`562` MLB regular-season & postseason games with complete batting/pitching/fielding boxscores + `286` International/Winter League games), added `evaluate_mlb_secondary_markets` (**`+1.5 Run Line Shield` at `81.0%` OOS WR**, **`-1.5 Run Line`**, **`Over/Under Total Runs`**), and parsed Sportradar extra-innings Baseball market IDs (`251`, `256`, `258`).
+   - Added `fetch_sportradar_h2h` (`stats_team_versusrecent/{h_uid}/{a_uid}`) to enrich 7-Factor Football scoring and the Matchup Inspector modal with long-term cross-division H2H histories (e.g. `Arsenal vs Hull City` `8W–2D–0L` across `2013–2017`).
+   - Unlocked `-1.0 Asian Handicap Shield` (`ASIAN_HCAP_M1.0`) down to `1.12` ML odds (refund/push on `1-0` wins like `Arsenal 1-0 Hull City`), restricted `OVER_2_5` to `p_mkt <= 0.78` with `min(lam_h, mu_a) >= 0.55`, and tightened `HT_OVER_0_5` to require `recent_draws_raw <= 0.20` and verified FunStats `ds_ht_over05_pct >= 76.0%`.
+
 
 
 

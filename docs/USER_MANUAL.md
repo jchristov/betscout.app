@@ -1,10 +1,10 @@
 # <img src="../app/public/betscout-logo.svg" width="32" height="32" align="absmiddle" alt="BetScout Logo"/> BetScout (`betscout.app`) — User Manual & Feature Reference Guide
 
 **BetScout** (`https://betscout.app`) is an out-of-sample validated multi-sport prediction, exact-score projection, 2-leg combo/parlay, and prospective paper-betting intelligence platform covering:
-- **⚽ 14 Football Competitions (`11,582` matches):** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`), and `fifa.world`.
-- **🎾 ATP & WTA Tennis (`43,168` matches):** Outdoor Hard (`hard`), Indoor Hard (`hard_indoor`), Clay (`clay`), and Grass (`grass`) across Grand Slams, Masters 1000, ATP/WTA 500 & 250 Main Draws and Qualifying rounds.
-- **🏐🏀🏒🏈⚾ Volleyball, Basketball & US Major Sports (`4,312` matches):** `wvolleyball`, `mvolleyball`, `nba`, `ncaaw`, `ncaam`, `fiba`, `nbl`, `wnba`, `nhl`, `nfl`, and `mlb`.
-- **📡 Live Match Center & Market Feed (`56` Sports):** Real-time multi-bookmaker 1X2 / Moneyline, Asian Handicap, Over/Under, 28-outcome Correct Score matrices, Squad Availability & Injuries, 15-Minute Goal Timing, Live Pitch Dangerous Attacks, and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA**).
+- **⚽ 14 Football Competitions (`11,837` matches):** Big-5 European Leagues (`eng.1`, `esp.1`, `ger.1`, `ita.1`, `fra.1`), Secondary European Leagues (`ned.1`, `por.1`, `eng.2`, `aut.1`), UEFA Competitions (`uefa.champions`, `uefa.europa`, `uefa.europa.conf`, `uefa.nations`), and `fifa.world`.
+- **🎾 ATP & WTA Tennis (`43,649` matches):** Outdoor Hard (`hard`), Indoor Hard (`hard_indoor`), Clay (`clay`), and Grass (`grass`) across Grand Slams, Masters 1000, ATP/WTA 500 & 250 Main Draws and Qualifying rounds.
+- **🏐🏀🏒🏈⚾ Volleyball, Basketball & US Major Sports (`5,745` matches):** `wvolleyball`, `mvolleyball`, `nba`, `ncaaw`, `ncaam`, `fiba`, `nbl`, `wnba`, `nhl`, `nfl`, `mlb`, and International/Winter League `baseball` (`KBO`, `LIDOM`, `LMP`, `LVBP`, `WBSC`).
+- **📡 Live Match Center & Market Feed (`56` Sports):** Real-time multi-bookmaker 1X2 / Moneyline, Asian Handicap, Over/Under, 28-outcome Correct Score matrices, Long-Term H2H (`stats_team_versusrecent`), Squad Availability & Injuries, 15-Minute Goal Timing, Live Pitch Dangerous Attacks, and European High-Frequency Sports (**Handball, Darts, Table Tennis, Snooker, MMA, Curling, Baseball**).
 
 ---
 
@@ -61,8 +61,9 @@ All historical and live records are stored in a unified quantitative database (`
 | **🏀 Basketball** | `wnba` | `wnba` | **WNBA** (Women's National Basketball Association) | `25` | `2026-09` – Present |
 | **🏒 Ice Hockey** | `nhl` | `nhl` | **NHL** (National Hockey League) | `678` | `2026-03` – Present |
 | **🏈 American Football**| `nfl` | `nfl` | **NFL** (National Football League) | `479` | `2025-01` – Present |
-| **⚾ Baseball** | `mlb` | `mlb` | **MLB** (Major League Baseball) | `156` | `2026-09` – Present |
-| **TOTAL (7 Sports)** | **27 Leagues** | — | **All Configured Championships** | **`59,062`** | **`0` Quality Errors** |
+| **⚾ Baseball** | `mlb` / `baseball` | `mlb` / `sr_3` | **MLB & International Baseball** (`MLB`, `KBO`, `LIDOM`, `LMP`, `LVBP`, `WBSC`) | `848` | `2026-08` – Present |
+| **🏓🤾🎯🥌🥊 European & Combat** | `table_tennis`, `handball`, `darts`, `curling`, `mma` | `sr_20/6/22/28/117` | **TT Elite, EHF Handball, PDC/Modus Darts, Curling, MMA** | `3,902+` | `2026-10` – Present |
+| **TOTAL (13 Sports)** | **32 Leagues** | — | **All Configured Championships** | **`65,078`** | **`0` Quality Errors** |
 
 ---
 
