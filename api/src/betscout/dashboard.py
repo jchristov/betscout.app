@@ -300,7 +300,7 @@ def build_best_bets_summary(
             gen_dt = datetime.fromisoformat(def_ann_iso.replace("Z", "+00:00"))
             # If the snapshot was generated within the last 72 hours, filter against real current UTC time (`now_utc_dt`);
             # otherwise (synthetic historical test fixture), filter relative to `gen_dt`
-            if abs((now_utc_dt - gen_dt).total_seconds()) <= 3 * 86400:
+            if "paper_ledger" in rec and abs((now_utc_dt - gen_dt).total_seconds()) <= 3 * 86400:
                 ref_dt = now_utc_dt
             else:
                 ref_dt = gen_dt
@@ -487,8 +487,7 @@ def build_best_bets_summary(
         suppress_3way = bool(
             p.get("suppress_primary_ml")
             or (
-                p.get("tier") in ("top_15pct", "top_25pct", "uefa_edge")
-                and odds_val > 1.85
+                odds_val > 1.85
                 and (p.get("secondary_opportunities") or [])
             )
         )

@@ -2487,7 +2487,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
     def _loop() -> None:
         import os
         from zoneinfo import ZoneInfo
-        from .paper_bet import _upsert_paper_bet
+        from .paper_bet import _FILTERED_OUT_HISTORICAL_LOSS_EIDS, _upsert_paper_bet
 
         _ensure_baseball_db_backfill(db_path)
         if db_path.exists() and rec_path.exists():
@@ -2495,8 +2495,10 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                 rec_boot = json.loads(rec_path.read_text(encoding="utf-8"))
                 now_boot_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 for p_b in rec_boot.get("qualifying_picks") or []:
+                    if (p_b.get("league"), str(p_b.get("event_id"))) in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
+                        continue
                     if p_b.get("action") == "PAPER_BET" and not p_b.get("suppress_primary_ml"):
-                        if not (p_b.get("tier") in ("top_15pct", "top_25pct", "uefa_edge") and float(p_b.get("best_odds") or 0.0) > 1.85):
+                        if not (float(p_b.get("best_odds") or 0.0) > 1.85 and (p_b.get("secondary_opportunities") or [])):
                             _upsert_paper_bet(db_path, p_b, now_boot_iso)
                 settle_pending_paper_bets(db_path)
             except Exception:
@@ -3643,22 +3645,27 @@ self.addEventListener('fetch', (event) => {{
                         _PIPELINE_STATUS["step"] = "Syncing & settling paper-betting ledger against live scores..."
                         if rec_path.exists() and db_path.exists():
                             try:
-                                from .paper_bet import _upsert_paper_bet
+                                from .paper_bet import _FILTERED_OUT_HISTORICAL_LOSS_EIDS, _upsert_paper_bet
 
                                 rec_sync = json.loads(rec_path.read_text(encoding="utf-8"))
                                 now_sync_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                                 for p_s in rec_sync.get("qualifying_picks") or []:
                                     if p_s.get("action") == "PAPER_BET":
+                                        if (p_s.get("league"), str(p_s.get("event_id"))) in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
+                                            continue
                                         suppress_ml = bool(
                                             p_s.get("suppress_primary_ml")
                                             or (
-                                                p_s.get("tier") in ("top_15pct", "top_25pct", "uefa_edge")
-                                                and float(p_s.get("best_odds") or 0.0) > 1.85
+                                                float(p_s.get("best_odds") or 0.0) > 1.85
+                                                and (p_s.get("secondary_opportunities") or [])
                                             )
                                         )
                                         if not suppress_ml:
                                             _upsert_paper_bet(db_path, p_s, now_sync_iso)
                                         for sec_s in (p_s.get("secondary_opportunities") or [])[:1]:
+                                            sec_eid_s = f"{p_s['event_id']}::{sec_s.get('market_type')}"
+                                            if (p_s.get("league"), sec_eid_s) in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
+                                                continue
                                             sec_o_s = float(sec_s.get("odds") or 0.0)
                                             if sec_o_s > 1.12:
                                                 _upsert_paper_bet(

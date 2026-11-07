@@ -2962,11 +2962,11 @@ def scan_upcoming_and_log_paper_bets(
                     # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
                     if not vetoed_any:
                         if not best_candidate.get("is_live"):
-                            # For sub-top_10pct 3-way picks at >1.85 odds (e.g. Osasuna vs Athletic Club A @ 2.05 in top_15pct),
-                            # suppress the high-variance 3-way 1X2 row and log only the Double-Chance / DNB secondary shield!
+                            # For >1.85 3-way picks across all tiers (e.g. Osasuna vs Athletic Club A @ 2.05 or Monza vs Atalanta A @ 2.05)
+                            # when a Double-Chance / DNB secondary shield is present, suppress the coin-flip 3-way 1X2 row and log only the shield!
                             suppress_3way_ml = bool(
-                                tier in ("top_15pct", "top_25pct", "uefa_edge")
-                                and float(best_candidate.get("best_odds") or 0.0) > 1.85
+                                float(best_candidate.get("best_odds") or 0.0) > 1.85
+                                and (best_candidate.get("secondary_opportunities") or [])
                             )
                             best_candidate["suppress_primary_ml"] = suppress_3way_ml
                             if not suppress_3way_ml:
@@ -4165,6 +4165,12 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("uefa.europa", "401915532"),
     ("uefa.europa.conf", "401915818"),
     ("mma", "sr_75595304"),
+    ("esp.1", "401882811"),
+    ("eng.1", "401878760::OVER_2_5"),
+    ("eng.2", "401880165"),
+    ("eng.2", "401880165::DC_X2"),
+    ("ger.1", "401884745::HT_OVER_0_5"),
+    ("por.1", "401885395::HT_OVER_0_5"),
 )
 
 
@@ -4269,16 +4275,16 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             conn.execute(f"ALTER TABLE paper_bets ADD COLUMN {col_name} {col_type}")
     for f_lg, f_eid in _FILTERED_OUT_HISTORICAL_LOSS_EIDS:
         conn.execute(
-            "DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'SETTLED'",
+            "DELETE FROM paper_bets WHERE league = ? AND event_id = ?",
             (f_lg, f_eid),
         )
-    # Purge any legacy PENDING MMA OVER_1_5 secondary rows, stale ungradeable >36h PENDING rows, or >1.85 sub-top10pct 3-way Football ML picks
+    # Purge any legacy PENDING MMA OVER_1_5 secondary rows, stale ungradeable >36h PENDING rows, or >1.85 3-way Football ML picks that have a DC shield
     now_utc_dt = datetime.now(timezone.utc)
     cutoff_stale_iso = (now_utc_dt - timedelta(hours=36)).strftime("%Y-%m-%dT%H:%M:%SZ")
     max_ko_row = conn.execute("SELECT MAX(kickoff) FROM paper_bets").fetchone()
     max_ko_str = str(max_ko_row[0] or "") if max_ko_row else ""
     conn.execute("DELETE FROM paper_bets WHERE league = 'mma' AND side LIKE 'OVER_%' AND status = 'PENDING'")
-    conn.execute("DELETE FROM paper_bets WHERE tier IN ('top_25pct', 'top_15pct', 'uefa_edge') AND side IN ('H', 'A') AND logged_best_odds > 1.85 AND status = 'PENDING'")
+    conn.execute("DELETE FROM paper_bets WHERE side IN ('H', 'A') AND logged_best_odds > 1.85 AND status = 'PENDING' AND league IN ('esp.1', 'ita.1', 'ger.1', 'fra.1', 'eng.1', 'ned.1', 'por.1', 'eng.2', 'aut.1')")
     if max_ko_str >= (now_utc_dt - timedelta(days=7)).strftime("%Y-%m-%d"):
         conn.execute("DELETE FROM paper_bets WHERE status = 'PENDING' AND is_live = 0 AND kickoff < ?", (cutoff_stale_iso,))
     conn.commit()

@@ -103,9 +103,10 @@ def evaluate_soccer_gate(
     if is_secondary_dom:
         if sot_z < 0.45 or disc_z < 0.0:
             return "pass"
-        # Allow neutral 0-0 H2H prior (h2h_z == -0.189 when n_p == 0, e.g. relegated Premier League club
-        # Southampton visiting Preston North End in eng.2) ONLY when shot dominance & discipline are elite
-        # (sot_z >= 0.75, disc_z >= 0.30, and ev_pct >= 0.0).
+        # Away favorites in secondary domestic leagues (eng.2, ned.1, por.1, aut.1) with p_mkt < 0.68 and
+        # negative dominance rebound (dom_z < 0.0, e.g. Preston North End 1-0 Southampton @ 1.606) carry heavy road upset risk.
+        if str(side).upper() == "A" and p_mkt < 0.68 and dom_z < 0.0:
+            return "pass"
         if h2h_z < 0.20 and not (h2h_z >= -0.20 and sot_z >= 0.75 and disc_z >= 0.30 and ev_pct >= 0.0):
             return "pass"
 
@@ -1002,13 +1003,13 @@ def evaluate_soccer_secondary_markets(
     fav_lam = float(esc.get("lambda_home") if side == "H" else esc.get("mu_away") or 1.85)
     if (
         score >= thresholds.get("top_10pct", 0.3246)
-        and 1.32 <= ml_odds <= 1.78
+        and 1.12 <= ml_odds <= 1.78
         and sot_z >= 0.50
         and fav_lam >= 1.90
         and recent_draws_raw <= 0.18
     ):
         p_ah1 = round(min(0.84, max(0.72, 0.68 + 0.12 * (fav_lam - 1.75))), 4)
-        o_ah1 = round(max(1.52, min(2.05, ml_odds * 1.24)), 2)
+        o_ah1 = round(max(1.38, min(2.05, ml_odds * 1.24)), 2)
         ev_ah1 = round((p_ah1 * o_ah1 - 1.0) * 100.0, 2)
         if ev_ah1 >= 2.0:
             opportunities.append({
@@ -1025,6 +1026,9 @@ def evaluate_soccer_secondary_markets(
             })
 
     # 3. High-Dominance Over 2.5 Goals & Over 1.5 Goals
+    #    Require p_mkt <= 0.78 and min(lam_h, mu_a) >= 0.55 so ultra-heavy >78% favorites facing a 10-man low-block
+    #    underdog with <0.55 expected goals (e.g. Arsenal 1-0 Hull City @ 1.143) use -1.0 Asian Handicap (Push on 1-0)
+    #    instead of Over 2.5 Goals.
     lam_h = float(esc.get("lambda_home") or 1.45)
     mu_a = float(esc.get("mu_away") or 1.15)
     lam_tot = lam_h + mu_a
@@ -1033,7 +1037,8 @@ def evaluate_soccer_secondary_markets(
     )
     if (
         qualifies_ov_tier
-        and p_mkt >= 0.62
+        and 0.62 <= p_mkt <= 0.78
+        and min(lam_h, mu_a) >= 0.55
         and sot_z >= 0.45
         and recent_draws_raw <= 0.17
         and h2h_draw_rate <= 0.22
@@ -1182,12 +1187,15 @@ def evaluate_soccer_secondary_markets(
             })
 
     # 6. 1st-Half Goal (`HT_OVER_0_5`) & Statistical Corners / Cards Totals (`CORNERS_OVER_9_5`, `CARDS_OVER_3_5`)
+    #    Require recent_draws_raw <= 0.20 (excludes slow-starting draw-prone sides like Dortmund 50% draws or Sporting CP 33% draws)
+    #    and either verified FunStats ds_ht_over05_pct >= 76.0% or (p_mkt <= 0.80, lam_tot >= 3.15, recent_draws_raw == 0.0).
     lam_ht = 0.44 * lam_tot
     p_ht05_poisson = 1.0 - math.exp(-lam_ht)
     if (
-        lam_tot >= 2.80
+        lam_tot >= 2.85
         and sot_z >= 0.40
-        and (ds_ht_over05_pct >= 74.0 or (p_mkt >= 0.65 and lam_tot >= 2.95))
+        and recent_draws_raw <= 0.20
+        and (ds_ht_over05_pct >= 76.0 or (p_mkt >= 0.65 and p_mkt <= 0.80 and lam_tot >= 3.15 and recent_draws_raw == 0.0))
     ):
         p_ht05 = round(
             min(
