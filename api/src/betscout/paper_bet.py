@@ -2706,7 +2706,7 @@ def scan_upcoming_and_log_paper_bets(
                     sgn = 1.0 if side == "H" else -1.0
                     o_bst = best_h if side == "H" else best_a
                     o_pri = pri["odds_home"] if side == "H" else pri["odds_away"]
-                    if not (1.20 <= o_bst <= 3.60):
+                    if not (1.10 <= o_bst <= 3.60):
                         continue
                     o_open = (open_h if side == "H" else open_a) if (open_h and open_a) else o_bst
                     o_close = (close_h if side == "H" else close_a) if (close_h and close_a) else o_bst

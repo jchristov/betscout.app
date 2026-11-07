@@ -101,7 +101,12 @@ def evaluate_soccer_gate(
 
     # 2. Secondary Domestic League Gate (applies to ALL tiers, including top_8pct)
     if is_secondary_dom:
-        if h2h_z < 0.20 or sot_z < 0.45 or disc_z < 0.0:
+        if sot_z < 0.45 or disc_z < 0.0:
+            return "pass"
+        # Allow neutral 0-0 H2H prior (h2h_z == -0.189 when n_p == 0, e.g. relegated Premier League club
+        # Southampton visiting Preston North End in eng.2) ONLY when shot dominance & discipline are elite
+        # (sot_z >= 0.75, disc_z >= 0.30, and ev_pct >= 0.0).
+        if h2h_z < 0.20 and not (h2h_z >= -0.20 and sot_z >= 0.75 and disc_z >= 0.30 and ev_pct >= 0.0):
             return "pass"
 
     venue_sot_z = float(factors_tanh_z.get("venue_sot_d", sot_z))
@@ -115,7 +120,11 @@ def evaluate_soccer_gate(
     if score >= thresholds["top_15pct"]:
         if is_secondary_dom and ev_pct <= 0.0:
             return "pass"
-        if sot_z < 0.40 or (ev_pct < 1.5 and dom_z < 0.15):
+        if sot_z < 0.40 or (
+            ev_pct < 1.5
+            and dom_z < 0.15
+            and not (sot_z >= 0.75 and disc_z >= 0.30 and ev_pct >= 0.0)
+        ):
             return "pass"
         return "top_15pct"
     if score >= thresholds["top_25pct"]:
