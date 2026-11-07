@@ -2803,7 +2803,7 @@
             <span class="text-slate-400 font-semibold">Quick Try:</span>
             <template v-if="analyzerMode === 'entity'">
               <button
-                v-for="sampleEnt in ['Paris Saint-Germain', 'Daniil Medvedev', 'Boston Celtics', 'Tampa Bay Lightning', 'Minnesota Vikings', 'Bayern Munich']"
+                v-for="sampleEnt in ['Paris Saint-Germain', 'Daniil Medvedev', 'Boston Celtics', 'Tampa Bay Lightning', 'Minnesota Vikings', 'Los Angeles Dodgers', 'Bayern Munich']"
                 :key="sampleEnt"
                 type="button"
                 class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-sky-300 border border-slate-700/80 font-medium"
@@ -2814,7 +2814,7 @@
             </template>
             <template v-else>
               <button
-                v-for="sampleMatch in ['Bayern Munich vs Borussia Dortmund', 'Carlos Alcaraz vs Taylor Fritz', 'Boston Celtics vs Milwaukee Bucks', 'Minnesota Wild vs San Jose Sharks', 'Los Angeles Rams vs Los Angeles Chargers']"
+                v-for="sampleMatch in ['Bayern Munich vs Borussia Dortmund', 'Carlos Alcaraz vs Taylor Fritz', 'Boston Celtics vs Milwaukee Bucks', 'Minnesota Wild vs San Jose Sharks', 'Los Angeles Rams vs Los Angeles Chargers', 'Los Angeles Dodgers vs Milwaukee Brewers']"
                 :key="sampleMatch"
                 type="button"
                 class="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-slate-700/80 font-medium"

@@ -789,12 +789,12 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         if not home_img_url:
             if not is_individual_sport and h_uid_val:
                 home_img_url = get_team_logo_url(h_uid_val, size="big")
-            else:
+            elif is_individual_sport:
                 home_img_url = resolve_player_headshot_url(h)
         if not away_img_url:
             if not is_individual_sport and a_uid_val:
                 away_img_url = get_team_logo_url(a_uid_val, size="big")
-            else:
+            elif is_individual_sport:
                 away_img_url = resolve_player_headshot_url(a)
     except Exception:
         pass
@@ -2205,6 +2205,48 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             {"label": "Total Yards / Game Diff", "value": f"{vol_diff_1:+.1f} Yds/Gm (Comb {comb_sh_for or 660:.0f} Yds)"},
             {"label": "Points Allowed & Turnover Diff", "value": f"Comb PA {comb_pa:.1f}/Gm · TOV {tov_diff_1:+.1f}/Gm"},
             {"label": "Projected Total Points", "value": f"Exp {exp_pts_nfl:.1f} Pts (Line {tot_ln_nfl})"},
+        ]
+    elif detected_sport == "baseball" or detected_league in ("mlb", "baseball"):
+        from .sport_models import evaluate_mlb_secondary_markets
+
+        fav_hits_d = round(sgn_fav * sot_diff_1, 2)
+        fav_rd_d = float((h_goal_diff if fav_is_1 else a_goal_diff) or 0.0)
+        fav_ga_b = h_ga_avg if fav_is_1 else a_ga_avg
+        exp_runs_mlb = round(((h_gf_avg or 4.4) + (h_ga_avg or 4.3) + (a_gf_avg or 4.3) + (a_ga_avg or 4.4)) * 0.5, 1)
+        tot_ln_mlb = float(line_tot_live or 8.5)
+        if fav_ga_b is not None and fav_ga_b > 4.5:
+            warnings.append(f"⚠️ Bullpen & ERA Alert: {fav_name} concedes {fav_ga_b:.2f} runs/game over its last 6 games (>4.50 threshold).")
+        if fav_hits_d < 0.0:
+            warnings.append(f"⚠️ Batting Contact Deficit: {fav_name} trails in rolling hits/game ({fav_hits_d:+.1f} hits/gm).")
+
+        secondary_opportunities = evaluate_mlb_secondary_markets(
+            home=h_name,
+            away=a_name,
+            side=fav_side,
+            p_mkt=fav_mkt_prob,
+            p_elo=fav_elo_prob,
+            hits_diff=fav_hits_d,
+            run_diff=fav_rd_d,
+            runs_allowed_5=fav_ga_b,
+            line_total=tot_ln_mlb,
+            odds_over=odds_over_live,
+            odds_under=odds_under_live,
+            exp_total_runs=exp_runs_mlb,
+            comb_hits_for=comb_sot_for,
+        )
+        p_rl15 = 0.810 if fav_prob >= 0.56 else round(min(0.84, fav_prob + 0.16), 3)
+        mkt_1 = f"{fav_name} 2-Way Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+        mkt_2 = f"{fav_name} +1.5 Run Line Shield ({p_rl15*100:.1f}% HitProb, Fair @{1.0/p_rl15:.2f} · 1-Run Insurance)"
+        mkt_3 = (
+            f"Under {tot_ln_mlb} Total Runs (Pitching Duel · Exp {exp_runs_mlb:.1f} Runs)"
+            if exp_runs_mlb <= tot_ln_mlb - 0.30
+            else f"Over {tot_ln_mlb} Total Runs (High-Contact Batting · Exp {exp_runs_mlb:.1f} Runs, {comb_sot_for or 17.2:.1f} Hits/Gm)"
+        )
+        sport_metrics = [
+            {"label": "Batting Hits / Game Diff", "value": f"{sot_diff_1:+.2f} Hits/Gm (Comb {comb_sot_for or 16.8:.1f} Hits)"},
+            {"label": "Run Differential / Game", "value": f"{h_name}: {h_goal_diff or 0:+.2f} vs {a_name}: {a_goal_diff or 0:+.2f} RPG"},
+            {"label": "Pitching K & Runs Allowed", "value": f"RA: {h_ga_avg or 4.1:.2f} vs {a_ga_avg or 4.2:.2f} · K Diff {vol_diff_1:+.1f}/Gm"},
+            {"label": "Projected Total Runs", "value": f"Exp {exp_runs_mlb:.1f} Runs (Line {tot_ln_mlb})"},
         ]
     else:
         sc_pred = predict_soccer_exact_scores(

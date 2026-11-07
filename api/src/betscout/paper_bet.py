@@ -1656,6 +1656,13 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     won = (my_s_g + 1.5) > op_s_g
                 else:
                     won = False
+            elif side_up in ("MINUS15_H", "MINUS15_A"):
+                if hs_g is None or as_g is None:
+                    continue
+                t_side_c = "H" if side_up.endswith("_H") else "A"
+                my_s_g = hs_g if t_side_c == "H" else as_g
+                op_s_g = as_g if t_side_c == "H" else hs_g
+                won = (my_s_g - 1.5) > op_s_g
             elif side_up in ("SETS20_H", "SETS20_A"):
                 if hs_g is None or as_g is None:
                     continue
@@ -2055,6 +2062,7 @@ def scan_upcoming_other_sports(
                     else None
                 )
                 from .sport_models import (
+                    evaluate_mlb_secondary_markets,
                     evaluate_nba_secondary_markets,
                     evaluate_nfl_secondary_markets,
                     evaluate_nhl_totals_market,
@@ -2129,6 +2137,22 @@ def scan_upcoming_other_sports(
                             comb_ypp_for=comb_sot_for,
                             comb_ga_avg=comb_ga,
                             comb_yards_allowed=comb_sh_ag,
+                        )
+                    elif lg in ("mlb", "baseball"):
+                        sec_opps_us = evaluate_mlb_secondary_markets(
+                            home=home,
+                            away=away,
+                            side=side,
+                            p_mkt=p_mkt,
+                            p_elo=p_elo,
+                            hits_diff=sot_f,
+                            run_diff=float(pick_goal_diff or 0.0),
+                            runs_allowed_5=pick_ga_5,
+                            line_total=prices.get("line_total"),
+                            odds_over=espn_pr.get("odds_over"),
+                            odds_under=espn_pr.get("odds_under"),
+                            exp_total_runs=exp_tot_g,
+                            comb_hits_for=comb_sot_for,
                         )
 
                 if not route_major_league_gate(

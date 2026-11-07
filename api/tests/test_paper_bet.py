@@ -1831,4 +1831,87 @@ def test_mma_zero_sample_debut_and_loss_streak_veto_and_edge_score():
     assert bb[0]["pick_name"] == "Athletic Club or Draw (X2)"
     assert 60 <= bb[0]["edge_score"] <= 99
 
+    # 7. Baseball (MLB & International) Gate, Secondary Markets & Sportradar Extra-Innings Market Parsing
+    from betscout.sport_models import evaluate_mlb_or_volleyball_gate, evaluate_mlb_secondary_markets
+    from betscout.sportradar_statshub import parse_tipico_prematch_markets
+
+    assert (
+        evaluate_mlb_or_volleyball_gate(
+            league="mlb",
+            p_mod=0.66,
+            p_mkt=0.62,
+            p_elo=0.60,
+            comp_score=0.18,
+            sot_f=1.2,
+            odds_pick=1.55,
+            pick_ga_5=3.6,
+            pick_goal_diff=0.8,
+        )
+        is True
+    )
+    assert (
+        evaluate_mlb_or_volleyball_gate(
+            league="mlb",
+            p_mod=0.66,
+            p_mkt=0.62,
+            p_elo=0.60,
+            comp_score=0.18,
+            sot_f=1.2,
+            odds_pick=1.55,
+            pick_ga_5=5.2,
+            pick_goal_diff=0.8,
+        )
+        is False
+    )
+    mlb_sec = evaluate_mlb_secondary_markets(
+        home="Los Angeles Dodgers",
+        away="Milwaukee Brewers",
+        side="H",
+        p_mkt=0.66,
+        p_elo=0.62,
+        hits_diff=1.6,
+        run_diff=1.2,
+        runs_allowed_5=3.4,
+        line_total=8.5,
+        exp_total_runs=9.4,
+        comb_hits_for=18.2,
+    )
+    assert any(m["market_type"] == "RUNLINE_P1.5_H" for m in mlb_sec)
+    assert any(m["market_type"] == "RUNLINE_M1.5_H" for m in mlb_sec)
+    assert any(m["market_type"] == "OVER_8.5_RUNS" for m in mlb_sec)
+
+    parsed_bb = parse_tipico_prematch_markets(
+        [
+            {
+                "_marketId": 1,
+                "name": "1x2",
+                "outcomes": [
+                    {"name": "{$competitor1}", "odds": 2.45},
+                    {"name": "draw", "odds": 10.9},
+                    {"name": "{$competitor2}", "odds": 1.92},
+                ],
+            },
+            {
+                "_marketId": 251,
+                "name": "Winner (incl. extra innings)",
+                "outcomes": [
+                    {"name": "{$competitor1}", "odds": 2.20},
+                    {"name": "{$competitor2}", "odds": 1.77},
+                ],
+            },
+            {
+                "_marketId": 258,
+                "name": "Total (incl. extra innings)",
+                "specifiers": {"total": "9.5"},
+                "outcomes": [
+                    {"name": "over {total}", "odds": 2.00},
+                    {"name": "under {total}", "odds": 1.67},
+                ],
+            },
+        ]
+    )
+    assert parsed_bb["odds_home"] == 2.20 and parsed_bb["odds_away"] == 1.77 and parsed_bb["odds_draw"] is None
+    assert parsed_bb["total_line"] == 9.5 and parsed_bb["odds_over"] == 2.00 and parsed_bb["odds_under"] == 1.67
+
+
 

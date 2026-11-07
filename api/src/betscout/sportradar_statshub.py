@@ -344,8 +344,64 @@ def list_all_sportradar_sports(service_id: int = 69, client_alias: str = "sportr
 
 
 def parse_tipico_prematch_markets(markets: list[dict[str, Any]], flipped: bool = False) -> dict[str, Any]:
-    """Delegate prematch market parsing (1X2, 2-way, Double Chance, DNB, Asian Handicap, Over/Under, 28 Correct Scores) to `betscout_sdk`."""
-    return _sdk_parse_prematch_markets(markets, flipped=flipped)
+    """Delegate prematch market parsing (1X2, 2-way, Double Chance, DNB, Asian Handicap, Over/Under, 28 Correct Scores) to `betscout_sdk`,
+    and enrich with Sportradar Baseball / Extra-Innings / Overtime market IDs (`251`, `256`, `258`)."""
+    res = dict(_sdk_parse_prematch_markets(markets, flipped=flipped))
+    for mkt in markets or []:
+        if not isinstance(mkt, dict):
+            continue
+        mid_id = int(mkt.get("_marketId") or 0)
+        m_name = str(mkt.get("name") or "").lower()
+        outcomes = mkt.get("outcomes") or []
+        spec = mkt.get("specifiers") or {}
+        if mid_id == 251 or "incl. extra innings" in m_name and "winner" in m_name:
+            o1 = o2 = None
+            for oc in outcomes:
+                nm = str(oc.get("name") or "").lower()
+                val = oc.get("odds")
+                if not val or float(val) <= 1.0:
+                    continue
+                if "competitor1" in nm or nm in ("1", "home"):
+                    o1 = float(val)
+                elif "competitor2" in nm or nm in ("2", "away"):
+                    o2 = float(val)
+            if o1 and o2:
+                res["odds_home"] = o2 if flipped else o1
+                res["odds_away"] = o1 if flipped else o2
+                res["odds_draw"] = None
+        elif mid_id == 256 or ("handicap" in m_name and "extra innings" in m_name):
+            hcp_val = spec.get("hcp") if isinstance(spec, dict) else None
+            if hcp_val is not None and not res.get("asian_handicap_line"):
+                try:
+                    res["asian_handicap_line"] = float(hcp_val)
+                except (TypeError, ValueError):
+                    pass
+                for oc in outcomes:
+                    nm = str(oc.get("name") or "").lower()
+                    val = oc.get("odds")
+                    if not val or float(val) <= 1.0:
+                        continue
+                    if "competitor1" in nm:
+                        res["asian_handicap_away" if flipped else "asian_handicap_home"] = float(val)
+                    elif "competitor2" in nm:
+                        res["asian_handicap_home" if flipped else "asian_handicap_away"] = float(val)
+        elif mid_id == 258 or ("total" in m_name and "extra innings" in m_name):
+            tot_val = spec.get("total") if isinstance(spec, dict) else None
+            if tot_val is not None and not res.get("total_line"):
+                try:
+                    res["total_line"] = float(tot_val)
+                except (TypeError, ValueError):
+                    pass
+                for oc in outcomes:
+                    nm = str(oc.get("name") or "").lower()
+                    val = oc.get("odds")
+                    if not val or float(val) <= 1.0:
+                        continue
+                    if "over" in nm:
+                        res["odds_over"] = float(val)
+                    elif "under" in nm:
+                        res["odds_under"] = float(val)
+    return res
 
 
 
@@ -777,6 +833,7 @@ def scan_sportradar_european_sports(
         (28, "curling", "Curling"),
         (19, "snooker", "Snooker"),
         (117, "mma", "MMA"),
+        (3, "baseball", "Baseball"),
     ]
     picks_out: list[dict[str, Any]] = []
 
@@ -819,7 +876,11 @@ def scan_sportradar_european_sports(
                     max_o_ceil = (
                         1.50
                         if sp_slug in ("table_tennis", "curling")
-                        else (1.65 if sp_slug == "handball" else (1.42 if sp_slug == "darts" else 1.68))
+                        else (
+                            1.65
+                            if sp_slug == "handball"
+                            else (1.42 if sp_slug == "darts" else (1.85 if sp_slug == "baseball" else 1.68))
+                        )
                     )
                     if not oh or not oa or min(oh, oa) < min_o_floor or min(oh, oa) > max_o_ceil:
                         continue
@@ -839,9 +900,13 @@ def scan_sportradar_european_sports(
                     p_mkt_fav = p_mkt_h if side == "H" else p_mkt_a
                     best_o = float(oh if side == "H" else oa)
                     min_mkt_floor = (
-                        0.59
-                        if sp_slug == "handball"
-                        else (0.60 if sp_slug == "table_tennis" else (min_prob - 0.04))
+                        0.55
+                        if sp_slug == "baseball"
+                        else (
+                            0.59
+                            if sp_slug == "handball"
+                            else (0.60 if sp_slug == "table_tennis" else (min_prob - 0.04))
+                        )
                     )
                     if p_mkt_fav < min_mkt_floor:
                         continue
