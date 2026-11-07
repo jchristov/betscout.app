@@ -1521,6 +1521,16 @@ def lookup_statshub_match_intel(
             if 0 < st_code < 90:
                 live_pressure = fetch_live_match_situations_pressure(mid)
 
+    sr_h2h_info = fetch_sportradar_h2h(
+        home=home,
+        away=away,
+        sport=sport,
+        date_ymd=date_ymd,
+        h_uid=h_uid,
+        a_uid=a_uid,
+        limit=10,
+    ) if (h_uid and a_uid) else {"h2h_rows": [], "n_matches": 0}
+
     return {
         "ok": True,
         "found": True,
@@ -1540,4 +1550,103 @@ def lookup_statshub_match_intel(
         "live_pressure": live_pressure,
         "streaks": streaks_summary,
         "tennis_surface_records": tennis_surface_records,
+        "h2h_rows": sr_h2h_info.get("h2h_rows") or [],
+        "h2h_summary": sr_h2h_info,
+    }
+
+
+def fetch_sportradar_h2h(
+    home: str,
+    away: str,
+    sport: str = "soccer",
+    date_ymd: str | None = None,
+    h_uid: int | str | None = None,
+    a_uid: int | str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Fetch long-term head-to-head history from Sportradar StatsHub (`stats_team_versusrecent/{h_uid}/{a_uid}`),
+    orienting results to `home` and `away` (including historical 2013-2017 Arsenal vs Hull City meetings)."""
+    if not (h_uid and a_uid):
+        if not date_ymd:
+            date_ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        for entry in get_daily_tipico_match_index(sport=sport, date_ymd=date_ymd):
+            th, ta = entry["home"], entry["away"]
+            m_obj = entry.get("match_obj") or {}
+            tms = m_obj.get("teams") or {}
+            if _names_match(home, th) and _names_match(away, ta):
+                h_uid = (tms.get("home") or {}).get("uid") or (tms.get("home") or {}).get("_id")
+                a_uid = (tms.get("away") or {}).get("uid") or (tms.get("away") or {}).get("_id")
+                break
+            if _names_match(home, ta) and _names_match(away, th):
+                h_uid = (tms.get("away") or {}).get("uid") or (tms.get("away") or {}).get("_id")
+                a_uid = (tms.get("home") or {}).get("uid") or (tms.get("home") or {}).get("_id")
+                break
+
+    if not (h_uid and a_uid):
+        return {"n_matches": 0, "home_pts": 0.0, "draws": 0, "home_wins": 0, "away_wins": 0, "h2h_rows": []}
+
+    vr = fetch_statshub_gismo("stats_team_versusrecent", f"{h_uid}/{a_uid}", client_alias="common", ttl_sec=3600.0) or {}
+    ms = vr.get("matches") or []
+    if not ms:
+        vr_alt = fetch_statshub_gismo("stats_team_versus", f"{h_uid}/{a_uid}/{limit}", client_alias="common", ttl_sec=3600.0) or {}
+        ms = vr_alt.get("matches") or []
+
+    h2h_rows: list[dict[str, Any]] = []
+    home_wins = 0
+    draws = 0
+    away_wins = 0
+    for vm in ms[:limit]:
+        res_v = vm.get("result") or {}
+        if res_v.get("home") is None or res_v.get("away") is None:
+            continue
+        rh_i = int(res_v["home"])
+        ra_i = int(res_v["away"])
+        tms_v = vm.get("teams") or {}
+        vh_obj = tms_v.get("home") or {}
+        va_obj = tms_v.get("away") or {}
+        vh_uid = vh_obj.get("uid") or vh_obj.get("_id")
+        vh_n = str(vh_obj.get("name") or home)
+        va_n = str(va_obj.get("name") or away)
+        raw_dt = str((vm.get("time") or {}).get("date") or "")
+        iso_dt = raw_dt
+        if re.match(r"^\d{2}/\d{2}/\d{2}$", raw_dt):
+            dd, mm, yy = raw_dt.split("/")
+            yr_full = f"20{yy}" if int(yy) <= 50 else f"19{yy}"
+            iso_dt = f"{yr_full}-{mm}-{dd}"
+        vp = vm.get("periods") or {}
+        vp_list = [
+            f"{vp[pk]['home']}-{vp[pk]['away']}"
+            for pk in ("p1", "p2", "p3", "p4", "p5")
+            if isinstance(vp.get(pk), dict) and vp[pk].get("home") is not None and vp[pk].get("away") is not None
+        ]
+        v_sc_str = f"{rh_i}-{ra_i}" + (f" ({', '.join(vp_list)})" if vp_list else "")
+        out_code = "H" if rh_i > ra_i else ("A" if ra_i > rh_i else "D")
+        vh_is_main_home = (str(vh_uid) == str(h_uid)) or _names_match(vh_n, home)
+        if out_code == "D":
+            draws += 1
+        elif (out_code == "H" and vh_is_main_home) or (out_code == "A" and not vh_is_main_home):
+            home_wins += 1
+        else:
+            away_wins += 1
+        # Keep display names consistent with queried `home` / `away` when matched so H2H winner badge highlights cleanly
+        disp_h = home if vh_is_main_home else away
+        disp_a = away if vh_is_main_home else home
+        h2h_rows.append({
+            "date": iso_dt,
+            "league": sport,
+            "home": disp_h,
+            "away": disp_a,
+            "score": v_sc_str,
+            "outcome": out_code,
+        })
+
+    n_tot = home_wins + draws + away_wins
+    home_pts = float(home_wins) + 0.5 * float(draws)
+    return {
+        "n_matches": n_tot,
+        "home_pts": home_pts,
+        "draws": draws,
+        "home_wins": home_wins,
+        "away_wins": away_wins,
+        "h2h_rows": h2h_rows,
     }

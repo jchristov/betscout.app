@@ -638,6 +638,8 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
                 form_home = fetch_player_lastx_form(sh_res["home_uid"], limit=6)
             if not form_away and sh_res.get("away_uid"):
                 form_away = fetch_player_lastx_form(sh_res["away_uid"], limit=6)
+            if not h2h_rows and sh_res.get("h2h_rows"):
+                h2h_rows = list(sh_res["h2h_rows"])
 
         if sr_mid_hint and (not form_home or not form_away or not h2h_rows or model_pick_detail.get("settled_score")):
             info_sr = fetch_statshub_gismo("match_info_statshub", sr_mid_hint, client_alias="sportradar", ttl_sec=600) or {}
@@ -810,6 +812,31 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
                     home_img_url = str(funstats_intel["home_team"]["logo"])
                 if not away_img_url and (funstats_intel.get("away_team") or {}).get("logo"):
                     away_img_url = str(funstats_intel["away_team"]["logo"])
+                lt_h2h = funstats_intel.get("h2h_long_term") or {}
+                if not h2h_rows and isinstance(lt_h2h.get("meetings"), list) and lt_h2h["meetings"]:
+                    for fm in lt_h2h["meetings"][:10]:
+                        fh_g = fm.get("home_goals")
+                        fa_g = fm.get("away_goals")
+                        if fh_g is None or fa_g is None:
+                            continue
+                        f_out = "H" if int(fh_g) > int(fa_g) else ("A" if int(fa_g) > int(fh_g) else "D")
+                        h2h_rows.append({
+                            "date": str(fm.get("date") or "")[:10],
+                            "league": str(fm.get("league") or lg or "soccer"),
+                            "home": str(fm.get("home") or h),
+                            "away": str(fm.get("away") or a),
+                            "score": f"{int(fh_g)}-{int(fa_g)}",
+                            "outcome": f_out,
+                        })
+                    h2h_edge_bar = {
+                        "total_meetings": int(lt_h2h.get("total_meetings") or len(h2h_rows)),
+                        "home_wins": int(lt_h2h.get("home_wins") or 0),
+                        "draws": int(lt_h2h.get("draws") or 0),
+                        "away_wins": int(lt_h2h.get("away_wins") or 0),
+                        "home_win_pct": round(float(lt_h2h.get("home_win_pct") or 0)),
+                        "draw_pct": round(float(lt_h2h.get("draw_pct") or 0)),
+                        "away_win_pct": round(float(lt_h2h.get("away_win_pct") or 0)),
+                    }
                 lt_h2h = funstats_intel.get("h2h_long_term")
                 if isinstance(lt_h2h, dict) and int(lt_h2h.get("total_meetings") or 0) > len(h2h_rows):
                     h2h_rows = []

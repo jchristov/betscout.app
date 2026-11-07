@@ -2698,6 +2698,18 @@ def scan_upcoming_and_log_paper_bets(
                 if h2h[pair][1] == 0:
                     pair = ("ALL", min(home, away), max(home, away))
                 pts_p, n_p, _, dr_p = h2h[pair]
+                if n_p == 0:
+                    try:
+                        from .sportradar_statshub import fetch_sportradar_h2h
+
+                        sr_h2h = fetch_sportradar_h2h(home, away, sport="soccer", date_ymd=kickoff[:10], limit=10)
+                        if int(sr_h2h.get("n_matches") or 0) > 0:
+                            n_p = int(sr_h2h["n_matches"])
+                            dr_p = int(sr_h2h.get("draws") or 0)
+                            h_pts_sr = float(sr_h2h.get("home_pts") or 0.0)
+                            pts_p = h_pts_sr if home < away else (float(n_p) - h_pts_sr)
+                    except Exception:
+                        pass
                 h2h_h = ((pts_p + 1.0) / (n_p + 2.0)) if home < away else (((n_p - pts_p) + 1.0) / (n_p + 2.0))
                 h2h_draw_rate = (dr_p + 0.5) / (n_p + 2.0)
 

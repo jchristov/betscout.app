@@ -47,26 +47,47 @@ from typing import Any
 
 import unicodedata
 
-try:
-    from betscout.sportradar_statshub import _sdk_names_match
-except Exception:
-    def _sdk_names_match(name_a: str, name_b: str) -> bool:
-        """Fallback fuzzy team/player name matcher when `betscout_sdk` is not on sys.path."""
-        def _norm(s: str) -> str:
-            s_ascii = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode("ascii")
-            s_clean = re.sub(r"[^a-z0-9]+", " ", s_ascii.lower()).strip()
-            stop = {"fc", "cf", "sc", "ac", "afc", "ssc", "as", "cd", "ud", "rcd", "real", "club", "de", "the"}
-            tokens = [t for t in s_clean.split() if t not in stop]
-            return " ".join(tokens) or s_clean
+_GENERIC_CLUB_TOKENS = {
+    "fc", "cf", "sc", "ac", "afc", "ssc", "as", "cd", "ud", "rcd", "real", "club", "de", "the",
+    "city", "united", "town", "rovers", "wanderers", "athletic", "county", "albion", "hotspur",
+    "forest", "villa", "palace", "orient", "argyle", "wednesday", "north", "south", "west", "east",
+    "sporting", "dynamo", "lokomotiv", "borussia", "eintracht", "olympique", "stade", "racing",
+    "union", "inter", "atletico", "saint",
+}
 
-        na, nb = _norm(name_a), _norm(name_b)
-        if not na or not nb:
-            return False
-        if na == nb or na in nb or nb in na:
+
+def _sdk_names_match(name_a: str, name_b: str) -> bool:
+    """Strict club/player name matcher that prevents generic suffixes ('City', 'United', 'Rovers')
+    from falsely matching unrelated clubs (e.g. 'Hull City' vs 'Manchester City')."""
+    def _norm(s: str) -> str:
+        s_ascii = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode("ascii")
+        s_clean = re.sub(r"[^a-z0-9]+", " ", s_ascii.lower()).strip()
+        stop = {"fc", "cf", "sc", "ac", "afc", "ssc", "as", "cd", "ud", "rcd", "club", "de", "the"}
+        tokens = [t for t in s_clean.split() if t not in stop]
+        return " ".join(tokens) or s_clean
+
+    na, nb = _norm(name_a), _norm(name_b)
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    ta, tb = set(na.split()), set(nb.split())
+    # Distinct tokens (excluding generic words like 'city', 'united', 'rovers')
+    da = {t for t in ta if t not in _GENERIC_CLUB_TOKENS}
+    db = {t for t in tb if t not in _GENERIC_CLUB_TOKENS}
+    if da and db:
+        if da == db or (da <= db and len(da) >= 1) or (db <= da and len(db) >= 1):
+            # Prevent 'Manchester' matching both 'Manchester City' and 'Manchester United' when both have City/United specified
+            if ("city" in ta and "united" in tb) or ("united" in ta and "city" in tb):
+                return False
             return True
-        ta, tb = set(na.split()), set(nb.split())
-        overlap = ta & tb
-        return any(len(tok) >= 4 for tok in overlap)
+        overlap_d = da & db
+        if any(len(tok) >= 4 for tok in overlap_d):
+            if ("city" in ta and "united" in tb) or ("united" in ta and "city" in tb):
+                return False
+            return True
+        return False
+    return na in nb or nb in na
 
 logger = logging.getLogger(__name__)
 
@@ -524,6 +545,17 @@ def _search_funstats_team(team_name: str, league_id: int | None = None) -> dict[
         ttl_seconds=86400,
     )
     teams = (data or {}).get("teams") if isinstance(data, dict) else None
+    if not teams and isinstance(data, dict) and isinstance(data.get("results"), list):
+        teams = [
+            {
+                "id": r.get("entityId") or r.get("id"),
+                "name": r.get("name") or r.get("originalName"),
+                "logo": (r.get("meta") or {}).get("logoUrl") or r.get("logo"),
+                "country": (r.get("meta") or {}).get("country") or r.get("country"),
+            }
+            for r in data["results"]
+            if isinstance(r, dict) and r.get("entityType") == "team"
+        ]
     if isinstance(teams, list) and teams:
         for t in teams:
             if isinstance(t, dict) and _sdk_names_match(clean, str(t.get("name") or "")):
@@ -1293,7 +1325,7 @@ def lookup_funstats_match_intel(
         return None
 
     lid_hint = resolve_funstats_league_id(league_hint)
-    cache_key = f"funstats:match_intel:v2:{home_clean.lower()}:{away_clean.lower()}:{lid_hint or 0}:{date_ymd or ''}"
+    cache_key = f"funstats:match_intel:v3:{home_clean.lower()}:{away_clean.lower()}:{lid_hint or 0}:{date_ymd or ''}"
     cached = _cache_get(cache_key)
     if isinstance(cached, dict):
         return cached
