@@ -2976,6 +2976,19 @@
                       >
                         Streak: {{ analyzerResult.current_streak }}
                       </span>
+                      <span
+                        v-if="analyzerResult.favorite_reliability"
+                        class="px-2 py-0.5 rounded-md text-[10.5px] font-bold font-mono border"
+                        :class="
+                          analyzerResult.favorite_reliability.is_overestimated
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-400/50'
+                            : analyzerResult.favorite_reliability.gap_pp >= 3
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                        "
+                      >
+                        Fav: {{ analyzerResult.favorite_reliability.wins }}W-{{ analyzerResult.favorite_reliability.losses }}L ({{ analyzerResult.favorite_reliability.gap_pp >= 0 ? '+' : '' }}{{ analyzerResult.favorite_reliability.gap_pp }}pp · ROI {{ analyzerResult.favorite_reliability.roi_pct >= 0 ? '+' : '' }}{{ analyzerResult.favorite_reliability.roi_pct }}%)
+                      </span>
                     </div>
                     <div class="text-[11px] text-slate-400 mt-0.5">
                       {{ analyzerResult.total_matches }} Historical Matches Tracked · Overall Win Rate:

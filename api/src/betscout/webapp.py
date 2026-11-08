@@ -1177,6 +1177,10 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
     if db_path.exists():
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
+        fav_n = 0
+        fav_wins = 0
+        fav_exp_wins = 0.0
+        fav_pnl_u = 0.0
         has_details = bool(conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='match_details'").fetchone())
         if detected_sport == "tennis":
             ea = Elo(k=28.0, home_adv=0.0)
@@ -1184,12 +1188,24 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
             gh: deque = deque(maxlen=10)
             dh: deque = deque(maxlen=10)
             q_elo = (
-                "SELECT m.home, m.away, m.outcome, d.home_games, d.away_games FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
+                "SELECT m.kickoff, m.home, m.away, m.outcome, d.home_games, d.away_games FROM matches m LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id WHERE m.league = ? AND m.outcome IS NOT NULL ORDER BY m.kickoff"
                 if has_details
-                else "SELECT home, away, outcome, NULL as home_games, NULL as away_games FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
+                else "SELECT kickoff, home, away, outcome, NULL as home_games, NULL as away_games FROM matches WHERE league = ? AND outcome IS NOT NULL ORDER BY kickoff"
             )
             for r in conn.execute(q_elo, (detected_league,)):
                 wh = 1.0 if r["outcome"] == "H" else 0.0
+                if str(r["kickoff"] or "") >= "2025-07-01" and entity_name in (r["home"], r["away"]):
+                    p_eh = ea.p_home_win_or_draw_free(r["home"], r["away"])
+                    p_my = p_eh if r["home"] == entity_name else (1.0 - p_eh)
+                    if p_my >= 0.60:
+                        fav_n += 1
+                        fav_exp_wins += p_my
+                        won_t = (r["home"] == entity_name and wh == 1.0) or (r["away"] == entity_name and wh == 0.0)
+                        if won_t:
+                            fav_wins += 1
+                            fav_pnl_u += (0.955 / p_my) - 1.0
+                        else:
+                            fav_pnl_u -= 1.0
                 ea.update(r["home"], r["away"], wh)
                 hg, ag = r["home_games"], r["away_games"]
                 if hg is not None and ag is not None and (hg + ag) > 0:
@@ -1232,13 +1248,14 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
             if sot_q:
                 avg_sot_diff = round(float(sum(sot_q) / len(sot_q)), 2)
 
-        # Fetch all completed matches for entity_name
+        # Fetch all completed matches for entity_name (including opening/closing odds from match_details)
         ent_rows = conn.execute(
             """
-            SELECT *
-            FROM matches
-            WHERE (home = ? OR away = ?) AND outcome IS NOT NULL
-            ORDER BY kickoff DESC
+            SELECT m.*, d.open_home, d.open_draw, d.open_away, d.close_home, d.close_draw, d.close_away
+            FROM matches m
+            LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
+            WHERE (m.home = ? OR m.away = ?) AND m.outcome IS NOT NULL
+            ORDER BY m.kickoff DESC
             """,
             (entity_name, entity_name),
         ).fetchall()
@@ -1283,8 +1300,32 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
                     home_l += 1
                 else:
                     away_l += 1
+            m_keys = m.keys()
+            o_for_open = (
+                (m["open_home"] if ("open_home" in m_keys and m["open_home"]) else (m["odds_home"] if "odds_home" in m_keys else None))
+                if is_h
+                else (m["open_away"] if ("open_away" in m_keys and m["open_away"]) else (m["odds_away"] if "odds_away" in m_keys else None))
+            )
+            o_ag_open = (
+                (m["open_away"] if ("open_away" in m_keys and m["open_away"]) else (m["odds_away"] if "odds_away" in m_keys else None))
+                if is_h
+                else (m["open_home"] if ("open_home" in m_keys and m["open_home"]) else (m["odds_home"] if "odds_home" in m_keys else None))
+            )
+            o_dr_open = m["open_draw"] if ("open_draw" in m_keys and m["open_draw"]) else (m["odds_draw"] if "odds_draw" in m_keys else None)
+            if o_for_open and o_ag_open and float(o_for_open) > 1.01 and float(o_ag_open) > 1.01:
+                inv_f = 1.0 / float(o_for_open)
+                inv_a = 1.0 / float(o_ag_open)
+                inv_d = (1.0 / float(o_dr_open)) if (o_dr_open and float(o_dr_open) > 1.01) else 0.0
+                p_open_f = inv_f / (inv_f + inv_a + inv_d)
+                if p_open_f >= 0.55 and float(o_for_open) <= 1.85:
+                    fav_n += 1
+                    fav_exp_wins += p_open_f
+                    if res_c == "W":
+                        fav_wins += 1
+                        fav_pnl_u += float(o_for_open) - 1.0
+                    else:
+                        fav_pnl_u -= 1.0
             if idx_m < 10:
-                m_keys = m.keys()
                 o_for = (m["odds_home"] if "odds_home" in m_keys else None) if is_h else (m["odds_away"] if "odds_away" in m_keys else None)
                 o_ag = (m["odds_away"] if "odds_away" in m_keys else None) if is_h else (m["odds_home"] if "odds_home" in m_keys else None)
                 recent_matches.append({
@@ -1480,6 +1521,31 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
     if rest_hours_since_last is not None and rest_hours_since_last <= 28.0:
         risks.append(f"Short turnaround window: last completed match was {rest_hours_since_last:.1f}h ago.")
 
+    favorite_reliability: dict[str, Any] | None = None
+    if fav_n >= 4:
+        fav_wr_pct = round((fav_wins / fav_n) * 100.0, 1)
+        fav_exp_pct = round((fav_exp_wins / fav_n) * 100.0, 1)
+        fav_gap_pp = round(fav_wr_pct - fav_exp_pct, 1)
+        fav_roi_pct = round((fav_pnl_u / fav_n) * 100.0, 1)
+        favorite_reliability = {
+            "matches_as_fav": fav_n,
+            "wins": fav_wins,
+            "losses": fav_n - fav_wins,
+            "actual_win_pct": fav_wr_pct,
+            "implied_open_pct": fav_exp_pct,
+            "gap_pp": fav_gap_pp,
+            "roi_pct": fav_roi_pct,
+            "is_overestimated": bool(fav_gap_pp <= -10.0 and fav_roi_pct <= -15.0),
+        }
+        if fav_gap_pp <= -10.0:
+            risks.append(
+                f"Overestimated Favorite Trap: {fav_wins}W-{fav_n - fav_wins}L ({fav_wr_pct:.1f}% actual vs {fav_exp_pct:.1f}% opening implied, {fav_gap_pp:+.1f}pp, ROI {fav_roi_pct:+.1f}%)."
+            )
+        elif fav_gap_pp >= 6.0 and fav_roi_pct > 0.0:
+            strengths.append(
+                f"Reliable Market Favorite: {fav_wins}W-{fav_n - fav_wins}L ({fav_wr_pct:.1f}% actual vs {fav_exp_pct:.1f}% opening implied, {fav_gap_pp:+.1f}pp, ROI {fav_roi_pct:+.1f}%)."
+            )
+
     if win_rate_last10_pct >= 70.0 and avg_margin >= 0.30 and not (streak_type == "L" and streak_len >= 2):
         verdict = f"✅ TIER-1 BANKER PROFILE — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Streak {current_streak} · Elo {elo_rating:.0f})"
         verdict_level = "strong_bet"
@@ -1562,6 +1628,7 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
             "profit_u": round(ledger_profit_u, 2),
             "rows": ledger_rows,
         },
+        "favorite_reliability": favorite_reliability,
         "strengths": strengths,
         "risks": risks,
         "best_markets": best_markets,
