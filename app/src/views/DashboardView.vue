@@ -267,6 +267,16 @@
             </button>
             <button
               type="button"
+              title="Acronyms &amp; Glossary"
+              aria-label="Acronyms &amp; Glossary"
+              class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-sky-300 border border-slate-700 hover:border-sky-400 shrink-0"
+              @click="glossaryModalOpen = true"
+            >
+              <Icon icon="fa6-solid:circle-question" class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span class="hidden sm:inline">Glossary</span>
+            </button>
+            <button
+              type="button"
               title="Settings"
               aria-label="Settings"
               class="btn-press inline-flex items-center justify-center gap-1.5 h-8 w-8 sm:w-auto sm:min-h-[34px] sm:px-3 py-1 rounded-lg text-[11.5px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:border-sky-400 shrink-0"
@@ -469,11 +479,11 @@
         <div class="flex flex-wrap items-center gap-1.5">
           <button
             v-for="mOpt in [
-              { id: 'all', label: 'All Markets' },
-              { id: 'moneyline', label: 'Moneyline / 1X2' },
-              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5 Sets, +1.5 Puck, +7.5/-2.5 Spread)' },
-              { id: 'totals', label: 'Totals (Defense-Wall Under / Attack Over & 2:0 Sets)' },
-              { id: 'secondary', label: 'All Secondary' },
+              { id: 'all', label: 'All' },
+              { id: 'moneyline', label: 'ML / 1X2' },
+              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5, +7.5)' },
+              { id: 'totals', label: 'Totals (O/U, TDs, FGs, Sets)' },
+              { id: 'secondary', label: 'Secondary' },
             ]"
             :key="mOpt.id"
             type="button"
@@ -486,6 +496,15 @@
             @click="store.marketFilter = mOpt.id as any"
           >
             {{ mOpt.label }}
+          </button>
+          <button
+            type="button"
+            class="btn-press px-2.5 py-1 rounded-full text-[11px] font-bold border border-sky-400/50 bg-sky-500/15 text-sky-300 hover:text-white inline-flex items-center gap-1 whitespace-nowrap"
+            title="Open Acronyms &amp; Market Glossary"
+            @click="glossaryModalOpen = true"
+          >
+            <Icon icon="fa6-solid:circle-question" class="w-3 h-3" />
+            <span>Glossary</span>
           </button>
         </div>
       </div>
@@ -2229,7 +2248,7 @@
       >
         <b class="inline-flex items-center gap-1.5 text-sm text-fuchsia-300 mb-2">
           <Icon icon="fa6-solid:layer-group" class="w-4 h-4" />
-          <span>By-Market Settled Attribution (Moneyline / 1X2 vs. Shields vs. Over/Under Totals)</span>
+          <span>By-Market Attribution (ML / 1X2 vs. Shields vs. Totals)</span>
         </b>
         <table class="w-full border-collapse text-xs">
           <thead>
@@ -3295,15 +3314,15 @@
               <!-- 3-Market Recommendations Grid -->
               <div v-if="analyzerResult.market_recommendations" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-emerald-400/40">
-                  <div class="text-[10px] uppercase font-extrabold text-emerald-300 tracking-wider mb-1">1. Primary Moneyline / 1X2</div>
+                  <div class="text-[10px] uppercase font-extrabold text-emerald-300 tracking-wider mb-1">1. Primary ML / 1X2</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.moneyline }}</div>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-sky-400/40">
-                  <div class="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider mb-1">2. Handicap / Safety Shield</div>
+                  <div class="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider mb-1">2. Handicap / Shield</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.handicap_shield }}</div>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-violet-400/40">
-                  <div class="text-[10px] uppercase font-extrabold text-violet-300 tracking-wider mb-1">3. Totals &amp; Score Cluster</div>
+                  <div class="text-[10px] uppercase font-extrabold text-violet-300 tracking-wider mb-1">3. Totals &amp; Scores</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.totals_cluster }}</div>
                 </div>
               </div>
@@ -3755,6 +3774,68 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL 5: ACRONYMS, MARKETS & METRICS GLOSSARY -->
+    <div
+      v-if="glossaryModalOpen"
+      class="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+      @click.self="glossaryModalOpen = false"
+    >
+      <div class="card-surface rounded-2xl max-w-[780px] w-full max-h-[86vh] flex flex-col overflow-hidden p-5">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3 pb-2.5 border-b border-slate-700 shrink-0">
+          <div>
+            <b class="inline-flex items-center gap-1.5 text-sm text-sky-300">
+              <Icon icon="fa6-solid:circle-question" class="w-4 h-4 text-sky-400" />
+              <span>Betting Markets, Acronyms &amp; Metrics Glossary</span>
+            </b>
+            <div class="text-slate-300 text-[11px] mt-0.5">
+              Quick reference for all market codes, sport stats, and quantitative terms used in BetScout
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              v-model="glossarySearch"
+              type="search"
+              placeholder="Filter terms (e.g. DNB, TDs, CLV, PL)..."
+              class="h-8 w-44 sm:w-56 bg-slate-950 text-white border border-slate-700 rounded-lg px-2.5 text-xs"
+            />
+            <button
+              type="button"
+              class="btn-press h-8 px-3 rounded-lg bg-slate-900 text-slate-200 border border-slate-700 text-xs font-semibold inline-flex items-center gap-1.5"
+              @click="glossaryModalOpen = false"
+            >
+              <span>Close</span>
+              <Icon icon="fa6-solid:xmark" class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div class="custom-scrollbar flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 text-xs">
+          <div
+            v-for="sec in filteredGlossarySections"
+            :key="sec.title"
+            class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800"
+          >
+            <div class="text-xs font-extrabold text-emerald-300 uppercase tracking-wider mb-2">
+              {{ sec.title }}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div
+                v-for="item in sec.items"
+                :key="item.term"
+                class="p-2 rounded-lg bg-slate-900/90 border border-slate-800/90 flex flex-col gap-0.5"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <b class="font-mono text-sky-300">{{ item.term }}</b>
+                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-semibold">{{ item.cat }}</span>
+                </div>
+                <div class="text-slate-200 text-[11px] leading-snug">{{ item.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -4191,6 +4272,76 @@ const currentShareCardMeta = ref<PickCardMeta | null>(null);
 const pickCardCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 const settingsModalOpen = ref<boolean>(false);
+const glossaryModalOpen = ref<boolean>(false);
+const glossarySearch = ref<string>('');
+
+const GLOSSARY_SECTIONS = [
+  {
+    title: '1. Betting Markets & Sides',
+    items: [
+      { term: 'ML', cat: 'All Sports', desc: 'Moneyline (Match Winner). Team or player wins the game outright (incl. OT / extra innings).' },
+      { term: '1X2', cat: 'Football / Handball', desc: '3-Way regulation result: 1 = Home Win, X = Draw, 2 = Away Win.' },
+      { term: 'H / A / D', cat: 'All Sports', desc: 'Home (H), Away (A), or Draw (D) side indicator.' },
+      { term: '1X / X2 (DC)', cat: 'Double Chance', desc: '1X = Home Win or Draw; X2 = Away Win or Draw. Wins on 2 of the 3 outcomes.' },
+      { term: 'DNB', cat: 'Draw No Bet', desc: 'Team wins outright; if the match ends in a draw, 100% of your stake is refunded (Push).' },
+      { term: '-1.0 AH', cat: 'Asian Handicap', desc: 'Wins if team wins by ≥2 goals; 100% stake refund (Push) if team wins by exactly 1 goal.' },
+      { term: 'BTTS Yes / No', cat: 'Football', desc: 'Both Teams To Score (Yes = both teams score ≥1 goal; No = at least one clean sheet).' },
+      { term: '1H Over 0.5', cat: 'Football', desc: 'At least 1 goal scored in the 1st Half (1-45+ min).' },
+    ],
+  },
+  {
+    title: '2. Sport-Specific Handicaps & Totals',
+    items: [
+      { term: '+1.5 Sets', cat: 'Tennis / TT', desc: 'Set Handicap Shield: Player wins the match OR wins at least 1 set (2:3 in Bo5 / 1:2 in Bo3).' },
+      { term: '2:0 Sets', cat: 'Tennis', desc: 'Player wins in straight sets (2 sets to 0).' },
+      { term: '-3.5 Games', cat: 'Tennis', desc: 'Total games won minus opponent games won is ≥ 4 (e.g. 6-4, 6-4 = +4 games).' },
+      { term: 'TDs / FGs', cat: 'NFL', desc: 'Touchdowns (6 pts + PAT) and Field Goals (3 pts). e.g. Over 3.5 TDs = ≥4 TDs in game; Over 2.5 FGs = ≥3 FGs.' },
+      { term: '-2.5 / +7.5', cat: 'NFL / NBA', desc: 'Point Spread: -2.5 wins if team wins by ≥3 pts; +7.5 Shield wins if team wins OR loses by ≤7 pts.' },
+      { term: '+1.5 PL', cat: 'NHL Hockey', desc: 'Puck Line +1.5: Team wins outright OR loses by 1 goal (incl. OT/Shootout).' },
+      { term: '+1.5 / -1.5 RL', cat: 'Baseball', desc: 'Run Line: +1.5 covers outright win or 1-run loss; -1.5 requires winning by ≥2 runs.' },
+    ],
+  },
+  {
+    title: '3. Quantitative Model & Risk Metrics',
+    items: [
+      { term: 'Edge Score (0–100)', cat: 'Model Rating', desc: 'Unified 0-100 conviction score blending Win Prob, EV%, Model Edge, and Tier.' },
+      { term: 'Win Prob vs Mkt', cat: 'Calibration', desc: 'Out-of-sample calibrated model probability vs. de-vigged bookmaker implied probability.' },
+      { term: 'Fair Odds', cat: 'Pricing', desc: 'Minimum zero-margin decimal odds (1 / Win Prob). Any bookmaker price above Fair Odds is +EV.' },
+      { term: 'EV%', cat: 'Expected Value', desc: '(Win Prob × Book Odds - 1) × 100%. Expected percentage profit per unit staked long-term.' },
+      { term: 'EDGE +X.Xpp', cat: 'Mispricing', desc: 'Percentage-point gap between BetScout Model Probability and Bookmaker Implied Probability.' },
+      { term: 'CLV%', cat: 'Closing Line Value', desc: '(Logged Odds / Closing Odds - 1) × 100%. Positive CLV proves you beat the closing market price.' },
+      { term: '1/4 Kelly', cat: 'Bankroll', desc: 'Quarter-Kelly optimal stake sizing (capped at 2.0% of bankroll) to maximize growth with low drawdown.' },
+      { term: 'top_8pct / top_15pct', cat: 'Conviction Tier', desc: 'Quantile tier of the 7-Factor Orthogonal Composite score (top 8%, 10%, 15%, or 25% of historical signals).' },
+      { term: 'OOS WR', cat: 'Validation', desc: 'Out-of-Sample Win Rate verified on matches strictly after the model training cutoff.' },
+    ],
+  },
+  {
+    title: '4. Team, Player & Live Telemetry Stats',
+    items: [
+      { term: 'λ / μ (xG)', cat: 'Football', desc: 'Expected goals for Home (λ) and Away (μ) from bivariate Poisson / Dixon-Coles & shot quality.' },
+      { term: 'SoT / SOG', cat: 'Football / NHL', desc: 'Shots on Target (Football) or Shots on Goal (NHL Hockey) per game.' },
+      { term: 'YPP / Yds', cat: 'NFL', desc: 'Yards Per Play and Total Yards per game (core NFL trench-dominance indicators).' },
+      { term: 'FG% / 3PT / TOV', cat: 'NBA', desc: 'Field Goal %, 3-Pointers made, and Turnover margin per game.' },
+      { term: 'SurfElo / GameElo', cat: 'Tennis', desc: 'Surface-specific Elo (Hard, Indoor, Clay, Grass) and Game-Win-Share Elo rating.' },
+      { term: 'H2H', cat: 'All Sports', desc: 'Head-to-Head historical record between the two teams or players.' },
+      { term: 'T-60m XI Guard', cat: 'Football', desc: 'Automated check 60 minutes before kickoff verifying Starting GK, ≥50% defense & ≥45% attack share.' },
+    ],
+  },
+];
+
+const filteredGlossarySections = computed(() => {
+  const q = glossarySearch.value.trim().toLowerCase();
+  if (!q) return GLOSSARY_SECTIONS;
+  return GLOSSARY_SECTIONS.map((sec) => ({
+    ...sec,
+    items: sec.items.filter(
+      (it) =>
+        it.term.toLowerCase().includes(q) ||
+        it.cat.toLowerCase().includes(q) ||
+        it.desc.toLowerCase().includes(q),
+    ),
+  })).filter((sec) => sec.items.length > 0);
+});
 const settingsScrollRef = ref<HTMLElement | null>(null);
 const settingsScrollShow = ref<boolean>(false);
 const settingsThumbTopPct = ref<number>(0);

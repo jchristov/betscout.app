@@ -2028,19 +2028,19 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         g_line = float(line_tot_live or (21.5 if fav_prob >= 0.74 else 22.5))
         is_dogfight = bool(warnings or fav_prob < 0.64 or p_dogfight >= 0.43)
         mkt_1 = (
-            f"Skip {fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
+            f"Skip {fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f})"
             if warnings or fav_prob < 0.58
-            else f"{fav_name} ML ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+            else f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
         )
         mkt_2 = (
-            f"{dog_name} +1.5 Sets ({p_plus15_dog*100:.1f}% HitProb, Fair @{1.0/max(p_plus15_dog,0.1):.2f})"
+            f"{dog_name} +1.5 Sets ({p_plus15_dog*100:.1f}%, Fair @{1.0/max(p_plus15_dog,0.1):.2f})"
             if is_dogfight
-            else f"{fav_name} {set_pred['straight_sets_score']} Straight Sets ({set_pred['straight_sets_prob']*100:.1f}%, Fair @{set_pred['straight_sets_fair_odds']:.2f}) | Safe Shield: {fav_name} +1.5 Sets ({p_plus15_fav*100:.1f}%)"
+            else f"{fav_name} {set_pred['straight_sets_score']} Sets ({set_pred['straight_sets_prob']*100:.1f}%) · {fav_name} +1.5 Sets ({p_plus15_fav*100:.1f}%)"
         )
         mkt_3 = (
-            f"Over {g_line} Total Games (3-Set Dogfight Profile · Decider Prob {p_dogfight*100:.0f}%)"
+            f"Over {g_line} Games ({p_dogfight*100:.0f}% 3-Set Prob)"
             if is_dogfight
-            else f"Under {g_line} Total Games & Under 2.5 Sets ({(1.0 - p_dogfight)*100:.0f}% 2-Set Finish)"
+            else f"Under {g_line} Games · Under 2.5 Sets ({(1.0 - p_dogfight)*100:.0f}%)"
         )
         secondary_opportunities = evaluate_tennis_secondary_markets(
             player_1=h_name,
@@ -2096,12 +2096,12 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             exp_total_pts=exp_pts,
         )
         p_sp75 = 0.852 if fav_prob >= 0.58 else round(min(0.84, fav_prob + 0.18), 3)
-        mkt_1 = f"{fav_name} Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +7.5 Two-Possession Teaser Shield ({p_sp75*100:.1f}% HitProb, Fair @{1.0/p_sp75:.2f})"
+        mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+        mkt_2 = f"{fav_name} +7.5 ({p_sp75*100:.1f}%, Fair @{1.0/p_sp75:.2f})"
         mkt_3 = (
-            f"Over {tot_ln_b} Total Points (Model Exp {exp_pts:.1f} Pts · Sharp Pace Profile)"
+            f"Over {tot_ln_b} Pts (Exp {exp_pts:.1f})"
             if exp_pts >= tot_ln_b or tot_ln_b >= 232.5
-            else f"Under {tot_ln_b} Total Points (Model Exp {exp_pts:.1f} Pts · Half-Court Pace)"
+            else f"Under {tot_ln_b} Pts (Exp {exp_pts:.1f})"
         )
         sport_metrics = [
             {"label": "FG% & 3PT Differential", "value": f"FG {sot_diff_1:+.1f}% · 3PT {co_diff_1:+.1f}/gm"},
@@ -2147,12 +2147,12 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             rest_for_pick=0.0,
         )
         p_pl15 = round(min(0.88, max(0.80, fav_mkt_prob + 0.22)), 3)
-        mkt_1 = f"{fav_name} 2-Way Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +1.5 Puck Line Shield ({p_pl15*100:.1f}% HitProb, Fair @{1.0/p_pl15:.2f} · Covers OT/1G Loss)"
+        mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+        mkt_2 = f"{fav_name} +1.5 PL ({p_pl15*100:.1f}%, Fair @{1.0/p_pl15:.2f})"
         mkt_3 = (
-            f"Under {tot_ln_nhl} Total Goals (Goalie-Wall Profile · Exp {exp_goals_nhl:.2f}G, {comb_sot_for or 54.0:.1f} SOG)"
+            f"Under {tot_ln_nhl} Goals (Exp {exp_goals_nhl:.2f}G · {comb_sot_for or 54.0:.1f} SOG)"
             if exp_goals_nhl <= tot_ln_nhl - 0.30
-            else f"Over {tot_ln_nhl} Total Goals (High-Event Attack · Exp {exp_goals_nhl:.2f}G, {comb_sot_for or 60.0:.1f} SOG)"
+            else f"Over {tot_ln_nhl} Goals (Exp {exp_goals_nhl:.2f}G · {comb_sot_for or 60.0:.1f} SOG)"
         )
         sport_metrics = [
             {"label": "Goalie Save% (Last 6)", "value": f"{h_name}: {h_sv_pct or 90.5:.1f}% vs {a_name}: {a_sv_pct or 90.0:.1f}%"},
@@ -2239,12 +2239,12 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             comb_hits_for=comb_sot_for,
         )
         p_rl15 = 0.810 if fav_prob >= 0.56 else round(min(0.84, fav_prob + 0.16), 3)
-        mkt_1 = f"{fav_name} 2-Way Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +1.5 Run Line Shield ({p_rl15*100:.1f}% HitProb, Fair @{1.0/p_rl15:.2f} · 1-Run Insurance)"
+        mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
+        mkt_2 = f"{fav_name} +1.5 RL ({p_rl15*100:.1f}%, Fair @{1.0/p_rl15:.2f})"
         mkt_3 = (
-            f"Under {tot_ln_mlb} Total Runs (Pitching Duel · Exp {exp_runs_mlb:.1f} Runs)"
+            f"Under {tot_ln_mlb} Runs (Exp {exp_runs_mlb:.1f})"
             if exp_runs_mlb <= tot_ln_mlb - 0.30
-            else f"Over {tot_ln_mlb} Total Runs (High-Contact Batting · Exp {exp_runs_mlb:.1f} Runs, {comb_sot_for or 17.2:.1f} Hits/Gm)"
+            else f"Over {tot_ln_mlb} Runs (Exp {exp_runs_mlb:.1f} · {comb_sot_for or 17.2:.1f} Hits/Gm)"
         )
         sport_metrics = [
             {"label": "Batting Hits / Game Diff", "value": f"{sot_diff_1:+.2f} Hits/Gm (Comb {comb_sot_for or 16.8:.1f} Hits)"},
@@ -2264,9 +2264,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         )
         dc_lbl = f"{fav_name} or Draw ({'1X' if fav_is_1 else 'X2'})"
         dc_prob = min(0.95, fav_prob + 0.18)
-        mkt_1 = f"{fav_name} 1X2 Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f})"
-        mkt_2 = f"Double Chance Shield: {dc_lbl} ({dc_prob*100:.1f}% HitProb, Fair @{1.0/dc_prob:.2f})"
-        mkt_3 = f"Over 1.5 Goals & 3-Score Dutch Cluster [{sc_pred['cluster_3_scores']}] ({sc_pred['cluster_3_prob']*100:.1f}%, Fair @{sc_pred['cluster_3_fair_odds']:.2f})"
+        mkt_1 = f"{fav_name} 1X2 ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f})"
+        mkt_2 = f"{dc_lbl} ({dc_prob*100:.1f}%, Fair @{1.0/dc_prob:.2f})"
+        mkt_3 = f"Over 1.5 Goals · [{sc_pred['cluster_3_scores']}] ({sc_pred['cluster_3_prob']*100:.1f}%, Fair @{sc_pred['cluster_3_fair_odds']:.2f})"
         sport_metrics = [
             {"label": "Shots on Target (SoT) Diff", "value": f"{sot_diff_1:+.2f} SoT/Gm (Comb {comb_sot_for or 8.5:.1f} SoT)"},
             {"label": "Expected Goals (λ vs μ)", "value": f"{h_name} {sc_pred['lambda_home']:.2f}G vs {a_name} {sc_pred['mu_away']:.2f}G"},

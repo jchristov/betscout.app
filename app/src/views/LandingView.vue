@@ -298,7 +298,7 @@
                   <Icon icon="fa6-solid:dice" class="w-3.5 h-3.5 text-amber-300 shrink-0" />
                   <span>
                     Score / Set Matrix Projection:
-                    <b class="text-white">{{ freeTeaser.exact_score_pick || 'High-Conviction Moneyline' }}</b>
+                    <b class="text-white">{{ freeTeaser.exact_score_pick || 'High-Conviction ML' }}</b>
                   </span>
                 </div>
               </div>

@@ -4451,12 +4451,12 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
         su = str(side_s or "").upper()
         tl = str(tier_s or "").lower()
         if su.startswith(("DC_", "DNB_")) or tl in ("dc_shield", "dnb_shield"):
-            return "Football Double Chance & DNB Shields"
+            return "Double Chance & DNB Shields"
         if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_", "GAMES_HCAP_")) or tl == "set_shield":
-            return "Handicap Shields (+1.5 Sets / Puck Line / Spread)"
+            return "Handicap Shields (+1.5 Sets / PL / Spread)"
         if su.startswith(("OVER_", "UNDER_", "SETS20_", "BTTS_", "HT_OVER_", "CORNERS_", "CARDS_")) or tl in ("totals_over", "totals_under", "straight_sets"):
-            return "Over/Under Totals & Straight Sets"
-        return "Moneyline & 1X2 Bankers"
+            return "Totals & Exact Sets"
+        return "ML & 1X2 Bankers"
 
     by_mkt_map: dict[str, list[float]] = defaultdict(list)
     for r in settled:

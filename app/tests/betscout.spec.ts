@@ -441,6 +441,6 @@ describe('Vue 3 Views (LandingView & DashboardView)', () => {
     expect(wrapper.text()).toContain('Paul, Tommy — 76.9%');
     expect(wrapper.text()).toContain('Darderi, Luciano — 23.1%');
     expect(wrapper.text()).not.toContain('Draw —');
-    expect(wrapper.text()).toContain('2-Way (Moneyline)');
+    expect(wrapper.text()).toContain('2-Way (ML)');
   });
 });

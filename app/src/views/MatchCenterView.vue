@@ -364,7 +364,7 @@
                   <div class="flex justify-between items-center pb-2.5 mb-3 border-b border-slate-800">
                     <b class="text-sm text-white">Win Probability &amp; Pre-Match Markets</b>
                     <span class="text-[11px] font-mono text-sky-300 bg-slate-950 px-2 py-0.5 rounded border border-sky-400/30">
-                      {{ winProbSummary.drawPct > 0.5 ? '3-Way (1X2)' : '2-Way (Moneyline)' }}
+                      {{ winProbSummary.drawPct > 0.5 ? '3-Way (1X2)' : '2-Way (ML)' }}
                     </span>
                   </div>
 
