@@ -377,4 +377,25 @@ Click **`🔖 Track`** on any combo card or **`+ Save Current €100 Slip`** in 
 - Automatically grades each leg (`WON`, `LIVE`, `PENDING`, `LOST`) against live in-play and settled match scores.
 - Highlights tickets with **`🔥 FINAL LEG HEDGE READY`** as soon as `N - 1` legs have won and only 1 pending/live leg remains, with a 1-click **`Hedge Calc`** button to load that ticket directly into the Combo Saver calculator.
 
+---
+
+## 19. Contrarian "Fade Traps" Filter, Hybrid Combos & Individual Player Props
+
+### A. Market Filter: `Fade Traps` (`fade_trap`)
+Click **`Fade Traps`** in the **Market** filter bar (`All`, `ML / 1X2`, `Shields`, `Totals`, `Fade Traps`, `Secondary`) to isolate contrarian underdog shields where the market favorite (`1.45 <= odds <= 1.95`) has negative underlying boxscore efficiency or a chronic favorite underperformance record:
+- **NFL `+7.5` Fade Trap (`83.3%` OOS WR, `+15.0%` ROI):** Fades NFL favorites with negative Yards-Per-Play (`<= -0.25`) or yardage differential (`<= -15.0 yds/gm`).
+- **NHL `+1.5 PL` Fade Trap (`72.6%` OOS WR, `+8.9%` ROI):** Fades NHL favorites out-shot by `>= 1.0` SOG/gm.
+- **Football `1X / X2` Fade Trap (`60.0%` OOS WR, `+10.3%` ROI):** Fades `1.60–2.08` Football favorites out-shot on target by `>= 1.0` SoT/gm.
+
+### B. High-Conviction Corners, Cards & Hybrid Football Markets
+- **`1X/X2 & O1.5` (`74.0%` OOS WR) & `Win & O1.5` (`66.7%` OOS WR, `+7.1%` ROI):** Combines Double Chance or Match Winner with Over 1.5 Total Goals to boost `1.18–1.45` chalk into the `1.42–1.78` value range.
+- **Team `Over 4.5 Corners` (`84.1%` OOS WR), Match `Over 8.5 Corners` (`68.8%` OOS WR) & Match `Over 3.5 Cards` (`68.2%` OOS WR):** Automatically surfaced from rolling boxscore corner creation/concession, foul intensity, and yellow/red card splits.
+
+### C. Individual Player Props (Anytime Goalscorers & Card Candidates)
+Open any Football match in the **Matchup Inspector (`🔍`)** or **On-Demand Live Analyzer** to inspect:
+- **⚽ Anytime Goalscorer Candidates:** Goals, matches, goals per 90m, first-goalscorer count, Poisson Anytime Goal Probability %, and Fair Odds (automatically filtering out injured/suspended players).
+- **🟨 Player To Be Booked (Card Risk):** Yellow/red card totals, cards per 90m, Booking Probability %, and Fair Odds.
+- **Fav Reliability (`Fav: XW-YL`):** Displayed in the **Team / Player Scout** mode to highlight whether a team or player historically overperforms or underperforms their opening odds as a market favorite.
+
+
 

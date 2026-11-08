@@ -470,7 +470,20 @@ Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+
 6. **NFL Touchdowns (`TDs`) & Field Goals (`FGs`) Markets, Compact UI Labels & Searchable Glossary Modal (`sport_models.py`, `paper_bet.py`, `DashboardView.vue`)**:
    - Backtested and added NFL **`Over 3.5 TDs` (`85.4%` OOS WR, `35W – 6L`)**, **`Over 4.5 TDs` (`76.5%` OOS WR)**, **`Team Over 2.5 TDs` (`72.7%` OOS WR)**, and **`Over 2.5 FGs` (`70.0%` OOS WR, `84W – 36L`)** to `evaluate_nfl_secondary_markets` and `settle_pending_paper_bets` (graded directly from ESPN `scoringPlays`), while restricting `SPREAD_M2.5` to moderate favorites (`0.58 <= p_mkt <= 0.72`).
    - Standardized compact, high-density market labels (`ML`, `1X2`, `DNB`, `-1.0 AH`, `1H Over 0.5 Goals`, `+1.5 Sets`, `Over 3.5 TDs`, `Over 2.5 FGs`, `+1.5 PL`, `+1.5 RL`) with zero bookmaker brand mentions in the UI.
-   - Added a searchable **Betting Markets, Acronyms & Metrics Glossary** modal (`? Glossary` button in the header and Market filter bar) covering 31 market codes, quantitative metrics, and sport-specific telemetry abbreviations.
+   - Added a searchable **Betting Markets, Acronyms & Metrics Glossary** modal (`? Glossary` button in the header and Market filter bar) covering 35 market codes, quantitative metrics, and sport-specific telemetry abbreviations.
+
+7. **Overestimated / Paper-Tiger Favorite Fade Scanner (`fade_trap`), Hybrid Football Combos (`1X/X2 & O1.5`, `Win & O1.5`), `<22.5h` Tennis Exhaustion Veto, Corners/Cards Markets & Player Props (`sport_models.py`, `paper_bet.py`, `sportradar_statshub.py`, `DashboardView.vue`)**:
+   - **Opening-Odds vs. Outcome Reliability & Contrarian Fade Traps (`evaluate_paper_tiger_fade`):** Audited `15,922` priced matches + `43,649` Tennis matches to identify chronically overestimated teams/players (`favorite_reliability` in Team/Player Scout). Added `evaluate_paper_tiger_fade` (`tier = "fade_trap"`) and the **`Fade Traps`** Market filter pill to back the underdog shield when a market favorite (`1.45 <= odds <= 1.95`) has negative rolling boxscore efficiency:
+     - **🏈 NFL Underdog `+7.5` (`FADE_SPREAD_P7.5`):** **`83.3%` OOS Win Rate (`30W – 6L`, `+15.0%` ROI)** and **`59.5%` Outright Upset WR (`+38.9%` ROI)** when the favorite has `ypp_diff <= -0.25` or `yards_diff <= -15.0`.
+     - **🏒 NHL Underdog `+1.5 PL` (`FADE_PUCKLINE_P1.5`):** **`72.6%` OOS Win Rate (`69W – 26L`, `+8.9%` ROI)** when the favorite trails by `<= -1.0` SOG/gm.
+     - **⚽ Football Underdog `1X/X2` (`FADE_DC_1X`/`X2`):** **`60.0%` OOS Win Rate (`51W – 34L`, `+10.3%` ROI)** when a `1.60–2.08` favorite is out-shot on target (`sot_d <= -1.0/gm`).
+   - **Football Hybrid Value Combos & Rolling Boxscore Corners/Cards:**
+     - **`1X/X2 & O1.5` (`DC_OVER_1_5_H/A`):** **`74.0%` OOS Win Rate (`202W – 71L`, `+3.0%` ROI)**, boosting `1.18–1.25` Double Chance shields to `~1.42–1.68`.
+     - **`Win & O1.5` (`WIN_OVER_1_5_H/A`):** **`66.7%` OOS Win Rate (`178W – 89L`, `+7.1%` ROI)**.
+     - **Favorite Team `Over 4.5 Corners` (`TEAM_CORNERS_O4.5_H/A`):** **`84.1%` OOS Win Rate (`74W – 14L`)** when `fav_corners_for_avg >= 6.2`, `dog_corners_ag_avg >= 5.5`, and `sot_z >= 0.45`.
+     - **Match `Over 8.5 Corners` (`CORNERS_OVER_8_5` at `68.8%` OOS WR, `298W – 135L`)** & **Match `Over 3.5 Cards` (`CARDS_OVER_3_5` at `68.2%` OOS WR, `419W – 195L`)** when combined rolling cards `>= 4.6/gm` and fouls `>= 24.5/gm`.
+   - **Tennis `<22.5h` Overnight Turnaround + 3-Set Exhaustion Veto (`VETO_SHORT_TURNAROUND_EXHAUSTION`):** Added to `evaluate_tennis_gate` to veto career-Elo-inflated favorites (`win_prob < 0.85`) entering on `<= 22.5h` rest with modest game-share (`< 3.5%`), zero 6m form edge, and negative decider resilience (`decider_diff < 0.0`, catching 3-set marathon exhaustion traps like `Anna Blinkova vs Sofya Lansere`).
+   - **Individual Player Props (`fetch_season_player_props`):** Queries `stats_season_topgoals/{season_id}` and `stats_season_topcards/{season_id}` (excluding injured/suspended players) to surface **Anytime Goalscorer** and **Player To Be Booked (Card Candidate)** probabilities and fair odds in the Matchup Inspector and Live Matchup Analyzer modals.
 
 
 
