@@ -483,6 +483,7 @@
               { id: 'moneyline', label: 'ML / 1X2' },
               { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5, +7.5)' },
               { id: 'totals', label: 'Totals (O/U, TDs, FGs, Sets)' },
+              { id: 'fade', label: 'Fade Traps' },
               { id: 'secondary', label: 'Secondary' },
             ]"
             :key="mOpt.id"
@@ -4296,6 +4297,9 @@ const GLOSSARY_SECTIONS = [
       { term: '1X2', cat: 'Football / Handball', desc: '3-Way regulation result: 1 = Home Win, X = Draw, 2 = Away Win.' },
       { term: 'H / A / D', cat: 'All Sports', desc: 'Home (H), Away (A), or Draw (D) side indicator.' },
       { term: '1X / X2 (DC)', cat: 'Double Chance', desc: '1X = Home Win or Draw; X2 = Away Win or Draw. Wins on 2 of the 3 outcomes.' },
+      { term: '1X/X2 & O1.5', cat: 'Football Combo', desc: 'Double Chance + Over 1.5 Goals (74.0% OOS WR). Wins on 1-1, 2-0, 2-1, 3-0, 2-2.' },
+      { term: 'Win & O1.5', cat: 'Football Combo', desc: 'Team wins outright AND total goals ≥ 2 (66.7% OOS WR, +7.1% ROI).' },
+      { term: 'Fade Trap', cat: 'Contrarian Edge', desc: 'Backs the underdog (+7.5 / +1.5 PL / 1X-X2) against an overestimated favorite with negative efficiency.' },
       { term: 'DNB', cat: 'Draw No Bet', desc: 'Team wins outright; if the match ends in a draw, 100% of your stake is refunded (Push).' },
       { term: '-1.0 AH', cat: 'Asian Handicap', desc: 'Wins if team wins by ≥2 goals; 100% stake refund (Push) if team wins by exactly 1 goal.' },
       { term: 'BTTS Yes / No', cat: 'Football', desc: 'Both Teams To Score (Yes = both teams score ≥1 goal; No = at least one clean sheet).' },

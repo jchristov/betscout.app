@@ -1248,17 +1248,26 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
             if sot_q:
                 avg_sot_diff = round(float(sum(sot_q) / len(sot_q)), 2)
 
-        # Fetch all completed matches for entity_name (including opening/closing odds from match_details)
-        ent_rows = conn.execute(
+        # Fetch all completed matches for entity_name (including opening/closing odds from match_details when table exists)
+        has_details_tbl = bool(conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='match_details'").fetchone())
+        q_ent = (
             """
             SELECT m.*, d.open_home, d.open_draw, d.open_away, d.close_home, d.close_draw, d.close_away
             FROM matches m
             LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
             WHERE (m.home = ? OR m.away = ?) AND m.outcome IS NOT NULL
             ORDER BY m.kickoff DESC
-            """,
-            (entity_name, entity_name),
-        ).fetchall()
+            """
+            if has_details_tbl
+            else """
+            SELECT m.*, NULL as open_home, NULL as open_draw, NULL as open_away,
+                   NULL as close_home, NULL as close_draw, NULL as close_away
+            FROM matches m
+            WHERE (m.home = ? OR m.away = ?) AND m.outcome IS NOT NULL
+            ORDER BY m.kickoff DESC
+            """
+        )
+        ent_rows = conn.execute(q_ent, (entity_name, entity_name)).fetchall()
         total_matches = len(ent_rows)
         if ent_rows:
             try:

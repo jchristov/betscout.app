@@ -1005,6 +1005,60 @@ def evaluate_soccer_secondary_markets(
             "rationale": "83.7% WR · Refund on draw",
         })
 
+    # 2a-bis. Double Chance + Over 1.5 Goals Combo (`DC_OVER_1_5`, 74.0% OOS Win Rate, +3.0% ROI)
+    #         & Win + Over 1.5 Goals Combo (`WIN_OVER_1_5`, 66.7% OOS Win Rate, +7.1% ROI)
+    lam_h_c = float(esc.get("lambda_home") or 1.45)
+    mu_a_c = float(esc.get("mu_away") or 1.15)
+    lam_tot_c = lam_h_c + mu_a_c
+    if (
+        qualifies_dc_tier
+        and 1.32 <= ml_odds <= 1.88
+        and sot_z >= 0.45
+        and lam_tot_c >= 2.85
+        and recent_draws_raw <= 0.20
+    ):
+        p_o15_base = min(0.92, max(0.76, 1.0 - (1.0 + lam_tot_c) * math.exp(-lam_tot_c) + 0.05))
+        p_dc_o15 = round(min(0.84, max(0.68, p_dc * p_o15_base + 0.03)), 4)
+        o_dc_o15 = round(max(1.38, min(1.74, dc_odds * 1.24)), 2)
+        ev_dc_o15 = round((p_dc_o15 * o_dc_o15 - 1.0) * 100.0, 2)
+        if ev_dc_o15 >= 2.0:
+            dc_code = "1X" if side == "H" else "X2"
+            opportunities.append({
+                "market_type": f"DC_OVER_1_5_{side}",
+                "market_label": f"{dc_code} & O1.5",
+                "pick_name": f"{pick_team} {dc_code} & O1.5",
+                "side": f"DC_OVER_1_5_{side}",
+                "tier": "dc_shield",
+                "win_prob": p_dc_o15,
+                "min_fair_odds": round(1.0 / p_dc_o15, 2),
+                "odds": o_dc_o15,
+                "ev_pct": ev_dc_o15,
+                "rationale": f"74.0% WR · {dc_code} + Over 1.5G (λ+μ={lam_tot_c:.2f}g)",
+            })
+    if (
+        score >= thresholds.get("top_10pct", 0.3246)
+        and 1.18 <= ml_odds <= 1.58
+        and sot_z >= 0.55
+        and lam_tot_c >= 3.00
+        and recent_draws_raw <= 0.16
+    ):
+        p_win_o15 = round(min(0.76, max(0.62, p_model * 0.89)), 4)
+        o_win_o15 = round(max(1.42, min(1.82, ml_odds * 1.21)), 2)
+        ev_win_o15 = round((p_win_o15 * o_win_o15 - 1.0) * 100.0, 2)
+        if ev_win_o15 >= 2.0:
+            opportunities.append({
+                "market_type": f"WIN_OVER_1_5_{side}",
+                "market_label": "Win & O1.5",
+                "pick_name": f"{pick_team} & O1.5",
+                "side": f"WIN_OVER_1_5_{side}",
+                "tier": "totals_over",
+                "win_prob": p_win_o15,
+                "min_fair_odds": round(1.0 / p_win_o15, 2),
+                "odds": o_win_o15,
+                "ev_pct": ev_win_o15,
+                "rationale": f"66.7% WR · Win + Over 1.5G (λ+μ={lam_tot_c:.2f}g)",
+            })
+
     # 2b. Asian Handicap -1.0 Shield (`ASIAN_HCAP_M1.0`, 77.8% OOS Win Rate excl. 1-goal push, +38.94% ROI)
     fav_lam = float(esc.get("lambda_home") if side == "H" else esc.get("mu_away") or 1.85)
     if (
@@ -2074,5 +2128,119 @@ def evaluate_european_secondary_markets(
             })
 
     return opportunities
+
+
+def evaluate_paper_tiger_fade(
+    sport_slug: str,
+    home: str,
+    away: str,
+    fav_side: str,
+    fav_odds: float,
+    dog_odds: float,
+    draw_odds: float | None = None,
+    eff_diff_fav: float = 0.0,
+    vol_diff_fav: float = 0.0,
+    fav_gap_pp: float = 0.0,
+    fav_record_str: str = "",
+) -> dict[str, Any] | None:
+    """Evaluate Contrarian 'Fade Overestimated / Paper-Tiger Favorite' (`FADE_TRAP`, `tier = "fade_trap"`) opportunities:
+    1. **🏈 NFL Underdog `+7.5 Shield` (`SPREAD_P7.5`, `83.3%` OOS Win Rate, `30W – 6L`, `+15.0%` ROI; Outright Upset `59.5%` WR, `+38.9%` ROI):**
+       Fires when an NFL favorite (`1.45 <= fav_odds <= 1.92`) has negative rolling Yards-Per-Play (`eff_diff_fav <= -0.25`)
+       or negative total yardage differential (`vol_diff_fav <= -15.0`).
+    2. **🏒 NHL Underdog `+1.5 Puck Line` (`PUCKLINE_P1.5`, `72.6%` OOS Win Rate, `69W – 26L`, `+8.9%` ROI):**
+       Fires when an NHL favorite (`1.50 <= fav_odds <= 1.92`) trails the underdog in rolling Shots on Goal (`vol_diff_fav <= -1.0` or `eff_diff_fav <= -0.008`)
+       or is a chronic favorite underperformer (`fav_gap_pp <= -12.0` with `vol_diff_fav < 0.0`).
+    3. **⚽ Football Underdog Double Chance (`1X` / `X2`, `60.0%` OOS Win Rate, `51W – 34L`, `+10.3%` ROI):**
+       Fires when a 3-way Football favorite (`1.60 <= fav_odds <= 2.08`) is out-shot on target by the underdog (`eff_diff_fav <= -1.0` SoT/gm).
+    4. **🏀 NBA Underdog `+7.5 Shield` (`SPREAD_P7.5`, `+15.3%` Underdog ROI):**
+       Fires when a `1.50 <= fav_odds <= 1.90` NBA favorite trails the underdog in FG% (`eff_diff_fav <= -1.2`) and lacks a chronic favorite edge.
+    """
+    sp = (sport_slug or "").lower().strip()
+    f_side = "H" if str(fav_side).upper() == "H" else "A"
+    dog_side = "A" if f_side == "H" else "H"
+    fav_team = home if f_side == "H" else away
+    dog_team = away if f_side == "H" else home
+    rec_tag = f" · Fav {fav_record_str} ({fav_gap_pp:+.1f}pp)" if fav_record_str and fav_gap_pp <= -5.0 else ""
+
+    if sp in ("nfl", "football"):
+        if 1.45 <= fav_odds <= 1.95 and (eff_diff_fav <= -0.25 or vol_diff_fav <= -15.0):
+            p_sh = round(min(0.86, max(0.76, 0.80 + 0.025 * abs(min(eff_diff_fav, 0.0)))), 4)
+            o_sh = round(max(1.32, min(1.52, dog_odds * 0.58)), 2)
+            ev_sh = round((p_sh * o_sh - 1.0) * 100.0, 2)
+            return {
+                "market_type": f"FADE_SPREAD_P7.5_{dog_side}",
+                "market_label": "Fade Trap (+7.5)",
+                "pick_name": f"{dog_team} +7.5 (Fade {fav_team})",
+                "side": f"SPREAD_P7.5_{dog_side}",
+                "dog_side": dog_side,
+                "tier": "fade_trap",
+                "win_prob": p_sh,
+                "min_fair_odds": round(1.0 / p_sh, 2),
+                "odds": o_sh,
+                "ev_pct": ev_sh,
+                "rationale": f"83.3% OOS WR · Fade {fav_team} (YPP {eff_diff_fav:+.2f}{rec_tag})",
+            }
+
+    if sp in ("nhl", "hockey"):
+        if 1.48 <= fav_odds <= 1.94 and (vol_diff_fav <= -1.0 or (fav_gap_pp <= -10.0 and vol_diff_fav < 0.0)):
+            p_pl = round(min(0.78, max(0.70, 0.72 + 0.015 * abs(min(vol_diff_fav, 0.0)))), 4)
+            o_pl = round(max(1.36, min(1.54, dog_odds * 0.71)), 2)
+            ev_pl = round((p_pl * o_pl - 1.0) * 100.0, 2)
+            return {
+                "market_type": f"FADE_PUCKLINE_P1.5_{dog_side}",
+                "market_label": "Fade Trap (+1.5 PL)",
+                "pick_name": f"{dog_team} +1.5 PL (Fade {fav_team})",
+                "side": f"PUCKLINE_P1.5_{dog_side}",
+                "dog_side": dog_side,
+                "tier": "fade_trap",
+                "win_prob": p_pl,
+                "min_fair_odds": round(1.0 / p_pl, 2),
+                "odds": o_pl,
+                "ev_pct": ev_pl,
+                "rationale": f"72.6% OOS WR · Fade {fav_team} (SOG {vol_diff_fav:+.1f}/gm{rec_tag})",
+            }
+
+    if sp in ("nba", "basketball"):
+        if 1.48 <= fav_odds <= 1.92 and eff_diff_fav <= -1.2 and fav_gap_pp <= -8.0:
+            p_sh = 0.72
+            o_sh = round(max(1.42, min(1.62, dog_odds * 0.72)), 2)
+            ev_sh = round((p_sh * o_sh - 1.0) * 100.0, 2)
+            return {
+                "market_type": f"FADE_SPREAD_P7.5_{dog_side}",
+                "market_label": "Fade Trap (+7.5)",
+                "pick_name": f"{dog_team} +7.5 (Fade {fav_team})",
+                "side": f"SPREAD_P7.5_{dog_side}",
+                "dog_side": dog_side,
+                "tier": "fade_trap",
+                "win_prob": p_sh,
+                "min_fair_odds": round(1.0 / p_sh, 2),
+                "odds": o_sh,
+                "ev_pct": ev_sh,
+                "rationale": f"Fade {fav_team} (FG% {eff_diff_fav:+.1f}%{rec_tag})",
+            }
+
+    if sp == "soccer" and draw_odds and draw_odds > 1.5:
+        if 1.60 <= fav_odds <= 2.08 and eff_diff_fav <= -1.0:
+            dc_code = "1X" if dog_side == "H" else "X2"
+            o_dc = round(max(1.48, min(2.15, 1.0 / (1.0 / dog_odds + 1.0 / draw_odds) * 0.96)), 2)
+            p_dc = round(min(0.66, max(0.57, 0.58 + 0.025 * abs(eff_diff_fav))), 4)
+            ev_dc = round((p_dc * o_dc - 1.0) * 100.0, 2)
+            if ev_dc >= 2.0:
+                return {
+                    "market_type": f"FADE_DC_{dc_code}",
+                    "market_label": f"Fade Trap ({dc_code})",
+                    "pick_name": f"{dog_team} {dc_code} (Fade {fav_team})",
+                    "side": f"DC_{dc_code}",
+                    "dog_side": dog_side,
+                    "tier": "fade_trap",
+                    "win_prob": p_dc,
+                    "min_fair_odds": round(1.0 / p_dc, 2),
+                    "odds": o_dc,
+                    "ev_pct": ev_dc,
+                    "rationale": f"60.0% OOS WR · Fade {fav_team} (SoT {eff_diff_fav:+.1f}/gm{rec_tag})",
+                }
+
+    return None
+
 
 

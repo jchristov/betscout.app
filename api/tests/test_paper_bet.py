@@ -1322,7 +1322,55 @@ def test_per_sport_isolated_gates():
         sum_sec = get_paper_ledger_summary(rem_db)
         ov_bet = next(b for b in sum_sec["bets"] if b["event_id"] == "999888::OVER_2_5")
         assert ov_bet["status"] == "SETTLED" and ov_bet["pnl_best"] == 0.52 and ov_bet["pick_display"] == "Over 2.5 Goals"
-        assert any(m["market"] == "Over/Under Totals & Straight Sets" and m["wins"] == 1 for m in sum_sec["by_market"])
+        assert any(m["market"] in ("Totals & Exact Sets", "Over/Under Totals & Straight Sets") and m["wins"] == 1 for m in sum_sec["by_market"])
+
+        # 7e. Test Overestimated Favorite Fade (`evaluate_paper_tiger_fade`) & Hybrid Football Combos (`DC_OVER_1_5`, `WIN_OVER_1_5`)
+        from betscout.sport_models import evaluate_paper_tiger_fade, evaluate_soccer_secondary_markets
+
+        nfl_fade = evaluate_paper_tiger_fade(
+            sport_slug="nfl",
+            home="New Orleans Saints",
+            away="Cleveland Browns",
+            fav_side="H",
+            fav_odds=1.59,
+            dog_odds=2.42,
+            eff_diff_fav=-1.27,
+            vol_diff_fav=-45.0,
+            fav_gap_pp=-33.3,
+            fav_record_str="1W-3L",
+        )
+        assert nfl_fade is not None and nfl_fade["tier"] == "fade_trap" and "Cleveland Browns +7.5" in nfl_fade["pick_name"]
+
+        nhl_fade = evaluate_paper_tiger_fade(
+            sport_slug="nhl",
+            home="Anaheim Ducks",
+            away="Pittsburgh Penguins",
+            fav_side="H",
+            fav_odds=1.83,
+            dog_odds=2.00,
+            vol_diff_fav=-2.33,
+            fav_gap_pp=-20.5,
+            fav_record_str="6W-9L",
+        )
+        assert nhl_fade is not None and nhl_fade["tier"] == "fade_trap" and "Pittsburgh Penguins +1.5 PL" in nhl_fade["pick_name"]
+
+        soc_sec = evaluate_soccer_secondary_markets(
+            home="Bayer Leverkusen",
+            away="Bochum",
+            side="H",
+            score=0.45,
+            thresholds={"top_10pct": 0.32, "top_15pct": 0.25, "top_25pct": 0.15},
+            p_model=0.72,
+            p_mkt=0.68,
+            best_h=1.42,
+            best_d=4.50,
+            best_a=7.00,
+            factors_tanh_z={"sot_d": 0.65, "dom_rebound": 0.35},
+            exact_score_pred={"lambda_home": 2.15, "mu_away": 0.95},
+            recent_draws_raw=0.0,
+        )
+        sec_types = {x["market_type"] for x in soc_sec}
+        assert "DC_OVER_1_5_H" in sec_types and "WIN_OVER_1_5_H" in sec_types
     sample_rec = {
         "qualifying_picks": [],
         "tennis_picks": [],

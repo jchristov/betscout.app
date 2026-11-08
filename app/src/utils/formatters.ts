@@ -332,6 +332,9 @@ export function getTierBadgeClass(tier?: string | null): string {
   if (low.includes('dc_shield') || low.includes('dnb_shield') || low.includes('set_shield')) {
     return 'bg-emerald-500/20 text-emerald-300 border-emerald-400/55';
   }
+  if (low.includes('fade_trap')) {
+    return 'bg-rose-500/20 text-rose-300 border-rose-400/55 shadow-[0_0_10px_rgba(244,63,94,0.18)]';
+  }
   if (low.includes('totals_over') || low.includes('totals_under') || low.includes('straight_sets')) {
     return 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/55';
   }

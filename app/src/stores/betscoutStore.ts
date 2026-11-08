@@ -109,7 +109,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
 
   // Interactive UI Filters (persisted to localStorage)
   const sportFilter = ref<string>('all');
-  const marketFilter = ref<'all' | 'moneyline' | 'secondary' | 'shield' | 'totals'>('all');
+  const marketFilter = ref<'all' | 'moneyline' | 'secondary' | 'shield' | 'totals' | 'fade'>('all');
   const dayFilter = ref<string>('all');
   const minOdds = ref<number>(1.10);
   const minProb = ref<number>(0.55);
@@ -580,11 +580,13 @@ export const useBetscoutStore = defineStore('betscout', () => {
       if (marketFilter.value !== 'all') {
         const mt = String((b as any).market_type || '').toUpperCase();
         const tr = String(b.tier || '').toLowerCase();
-        const isSec = Boolean(mt) || ['dc_shield', 'dnb_shield', 'set_shield', 'totals_over', 'totals_under', 'straight_sets'].includes(tr);
+        const isFade = tr === 'fade_trap' || mt.startsWith('FADE_') || String(b.pick_name || '').includes('(Fade ');
+        const isSec = Boolean(mt) || ['dc_shield', 'dnb_shield', 'set_shield', 'totals_over', 'totals_under', 'straight_sets', 'fade_trap'].includes(tr);
+        if (marketFilter.value === 'fade' && !isFade) return false;
         if (marketFilter.value === 'moneyline' && isSec) return false;
         if (marketFilter.value === 'secondary' && !isSec) return false;
-        if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP') || mt.startsWith('SPREAD_') || mt.startsWith('PUCKLINE_') || mt.startsWith('GAMES_HCAP_'))) return false;
-        if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_') || mt.startsWith('BTTS_') || mt.startsWith('HT_OVER_') || mt.startsWith('CORNERS_') || mt.startsWith('CARDS_'))) return false;
+        if (marketFilter.value === 'shield' && !(['dc_shield', 'dnb_shield', 'set_shield', 'fade_trap'].includes(tr) || mt.startsWith('DC_') || mt.startsWith('DNB_') || mt.startsWith('SET_HANDICAP') || mt.startsWith('SPREAD_') || mt.startsWith('PUCKLINE_') || mt.startsWith('GAMES_HCAP_') || mt.startsWith('FADE_'))) return false;
+        if (marketFilter.value === 'totals' && !(['totals_over', 'totals_under', 'straight_sets'].includes(tr) || mt.startsWith('OVER_') || mt.startsWith('UNDER_') || mt.startsWith('SETS_') || mt.startsWith('BTTS_') || mt.startsWith('HT_OVER_') || mt.startsWith('CORNERS_') || mt.startsWith('CARDS_') || mt.startsWith('WIN_OVER_'))) return false;
       }
       if (dayFilter.value !== 'all') {
         const d = matchDayKey(b);

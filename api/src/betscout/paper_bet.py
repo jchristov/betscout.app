@@ -1573,6 +1573,20 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 won = outcome in ("H", "D")
             elif side_up == "DC_X2":
                 won = outcome in ("A", "D")
+            elif side_up in ("DC_OVER_1_5_H", "DC_OVER_1_5_A"):
+                if hs_g is None or as_g is None:
+                    continue
+                dc_ok = outcome in (("H", "D") if side_up.endswith("_H") else ("A", "D"))
+                won = dc_ok and (hs_g + as_g) >= 2
+            elif side_up in ("WIN_OVER_1_5_H", "WIN_OVER_1_5_A"):
+                if hs_g is None or as_g is None:
+                    continue
+                t_side_w = "H" if side_up.endswith("_H") else "A"
+                won = (outcome == t_side_w) and (hs_g + as_g) >= 2
+            elif side_up in ("WIN_TO_NIL_H", "WIN_TO_NIL_A"):
+                if hs_g is None or as_g is None:
+                    continue
+                won = (hs_g >= 1 and as_g == 0) if side_up.endswith("_H") else (as_g >= 1 and hs_g == 0)
             elif side_up == "DNB_H":
                 if outcome == "D":
                     won = False
@@ -1861,6 +1875,7 @@ def scan_upcoming_other_sports(
 
     elo_by_lg: dict[str, Elo] = {}
     box_hist: dict[tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=6))
+    fav_hist: dict[tuple[str, str], list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0])  # [n, wins, exp_sum]
     last_dt: dict[tuple[str, str], datetime] = {}
     hist_feats_by_lg: dict[str, list[list[float]]] = defaultdict(list)
     sport_home_adv = {"nba": 45.0, "wnba": 40.0, "ncaam": 55.0, "ncaaw": 50.0, "nbl": 45.0, "fiba": 30.0, "wvolleyball": 35.0, "mvolleyball": 35.0, "nhl": 25.0, "nfl": 40.0, "mlb": 20.0}
@@ -1870,6 +1885,19 @@ def scan_upcoming_other_sports(
         lg = r["league"]
         el = elo_by_lg.setdefault(lg, Elo(k=20.0, home_adv=sport_home_adv.get(lg, 30.0)))
         hk, ak = (lg, r["home"]), (lg, r["away"])
+        if r["odds_home"] and r["odds_away"] and r["odds_home"] > 1.01 and r["odds_away"] > 1.01:
+            ih_f, ia_f = 1.0 / r["odds_home"], 1.0 / r["odds_away"]
+            ph_f = ih_f / (ih_f + ia_f)
+            if ph_f >= 0.54 and r["odds_home"] <= 1.85:
+                fh = fav_hist[hk]
+                fh[0] += 1.0
+                fh[1] += 1.0 if r["outcome"] == "H" else 0.0
+                fh[2] += ph_f
+            elif (1.0 - ph_f) >= 0.54 and r["odds_away"] <= 1.85:
+                fa = fav_hist[ak]
+                fa[0] += 1.0
+                fa[1] += 1.0 if r["outcome"] == "A" else 0.0
+                fa[2] += 1.0 - ph_f
         dt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
         rh = min((dt - last_dt[hk]).days, 10) if hk in last_dt else 4
         ra = min((dt - last_dt[ak]).days, 10) if ak in last_dt else 4
@@ -2106,6 +2134,7 @@ def scan_upcoming_other_sports(
                     evaluate_nba_secondary_markets,
                     evaluate_nfl_secondary_markets,
                     evaluate_nhl_totals_market,
+                    evaluate_paper_tiger_fade,
                     route_major_league_gate,
                 )
 
@@ -2218,6 +2247,66 @@ def scan_upcoming_other_sports(
                     opp_last_margin=opp_last_margin,
                     opp_goal_diff=opp_goal_diff,
                 ):
+                    # When the favorite fails the major-league gate, check if it is an Overestimated / Paper-Tiger Favorite Fade Trap!
+                    fav_key = hk if side == "H" else ak
+                    fh_rec = fav_hist.get(fav_key, [0.0, 0.0, 0.0])
+                    fav_gap_pp = (
+                        ((fh_rec[1] / fh_rec[0]) - (fh_rec[2] / fh_rec[0])) * 100.0
+                        if fh_rec[0] >= 4.0
+                        else 0.0
+                    )
+                    fav_rec_str = (
+                        f"{int(fh_rec[1])}W-{int(fh_rec[0] - fh_rec[1])}L"
+                        if fh_rec[0] >= 4.0
+                        else ""
+                    )
+                    odds_dog = oa if side == "H" else oh
+                    fade_opp = (
+                        evaluate_paper_tiger_fade(
+                            sport_slug=lg,
+                            home=home,
+                            away=away,
+                            fav_side=side,
+                            fav_odds=float(odds_pick),
+                            dog_odds=float(odds_dog),
+                            eff_diff_fav=float(sot_f),
+                            vol_diff_fav=float(vol_f),
+                            fav_gap_pp=fav_gap_pp,
+                            fav_record_str=fav_rec_str,
+                        )
+                        if oh_dq and oa_dq and len(oh_dq) >= 3 and len(oa_dq) >= 3
+                        else None
+                    )
+                    if fade_opp:
+                        dog_side_c = str(fade_opp.get("dog_side") or ("A" if side == "H" else "H"))
+                        inj_dog = _evaluate_us_sport_injuries_and_news(summary, home, away, dog_side_c)
+                        if not inj_dog["vetoed"]:
+                            picks.append({
+                                "sport": lg_obj.sport,
+                                "league": lg.upper(),
+                                "league_name": LEAGUE_LABELS.get(lg, lg.upper()),
+                                "event_id": f"{eid}::{fade_opp['market_type']}",
+                                "kickoff": ko,
+                                "time_valid": ev_time_valid,
+                                "competition_logo": _extract_comp_logo(board, summary),
+                                "home": home,
+                                "away": away,
+                                "home_logo": _extract_team_logo(h_c),
+                                "away_logo": _extract_team_logo(a_c),
+                                "side": str(fade_opp["side"]),
+                                "pick": str(fade_opp["pick_name"]),
+                                "market_type": str(fade_opp["market_type"]),
+                                "tier": "fade_trap",
+                                "composite_score": round(float(fade_opp["win_prob"]), 4),
+                                "p_model": round(float(fade_opp["win_prob"]), 4),
+                                "p_mkt": round(1.0 / max(float(fade_opp["odds"]) * 1.04, 1.05), 4),
+                                "p_elo": round(1.0 - p_elo, 4),
+                                "best_odds": round(float(fade_opp["odds"]), 3),
+                                "ev_pct": round(float(fade_opp["ev_pct"]), 2),
+                                "rationale": str(fade_opp["rationale"]),
+                                "secondary_opportunities": [],
+                                "injury_signal": inj_dog,
+                            })
                     continue
                 inj_gate = _evaluate_us_sport_injuries_and_news(summary, home, away, side)
                 if inj_gate["vetoed"]:
@@ -3036,6 +3125,45 @@ def scan_upcoming_and_log_paper_bets(
                         )
                         c_del.commit()
                         c_del.close()
+                elif not best_candidate.get("is_live") and len(oh) >= 3 and len(oa) >= 3:
+                    # Check if this non-qualifying Football favorite is an Overestimated / Paper-Tiger Favorite Fade Trap (`FADE_TRAP`, 60.0% OOS WR, +10.3% ROI)
+                    fav_sot_d_raw = float(
+                        np.mean([x["sot_d"] for x in (oh if fav_Side_c == "H" else oa)])
+                        - np.mean([x["sot_d"] for x in (oa if fav_Side_c == "H" else oh)])
+                    )
+                    dog_odds_soc = float((best_a if fav_Side_c == "H" else best_h) or 3.5)
+                    fade_soc = evaluate_paper_tiger_fade(
+                        sport_slug="soccer",
+                        home=home,
+                        away=away,
+                        fav_side=fav_Side_c,
+                        fav_odds=float(best_candidate.get("best_odds") or 1.85),
+                        dog_odds=dog_odds_soc,
+                        draw_odds=float(best_d or 3.5),
+                        eff_diff_fav=fav_sot_d_raw,
+                    )
+                    if fade_soc:
+                        best_candidate["tier"] = "fade_trap"
+                        best_candidate["action"] = "PAPER_BET"
+                        best_candidate["suppress_primary_ml"] = True
+                        best_candidate["secondary_opportunities"] = [fade_soc]
+                        qualifying_picks.append(best_candidate)
+                        _upsert_paper_bet(
+                            db_path,
+                            {
+                                **best_candidate,
+                                "event_id": f"{eid}::{fade_soc['market_type']}",
+                                "side": str(fade_soc["side"]),
+                                "tier": "fade_trap",
+                                "score": float(fade_soc["win_prob"]),
+                                "p_mkt": round(1.0 / max(float(fade_soc["odds"]) * 1.04, 1.05), 4),
+                                "open_odds": float(fade_soc["odds"]),
+                                "best_odds": float(fade_soc["odds"]),
+                                "primary_odds": float(fade_soc["min_fair_odds"]),
+                                "close_odds": float(fade_soc["odds"]),
+                            },
+                            now_iso,
+                        )
 
     disabled_sports = _load_disabled_sports(db_path)
     if "soccer" in disabled_sports:
@@ -3184,17 +3312,17 @@ def scan_upcoming_and_log_paper_bets(
     # Retroactive Re-Validation Gate: remove any pre-match PENDING soccer/tennis/US-sport bet in the scanned window
     # that no longer qualifies under the upgraded Court-Acclimatization / Market-Blend EV / Secondary-Soccer / NBA-NHL gates
     valid_soccer_eids = {
-        (p["league"], str(p["event_id"]))
+        (p["league"], str(p["event_id"]).split("::", 1)[0])
         for p in qualifying_picks
         if p.get("action") == "PAPER_BET" and not p.get("is_live")
     }
     valid_tennis_eids = {
-        (tp["tour"].lower(), str(tp["event_id"]))
+        (tp["tour"].lower(), str(tp["event_id"]).split("::", 1)[0])
         for tp in tennis_picks
         if tp.get("win_prob", 0.0) >= 0.70 and float(tp.get("min_fair_odds") or 0.0) > 1.10
     }
     valid_other_eids = {
-        (op["league"].lower(), str(op["event_id"]))
+        (op["league"].lower(), str(op["event_id"]).split("::", 1)[0])
         for op in other_sport_picks
         if float(op.get("best_odds") or 0.0) > 1.10
     }
@@ -4224,6 +4352,18 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return f"{home} or Draw (1X)"
     if s == "DC_X2":
         return f"{away} or Draw (X2)"
+    if s == "DC_OVER_1_5_H":
+        return f"{home} 1X & Over 1.5G"
+    if s == "DC_OVER_1_5_A":
+        return f"{away} X2 & Over 1.5G"
+    if s == "WIN_OVER_1_5_H":
+        return f"{home} & Over 1.5G"
+    if s == "WIN_OVER_1_5_A":
+        return f"{away} & Over 1.5G"
+    if s == "WIN_TO_NIL_H":
+        return f"{home} Win to Nil"
+    if s == "WIN_TO_NIL_A":
+        return f"{away} Win to Nil"
     if s == "DNB_H":
         return f"{home} DNB"
     if s == "DNB_A":
