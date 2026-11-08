@@ -894,6 +894,8 @@ def _lookup_matchup_detail(db_path: Path, rec_path: Path, home: str, away: str, 
         "pick_detail": model_pick_detail,
         "live_intel": statshub_intel,
         "statshub": statshub_intel,
+        "player_props": (statshub_intel.get("player_props") if isinstance(statshub_intel, dict) else None)
+        or {"top_scorers": [], "top_card_recipients": []},
         "deep_stats": funstats_intel,
     }
     _MATCHUP_DETAIL_CACHE[cache_key] = (now_ts, result_payload)
@@ -2426,6 +2428,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         "sport_metrics": sport_metrics,
         "set_score_distribution": set_score_distribution,
         "secondary_opportunities": secondary_opportunities,
+        "player_props": (sh_intel.get("player_props") if isinstance(sh_intel, dict) else None)
+        or (base_detail.get("player_props") if isinstance(base_detail, dict) else None)
+        or {"top_scorers": [], "top_card_recipients": []},
         "warnings": warnings,
         "verdict": verdict,
         "verdict_level": verdict_level,

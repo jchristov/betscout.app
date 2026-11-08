@@ -2715,6 +2715,60 @@
             </div>
           </div>
 
+          <!-- High-Potential Goalscorers & Card Recipients (Player Props) in Inspector Modal -->
+          <div
+            v-if="
+              (inspectorData.player_props?.top_scorers?.length || inspectorData.player_props?.top_card_recipients?.length)
+            "
+            class="p-3.5 rounded-xl bg-slate-900/80 border border-amber-400/35 space-y-2.5 text-[11.5px]"
+          >
+            <b class="text-amber-300 block">Player Props — High-Potential Goalscorers &amp; Card Candidates</b>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div v-if="inspectorData.player_props?.top_scorers?.length" class="space-y-1.5">
+                <span class="text-[10.5px] font-bold uppercase tracking-wider text-emerald-300 block">
+                  ⚽ Anytime Goalscorer Candidates
+                </span>
+                <div
+                  v-for="(sc, idxSc) in inspectorData.player_props.top_scorers.slice(0, 4)"
+                  :key="idxSc"
+                  class="p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-2"
+                >
+                  <div>
+                    <b class="text-white">{{ sc.player }}</b>
+                    <span class="text-slate-400 text-[10.5px] ml-1">({{ sc.team }} · {{ sc.position }})</span>
+                    <div class="text-slate-400 font-mono text-[10px]">
+                      {{ sc.goals }}G in {{ sc.matches }}m ({{ sc.goals_per_90 }}/90m<template v-if="sc.first_goals"> · {{ sc.first_goals }}× 1stG</template>)
+                    </div>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono font-bold text-[10.5px] whitespace-nowrap">
+                    {{ Math.round(Number(sc.anytime_prob || 0.35) * 100) }}% · Fair @{{ Number(sc.fair_odds || 2.8).toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+              <div v-if="inspectorData.player_props?.top_card_recipients?.length" class="space-y-1.5">
+                <span class="text-[10.5px] font-bold uppercase tracking-wider text-amber-300 block">
+                  🟨 Player To Be Booked (Card Risk)
+                </span>
+                <div
+                  v-for="(cd, idxCd) in inspectorData.player_props.top_card_recipients.slice(0, 4)"
+                  :key="idxCd"
+                  class="p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-2"
+                >
+                  <div>
+                    <b class="text-white">{{ cd.player }}</b>
+                    <span class="text-slate-400 text-[10.5px] ml-1">({{ cd.team }} · {{ cd.position }})</span>
+                    <div class="text-slate-400 font-mono text-[10px]">
+                      {{ cd.yellow_cards }}Y / {{ cd.red_cards }}R in {{ cd.matches }}m ({{ cd.cards_per_90 }}/90m)
+                    </div>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-mono font-bold text-[10.5px] whitespace-nowrap">
+                    {{ Math.round(Number(cd.card_prob || 0.32) * 100) }}% · Fair @{{ Number(cd.fair_odds || 3.1).toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Deep Quant & Long-Term H2H, 300+-Field Splits & Market Consensus in Inspector Modal -->
           <div
             v-if="inspectorData.deep_stats && inspectorData.deep_stats.available"
@@ -3386,6 +3440,53 @@
                       </div>
                     </div>
                     <div class="text-slate-400 text-[10.5px]">{{ sec.rationale }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- High-Potential Goalscorers & Card Recipients in Live Matchup Analyzer -->
+              <div
+                v-if="
+                  analyzerResult.player_props?.top_scorers?.length ||
+                  analyzerResult.player_props?.top_card_recipients?.length
+                "
+                class="p-3 rounded-xl bg-slate-950/90 border border-amber-400/35 space-y-2 text-[11px]"
+              >
+                <b class="text-amber-300 uppercase tracking-wider block">
+                  Player Props — Top Anytime Goalscorers &amp; Card Candidates
+                </b>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div v-if="analyzerResult.player_props?.top_scorers?.length" class="space-y-1">
+                    <span class="text-[10px] font-bold uppercase text-emerald-300 block">⚽ Anytime Scorer</span>
+                    <div
+                      v-for="(sc, iSc) in analyzerResult.player_props.top_scorers.slice(0, 3)"
+                      :key="iSc"
+                      class="p-1.5 rounded bg-slate-900 border border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <span class="truncate">
+                        <b class="text-white">{{ sc.player }}</b>
+                        <span class="text-slate-400 ml-1">({{ sc.goals }}G/{{ sc.matches }}m · {{ sc.goals_per_90 }}/90)</span>
+                      </span>
+                      <span class="font-mono font-bold text-emerald-300 shrink-0">
+                        {{ Math.round(Number(sc.anytime_prob || 0.35) * 100) }}% (@{{ Number(sc.fair_odds || 2.8).toFixed(2) }})
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="analyzerResult.player_props?.top_card_recipients?.length" class="space-y-1">
+                    <span class="text-[10px] font-bold uppercase text-amber-300 block">🟨 Card Candidate</span>
+                    <div
+                      v-for="(cd, iCd) in analyzerResult.player_props.top_card_recipients.slice(0, 3)"
+                      :key="iCd"
+                      class="p-1.5 rounded bg-slate-900 border border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <span class="truncate">
+                        <b class="text-white">{{ cd.player }}</b>
+                        <span class="text-slate-400 ml-1">({{ cd.yellow_cards }}Y/{{ cd.red_cards }}R in {{ cd.matches }}m)</span>
+                      </span>
+                      <span class="font-mono font-bold text-amber-300 shrink-0">
+                        {{ Math.round(Number(cd.card_prob || 0.32) * 100) }}% (@{{ Number(cd.fair_odds || 3.1).toFixed(2) }})
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

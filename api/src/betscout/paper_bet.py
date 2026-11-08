@@ -1128,7 +1128,8 @@ def build_frozen_model_and_team_state(
     conn.row_factory = sqlite3.Row
     all_rows = conn.execute(
         """
-        SELECT m.*, d.home_sot, d.away_sot, d.home_poss, d.away_poss, d.home_fouls, d.away_fouls
+        SELECT m.*, d.home_sot, d.away_sot, d.home_poss, d.away_poss, d.home_fouls, d.away_fouls,
+               d.home_corners, d.away_corners, d.home_yellow, d.away_yellow, d.home_red, d.away_red
         FROM matches m
         LEFT JOIN match_details d ON m.league = d.league AND m.event_id = d.event_id
         WHERE m.sport = 'soccer' AND m.outcome IS NOT NULL AND m.home_score IS NOT NULL
@@ -1153,6 +1154,8 @@ def build_frozen_model_and_team_state(
         else:
             s_gd = 0.0
         sot_d = (r["home_sot"] - r["away_sot"]) if (r["home_sot"] is not None and r["away_sot"] is not None) else 0.0
+        h_cards = float((r["home_yellow"] or 0.0) + (r["home_red"] or 0.0)) if r["home_yellow"] is not None else 2.0
+        a_cards = float((r["away_yellow"] or 0.0) + (r["away_red"] or 0.0)) if r["away_yellow"] is not None else 2.0
         h_rec = {
             "s_gd": s_gd,
             "sot_d": sot_d,
@@ -1163,6 +1166,9 @@ def build_frozen_model_and_team_state(
             "ga": float(as_),
             "sot_for": float(r["home_sot"]) if r["home_sot"] is not None else 4.0,
             "sot_ag": float(r["away_sot"]) if r["away_sot"] is not None else 4.0,
+            "corners_for": float(r["home_corners"]) if r["home_corners"] is not None else 5.0,
+            "corners_ag": float(r["away_corners"]) if r["away_corners"] is not None else 5.0,
+            "cards_for": h_cards,
         }
         a_rec = {
             "s_gd": -s_gd,
@@ -1174,6 +1180,9 @@ def build_frozen_model_and_team_state(
             "ga": float(hs),
             "sot_for": float(r["away_sot"]) if r["away_sot"] is not None else 4.0,
             "sot_ag": float(r["home_sot"]) if r["home_sot"] is not None else 4.0,
+            "corners_for": float(r["away_corners"]) if r["away_corners"] is not None else 4.5,
+            "corners_ag": float(r["home_corners"]) if r["home_corners"] is not None else 5.0,
+            "cards_for": a_cards,
         }
         hist[hk].append(h_rec)
         hist[ak].append(a_rec)
@@ -1733,14 +1742,23 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                     won = (tot_gms < g_ln) if is_un_g else (tot_gms > g_ln)
                 except Exception:
                     continue
-            elif side_up in ("CORNERS_OVER_9_5", "CARDS_OVER_3_5"):
+            elif side_up in ("CORNERS_OVER_8_5", "CORNERS_OVER_9_5", "CARDS_OVER_3_5") or side_up.startswith("TEAM_CORNERS_O4.5_"):
                 if sp != "soccer" or not sd:
                     continue
                 det_sc = _extract_soccer_details(lg, base_eid, row["kickoff"], sd)
-                if side_up == "CORNERS_OVER_9_5":
+                if side_up == "CORNERS_OVER_8_5":
+                    if det_sc[30] is None or det_sc[31] is None:
+                        continue
+                    won = (float(det_sc[30]) + float(det_sc[31])) >= 9.0
+                elif side_up == "CORNERS_OVER_9_5":
                     if det_sc[30] is None or det_sc[31] is None:
                         continue
                     won = (float(det_sc[30]) + float(det_sc[31])) >= 10.0
+                elif side_up.startswith("TEAM_CORNERS_O4.5_"):
+                    if det_sc[30] is None or det_sc[31] is None:
+                        continue
+                    my_c = float(det_sc[30]) if side_up.endswith("_H") else float(det_sc[31])
+                    won = my_c >= 5.0
                 else:
                     if det_sc[36] is None or det_sc[37] is None:
                         continue
@@ -2999,6 +3017,20 @@ def scan_upcoming_and_log_paper_bets(
                     float(np.mean([x.get("sot_for", 4.0) for x in oh]))
                     + float(np.mean([x.get("sot_for", 4.0) for x in oa]))
                 )
+                fav_c_for_v = float(np.mean([x.get("corners_for", 5.0) for x in fav_oh])) if fav_oh else None
+                dog_c_ag_v = float(np.mean([x.get("corners_ag", 5.0) for x in dog_oh])) if dog_oh else None
+                comb_c_avg_v = (
+                    0.5 * (float(np.mean([x.get("corners_for", 5.0) for x in oh])) + float(np.mean([x.get("corners_ag", 5.0) for x in oa])))
+                    + 0.5 * (float(np.mean([x.get("corners_for", 4.5) for x in oa])) + float(np.mean([x.get("corners_ag", 5.0) for x in oh])))
+                )
+                comb_cd_avg_v = (
+                    float(np.mean([x.get("cards_for", 2.0) for x in oh]))
+                    + float(np.mean([x.get("cards_for", 2.0) for x in oa]))
+                )
+                comb_fl_avg_v = (
+                    float(np.mean([x.get("fouls", 11.0) for x in oh]))
+                    + float(np.mean([x.get("fouls", 11.0) for x in oa]))
+                )
                 best_candidate["secondary_opportunities"] = evaluate_soccer_secondary_markets(
                     home=home,
                     away=away,
@@ -3025,6 +3057,11 @@ def scan_upcoming_and_log_paper_bets(
                     comb_sot_for_avg=comb_sot_for_v,
                     league=lg.key,
                     deep_stats=deep_stats_cand,
+                    fav_corners_for_avg=fav_c_for_v,
+                    dog_corners_ag_avg=dog_c_ag_v,
+                    comb_corners_avg=comb_c_avg_v,
+                    comb_cards_avg=comb_cd_avg_v,
+                    comb_fouls_avg=comb_fl_avg_v,
                 )
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
@@ -4384,8 +4421,12 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return "BTTS No (Clean-Sheet Wall)"
     if s == "HT_OVER_0_5":
         return "1st Half Over 0.5 Goals"
+    if s == "CORNERS_OVER_8_5":
+        return "Over 8.5 Corners"
     if s == "CORNERS_OVER_9_5":
         return "Over 9.5 Corners"
+    if s.startswith("TEAM_CORNERS_O4.5_"):
+        return f"{home if s.endswith('_H') else away} Over 4.5 Corners"
     if s == "CARDS_OVER_3_5":
         return "Over 3.5 Cards"
     if s == "OVER_1_5_ROUNDS":

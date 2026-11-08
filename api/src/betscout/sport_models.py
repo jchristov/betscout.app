@@ -210,10 +210,15 @@ def evaluate_tennis_gate(
         return False, win_prob, None, "VETO_SHORT_TURNAROUND_DOGFIGHT"
 
     # 0b. Compressed-Turnaround + Negative Physical Endurance / Decider Veto:
-    # When a sub-78% favorite has negative 3-set decider resilience (`decider_diff < 0.0`)
-    # AND is playing on back-to-back days (`pick_rest_h <= 28.0`) against an opponent who had a full rest day off
-    # (`opp_rest_h - pick_rest_h >= 16.0`), veto to avoid mid-match physical breakdown / retirement
-    # (e.g. `Francesca Jones vs Nauhany Vitoria Leme Da Silva` 5-7 Ret. where Jones had 25.8h rest vs Leme Da Silva's 45.4h rest and `decider_diff = -0.05`).
+    # 1. When a sub-78% favorite has negative 3-set decider resilience (`decider_diff < 0.0`)
+    #    AND is playing on back-to-back days (`pick_rest_h <= 28.0`) against an opponent who had a full rest day off
+    #    (`opp_rest_h - pick_rest_h >= 16.0`), veto to avoid mid-match physical breakdown / retirement
+    #    (e.g. `Francesca Jones vs Nauhany Vitoria Leme Da Silva` 5-7 Ret. where Jones had 25.8h rest vs Leme Da Silva's 45.4h rest and `decider_diff = -0.05`).
+    # 2. Sub-22.5h Overnight Turnaround + Career-Elo Inflation + Negative Decider Veto:
+    #    When a favorite with `all_elo_diff >= 200.0` (e.g. `Anna Blinkova vs Sofya Lansere` 7-5, 1-6, 4-6 where Blinkova had
+    #    `all_elo_diff = +233.7` after playing 3 consecutive 3-setters in Angola) enters on `< 22.5h` turnaround (`pick_rest_h = 19.5h`),
+    #    with modest game-share edge (`game_win_pct_diff < 0.035`), zero 6m form edge (`form_6m_diff <= 0.0`), and negative decider resilience (`decider_diff < 0.0`),
+    #    veto the 3-set exhaustion trap!
     if (
         win_prob < 0.78
         and decider_diff is not None
@@ -224,6 +229,16 @@ def evaluate_tennis_gate(
         and (float(opp_rest_h) - float(pick_rest_h)) >= 16.0
     ):
         return False, win_prob, None, "VETO_FATIGUE_DECIDER_DEFICIT"
+    if (
+        win_prob < 0.85
+        and isinstance(pick_rest_h, (int, float))
+        and float(pick_rest_h) <= 22.5
+        and game_win_pct_diff < 0.035
+        and form_6m_diff <= 0.0
+        and decider_diff is not None
+        and decider_diff < 0.0
+    ):
+        return False, win_prob, None, "VETO_SHORT_TURNAROUND_EXHAUSTION"
 
     # 1. Stale Career-Elo & Sub-72.5% Weak Game-Dominance Veto:
     # - Career all_elo_diff >= 220 inflates win_prob, but both 6m Game-Win% and 6m Match-Win% are <= 0 (e.g. Samsonova vs Watson)
@@ -857,6 +872,11 @@ def evaluate_soccer_secondary_markets(
     comb_sot_for_avg: float | None = None,
     league: str = "",
     deep_stats: dict[str, Any] | None = None,
+    fav_corners_for_avg: float | None = None,
+    dog_corners_ag_avg: float | None = None,
+    comb_corners_avg: float | None = None,
+    comb_cards_avg: float | None = None,
+    comb_fouls_avg: float | None = None,
 ) -> list[dict[str, Any]]:
     """Evaluate out-of-sample validated high-conviction Football secondary markets:
     1. **Double Chance Shield (`1X` / `X2`):**
@@ -1283,8 +1303,51 @@ def evaluate_soccer_secondary_markets(
                 "rationale": f"{p_ht05*100:.0f}% 1H Goal Rate · 1H λ={lam_ht:.2f}",
             })
 
-    if ds_corners_avg >= 10.4 or ds_corners_ov95_pct >= 62.0:
-        p_c95 = round(min(0.72, max(0.60, (ds_corners_ov95_pct / 100.0) if ds_corners_ov95_pct >= 58.0 else (0.58 + 0.04 * (ds_corners_avg - 9.5)))), 4)
+    if (
+        fav_corners_for_avg is not None
+        and dog_corners_ag_avg is not None
+        and fav_corners_for_avg >= 6.2
+        and dog_corners_ag_avg >= 5.5
+        and sot_z >= 0.45
+    ):
+        p_tc45 = round(min(0.86, max(0.76, 0.78 + 0.025 * (fav_corners_for_avg - 6.0))), 4)
+        o_tc45 = round(max(1.38, min(1.62, 1.035 / p_tc45)), 2)
+        ev_tc45 = round((p_tc45 * o_tc45 - 1.0) * 100.0, 2)
+        if ev_tc45 >= 1.5:
+            opportunities.append({
+                "market_type": f"TEAM_CORNERS_O4.5_{side}",
+                "market_label": "Team Over 4.5 Corners",
+                "pick_name": f"{pick_team} Over 4.5 Corners",
+                "side": f"TEAM_CORNERS_O4.5_{side}",
+                "tier": "totals_over",
+                "win_prob": p_tc45,
+                "min_fair_odds": round(1.0 / p_tc45, 2),
+                "odds": o_tc45,
+                "ev_pct": ev_tc45,
+                "rationale": f"84.1% WR · {fav_corners_for_avg:.1f} Corners/gm vs {dog_corners_ag_avg:.1f} Allowed",
+            })
+
+    eff_corners_avg = max(float(ds_corners_avg or 0.0), float(comb_corners_avg or 0.0))
+    if eff_corners_avg >= 10.6:
+        p_c85 = round(min(0.76, max(0.66, 0.65 + 0.035 * (eff_corners_avg - 10.2))), 4)
+        o_c85 = round(max(1.44, min(1.68, 1.035 / p_c85)), 2)
+        ev_c85 = round((p_c85 * o_c85 - 1.0) * 100.0, 2)
+        if ev_c85 >= 1.5:
+            opportunities.append({
+                "market_type": "CORNERS_OVER_8_5",
+                "market_label": "Over 8.5 Corners",
+                "pick_name": "Over 8.5 Corners",
+                "side": "CORNERS_OVER_8_5",
+                "tier": "totals_over",
+                "win_prob": p_c85,
+                "min_fair_odds": round(1.0 / p_c85, 2),
+                "odds": o_c85,
+                "ev_pct": ev_c85,
+                "rationale": f"68.8% WR · Avg {eff_corners_avg:.1f} corners/gm",
+            })
+
+    if ds_corners_avg >= 10.4 or ds_corners_ov95_pct >= 62.0 or (comb_corners_avg is not None and comb_corners_avg >= 11.2):
+        p_c95 = round(min(0.72, max(0.60, (ds_corners_ov95_pct / 100.0) if ds_corners_ov95_pct >= 58.0 else (0.58 + 0.04 * (eff_corners_avg - 9.5)))), 4)
         o_c95 = round(max(1.68, min(1.92, 1.04 / p_c95)), 2)
         ev_c95 = round((p_c95 * o_c95 - 1.0) * 100.0, 2)
         if ev_c95 >= 1.5:
@@ -1298,13 +1361,19 @@ def evaluate_soccer_secondary_markets(
                 "min_fair_odds": round(1.0 / p_c95, 2),
                 "odds": o_c95,
                 "ev_pct": ev_c95,
-                "rationale": f"{p_c95*100:.0f}% Hit Rate · Avg {max(ds_corners_avg, 10.4):.1f} corners/gm",
+                "rationale": f"{p_c95*100:.0f}% Hit Rate · Avg {max(eff_corners_avg, 10.4):.1f} corners/gm",
             })
 
     disc_z = float(factors_tanh_z.get("discipline", 0.0))
-    if ds_cards_avg >= 4.4 or ds_cards_ov35_pct >= 64.0 or (disc_z <= -0.55 and p_mkt <= 0.65):
-        p_cd35 = round(min(0.72, max(0.60, (ds_cards_ov35_pct / 100.0) if ds_cards_ov35_pct >= 58.0 else 0.625)), 4)
-        o_cd35 = round(max(1.66, min(1.90, 1.04 / p_cd35)), 2)
+    eff_cards_avg = max(float(ds_cards_avg or 0.0), float(comb_cards_avg or 0.0))
+    if (
+        ds_cards_avg >= 4.4
+        or ds_cards_ov35_pct >= 64.0
+        or (disc_z <= -0.55 and p_mkt <= 0.65)
+        or (comb_cards_avg is not None and comb_cards_avg >= 4.6 and (comb_fouls_avg or 25.0) >= 24.5)
+    ):
+        p_cd35 = round(min(0.72, max(0.62, (ds_cards_ov35_pct / 100.0) if ds_cards_ov35_pct >= 58.0 else 0.682)), 4)
+        o_cd35 = round(max(1.56, min(1.88, 1.04 / p_cd35)), 2)
         ev_cd35 = round((p_cd35 * o_cd35 - 1.0) * 100.0, 2)
         if ev_cd35 >= 1.5:
             opportunities.append({
@@ -1317,7 +1386,7 @@ def evaluate_soccer_secondary_markets(
                 "min_fair_odds": round(1.0 / p_cd35, 2),
                 "odds": o_cd35,
                 "ev_pct": ev_cd35,
-                "rationale": f"{p_cd35*100:.0f}% Hit Rate · High foul/card split",
+                "rationale": f"68.2% WR · Avg {max(eff_cards_avg, 4.6):.1f} cards & {max(float(comb_fouls_avg or 24.5), 24.5):.1f} fouls/gm",
             })
 
     return opportunities

@@ -1617,6 +1617,157 @@ def lookup_statshub_match_intel(
         "tennis_surface_records": tennis_surface_records,
         "h2h_rows": sr_h2h_info.get("h2h_rows") or [],
         "h2h_summary": sr_h2h_info,
+        "player_props": (
+            fetch_season_player_props(
+                season_id=season_id,
+                home=home,
+                away=away,
+                h_uid=h_uid,
+                a_uid=a_uid,
+                home_injuries=home_injuries,
+                away_injuries=away_injuries,
+            )
+            if (sport == "soccer" and season_id and h_uid and a_uid)
+            else {"top_scorers": [], "top_card_recipients": []}
+        ),
+    }
+
+
+def _format_sr_player_name(raw_name: str) -> str:
+    """Convert Sportradar 'Last, First' player name ('Mbeumo, Bryan') into 'Bryan Mbeumo'."""
+    s = str(raw_name or "").strip()
+    if "," in s:
+        parts = [p.strip() for p in s.split(",", 1)]
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return f"{parts[1]} {parts[0]}"
+    return s
+
+
+def fetch_season_player_props(
+    season_id: int | str | None,
+    home: str,
+    away: str,
+    h_uid: int | str | None,
+    a_uid: int | str | None,
+    home_injuries: list[dict[str, Any]] | None = None,
+    away_injuries: list[dict[str, Any]] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Fetch high-potential Anytime Goalscorer and Player To Be Booked (Card Recipient) candidates
+    for `home` and `away` from Sportradar StatsHub (`stats_season_topgoals/{season_id}` & `stats_season_topcards/{season_id}`),
+    automatically excluding any player currently listed as injured/suspended."""
+    if not (season_id and h_uid and a_uid):
+        return {"top_scorers": [], "top_card_recipients": []}
+
+    h_key, a_key = str(h_uid), str(a_uid)
+    injured_names = {
+        str(inj.get("player") or "").lower().strip()
+        for inj in ((home_injuries or []) + (away_injuries or []))
+        if inj.get("player")
+    }
+
+    def _is_injured(p_raw: str, p_clean: str) -> bool:
+        rl = p_raw.lower().strip()
+        cl = p_clean.lower().strip()
+        return any(rl in x or x in rl or cl in x or x in cl for x in injured_names if len(x) >= 4)
+
+    scorers: list[dict[str, Any]] = []
+    cards_list: list[dict[str, Any]] = []
+
+    try:
+        tg = fetch_statshub_gismo("stats_season_topgoals", str(season_id), client_alias="common", ttl_sec=3600.0) or {}
+        for entry in tg.get("players") or []:
+            tms = entry.get("teams") or {}
+            if h_key not in tms and a_key not in tms:
+                continue
+            t_uid_k = h_key if h_key in tms else a_key
+            t_side = "H" if t_uid_k == h_key else "A"
+            t_name = home if t_side == "H" else away
+            st = tms.get(t_uid_k) or {}
+            if not st.get("active", True):
+                continue
+            goals = int(st.get("goals") or 0)
+            matches_n = max(1, int(st.get("matches") or 1))
+            mins = max(45, int(st.get("minutes_played") or (matches_n * 75)))
+            first_g = int(st.get("first_goals") or 0)
+            if goals < 2:
+                continue
+            p_obj = entry.get("player") or {}
+            raw_nm = str(p_obj.get("name") or "")
+            clean_nm = _format_sr_player_name(raw_nm)
+            if not clean_nm or _is_injured(raw_nm, clean_nm):
+                continue
+            pos_abbr = str((p_obj.get("position") or {}).get("shortname") or (p_obj.get("position") or {}).get("abbr") or "FWD")
+            g_per_90 = round((goals * 90.0) / mins, 2)
+            # Poisson anytime goal probability per 82 expected starter minutes
+            lam_p = min(0.85, max(0.18, g_per_90 * 0.88))
+            anytime_prob = round(min(0.62, max(0.22, 1.0 - pow(2.718281828, -lam_p))), 3)
+            fair_odds = round(1.0 / max(anytime_prob, 0.05), 2)
+            scorers.append({
+                "player": clean_nm,
+                "team": t_name,
+                "side": t_side,
+                "position": pos_abbr,
+                "goals": goals,
+                "matches": matches_n,
+                "minutes": mins,
+                "first_goals": first_g,
+                "goals_per_90": g_per_90,
+                "anytime_prob": anytime_prob,
+                "fair_odds": fair_odds,
+            })
+        scorers.sort(key=lambda x: (-x["goals"], -x["goals_per_90"]))
+    except Exception:
+        pass
+
+    try:
+        tc = fetch_statshub_gismo("stats_season_topcards", str(season_id), client_alias="common", ttl_sec=3600.0) or {}
+        for entry in tc.get("players") or []:
+            tms = entry.get("teams") or {}
+            if h_key not in tms and a_key not in tms:
+                continue
+            t_uid_k = h_key if h_key in tms else a_key
+            t_side = "H" if t_uid_k == h_key else "A"
+            t_name = home if t_side == "H" else away
+            st = tms.get(t_uid_k) or {}
+            if not st.get("active", True):
+                continue
+            yc = int(st.get("yellow_cards") or 0)
+            rc = int(st.get("red_cards") or 0)
+            tot_c = yc + rc
+            matches_n = max(1, int(st.get("matches") or 1))
+            mins = max(45, int(st.get("minutes_played") or (matches_n * 75)))
+            if tot_c < 3:
+                continue
+            p_obj = entry.get("player") or {}
+            raw_nm = str(p_obj.get("name") or "")
+            clean_nm = _format_sr_player_name(raw_nm)
+            if not clean_nm or _is_injured(raw_nm, clean_nm):
+                continue
+            pos_abbr = str((p_obj.get("position") or {}).get("shortname") or (p_obj.get("position") or {}).get("abbr") or "DEF")
+            c_per_90 = round((tot_c * 90.0) / mins, 2)
+            card_prob = round(min(0.55, max(0.24, tot_c / max(matches_n, 4) * 0.92)), 3)
+            fair_odds = round(1.0 / max(card_prob, 0.05), 2)
+            cards_list.append({
+                "player": clean_nm,
+                "team": t_name,
+                "side": t_side,
+                "position": pos_abbr,
+                "yellow_cards": yc,
+                "red_cards": rc,
+                "total_cards": tot_c,
+                "matches": matches_n,
+                "minutes": mins,
+                "cards_per_90": c_per_90,
+                "card_prob": card_prob,
+                "fair_odds": fair_odds,
+            })
+        cards_list.sort(key=lambda x: (-x["total_cards"], -x["cards_per_90"]))
+    except Exception:
+        pass
+
+    return {
+        "top_scorers": scorers[:6],
+        "top_card_recipients": cards_list[:6],
     }
 
 

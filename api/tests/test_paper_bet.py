@@ -1368,9 +1368,38 @@ def test_per_sport_isolated_gates():
             factors_tanh_z={"sot_d": 0.65, "dom_rebound": 0.35},
             exact_score_pred={"lambda_home": 2.15, "mu_away": 0.95},
             recent_draws_raw=0.0,
+            fav_corners_for_avg=6.6,
+            dog_corners_ag_avg=5.8,
+            comb_corners_avg=11.0,
+            comb_cards_avg=4.8,
+            comb_fouls_avg=25.5,
         )
         sec_types = {x["market_type"] for x in soc_sec}
         assert "DC_OVER_1_5_H" in sec_types and "WIN_OVER_1_5_H" in sec_types
+        assert "TEAM_CORNERS_O4.5_H" in sec_types and "CORNERS_OVER_8_5" in sec_types and "CARDS_OVER_3_5" in sec_types
+
+        # 7f. Test Tennis Short-Turnaround (<22.5h) + Negative Decider Exhaustion Veto (Blinkova vs Lansere)
+        from betscout.sport_models import evaluate_tennis_gate
+
+        t_ok_blinkova, _, _, t_reason_blinkova = evaluate_tennis_gate(
+            win_prob=0.814,
+            book_odds=1.25,
+            opp_book_odds=3.30,
+            game_win_pct_diff=0.023,
+            form_6m_diff=0.0,
+            pick_rest_h=19.5,
+            opp_rest_h=22.0,
+            pick_last_tourn="angola",
+            cur_tourn_city="angola",
+            game_elo_diff=103.7,
+            all_elo_diff=233.7,
+            surf_elo_diff=212.4,
+            h2h_n=0,
+            open_odds=1.25,
+            decider_diff=-0.075,
+            tourn_wins_diff=0,
+        )
+        assert t_ok_blinkova is False and t_reason_blinkova == "VETO_SHORT_TURNAROUND_EXHAUSTION"
     sample_rec = {
         "qualifying_picks": [],
         "tennis_picks": [],
