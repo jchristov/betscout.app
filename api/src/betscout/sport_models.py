@@ -995,14 +995,14 @@ def evaluate_soccer_secondary_markets(
         opportunities.append({
             "market_type": f"DNB_{side}",
             "market_label": "Draw No Bet (DNB)",
-            "pick_name": f"{pick_team} DNB (Draw Refund)",
+            "pick_name": f"{pick_team} DNB",
             "side": f"DNB_{side}",
             "tier": "dnb_shield",
             "win_prob": p_dnb_cond,
             "min_fair_odds": round(1.0 / max(p_dnb_cond, 0.05), 2),
             "odds": dnb_odds,
             "ev_pct": ev_dnb,
-            "rationale": "83.7% OOS Win Rate (Excl. Push) · Full stake refund if match ends level",
+            "rationale": "83.7% WR · Refund on draw",
         })
 
     # 2b. Asian Handicap -1.0 Shield (`ASIAN_HCAP_M1.0`, 77.8% OOS Win Rate excl. 1-goal push, +38.94% ROI)
@@ -1020,15 +1020,15 @@ def evaluate_soccer_secondary_markets(
         if ev_ah1 >= 2.0:
             opportunities.append({
                 "market_type": f"ASIAN_HCAP_M1.0_{side}",
-                "market_label": "Asian Handicap -1.0 (Push on 1G Win)",
-                "pick_name": f"{pick_team} -1.0 Asian Handicap (Refund if +1G)",
+                "market_label": "Asian Hcap -1.0",
+                "pick_name": f"{pick_team} -1.0 AH",
                 "side": f"ASIAN_HCAP_M1.0_{side}",
                 "tier": "dnb_shield",
                 "win_prob": p_ah1,
                 "min_fair_odds": round(1.0 / p_ah1, 2),
                 "odds": o_ah1,
                 "ev_pct": ev_ah1,
-                "rationale": f"77.8% OOS Hit Rate (+38.94% ROI, Excl. Push) · {pick_team} λ={fav_lam:.2f}g with 1-goal win refund",
+                "rationale": f"77.8% WR · λ={fav_lam:.2f}g (Refund on +1G)",
             })
 
     # 3. High-Dominance Over 2.5 Goals & Over 1.5 Goals
@@ -1061,15 +1061,15 @@ def evaluate_soccer_secondary_markets(
         if ev_o25 >= 2.0:
             opportunities.append({
                 "market_type": "OVER_2_5",
-                "market_label": "Total Goals Over 2.5",
-                "pick_name": f"Over 2.5 Goals (λ+μ={lam_tot:.2f})",
+                "market_label": "Over 2.5 Goals",
+                "pick_name": "Over 2.5 Goals",
                 "side": "OVER_2_5",
                 "tier": "totals_over",
                 "win_prob": p_o25,
                 "min_fair_odds": round(1.0 / max(p_o25, 0.05), 2),
                 "odds": o25_odds,
                 "ev_pct": ev_o25,
-                "rationale": f"88.9% OOS Hit Rate · High SoT dominance ({sot_z:+.2f}z) & low draw propensity",
+                "rationale": f"88.9% WR · λ+μ={lam_tot:.2f}g · SoT {sot_z:+.2f}z",
             })
 
         p_o15 = round(min(0.94, max(0.78, 1.0 - (1.0 + lam_tot) * math.exp(-lam_tot) + 0.06)), 4)
@@ -1078,15 +1078,15 @@ def evaluate_soccer_secondary_markets(
         if ev_o15 >= 1.5:
             opportunities.append({
                 "market_type": "OVER_1_5",
-                "market_label": "Total Goals Over 1.5",
-                "pick_name": f"Over 1.5 Goals (λ+μ={lam_tot:.2f})",
+                "market_label": "Over 1.5 Goals",
+                "pick_name": "Over 1.5 Goals",
                 "side": "OVER_1_5",
                 "tier": "totals_over",
                 "win_prob": p_o15,
                 "min_fair_odds": round(1.0 / max(p_o15, 0.05), 2),
                 "odds": o15_odds,
                 "ev_pct": ev_o15,
-                "rationale": f"94.4% OOS Hit Rate · Projected {lam_tot:.2f} expected goals",
+                "rationale": f"94.4% WR · λ+μ={lam_tot:.2f}g",
             })
 
     # 4. Goalie & Defense-Wall vs Blunt-Underdog Under 2.5 Goals (`68.8%` OOS Win Rate, `+32.62%` ROI)
@@ -1112,15 +1112,15 @@ def evaluate_soccer_secondary_markets(
         if ev_u25 >= 2.0:
             opportunities.append({
                 "market_type": "UNDER_2_5",
-                "market_label": "Defense-Wall Under 2.5 Goals",
-                "pick_name": f"Under 2.5 Goals (GK Save {fav_save_pct*100:.0f}% · Opp {dog_gf_avg:.2f} GPG)",
+                "market_label": "Under 2.5 Goals",
+                "pick_name": "Under 2.5 Goals",
                 "side": "UNDER_2_5",
                 "tier": "totals_under",
                 "win_prob": p_u25,
                 "min_fair_odds": round(1.0 / max(p_u25, 0.05), 2),
                 "odds": u25_odds,
                 "ev_pct": ev_u25,
-                "rationale": f"68.8% OOS Hit Rate (+32.62% ROI) · Elite GK Save% ({fav_save_pct*100:.0f}%) & Defense ({fav_ga_avg:.2f} GA) vs blunt attack ({dog_gf_avg:.2f} GF)",
+                "rationale": f"68.8% WR · GK Save {fav_save_pct*100:.0f}% · Opp {dog_gf_avg:.2f} GF",
             })
 
     # 5. Both Teams To Score — Yes (`BTTS_YES`, 67.3% OOS Hit Rate, +3.42u on Competitive High-SoT Matchups)
@@ -1147,15 +1147,15 @@ def evaluate_soccer_secondary_markets(
         if ev_btts_y >= 1.5:
             opportunities.append({
                 "market_type": "BTTS_YES",
-                "market_label": "Both Teams To Score (Yes)",
-                "pick_name": f"BTTS Yes (λ={lam_h:.2f} · μ={mu_a:.2f})",
+                "market_label": "BTTS Yes",
+                "pick_name": "BTTS Yes",
                 "side": "BTTS_YES",
                 "tier": "totals_over",
                 "win_prob": p_btts_y,
                 "min_fair_odds": round(1.0 / p_btts_y, 2),
                 "odds": o_btts_y,
                 "ev_pct": ev_btts_y,
-                "rationale": f"67.3% OOS Hit Rate · High dual-attack SoT & BTTS split ({p_btts_y*100:.1f}% prob, λ={lam_h:.2f}, μ={mu_a:.2f})",
+                "rationale": f"67.3% WR · λ={lam_h:.2f} · μ={mu_a:.2f}",
             })
     elif (
         fav_ga_avg is not None
@@ -1181,15 +1181,15 @@ def evaluate_soccer_secondary_markets(
         if ev_btts_n >= 1.5:
             opportunities.append({
                 "market_type": "BTTS_NO",
-                "market_label": "BTTS No (Double-Wall Clean Sheet)",
-                "pick_name": f"BTTS No ({pick_team} Double-Wall Clean Sheet)",
+                "market_label": "BTTS No",
+                "pick_name": "BTTS No",
                 "side": "BTTS_NO",
                 "tier": "totals_under",
                 "win_prob": p_btts_n,
                 "min_fair_odds": round(1.0 / p_btts_n, 2),
                 "odds": o_btts_n,
                 "ev_pct": ev_btts_n,
-                "rationale": f"Low-Event Double-Wall · {pick_team} allows {fav_ga_avg:.2f} GA/gm vs opponent {dog_gf_avg:.2f} GF/gm (λ+μ={lam_tot:.2f})",
+                "rationale": f"Clean-Sheet Edge · {fav_ga_avg:.2f} GA vs {dog_gf_avg:.2f} GF",
             })
 
     # 6. 1st-Half Goal (`HT_OVER_0_5`) & Statistical Corners / Cards Totals (`CORNERS_OVER_9_5`, `CARDS_OVER_3_5`)
@@ -1218,15 +1218,15 @@ def evaluate_soccer_secondary_markets(
         if ev_ht05 >= 1.5:
             opportunities.append({
                 "market_type": "HT_OVER_0_5",
-                "market_label": "1st Half Over 0.5 Goals",
-                "pick_name": f"1st Half Over 0.5 Goals (1H λ={lam_ht:.2f})",
+                "market_label": "1H Over 0.5 Goals",
+                "pick_name": "1H Over 0.5 Goals",
                 "side": "HT_OVER_0_5",
                 "tier": "totals_over",
                 "win_prob": p_ht05,
                 "min_fair_odds": round(1.0 / p_ht05, 2),
                 "odds": o_ht05,
                 "ev_pct": ev_ht05,
-                "rationale": f"1st-Half Tempo Edge · {p_ht05*100:.1f}% 1H goal rate (1H λ={lam_ht:.2f})",
+                "rationale": f"{p_ht05*100:.0f}% 1H Goal Rate · 1H λ={lam_ht:.2f}",
             })
 
     if ds_corners_avg >= 10.4 or ds_corners_ov95_pct >= 62.0:
@@ -1236,15 +1236,15 @@ def evaluate_soccer_secondary_markets(
         if ev_c95 >= 1.5:
             opportunities.append({
                 "market_type": "CORNERS_OVER_9_5",
-                "market_label": "Corners Over 9.5",
-                "pick_name": f"Over 9.5 Corners (Avg {max(ds_corners_avg, 10.4):.1f}/gm)",
+                "market_label": "Over 9.5 Corners",
+                "pick_name": "Over 9.5 Corners",
                 "side": "CORNERS_OVER_9_5",
                 "tier": "totals_over",
                 "win_prob": p_c95,
                 "min_fair_odds": round(1.0 / p_c95, 2),
                 "odds": o_c95,
                 "ev_pct": ev_c95,
-                "rationale": f"FunStats Corner Split Edge · {p_c95*100:.1f}% Over 9.5 Corners hit rate",
+                "rationale": f"{p_c95*100:.0f}% Hit Rate · Avg {max(ds_corners_avg, 10.4):.1f} corners/gm",
             })
 
     disc_z = float(factors_tanh_z.get("discipline", 0.0))
@@ -1255,15 +1255,15 @@ def evaluate_soccer_secondary_markets(
         if ev_cd35 >= 1.5:
             opportunities.append({
                 "market_type": "CARDS_OVER_3_5",
-                "market_label": "Cards Over 3.5",
-                "pick_name": f"Over 3.5 Cards (High-Intensity Referee/Foul Split)",
+                "market_label": "Over 3.5 Cards",
+                "pick_name": "Over 3.5 Cards",
                 "side": "CARDS_OVER_3_5",
                 "tier": "totals_over",
                 "win_prob": p_cd35,
                 "min_fair_odds": round(1.0 / p_cd35, 2),
                 "odds": o_cd35,
                 "ev_pct": ev_cd35,
-                "rationale": f"FunStats Card/Discipline Split Edge · {p_cd35*100:.1f}% Over 3.5 Cards probability",
+                "rationale": f"{p_cd35*100:.0f}% Hit Rate · High foul/card split",
             })
 
     return opportunities
@@ -1324,15 +1324,15 @@ def evaluate_tennis_secondary_markets(
         ev_15 = round((p_plus15 * o_plus15 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": "SET_HANDICAP_PLUS_1_5",
-            "market_label": "Set Handicap +1.5 Sets",
-            "pick_name": f"{pick_player} +1.5 Sets (Wins ≥1 Set)",
+            "market_label": "+1.5 Sets",
+            "pick_name": f"{pick_player} +1.5 Sets",
             "side": f"PLUS15_{side}",
             "tier": "set_shield",
             "win_prob": p_plus15,
             "min_fair_odds": round(1.0 / p_plus15, 2),
             "odds": o_plus15,
             "ev_pct": ev_15,
-            "rationale": f"92.5% OOS Hit Rate · 1 - P({sp.get('underdog_sweep_score', '0:2')}) = {p_plus15*100:.1f}% · Game-Share +{game_win_pct_diff*100:.1f}%",
+            "rationale": f"92.5% WR · Game-Share +{game_win_pct_diff*100:.1f}%",
         })
 
     # 2. Under 21.5 Total Games on Dominant Favorites
@@ -1350,15 +1350,15 @@ def evaluate_tennis_secondary_markets(
             if ev_u >= 2.0:
                 opportunities.append({
                     "market_type": f"UNDER_{g_line}_GAMES",
-                    "market_label": f"Total Games Under {g_line}",
-                    "pick_name": f"Under {g_line} Games (Exp {tm.get('expected_games', 20.4)})",
+                    "market_label": f"Under {g_line} Games",
+                    "pick_name": f"Under {g_line} Games",
                     "side": f"UNDER_GAMES_{g_line}",
                     "tier": "totals_under",
                     "win_prob": p_u215,
                     "min_fair_odds": round(1.0 / p_u215, 2),
                     "odds": u_odds,
                     "ev_pct": ev_u,
-                    "rationale": f"62.5% OOS Hit Rate (+11.25% ROI) · Straight-sets dominance profile",
+                    "rationale": f"62.5% WR · Exp {tm.get('expected_games', 20.4)} games",
                 })
 
     # 3. 2:0 Straight Sets Dominance (Calibrated 4-Outcome Set-Score Model)
@@ -1376,15 +1376,15 @@ def evaluate_tennis_secondary_markets(
         ev_20 = round((p_20 * o_20 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": "SETS_2_0",
-            "market_label": f"Exact Set Score {sc_20}",
-            "pick_name": f"{pick_player} {sc_20} Straight Sets",
+            "market_label": f"Sets {sc_20}",
+            "pick_name": f"{pick_player} {sc_20} Sets",
             "side": f"SETS20_{side}",
             "tier": "straight_sets",
             "win_prob": p_20,
             "min_fair_odds": round(1.0 / p_20, 2),
             "odds": o_20,
             "ev_pct": ev_20,
-            "rationale": f"71.4% OOS Hit Rate (+8.37% ROI) · Calibrated {p_20*100:.1f}% {sc_20} conversion",
+            "rationale": f"71.4% WR · {p_20*100:.1f}% {sc_20} prob",
         })
 
     # 4. 3-Set Dogfight Over Total Games (when calibrated P(2:1) + P(1:2) >= 44%)
@@ -1405,15 +1405,15 @@ def evaluate_tennis_secondary_markets(
                 sc_12 = str(sp.get("underdog_decider_score") or ("1:2" if side == "H" else "2:1"))
                 opportunities.append({
                     "market_type": f"OVER_{g_line_ov}_GAMES",
-                    "market_label": f"3-Set Dogfight Over {g_line_ov} Games",
-                    "pick_name": f"Over {g_line_ov} Games ({p_dogfight*100:.0f}% {sc_21}/{sc_12} 3-Set Prob)",
+                    "market_label": f"Over {g_line_ov} Games",
+                    "pick_name": f"Over {g_line_ov} Games",
                     "side": f"OVER_GAMES_{g_line_ov}",
                     "tier": "totals_over",
                     "win_prob": p_ov_gms,
                     "min_fair_odds": round(1.0 / p_ov_gms, 2),
                     "odds": o_ov_gms,
                     "ev_pct": ev_ov_gms,
-                    "rationale": f"Calibrated 4-Outcome Set Engine projects {p_dogfight*100:.1f}% 3-set decider ({sc_21}/{sc_12}) probability",
+                    "rationale": f"{p_dogfight*100:.0f}% 3-Set Prob",
                 })
 
     # 5. Game Handicap -3.5 Games (`GAMES_HCAP_M3.5`, 79.3% OOS Hit Rate, +33.24% ROI across 290 bets)
@@ -1430,15 +1430,15 @@ def evaluate_tennis_secondary_markets(
         ev_hc35 = round((p_hc35 * o_hc35 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"GAMES_HCAP_M3.5_{side}",
-            "market_label": "Game Handicap -3.5 Games",
-            "pick_name": f"{pick_player} -3.5 Games Handicap",
+            "market_label": "-3.5 Games",
+            "pick_name": f"{pick_player} -3.5 Games",
             "side": f"GAMES_HCAP_M3.5_{side}",
             "tier": "set_shield",
             "win_prob": p_hc35,
             "min_fair_odds": round(1.0 / p_hc35, 2),
             "odds": o_hc35,
             "ev_pct": ev_hc35,
-            "rationale": f"79.3% OOS Hit Rate (+33.24% ROI) · Game-Share +{game_win_pct_diff*100:.1f}% & GameElo +{game_elo_diff:.0f}",
+            "rationale": f"79.3% WR · GameElo +{game_elo_diff:.0f}",
         })
 
     # 6. Under 2.5 Total Sets (`UNDER_2_5_SETS`, 75.0% OOS Hit Rate, +6.50% ROI across 180 bets)
@@ -1454,15 +1454,15 @@ def evaluate_tennis_secondary_markets(
         ev_u25_sets = round((p_u25_sets * o_u25_sets - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": "UNDER_2_5_SETS",
-            "market_label": "Total Sets Under 2.5 (2-Set Finish)",
-            "pick_name": "Under 2.5 Sets (Straight-Sets Finish)",
+            "market_label": "Under 2.5 Sets",
+            "pick_name": "Under 2.5 Sets",
             "side": "UNDER_2_5_SETS",
             "tier": "straight_sets",
             "win_prob": p_u25_sets,
             "min_fair_odds": round(1.0 / p_u25_sets, 2),
             "odds": o_u25_sets,
             "ev_pct": ev_u25_sets,
-            "rationale": f"75.0% OOS Hit Rate (+6.50% ROI) · {p_u25_sets*100:.1f}% 2-set finish probability (2:0 or 0:2)",
+            "rationale": f"75.0% WR · {p_u25_sets*100:.0f}% 2-set finish",
         })
 
     return opportunities
@@ -1511,15 +1511,15 @@ def evaluate_nhl_totals_market(
             if ev_un >= 2.0:
                 opportunities.append({
                     "market_type": f"UNDER_{lt}_GOALS",
-                    "market_label": f"Goalie-Wall Under {lt} Goals",
-                    "pick_name": f"Under {lt} Goals (Exp {exp_total_goals:.1f}g · {combined_shots:.1f} SOG)",
+                    "market_label": f"Under {lt} Goals",
+                    "pick_name": f"Under {lt} Goals",
                     "side": f"UNDER_GOALS_{lt}",
                     "tier": "totals_under",
                     "win_prob": p_under,
                     "min_fair_odds": round(1.0 / p_under, 2),
                     "odds": o_un,
                     "ev_pct": ev_un,
-                    "rationale": f"63.4% OOS Hit Rate (+15.71% ROI) · Goalie & shot-suppression wall ({combined_shots:.1f} SOG, {exp_total_goals:.2f} GPG)",
+                    "rationale": f"63.4% WR · Exp {exp_total_goals:.1f}g · {combined_shots:.1f} SOG",
                 })
 
     # 2. High-SOG Attack Firepower Over Total Goals (62.5% OOS WR, +13.27% ROI)
@@ -1534,15 +1534,15 @@ def evaluate_nhl_totals_market(
             if ev_ov >= 1.5:
                 opportunities.append({
                     "market_type": f"OVER_{lt}_GOALS",
-                    "market_label": f"Attack-Firepower Over {lt} Goals",
-                    "pick_name": f"Over {lt} Goals (Exp {exp_total_goals:.1f}g · {combined_shots:.0f} SOG)",
+                    "market_label": f"Over {lt} Goals",
+                    "pick_name": f"Over {lt} Goals",
                     "side": f"OVER_GOALS_{lt}",
                     "tier": "totals_over",
                     "win_prob": p_over,
                     "min_fair_odds": round(1.0 / p_over, 2),
                     "odds": o_ov,
                     "ev_pct": ev_ov,
-                    "rationale": f"62.5% OOS Hit Rate (+13.27% ROI) · High-event attack ({exp_total_goals:.2f} GPG & {combined_shots:.1f} combined SOG)",
+                    "rationale": f"62.5% WR · Exp {exp_total_goals:.1f}g · {combined_shots:.0f} SOG",
                 })
 
     # 3. +1.5 Puck Line Shield (81.6% OOS WR)
@@ -1559,15 +1559,15 @@ def evaluate_nhl_totals_market(
         if ev_pl >= 1.0:
             opportunities.append({
                 "market_type": f"PUCKLINE_P1.5_{s_code}",
-                "market_label": "Puck Line +1.5 Shield",
-                "pick_name": f"{pick_team} +1.5 Puck Line",
+                "market_label": "+1.5 Puck Line",
+                "pick_name": f"{pick_team} +1.5 PL",
                 "side": f"PUCKLINE_P1.5_{s_code}",
                 "tier": "set_shield",
                 "win_prob": p_pl,
                 "min_fair_odds": round(1.0 / p_pl, 2),
                 "odds": o_pl,
                 "ev_pct": ev_pl,
-                "rationale": f"81.6% OOS Hit Rate · Covers outright win, OT/SO loss, or 1-goal regulation margin (+{sog_diff:.1f} SOG edge)",
+                "rationale": f"81.6% WR · +{sog_diff:.1f} SOG",
             })
 
     return opportunities
@@ -1611,30 +1611,30 @@ def evaluate_nba_secondary_markets(
             ev_ov = round((p_ov * o_ov - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"OVER_{lt}_POINTS",
-                "market_label": f"Sharp Pace Over {lt} Pts",
-                "pick_name": f"Over {lt} Points (Sharp High-Pace Line)",
+                "market_label": f"Over {lt} Pts",
+                "pick_name": f"Over {lt} Pts",
                 "side": f"OVER_POINTS_{lt}",
                 "tier": "totals_over",
                 "win_prob": p_ov,
                 "min_fair_odds": round(1.0 / p_ov, 2),
                 "odds": o_ov,
                 "ev_pct": ev_ov,
-                "rationale": f"65.4% OOS Hit Rate (+24.65% ROI) · Sharp high-pace total ({lt}) above rolling mean ({exp_total_pts:.1f})",
+                "rationale": f"65.4% WR · Line {lt} vs Exp {exp_total_pts:.1f}",
             })
         elif open_line and (float(open_line) - lt) >= 2.0 and (exp_total_pts - lt) >= 2.0:
             p_ov = 0.593
             ev_ov = round((p_ov * o_ov - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"OVER_{lt}_POINTS",
-                "market_label": f"Steam-Fade Over {lt} Pts",
-                "pick_name": f"Over {lt} Points (Exp {exp_total_pts:.1f} · Open {float(open_line):.1f})",
+                "market_label": f"Over {lt} Pts",
+                "pick_name": f"Over {lt} Pts",
                 "side": f"OVER_POINTS_{lt}",
                 "tier": "totals_over",
                 "win_prob": p_ov,
                 "min_fair_odds": round(1.0 / p_ov, 2),
                 "odds": o_ov,
                 "ev_pct": ev_ov,
-                "rationale": f"59.3% OOS Hit Rate (+12.94% ROI) · Model projects {exp_total_pts:.1f} pts vs steamed-down {lt} line",
+                "rationale": f"59.3% WR · Exp {exp_total_pts:.1f} vs {lt}",
             })
 
     if (
@@ -1649,15 +1649,15 @@ def evaluate_nba_secondary_markets(
         ev_sp = round((p_sp * o_sp - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": "Alt Spread +7.5 Shield",
-            "pick_name": f"{pick_team} +7.5 Spread Shield",
+            "market_label": "Spread +7.5",
+            "pick_name": f"{pick_team} +7.5",
             "side": f"SPREAD_P7.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_sp,
             "min_fair_odds": round(1.0 / p_sp, 2),
             "odds": o_sp,
             "ev_pct": ev_sp,
-            "rationale": f"85.2% OOS Hit Rate (+5.63% ROI) · Two-possession cushion with +{fg_pct_diff:.1f}% FG% edge",
+            "rationale": f"85.2% WR · +{fg_pct_diff:.1f}% FG%",
         })
 
     return opportunities
@@ -1708,15 +1708,15 @@ def evaluate_nfl_secondary_markets(
             ev_td35 = round((p_td35 * o_td35 - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": "OVER_3.5_TDS",
-                "market_label": "Match Touchdowns Over 3.5 (incl. OT)",
-                "pick_name": f"Over 3.5 Match Touchdowns (incl. OT · {comb_yards_for:.0f} Comb Yds)",
+                "market_label": "Over 3.5 TDs",
+                "pick_name": "Over 3.5 TDs",
                 "side": "OVER_TDS_3.5",
                 "tier": "totals_over",
                 "win_prob": p_td35,
                 "min_fair_odds": round(1.0 / p_td35, 2),
                 "odds": o_td35,
                 "ev_pct": ev_td35,
-                "rationale": f"85.4% OOS Hit Rate (35W-6L) · High red-zone & yardage volume ({comb_yards_for:.0f} comb yds/gm, {comb_ypp_for:.1f} YPP)",
+                "rationale": f"85.4% WR (35W-6L) · {comb_yards_for:.0f} Yds/Gm · {comb_ypp_for:.1f} YPP",
             })
         if lt_val >= 46.5 and comb_yards_for >= 680.0 and comb_ypp_for >= 11.0:
             p_td45 = 0.765
@@ -1724,15 +1724,15 @@ def evaluate_nfl_secondary_markets(
             ev_td45 = round((p_td45 * o_td45 - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": "OVER_4.5_TDS",
-                "market_label": "Match Touchdowns Over 4.5 (incl. OT)",
-                "pick_name": f"Over 4.5 Match Touchdowns (incl. OT · Line {lt_val})",
+                "market_label": "Over 4.5 TDs",
+                "pick_name": "Over 4.5 TDs",
                 "side": "OVER_TDS_4.5",
                 "tier": "totals_over",
                 "win_prob": p_td45,
                 "min_fair_odds": round(1.0 / p_td45, 2),
                 "odds": o_td45,
                 "ev_pct": ev_td45,
-                "rationale": f"76.5% OOS Hit Rate (13W-4L) · High-scoring offensive profile (Line {lt_val})",
+                "rationale": f"76.5% WR (13W-4L) · Line {lt_val}",
             })
 
     # 2. Team Touchdowns Over 2.5 (incl. OT) — 72.7% OOS Win Rate (16W-6L)
@@ -1742,15 +1742,15 @@ def evaluate_nfl_secondary_markets(
         ev_ttd = round((p_ttd * o_ttd - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"TEAM_OVER_2.5_TDS_{s_code}",
-            "market_label": f"{pick_team} Over 2.5 Touchdowns",
-            "pick_name": f"{pick_team} Over 2.5 Team Touchdowns (≥3 TDs)",
+            "market_label": f"{pick_team} Over 2.5 TDs",
+            "pick_name": f"{pick_team} Over 2.5 TDs",
             "side": f"TEAM_TDS_O2.5_{s_code}",
             "tier": "totals_over",
             "win_prob": p_ttd,
             "min_fair_odds": round(1.0 / p_ttd, 2),
             "odds": o_ttd,
             "ev_pct": ev_ttd,
-            "rationale": f"72.7% OOS Hit Rate · Team Touchdowns Over 2.5 (+{yards_diff:.0f} yds/gm & +{ypp_diff:.2f} YPP trench edge)",
+            "rationale": f"72.7% WR · +{yards_diff:.0f} Yds/Gm · +{ypp_diff:.2f} YPP",
         })
 
     # 3. Over 2.5 Field Goals Scored in Match (incl. OT) — 70.0% OOS Win Rate (84W-36L)
@@ -1760,15 +1760,15 @@ def evaluate_nfl_secondary_markets(
         ev_fg25 = round((p_fg25 * o_fg25 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": "OVER_2.5_FGS",
-            "market_label": "Match Field Goals Over 2.5 (incl. OT)",
-            "pick_name": "Over 2.5 Field Goals in Match (incl. OT · ≥3 FGs)",
+            "market_label": "Over 2.5 FGs",
+            "pick_name": "Over 2.5 FGs",
             "side": "OVER_FGS_2.5",
             "tier": "totals_over",
             "win_prob": p_fg25,
             "min_fair_odds": round(1.0 / p_fg25, 2),
             "odds": o_fg25,
             "ev_pct": ev_fg25,
-            "rationale": "70.0% OOS Hit Rate (84W-36L) · High drive volume into FG range (Over 2.5 Field Goals incl. OT)",
+            "rationale": "70.0% WR (84W-36L) · High FG drive volume",
         })
 
     # 4. -2.5 Field-Goal Alt Spread (90.9% OOS WR, +30.91% ROI — only on moderate favorites 0.58 <= p_mkt <= 0.72 where -2.5 is offered)
@@ -1778,15 +1778,15 @@ def evaluate_nfl_secondary_markets(
         ev_m25 = round((p_m25 * o_m25 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"SPREAD_M2.5_{s_code}",
-            "market_label": "Alt Spread -2.5 (Field Goal)",
-            "pick_name": f"{pick_team} -2.5 Spread (Wins by ≥3 Pts)",
+            "market_label": "Spread -2.5",
+            "pick_name": f"{pick_team} -2.5",
             "side": f"SPREAD_M2.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_m25,
             "min_fair_odds": round(1.0 / p_m25, 2),
             "odds": o_m25,
             "ev_pct": ev_m25,
-            "rationale": f"90.9% OOS Hit Rate (+30.91% ROI) · Trench dominance (+{yards_diff:.0f} yds/gm & +{ypp_diff:.2f} YPP)",
+            "rationale": f"90.9% WR · +{yards_diff:.0f} Yds/Gm · +{ypp_diff:.2f} YPP",
         })
 
     # 2. +7.5 Touchdown Teaser Shield (87.5% OOS WR, +8.50% ROI)
@@ -1796,15 +1796,15 @@ def evaluate_nfl_secondary_markets(
         ev_p75 = round((p_p75 * o_p75 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": "Touchdown Shield +7.5",
-            "pick_name": f"{pick_team} +7.5 Touchdown Shield",
+            "market_label": "Spread +7.5",
+            "pick_name": f"{pick_team} +7.5",
             "side": f"SPREAD_P7.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_p75,
             "min_fair_odds": round(1.0 / p_p75, 2),
             "odds": o_p75,
             "ev_pct": ev_p75,
-            "rationale": f"87.5% OOS Hit Rate (+8.50% ROI) · Full 7-point touchdown & PAT cushion",
+            "rationale": "87.5% WR · +7.5 cushion",
         })
 
     # 3. High-Yards Attack Over Total Points (62.5% OOS WR, +17.83% ROI)
@@ -1816,15 +1816,15 @@ def evaluate_nfl_secondary_markets(
             ev_ov = round((p_ov * o_ov - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"OVER_{lt}_POINTS",
-                "market_label": f"High-Yards Over {lt} Pts",
-                "pick_name": f"Over {lt} Points ({comb_yards_for:.0f} Comb Yds/Gm)",
+                "market_label": f"Over {lt} Pts",
+                "pick_name": f"Over {lt} Pts",
                 "side": f"OVER_POINTS_{lt}",
                 "tier": "totals_over",
                 "win_prob": p_ov,
                 "min_fair_odds": round(1.0 / p_ov, 2),
                 "odds": o_ov,
                 "ev_pct": ev_ov,
-                "rationale": f"62.5% OOS Hit Rate (+17.83% ROI) · High-octane offenses ({comb_yards_for:.0f} yds/gm, {comb_ypp_for:.1f} comb YPP)",
+                "rationale": f"62.5% WR · {comb_yards_for:.0f} Yds/Gm · {comb_ypp_for:.1f} YPP",
             })
 
     # 4. Trench Defense-Wall Under Total Points (59.3% OOS WR, +12.61% ROI)
@@ -1836,15 +1836,15 @@ def evaluate_nfl_secondary_markets(
             ev_un = round((p_un * o_un - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"UNDER_{lt}_POINTS",
-                "market_label": f"Defense-Wall Under {lt} Pts",
-                "pick_name": f"Under {lt} Points (Defense Wall {comb_ga_avg:.1f} PA/Gm)",
+                "market_label": f"Under {lt} Pts",
+                "pick_name": f"Under {lt} Pts",
                 "side": f"UNDER_POINTS_{lt}",
                 "tier": "totals_under",
                 "win_prob": p_un,
                 "min_fair_odds": round(1.0 / p_un, 2),
                 "odds": o_un,
                 "ev_pct": ev_un,
-                "rationale": f"59.3% OOS Hit Rate (+12.61% ROI) · Elite defenses allowing {comb_ga_avg:.1f} comb PPG & {comb_yards_allowed:.0f} yds/gm",
+                "rationale": f"59.3% WR · {comb_ga_avg:.1f} PA/Gm",
             })
 
     return opportunities
@@ -1892,15 +1892,15 @@ def evaluate_mlb_secondary_markets(
         ev_rl15 = round((p_rl15 * o_rl15 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"RUNLINE_P1.5_{s_code}",
-            "market_label": "Run Line +1.5 Runs Shield",
-            "pick_name": f"{pick_team} +1.5 Run Line (1-Run Insurance)",
+            "market_label": "+1.5 Run Line",
+            "pick_name": f"{pick_team} +1.5 RL",
             "side": f"PLUS15_{s_code}",
             "tier": "set_shield",
             "win_prob": p_rl15,
             "min_fair_odds": round(1.0 / p_rl15, 2),
             "odds": o_rl15,
             "ev_pct": ev_rl15,
-            "rationale": f"81.0% OOS Hit Rate · Covers outright win or 1-run extra-inning loss (+{hits_diff:.1f} hits/gm edge)",
+            "rationale": f"81.0% WR · +{hits_diff:.1f} hits/gm",
         })
 
     # 2. -1.5 Run Line Dominance
@@ -1910,15 +1910,15 @@ def evaluate_mlb_secondary_markets(
         ev_m15 = round((p_m15 * o_m15 - 1.0) * 100.0, 2)
         opportunities.append({
             "market_type": f"RUNLINE_M1.5_{s_code}",
-            "market_label": "Run Line -1.5 Runs",
-            "pick_name": f"{pick_team} -1.5 Run Line (Wins by ≥2 Runs)",
+            "market_label": "-1.5 Run Line",
+            "pick_name": f"{pick_team} -1.5 RL",
             "side": f"MINUS15_{s_code}",
             "tier": "straight_sets",
             "win_prob": p_m15,
             "min_fair_odds": round(1.0 / p_m15, 2),
             "odds": o_m15,
             "ev_pct": ev_m15,
-            "rationale": f"Multi-run offensive & bullpen dominance (+{hits_diff:.1f} hits/gm & +{run_diff:.1f} run diff/gm)",
+            "rationale": f"+{hits_diff:.1f} hits/gm · +{run_diff:.1f} RD/gm",
         })
 
     # 3. Over / Under Total Runs
@@ -1931,15 +1931,15 @@ def evaluate_mlb_secondary_markets(
             ev_ov = round((p_ov * o_ov - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"OVER_{lt}_RUNS",
-                "market_label": f"Total Runs Over {lt}",
-                "pick_name": f"Over {lt} Runs (Exp {exp_total_runs:.1f} · {ch:.1f} Comb Hits/Gm)",
+                "market_label": f"Over {lt} Runs",
+                "pick_name": f"Over {lt} Runs",
                 "side": f"OVER_GOALS_{lt}",
                 "tier": "totals_over",
                 "win_prob": p_ov,
                 "min_fair_odds": round(1.0 / p_ov, 2),
                 "odds": o_ov,
                 "ev_pct": ev_ov,
-                "rationale": f"High-contact batting profile ({ch:.1f} combined hits/gm, {exp_total_runs:.1f} proj runs vs {lt} line)",
+                "rationale": f"Exp {exp_total_runs:.1f} runs · {ch:.1f} hits/gm",
             })
         elif exp_total_runs <= (lt - 0.60) and ch <= 15.5 and (runs_allowed_5 is None or runs_allowed_5 <= 3.80):
             p_un = 0.610
@@ -1947,15 +1947,15 @@ def evaluate_mlb_secondary_markets(
             ev_un = round((p_un * o_un - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"UNDER_{lt}_RUNS",
-                "market_label": f"Total Runs Under {lt}",
-                "pick_name": f"Under {lt} Runs (Pitching Duel · Exp {exp_total_runs:.1f})",
+                "market_label": f"Under {lt} Runs",
+                "pick_name": f"Under {lt} Runs",
                 "side": f"UNDER_GOALS_{lt}",
                 "tier": "totals_under",
                 "win_prob": p_un,
                 "min_fair_odds": round(1.0 / p_un, 2),
                 "odds": o_un,
                 "ev_pct": ev_un,
-                "rationale": f"Pitching & bullpen suppression wall ({exp_total_runs:.1f} proj runs vs {lt} line)",
+                "rationale": f"Exp {exp_total_runs:.1f} runs vs {lt} line",
             })
 
     return opportunities
@@ -2062,15 +2062,15 @@ def evaluate_european_secondary_markets(
             ev_rl = round((p_rl * o_rl - 1.0) * 100.0, 2)
             opportunities.append({
                 "market_type": f"RUNLINE_P1.5_{s_code}",
-                "market_label": "Run Line +1.5 Runs Shield",
-                "pick_name": f"{pick_name} +1.5 Run Line (1-Run Insurance)",
+                "market_label": "+1.5 Run Line",
+                "pick_name": f"{pick_name} +1.5 RL",
                 "side": f"PLUS15_{s_code}",
                 "tier": "set_shield",
                 "win_prob": p_rl,
                 "min_fair_odds": round(1.0 / p_rl, 2),
                 "odds": o_rl,
                 "ev_pct": ev_rl,
-                "rationale": f"81.0% OOS Hit Rate · Protects {pick_name} against a 1-run bullpen/extra-inning loss (+{form_diff_fav*100:.0f}% Form Edge)",
+                "rationale": f"81.0% WR · +{form_diff_fav*100:.0f}% Form",
             })
 
     return opportunities

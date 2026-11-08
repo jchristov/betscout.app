@@ -905,7 +905,7 @@
       <!-- Best Bets Summary Header -->
       <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 class="text-sm font-bold text-sky-300 m-0">
-          Best Bets Summary Table (Click Any Header to Sort · Click Matchup for H2H · Select Rows for Custom Slip)
+          Best Bets Summary Table
         </h2>
         <div class="flex flex-wrap items-center gap-1.5">
           <button
@@ -915,16 +915,16 @@
             @click="store.clearCustomSelection()"
           >
             <Icon icon="fa6-solid:xmark" class="w-3 h-3" />
-            <span>Clear Custom Selection ({{ store.customSelectedMatches.size }})</span>
+            <span>Clear ({{ store.customSelectedMatches.size }})</span>
           </button>
           <button
             type="button"
             class="btn-press inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
-            title="Auto-select up to 3 uncorrelated 90+/100 Edge Score shields across distinct matches and open in Combos & Dutching Studio"
+            title="Auto-select up to 3 uncorrelated 90+/100 Edge Score shields across distinct matches"
             @click="selectTop90EdgeCombo()"
           >
             <Icon icon="fa6-solid:bolt" class="w-3 h-3" />
-            <span>Build Top 90+ Edge Combo</span>
+            <span>Top 90+ Combo</span>
           </button>
           <button
             type="button"
@@ -932,7 +932,7 @@
             @click="activeTab = 'studio'"
           >
             <Icon icon="fa6-solid:calculator" class="w-3.5 h-3.5" />
-            <span>Open in Bet Slip &amp; Dutching Studio</span>
+            <span>Bet Slip &amp; Studio</span>
           </button>
         </div>
       </div>
@@ -1379,8 +1379,7 @@
             <Icon icon="fa6-solid:calculator" class="w-4 h-4 text-sky-400" />
             <b class="text-sm text-sky-300">Smart Bet Slip &amp; Stake Allocation Optimizer</b>
             <span class="text-slate-300">
-              Enter the exact amount (€) you want to bet — compares Safe Combos vs. Kelly-Weighted Singles vs. Hybrid
-              65/35 Split
+              Compare Combos vs. Kelly Singles vs. 65/35 Split
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -1391,9 +1390,9 @@
               @click="selectTop90EdgeCombo()"
             >
               <Icon icon="fa6-solid:bolt" class="w-3 h-3" />
-              <span>Load Top 90+ Edge Combo</span>
+              <span>Top 90+ Combo</span>
             </button>
-            <b>Ready to Bet (€):</b>
+            <b>Stake (€):</b>
             <input
               v-model.number="betBudget"
               type="number"
@@ -1426,13 +1425,13 @@
           <div class="card-surface border-t-2 border-t-emerald-400 rounded-xl p-4 flex flex-col justify-between">
             <div>
               <div class="flex justify-between items-center mb-1">
-                <b>Option A · Safe {{ slipComboLegs.length }}-Leg Multiplier Combo</b>
+                <b>Option A · {{ slipComboLegs.length }}-Leg Combo</b>
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono tabular-nums bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">
                   {{ (slipComboOdds || 1).toFixed(2) }}x
                 </span>
               </div>
               <div class="text-slate-300 text-[11px] mb-2">
-                Uncorrelated cross-league parlay maximizing total return on a single ticket
+                Uncorrelated cross-league parlay
               </div>
               <div class="divide-y divide-slate-800">
                 <div
@@ -1470,14 +1469,13 @@
           <div class="card-surface border-t-2 border-t-sky-400 rounded-xl p-4 flex flex-col justify-between">
             <div>
               <div class="flex justify-between items-center mb-1">
-                <b>Option B · {{ slipSinglesAlloc.length }} Separate Individual Bets (Kelly Portfolio)</b>
+                <b>Option B · {{ slipSinglesAlloc.length }} Kelly Singles</b>
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/50">
                   LOWEST VARIANCE
                 </span>
               </div>
               <div class="text-slate-300 text-[11px] mb-2">
-                Splits €{{ betBudget.toFixed(2) }} across {{ slipSinglesAlloc.length }} independent singles — one upset
-                never wipes out your stake
+                Splits €{{ betBudget.toFixed(2) }} across {{ slipSinglesAlloc.length }} singles
               </div>
               <div class="divide-y divide-slate-800">
                 <div
@@ -1835,9 +1833,9 @@
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
           <div class="flex flex-wrap items-center gap-2">
             <Icon icon="fa6-solid:bookmark" class="w-4 h-4 text-sky-400" />
-            <b class="text-sm text-sky-300">My Active Tickets ({{ store.myTickets.length }} Saved)</b>
+            <b class="text-sm text-sky-300">My Active Tickets ({{ store.myTickets.length }})</b>
             <span class="text-slate-300 text-xs">
-              Tracks your saved Combos &amp; Singles against live/settled match scores and alerts you when the final leg is ready to hedge
+              Live leg grading &amp; final-leg hedge calculator
             </span>
           </div>
           <button
@@ -1847,12 +1845,12 @@
             @click="saveComboToMyTickets(`${slipComboLegs.length}-Leg Studio Ticket`, betBudget, slipComboOdds, slipComboLegs)"
           >
             <Icon icon="fa6-solid:plus" class="w-3 h-3" />
-            <span>Save Current €{{ betBudget }} Slip ({{ slipComboOdds.toFixed(2) }}x)</span>
+            <span>Save €{{ betBudget }} Slip ({{ slipComboOdds.toFixed(2) }}x)</span>
           </button>
         </div>
 
         <div v-if="!store.myTickets.length" class="text-xs text-slate-400 py-2">
-          No saved tickets yet. Click <b>Track</b> on any Banker Booster Combo, 2-Leg Double, or click <b>Save Current Slip</b> above to track live leg progress and hedge opportunities!
+          No saved tickets yet. Click <b>+ Track</b> on any pick or <b>Save Slip</b> above.
         </div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
           <div

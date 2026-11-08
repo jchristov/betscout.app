@@ -4285,11 +4285,11 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
     if s == "PUCKLINE_P1.5_A":
         return f"{away} +1.5 Puck Line"
     if s.startswith("OVER_TDS_"):
-        return f"Over {s.replace('OVER_TDS_', '')} Match Touchdowns"
+        return f"Over {s.replace('OVER_TDS_', '')} TDs"
     if s.startswith("TEAM_TDS_O2.5_"):
-        return f"{home if s.endswith('_H') else away} Over 2.5 Touchdowns"
+        return f"{home if s.endswith('_H') else away} Over 2.5 TDs"
     if s.startswith("OVER_FGS_"):
-        return f"Over {s.replace('OVER_FGS_', '')} Match Field Goals"
+        return f"Over {s.replace('OVER_FGS_', '')} FGs"
     if s.startswith("UNDER_GAMES_"):
         return f"Under {s.replace('UNDER_GAMES_', '')} Games"
     return f"{home if s == 'H' else away} ({side})"
