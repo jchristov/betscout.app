@@ -2580,6 +2580,45 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     if p_b.get("action") == "PAPER_BET" and not p_b.get("suppress_primary_ml"):
                         if not (float(p_b.get("best_odds") or 0.0) > 1.85 and (p_b.get("secondary_opportunities") or [])):
                             _upsert_paper_bet(db_path, p_b, now_boot_iso)
+                # Ensure live Fade Trap & US Sport picks are populated on boot if not yet present
+                if not any(x.get("tier") == "fade_trap" for x in (rec_boot.get("other_sport_picks") or [])):
+                    from .paper_bet import scan_upcoming_other_sports
+
+                    op_boot = scan_upcoming_other_sports(db_path, days_ahead=2)
+                    fades_boot = [x for x in op_boot if x.get("tier") == "fade_trap"]
+                    if fades_boot:
+                        existing_op_eids = {str(x.get("event_id")) for x in (rec_boot.get("other_sport_picks") or [])}
+                        for fb in fades_boot:
+                            if str(fb["event_id"]) not in existing_op_eids:
+                                rec_boot.setdefault("other_sport_picks", []).append(fb)
+                            _upsert_paper_bet(
+                                db_path,
+                                {
+                                    "league": fb["league"].lower(),
+                                    "event_id": fb["event_id"],
+                                    "kickoff": fb["kickoff"],
+                                    "time_valid": fb.get("time_valid", True),
+                                    "competition_logo": fb.get("competition_logo"),
+                                    "home": fb["home"],
+                                    "away": fb["away"],
+                                    "home_logo": fb.get("home_logo"),
+                                    "away_logo": fb.get("away_logo"),
+                                    "side": fb["side"],
+                                    "tier": "fade_trap",
+                                    "score": fb["p_model"],
+                                    "p_mkt": fb["p_mkt"],
+                                    "open_odds": fb["best_odds"],
+                                    "best_odds": fb["best_odds"],
+                                    "primary_odds": fb["best_odds"],
+                                    "close_odds": fb["best_odds"],
+                                    "synthetic_dc_odds": None,
+                                    "factors_tanh_z": {"p_model": fb["p_model"], "p_mkt": fb["p_mkt"], "ev_pct": fb["ev_pct"]},
+                                    "news_signal": {"backend": "paper_tiger_fade"},
+                                },
+                                now_boot_iso,
+                            )
+                        rec_boot["other_sport_picks_count"] = len(rec_boot.get("other_sport_picks") or [])
+                        rec_path.write_text(json.dumps(rec_boot, indent=2), encoding="utf-8")
                 settle_pending_paper_bets(db_path)
             except Exception:
                 pass
