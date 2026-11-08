@@ -101,6 +101,7 @@ At the top of the BetScout WebApp, the header displays system metadata and 5 glo
 | **`🔄 Sync & Settle`** | Immediately polls live sports feeds to grade completed bets, update live in-play scores, and refresh the ledger without rescanning all future fixtures (~2–4 seconds). |
 | **`⚡ Rescan Live`** | Re-runs the full multi-sport upcoming scanner (`scan_upcoming_and_log_paper_bets`), updates live bookmaker odds and CLV, and refreshes all recommendations (~25–40 seconds). |
 | **`🚀 Full Pipeline`** | Executes all 4 stages from the browser: `[1/4]` Incremental ingestion across all 20 leagues $\rightarrow$ `[2/4]` Quality check $\rightarrow$ `[3/4]` Multi-sport scan & settlement $\rightarrow$ `[4/4]` Dashboard rebuild. |
+| **`❓ Glossary`** | Opens the searchable **Betting Markets, Acronyms & Metrics Glossary** modal covering all 31 market codes (`ML`, `1X2`, `1X/X2`, `DNB`, `-1.0 AH`, `BTTS`, `+1.5 Sets`, `TDs / FGs`, `+1.5 PL`, `+1.5 RL`), model metrics (`Edge Score`, `EV%`, `CLV%`, `1/4 Kelly`), and sport stats (`λ/μ`, `SoT`, `SOG`, `YPP`, `SurfElo`, `T-60m XI Guard`). |
 | **`💬 Share Picks`** | Opens the **Discord & Telegram Social Publisher** panel with a pre-formatted Markdown digest of your currently filtered picks. |
 
 > **Note on Provisional Kickoff Times (`*`):** Any match whose official court/pitch time has not yet been confirmed by the tournament (`time_valid == False` or `04:00Z` placeholder) is marked with an asterisk (`*`, e.g., `2026-10-26 05:00 CET* (TBD)`) and updates automatically as soon as the official Order of Play is released.

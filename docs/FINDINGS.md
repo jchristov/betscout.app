@@ -467,6 +467,12 @@ Across **`67` settled prospective paper-bets (`64W – 3L`, `95.5%` Win Rate, `+
    - Added `fetch_sportradar_h2h` (`stats_team_versusrecent/{h_uid}/{a_uid}`) to enrich 7-Factor Football scoring and the Matchup Inspector modal with long-term cross-division H2H histories (e.g. `Arsenal vs Hull City` `8W–2D–0L` across `2013–2017`).
    - Unlocked `-1.0 Asian Handicap Shield` (`ASIAN_HCAP_M1.0`) down to `1.12` ML odds (refund/push on `1-0` wins like `Arsenal 1-0 Hull City`), restricted `OVER_2_5` to `p_mkt <= 0.78` with `min(lam_h, mu_a) >= 0.55`, and tightened `HT_OVER_0_5` to require `recent_draws_raw <= 0.20` and verified FunStats `ds_ht_over05_pct >= 76.0%`.
 
+6. **NFL Touchdowns (`TDs`) & Field Goals (`FGs`) Markets, Compact UI Labels & Searchable Glossary Modal (`sport_models.py`, `paper_bet.py`, `DashboardView.vue`)**:
+   - Backtested and added NFL **`Over 3.5 TDs` (`85.4%` OOS WR, `35W – 6L`)**, **`Over 4.5 TDs` (`76.5%` OOS WR)**, **`Team Over 2.5 TDs` (`72.7%` OOS WR)**, and **`Over 2.5 FGs` (`70.0%` OOS WR, `84W – 36L`)** to `evaluate_nfl_secondary_markets` and `settle_pending_paper_bets` (graded directly from ESPN `scoringPlays`), while restricting `SPREAD_M2.5` to moderate favorites (`0.58 <= p_mkt <= 0.72`).
+   - Standardized compact, high-density market labels (`ML`, `1X2`, `DNB`, `-1.0 AH`, `1H Over 0.5 Goals`, `+1.5 Sets`, `Over 3.5 TDs`, `Over 2.5 FGs`, `+1.5 PL`, `+1.5 RL`) with zero bookmaker brand mentions in the UI.
+   - Added a searchable **Betting Markets, Acronyms & Metrics Glossary** modal (`? Glossary` button in the header and Market filter bar) covering 31 market codes, quantitative metrics, and sport-specific telemetry abbreviations.
+
+
 
 
 
