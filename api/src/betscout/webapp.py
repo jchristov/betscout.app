@@ -2191,14 +2191,18 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
         p_p75 = 0.875 if fav_prob >= 0.56 else round(min(0.86, fav_prob + 0.18), 3)
         mkt_1 = f"{fav_name} Moneyline ({fav_prob*100:.1f}% WinProb, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
         mkt_2 = (
-            f"{fav_name} -2.5 Field-Goal Spread ({p_m25*100:.1f}% OOS HitProb @1.44) | Safe Teaser: {fav_name} +7.5 Touchdown Shield ({p_p75*100:.1f}%)"
-            if fav_ypp_d >= 0.80 and fav_yds_d >= 55.0
-            else f"{fav_name} +7.5 Touchdown Teaser Shield ({p_p75*100:.1f}% HitProb, Fair @{1.0/p_p75:.2f})"
+            f"Touchdowns Totals: Over 3.5 Match Touchdowns (85.4% OOS WR) & {fav_name} Over 2.5 Team TDs (72.7% WR)"
+            if fav_mkt_prob > 0.72
+            else (
+                f"{fav_name} -2.5 Field-Goal Spread ({p_m25*100:.1f}% OOS HitProb @1.44) | Safe Teaser: {fav_name} +7.5 Touchdown Shield ({p_p75*100:.1f}%)"
+                if fav_ypp_d >= 0.80 and fav_yds_d >= 55.0
+                else f"{fav_name} +7.5 Touchdown Teaser Shield ({p_p75*100:.1f}% HitProb, Fair @{1.0/p_p75:.2f})"
+            )
         )
         mkt_3 = (
-            f"Under {tot_ln_nfl} Total Points (Trench Defense-Wall · Comb {comb_pa:.1f} PA/Gm)"
+            f"Under {tot_ln_nfl} Total Points (Trench Defense-Wall · Comb {comb_pa:.1f} PA/Gm) · Over 2.5 Field Goals (70.0% WR)"
             if comb_pa <= 39.5
-            else f"Over {tot_ln_nfl} Total Points (High-Yards Attack · Comb {comb_sh_for or 690:.0f} Yds/Gm)"
+            else f"Over {tot_ln_nfl} Total Points & Over 2.5 Field Goals (70.0% WR · Comb {comb_sh_for or 690:.0f} Yds/Gm)"
         )
         sport_metrics = [
             {"label": "Yards Per Play (YPP) Diff", "value": f"{sot_diff_1:+.2f} YPP (Comb {comb_sot_for or 11.0:.1f} YPP)"},

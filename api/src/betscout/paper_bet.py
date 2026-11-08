@@ -1732,6 +1732,34 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                         continue
                     tot_cards = float(det_sc[36] or 0) + float(det_sc[37] or 0) + float(det_sc[38] or 0) + float(det_sc[39] or 0)
                     won = tot_cards >= 4.0
+            elif side_up.startswith(("OVER_TDS_", "TEAM_TDS_O", "OVER_FGS_")):
+                sd_nfl = sd if (sp == "football" and sd) else _fetch_live_json(f"{BASE}/football/nfl/summary?event={eid}")
+                sp_list = (sd_nfl or {}).get("scoringPlays") or []
+                if not sp_list:
+                    continue
+                h_tds = a_tds = tot_fgs = 0
+                for pl in sp_list:
+                    t_ab = str(((pl.get("type") or {}).get("abbreviation")) or "").upper()
+                    t_tx = str(((pl.get("type") or {}).get("text")) or "").lower()
+                    tm_dn = str(((pl.get("team") or {}).get("displayName")) or "")
+                    is_h_pl = bool(tm_dn and tm_dn in row["home"])
+                    if t_ab == "TD" or "touchdown" in t_tx:
+                        if is_h_pl:
+                            h_tds += 1
+                        else:
+                            a_tds += 1
+                    elif t_ab == "FG" or "field goal" in t_tx:
+                        tot_fgs += 1
+                if side_up.startswith("OVER_TDS_"):
+                    td_ln = float(side_up.replace("OVER_TDS_", ""))
+                    won = (h_tds + a_tds) > td_ln
+                elif side_up.startswith("TEAM_TDS_O"):
+                    t_side_c = "H" if side_up.endswith("_H") else "A"
+                    my_tds = h_tds if t_side_c == "H" else a_tds
+                    won = my_tds >= 3
+                else:
+                    fg_ln = float(side_up.replace("OVER_FGS_", ""))
+                    won = tot_fgs > fg_ln
             else:
                 continue
 
@@ -4256,6 +4284,12 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
         return f"{home} +1.5 Puck Line"
     if s == "PUCKLINE_P1.5_A":
         return f"{away} +1.5 Puck Line"
+    if s.startswith("OVER_TDS_"):
+        return f"Over {s.replace('OVER_TDS_', '')} Match Touchdowns"
+    if s.startswith("TEAM_TDS_O2.5_"):
+        return f"{home if s.endswith('_H') else away} Over 2.5 Touchdowns"
+    if s.startswith("OVER_FGS_"):
+        return f"Over {s.replace('OVER_FGS_', '')} Match Field Goals"
     if s.startswith("UNDER_GAMES_"):
         return f"Under {s.replace('UNDER_GAMES_', '')} Games"
     return f"{home if s == 'H' else away} ({side})"
