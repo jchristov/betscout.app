@@ -122,7 +122,7 @@ def evaluate_soccer_gate(
         if is_secondary_dom and ev_pct <= 0.0:
             return "pass"
         if sot_z < 0.40 or (
-            ev_pct < 1.5
+            ev_pct < 1.0
             and dom_z < 0.15
             and not (sot_z >= 0.75 and disc_z >= 0.30 and ev_pct >= 0.0)
         ):
@@ -341,7 +341,13 @@ def evaluate_nfl_gate(
         return False
     if p_elo < (p_mkt - 0.08):
         return False
-    if odds_pick < 1.25 or odds_pick > 1.75:
+    is_elite_trench_banker = (
+        odds_pick >= 1.20
+        and p_elo >= 0.72
+        and ypp_diff >= 1.80
+        and yards_diff >= 60.0
+    )
+    if (odds_pick < 1.25 and not is_elite_trench_banker) or odds_pick > 1.75:
         return False
     return True
 
@@ -1692,7 +1698,7 @@ def evaluate_nfl_secondary_markets(
     s_code = "H" if str(side).upper() == "H" else "A"
 
     # 1. -2.5 Field-Goal Alt Spread (90.9% OOS WR, +30.91% ROI)
-    if 0.58 <= p_mkt <= 0.76 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.80 and yards_diff >= 55.0:
+    if 0.58 <= p_mkt <= 0.82 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.80 and yards_diff >= 55.0:
         p_m25 = 0.895
         o_m25 = 1.44
         ev_m25 = round((p_m25 * o_m25 - 1.0) * 100.0, 2)
