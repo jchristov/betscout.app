@@ -129,17 +129,11 @@ def evaluate_soccer_gate(
             return "pass"
         return "top_15pct"
     if score >= thresholds["top_25pct"]:
-        if is_secondary_dom and (sot_z < 0.55 or ev_pct < 2.0):
-            return "pass"
-        # Top-25% High-Vig Indiscipline & Draw-Trap Veto (e.g. Bayern Munich 2-2 Borussia Dortmund @ 1.339 where
-        # score=0.223 < top_15pct, dom_z=-0.408, disc_z=-0.296, draws_z=+0.438):
-        if dom_z < -0.30 and disc_z < -0.20 and draws_z > 0.35:
-            return "pass"
-        # Top-25% Sub-56% Market, Negative Rebound & Indiscipline Veto (lifts OOS top_25pct to 68.8% WR, +7.46% ROI):
-        if p_mkt < 0.56 or dom_z < 0.0 or sot_z < 0.30 or disc_z < 0.0:
-            return "pass"
-        return "top_25pct"
-    if is_uefa and sot_z >= 0.45 and p_mkt >= 0.62 and (score >= 0.12 or dom_z > 0.25):
+        if not (is_secondary_dom and (sot_z < 0.55 or ev_pct < 2.0)):
+            if not (dom_z < -0.30 and disc_z < -0.20 and draws_z > 0.35):
+                if p_mkt >= 0.56 and dom_z >= 0.0 and sot_z >= 0.30 and disc_z >= 0.0:
+                    return "top_25pct"
+    if is_uefa and sot_z >= 0.45 and p_mkt >= 0.60 and (score >= 0.10 or dom_z > 0.25):
         return "uefa_edge"
     return "pass"
 
@@ -188,11 +182,13 @@ def evaluate_tennis_gate(
     if win_prob < 0.76 and surf_elo_diff is not None and surf_elo_diff < 0.0:
         return False, win_prob, None, "VETO_NEGATIVE_SURFACE_ELO"
     if win_prob < 0.80:
-        if decider_diff is not None and decider_diff < -0.20:
+        is_dominant_straight_sets_profile = (game_win_pct_diff >= 0.12 and form_6m_diff >= 0.35 and win_prob >= 0.74)
+        if decider_diff is not None and decider_diff < -0.20 and not is_dominant_straight_sets_profile:
             return False, win_prob, None, "VETO_WEAK_DECIDER_RESILIENCE"
         if (
             decider_diff is not None
             and decider_diff <= -0.20
+            and not is_dominant_straight_sets_profile
             and ((tourn_wins_diff is None or tourn_wins_diff <= 0) or (game_elo_diff is not None and game_elo_diff < 70.0))
         ):
             return False, win_prob, None, "VETO_WEAK_DECIDER_RESILIENCE"

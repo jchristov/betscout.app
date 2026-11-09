@@ -2625,6 +2625,18 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                         rec_boot["other_sport_picks_count"] = len(rec_boot.get("other_sport_picks") or [])
                         rec_path.write_text(json.dumps(rec_boot, indent=2), encoding="utf-8")
                 settle_pending_paper_bets(db_path)
+                # If recommendations.json on boot is >= 4 hours old, immediately run a fresh multi-sport scan
+                gen_iso_boot = str(rec_boot.get("generated_at") or "").strip()
+                boot_stale = True
+                if gen_iso_boot:
+                    try:
+                        gen_dt_b = datetime.fromisoformat(gen_iso_boot.replace("Z", "+00:00"))
+                        boot_stale = ((datetime.now(timezone.utc) - gen_dt_b).total_seconds() / 3600.0) >= 4.0
+                    except Exception:
+                        boot_stale = True
+                if boot_stale:
+                    scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=4, export_json_path=rec_path)
+                    generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
             except Exception:
                 pass
         while True:

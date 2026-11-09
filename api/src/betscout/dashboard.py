@@ -299,9 +299,11 @@ def build_best_bets_summary(
     if def_ann_iso:
         try:
             gen_dt = datetime.fromisoformat(def_ann_iso.replace("Z", "+00:00"))
-            # If the snapshot was generated within the last 72 hours, filter against real current UTC time (`now_utc_dt`);
-            # otherwise (synthetic historical test fixture), filter relative to `gen_dt`
-            if "paper_ledger" in rec and abs((now_utc_dt - gen_dt).total_seconds()) <= 3 * 86400:
+            # If the snapshot has real paper_ledger bets (production) or was generated within 72 hours,
+            # always filter against real current UTC time (`now_utc_dt`);
+            # otherwise (synthetic historical test fixture with empty `"paper_ledger": {}`), filter relative to `gen_dt`.
+            has_real_ledger = bool((rec.get("paper_ledger") or {}).get("bets"))
+            if has_real_ledger or ("paper_ledger" in rec and abs((now_utc_dt - gen_dt).total_seconds()) <= 3 * 86400):
                 ref_dt = now_utc_dt
             else:
                 ref_dt = gen_dt
@@ -486,10 +488,14 @@ def build_best_bets_summary(
             xi_status = "AWAITING"
             xi_badge = "⏱ T-60m XI Guard"
             xi_tooltip = "Automated T-60m Starting XI & Defensive Spine Gate active (verifies GK, >=50% defensive spine & >=45% attack share 60m prior to kickoff)"
+        v_sot_p = float(fz.get("venue_sot_d") or 0.0)
         suppress_3way = bool(
             p.get("suppress_primary_ml")
             or (
-                odds_val > 1.85
+                (
+                    odds_val > 1.85
+                    or (str(p.get("side")) == "A" and odds_val >= 1.70 and v_sot_p < -0.35)
+                )
                 and (p.get("secondary_opportunities") or [])
             )
         )

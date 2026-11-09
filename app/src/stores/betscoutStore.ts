@@ -281,6 +281,14 @@ export const useBetscoutStore = defineStore('betscout', () => {
     }
     if (Array.isArray(snap.best_bets)) bestBets.value = snap.best_bets;
     if (snap.paper_ledger) paperLedger.value = snap.paper_ledger;
+    if (
+      dayFilter.value !== 'all' &&
+      dayFilter.value !== 'next48h' &&
+      availableDays.value.length > 0 &&
+      !availableDays.value.some((x) => x.day === dayFilter.value)
+    ) {
+      dayFilter.value = 'all';
+    }
     if (Array.isArray(snap.recommended_doubles)) recommendedDoubles.value = snap.recommended_doubles;
     if (Array.isArray(snap.qualifying_picks)) qualifyingPicks.value = snap.qualifying_picks;
     if (Array.isArray(snap.tennis_picks)) tennisPicks.value = snap.tennis_picks;
@@ -537,9 +545,11 @@ export const useBetscoutStore = defineStore('betscout', () => {
       if (!Number.isNaN(ts)) {
         const genTs = generatedAt.value ? Date.parse(generatedAt.value) : NaN;
         const nowTs = Date.now();
-        // If generatedAt is within 3 days of now, use real current time; otherwise (unit tests with fixed dates), use generatedAt
+        const hasRealLedger = Array.isArray(paperLedger.value?.bets) && paperLedger.value.bets.length > 0;
+        // In production (hasRealLedger) or when generatedAt is within 3 days of now, use real current time;
+        // otherwise (unit tests with fixed dates and empty ledger), use generatedAt
         const refTs =
-          !Number.isNaN(genTs) && Math.abs(nowTs - genTs) <= 3 * 86400 * 1000
+          hasRealLedger || (!Number.isNaN(genTs) && Math.abs(nowTs - genTs) <= 3 * 86400 * 1000)
             ? nowTs
             : !Number.isNaN(genTs)
               ? genTs

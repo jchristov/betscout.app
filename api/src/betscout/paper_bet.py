@@ -567,7 +567,10 @@ def scan_upcoming_tennis(
                         game_diff_pick = sgn * d_game_pct
                         if win_prob < min_prob:
                             continue
-                        live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
+                        comp_ymd = ko[:10].replace("-", "") if len(ko) >= 10 else ymd
+                        live_odds = _fetch_sofascore_tennis_odds(h, a, comp_ymd)
+                        if not live_odds.get("odds_p1") and comp_ymd != ymd:
+                            live_odds = _fetch_sofascore_tennis_odds(h, a, ymd)
                         # If ESPN still has an unscheduled midnight ET placeholder (timeValid == False / T04:00Z)
                         # and SofaScore has the actual scheduled court timestamp, use SofaScore's UTC start time!
                         if not espn_time_valid and live_odds.get("start_utc"):
@@ -588,7 +591,8 @@ def scan_upcoming_tennis(
                         if pick_f5 is not None and opp_f5 is not None:
                             if pick_f5 <= 0.25 and opp_f5 >= 0.60:
                                 continue
-                            form_diff_pick = round(pick_f5 - opp_f5, 3)
+                            sf_diff = round(pick_f5 - opp_f5, 3)
+                            form_diff_pick = max(form_diff_pick, sf_diff) if sf_diff >= 0.0 else sf_diff
                         if is_qualifying and win_prob < 0.82 and (game_diff_pick <= 0.0 or form_diff_pick <= 0.0):
                             continue
                         pick_rest_h = live_odds.get("p1_rest_hours") if p_h >= 0.5 else live_odds.get("p2_rest_hours")
@@ -2967,7 +2971,11 @@ def scan_upcoming_and_log_paper_bets(
                 if best_candidate is None:
                     continue
 
-                from .sport_models import evaluate_soccer_gate, evaluate_soccer_secondary_markets
+                from .sport_models import (
+                    evaluate_paper_tiger_fade,
+                    evaluate_soccer_gate,
+                    evaluate_soccer_secondary_markets,
+                )
 
                 fav_Side_c = str(best_candidate["side"])
                 tier = evaluate_soccer_gate(
@@ -3125,10 +3133,16 @@ def scan_upcoming_and_log_paper_bets(
                     # Only log pre-match ('pre') fixtures into paper_bets so in-play matches cannot retroactively pollute the ledger
                     if not vetoed_any:
                         if not best_candidate.get("is_live"):
-                            # For >1.85 3-way picks across all tiers (e.g. Osasuna vs Athletic Club A @ 2.05 or Monza vs Atalanta A @ 2.05)
+                            # For >1.85 3-way picks across all tiers (or >=1.70 away picks with negative away venue SoT dominance `venue_sot_d < -0.35`,
+                            # e.g. Le Mans 1-1 AS Monaco A @ 1.741 where DC_X2 @ 1.22 won)
                             # when a Double-Chance / DNB secondary shield is present, suppress the coin-flip 3-way 1X2 row and log only the shield!
+                            v_sot_cand = float((best_candidate.get("factors_tanh_z") or {}).get("venue_sot_d") or 0.0)
+                            b_odds_cand = float(best_candidate.get("best_odds") or 0.0)
                             suppress_3way_ml = bool(
-                                float(best_candidate.get("best_odds") or 0.0) > 1.85
+                                (
+                                    b_odds_cand > 1.85
+                                    or (str(best_candidate.get("side")) == "A" and b_odds_cand >= 1.70 and v_sot_cand < -0.35)
+                                )
                                 and (best_candidate.get("secondary_opportunities") or [])
                             )
                             best_candidate["suppress_primary_ml"] = suppress_3way_ml
@@ -4373,6 +4387,8 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("eng.2", "401880165::DC_X2"),
     ("ger.1", "401884745::HT_OVER_0_5"),
     ("por.1", "401885395::HT_OVER_0_5"),
+    ("fra.1", "401876408"),
+    ("nba", "401909943"),
 )
 
 
