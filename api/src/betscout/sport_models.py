@@ -1718,13 +1718,8 @@ def evaluate_nba_secondary_markets(
     2. **Contrarian Steam-Fade Over Total Points (`OVER_POINTS`, `open_line - line_total >= 2.0`):**
        - OOS Performance: `59.3%` Win Rate (`35W – 24L`), `+12.94%` ROI (`+7.63u`).
        - Fires when public money steams the total down by `>= 2.0` pts while our model still projects `exp_total_pts - line_total >= 2.0`.
-    3. **+7.5 Two-Possession Teaser Shield (`SPREAD_P7.5`):**
-       - OOS Performance: `85.2%` Win Rate (`23W – 4L`), `+5.63%` ROI.
-       - Fires when `0.56 <= p_mkt <= 0.72`, `p_elo >= p_mkt - 0.05`, `fg_pct_diff >= 1.5`, and `rest_for_pick >= 0.0`.
     """
     opportunities: list[dict[str, Any]] = []
-    pick_team = home if str(side).upper() == "H" else away
-    s_code = "H" if str(side).upper() == "H" else "A"
 
     if line_total and float(line_total) >= 195.0 and exp_total_pts is not None:
         lt = float(line_total)
@@ -1759,30 +1754,6 @@ def evaluate_nba_secondary_markets(
                 "ev_pct": ev_ov,
                 "rationale": f"59.3% WR · Exp {exp_total_pts:.1f} vs {lt}",
             })
-
-    if (
-        0.56 <= p_mkt <= 0.72
-        and p_elo >= (p_mkt - 0.05)
-        and fg_pct_diff >= 1.5
-        and rest_for_pick >= 0.0
-        and not (three_pt_diff < -1.5 and tov_margin_diff < -1.5)
-    ):
-        p_sp = 0.852
-        o_sp = 1.24
-        ev_sp = round((p_sp * o_sp - 1.0) * 100.0, 2)
-        hcp_nba = "7.5:0" if s_code == "H" else "0:7.5"
-        opportunities.append({
-            "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": f"Handicap {hcp_nba}",
-            "pick_name": f"{pick_team} +7.5 ({hcp_nba})",
-            "side": f"SPREAD_P7.5_{s_code}",
-            "tier": "set_shield",
-            "win_prob": p_sp,
-            "min_fair_odds": round(1.0 / p_sp, 2),
-            "odds": o_sp,
-            "ev_pct": ev_sp,
-            "rationale": f"85.2% WR · +{fg_pct_diff:.1f}% FG%",
-        })
 
     return opportunities
 
@@ -1895,8 +1866,8 @@ def evaluate_nfl_secondary_markets(
             "rationale": "70.0% WR (84W-36L) · High FG drive volume",
         })
 
-    # 4. Handicap -2.5 (0:2.5 / 2.5:0) (90.9% OOS WR, +30.91% ROI — only on moderate favorites 0.58 <= p_mkt <= 0.72)
-    if 0.58 <= p_mkt <= 0.72 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.80 and yards_diff >= 55.0:
+    # 4. Handicap -2.5 (0:2.5 / 2.5:0) (90.9% OOS WR, +30.91% ROI — only on moderate favorites 0.58 <= p_mkt <= 0.68)
+    if 0.58 <= p_mkt <= 0.68 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.80 and yards_diff >= 55.0:
         p_m25 = 0.895
         o_m25 = 1.44
         ev_m25 = round((p_m25 * o_m25 - 1.0) * 100.0, 2)
@@ -1912,25 +1883,6 @@ def evaluate_nfl_secondary_markets(
             "odds": o_m25,
             "ev_pct": ev_m25,
             "rationale": f"90.9% WR · +{yards_diff:.0f} Yds/Gm · +{ypp_diff:.2f} YPP",
-        })
-
-    # 5. Handicap +7.5 (7.5:0 / 0:7.5) (87.5% OOS WR, +8.50% ROI)
-    if 0.54 <= p_mkt <= 0.72 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.50 and yards_diff >= 35.0:
-        p_p75 = 0.875
-        o_p75 = 1.24
-        ev_p75 = round((p_p75 * o_p75 - 1.0) * 100.0, 2)
-        hcp_p75 = "7.5:0" if s_code == "H" else "0:7.5"
-        opportunities.append({
-            "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": f"Handicap {hcp_p75}",
-            "pick_name": f"{pick_team} +7.5 ({hcp_p75})",
-            "side": f"SPREAD_P7.5_{s_code}",
-            "tier": "set_shield",
-            "win_prob": p_p75,
-            "min_fair_odds": round(1.0 / p_p75, 2),
-            "odds": o_p75,
-            "ev_pct": ev_p75,
-            "rationale": "87.5% WR · +7.5 Handicap",
         })
 
     # 3. High-Yards Attack Over Total Points (62.5% OOS WR, +17.83% ROI)

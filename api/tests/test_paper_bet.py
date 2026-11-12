@@ -1076,7 +1076,7 @@ def test_per_sport_isolated_gates():
         exp_total_pts=228.0,
     )
     nba_types = {x["market_type"] for x in nba_sec}
-    assert "OVER_235.5_POINTS" in nba_types and "SPREAD_P7.5_H" in nba_types
+    assert "OVER_235.5_POINTS" in nba_types and "SPREAD_P7.5_H" not in nba_types
 
     nfl_sec = evaluate_nfl_secondary_markets(
         home="Minnesota Vikings",
@@ -1092,7 +1092,7 @@ def test_per_sport_isolated_gates():
         comb_yards_allowed=595.0,
     )
     nfl_types = {x["market_type"] for x in nfl_sec}
-    assert "SPREAD_M2.5_H" in nfl_types and "SPREAD_P7.5_H" in nfl_types and "UNDER_44.5_POINTS" in nfl_types
+    assert "SPREAD_M2.5_H" in nfl_types and "SPREAD_P7.5_H" not in nfl_types and "UNDER_44.5_POINTS" in nfl_types
 
     # 7b-2. Test Football Bayern vs Dortmund Top-25% Indiscipline/Draw-Trap Veto, Tennis Vacherot vs Fritz Decider Veto, and 4-Outcome Tennis Set-Score Distribution
     from betscout.exact_score import predict_tennis_set_scores
