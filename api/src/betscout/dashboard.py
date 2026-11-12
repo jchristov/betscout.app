@@ -223,15 +223,16 @@ TIER_TOOLTIPS: dict[str, str] = {
     "solid": "solid — Solid Positive-EV Edge (≥58% Win Prob): Confirmed by goalie Save% & shot volume (NHL), yards-per-play (NFL), or shooting & possession security (NBA).",
     "tracked_live": "tracked_live — User-Tracked Live Match: Ad-hoc live or upcoming match added manually via the Live Tracker input.",
     "banker profit booster": "Banker Profit Booster: Combines 2 or 3 high-win-probability (≥72%), low-odds (1.10–1.48) bankers into a higher-yielding 1.35x–2.15x multiplier ticket.",
-    "dc_shield": "dc_shield — Double Chance Shield (1X / X2): Out-of-sample validated 90.5% Win Rate (+9.84% ROI) market covering both Win and Draw for top-15% Football favorites.",
-    "dnb_shield": "dnb_shield — Draw No Bet (DNB) Shield: Out-of-sample validated 83.7% Win Rate (+7.74% ROI, excl. draw pushes) refunding 100% of your stake if the match finishes level.",
+    "dc_shield": "dc_shield — Double Chance (1X / X2): Out-of-sample validated 90.5% Win Rate (+9.84% ROI) market covering both Win and Draw for top-15% Football favorites.",
+    "dnb_shield": "dnb_shield — Draw No Bet (DNB): Out-of-sample validated 83.7% Win Rate (+7.74% ROI, excl. draw pushes) refunding 100% of your stake if the match finishes level.",
     "totals_over": "totals_over — High-Dominance Over Goals Edge: Out-of-sample validated 88.9% Win Rate on Football Over 2.5 Goals (and 57.5% on NHL Over Totals) when Shots-on-Target & expected goals align.",
     "totals_under": "totals_under — Straight-Sets Under 21.5 Games Edge: Out-of-sample validated 62.5% Win Rate (+11.25% ROI) on dominant ≥80% Tennis favorites with ≥5.5% Game-Share advantage.",
-    "set_shield": "set_shield — Tennis +1.5 Sets Handicap Shield (Wins ≥1 Set): Out-of-sample validated 92.5% Win Rate (+9.14% ROI) when Surface Elo, Game-Share & 6-month form align.",
+    "set_shield": "set_shield — Handicap (+1.5 Sets / +1.5 / +7.5): Out-of-sample validated 92.5% Win Rate (+9.14% ROI) when Surface Elo, Game-Share & 6-month form align.",
     "straight_sets": "straight_sets — Tennis 2:0 Straight-Sets Dominance: Out-of-sample validated 71.3% Win Rate (+8.37% ROI) on ≥80% favorites with ≥6.0% Game-Share dominance.",
-    "fade_trap": "fade_trap — Contrarian Paper-Tiger Favorite Fade: Backs the underdog (+7.5 Shield / +1.5 PL / 1X-X2 Double Chance) against an overestimated market favorite with negative rolling boxscore efficiency (83.3% NFL +7.5 WR, +15.0% ROI; 72.6% NHL +1.5 PL WR, +8.9% ROI).",
+    "fade_trap": "fade_trap — Contrarian Paper-Tiger Favorite Fade: Backs the underdog (Handicap +7.5 / 1X-X2 Double Chance / Handicap +1.5) against an overestimated market favorite with negative rolling boxscore efficiency (83.3% NFL +7.5 WR, +15.0% ROI; 72.6% NHL +1.5 / 1X-X2 WR, +8.9% ROI).",
     "cross-sport banker ml": "Cross-Sport Banker ML: Uncorrelated 2-leg parlay pairing top moneyline bankers from two different sports or leagues.",
-    "double-chance / +1.5 sets shield": "Double-Chance / +1.5 Sets Shield: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap shields.",
+    "double-chance / +1.5 sets shield": "Double Chance & +1.5 Handicap: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap.",
+    "double chance & +1.5 handicap": "Double Chance & +1.5 Handicap: Ultra-safe 2-leg parlay using Football Double Chance (1X/X2) or Tennis +1.5 Sets handicap.",
     "exact-score cluster parlay": "Exact-Score Cluster Parlay: High-payout 2-leg combo pairing Dixon-Coles exact-score or set-score clusters.",
     "high-value ev parlay": "High-Value EV Parlay: 2-leg multiplier combining the highest positive Expected Value (+EV) edges of the day.",
 }
@@ -332,7 +333,13 @@ def build_best_bets_summary(
             k_norm = k_norm[:-1] + ":00Z"
         return k_norm >= cutoff_iso
 
-    def _compute_edge_score(win_prob: float, ev_pct: float, edge_pp: float, tier: str = "") -> int:
+    def _compute_edge_score(
+        win_prob: float,
+        ev_pct: float,
+        edge_pp: float,
+        tier: str = "",
+        fav_rel: dict[str, Any] | None = None,
+    ) -> int:
         tier_bonus = {
             "top_8pct": 12.0,
             "top_10pct": 10.0,
@@ -347,10 +354,18 @@ def build_best_bets_summary(
             "totals_under": 8.0,
             "straight_sets": 9.0,
         }.get(str(tier).lower(), 6.0)
+        rel_bonus = 0.0
+        if isinstance(fav_rel, dict):
+            f_wp = float(fav_rel.get("win_pct") or 0.0)
+            f_gp = float(fav_rel.get("gap_pp") or 0.0)
+            if f_wp >= 80.0 and f_gp >= 8.0:
+                rel_bonus = 3.0
+            elif f_wp >= 75.0 and f_gp >= 4.0:
+                rel_bonus = 1.5
         wp_component = max(0.0, min(55.0, (win_prob - 0.45) * 115.0))
         ev_component = max(-6.0, min(22.0, ev_pct * 1.4))
         edge_component = max(-4.0, min(11.0, edge_pp * 1.2))
-        return int(round(max(52.0, min(99.0, 22.0 + wp_component + ev_component + edge_component + tier_bonus))))
+        return int(round(max(52.0, min(99.0, 22.0 + wp_component + ev_component + edge_component + tier_bonus + rel_bonus))))
 
     raw_soccer_picks = [
         {**p,
@@ -458,6 +473,9 @@ def build_best_bets_summary(
             key=lambda x: -x[1],
         )[:3]
         driver_str = ", ".join(f"{k}={v:+.2f}z" for k, v in top_drivers) if top_drivers else "Orthogonal 7-Factor Composite"
+        p_fav_rel = p.get("fav_reliability")
+        if isinstance(p_fav_rel, dict) and p_fav_rel.get("record"):
+            driver_str += f" · Fav {p_fav_rel['record']} ({p_fav_rel['win_pct']}% · {float(p_fav_rel.get('gap_pp') or 0):+.1f}pp)"
         if tipico_1x2_pick and tipico_1x2_pick > odds_val + 0.02:
             driver_str += f" · Top Market Price @{tipico_1x2_pick:.2f} (+{(tipico_1x2_pick - odds_val):.2f} Edge)"
             odds_val = tipico_1x2_pick
@@ -524,7 +542,7 @@ def build_best_bets_summary(
                 "p_mkt": round(p_mkt_val, 4),
                 "edge_pp": p_edge_pp,
                 "ev_pct": p_ev_pct,
-                "edge_score": _compute_edge_score(p_win_val, p_ev_pct, p_edge_pp, p["tier"]),
+                "edge_score": _compute_edge_score(p_win_val, p_ev_pct, p_edge_pp, p["tier"], p_fav_rel),
                 "xi_status": xi_status,
                 "xi_badge": xi_badge,
                 "xi_tooltip": xi_tooltip,
@@ -637,6 +655,9 @@ def build_best_bets_summary(
         if float(tf.get("form_6m_diff") or 0) >= 0.15:
             t_drv_parts.append(f"Form {float(tf['form_6m_diff'])*100:+.0f}%")
         t_driver_str = ", ".join(t_drv_parts) if t_drv_parts else "Surface + Game-Share Elo"
+        tp_fav_rel = tp.get("fav_reliability")
+        if isinstance(tp_fav_rel, dict) and tp_fav_rel.get("record"):
+            t_driver_str += f" · Fav {tp_fav_rel['record']} ({tp_fav_rel['win_pct']}% · {float(tp_fav_rel.get('gap_pp') or 0):+.1f}pp)"
         best_bets.append({
             "date": tp["kickoff"],
             "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
@@ -664,7 +685,7 @@ def build_best_bets_summary(
             "p_mkt": tp_mkt,
             "edge_pp": tp_edge_pp,
             "ev_pct": tp_ev,
-            "edge_score": _compute_edge_score(tp_win, tp_ev, tp_edge_pp, tp.get("tier") or "banker_70pct"),
+            "edge_score": _compute_edge_score(tp_win, tp_ev, tp_edge_pp, tp.get("tier") or "banker_70pct", tp_fav_rel),
             "is_mispriced": bool(live_book and tp_ev >= 2.0 and tp_edge_pp >= 2.0),
             "mispricing_drivers": t_driver_str,
             "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
@@ -738,11 +759,14 @@ def build_best_bets_summary(
         is_fade_op = str(op.get("tier") or "").lower() == "fade_trap" or str(op.get("market_type") or "").startswith("FADE_")
         op_pick_name = str(op["pick"]) if is_fade_op else f"{op['pick']} ({op['side']})"
         op_logo_side = ("A" if str(op["side"]).endswith("_A") else "H") if is_fade_op else str(op["side"])
+        op_fav_rel = op.get("fav_reliability")
         op_drv = (
             str(op.get("rationale") or "Paper-Tiger Favorite Fade")
             if is_fade_op
             else f"Elo + Boxscore + Rest Gate (Composite {float(op.get('composite_score') or 0):+.2f})"
         )
+        if not is_fade_op and isinstance(op_fav_rel, dict) and op_fav_rel.get("record"):
+            op_drv += f" · Fav {op_fav_rel['record']} ({op_fav_rel['win_pct']}% · {float(op_fav_rel.get('gap_pp') or 0):+.1f}pp)"
         best_bets.append({
             "date": op["kickoff"],
             "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
@@ -768,7 +792,7 @@ def build_best_bets_summary(
             "p_mkt": round(op_mkt, 4),
             "edge_pp": op_edge_pp,
             "ev_pct": op_ev,
-            "edge_score": _compute_edge_score(op_win, op_ev, op_edge_pp, op.get("tier") or "high_conf"),
+            "edge_score": _compute_edge_score(op_win, op_ev, op_edge_pp, op.get("tier") or "high_conf", op_fav_rel),
             "is_mispriced": bool(op_ev >= 2.0 and op_edge_pp >= 2.0),
             "mispricing_drivers": op_drv,
             "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),

@@ -481,7 +481,7 @@
             v-for="mOpt in [
               { id: 'all', label: 'All' },
               { id: 'moneyline', label: 'ML / 1X2' },
-              { id: 'shield', label: 'Shields (1X/X2, DNB, +1.5, +7.5)' },
+              { id: 'shield', label: 'Double Chance & Handicap (1X/X2, DNB, +1.5, +7.5)' },
               { id: 'totals', label: 'Totals (O/U, TDs, FGs, Sets)' },
               { id: 'fade', label: 'Fade Traps' },
               { id: 'secondary', label: 'Secondary' },
@@ -1647,7 +1647,7 @@
 
           <div class="card-surface border-t-2 border-t-fuchsia-400 rounded-xl p-4">
             <div class="flex justify-between items-center mb-2">
-              <b>Option 2 · 3-Score Cluster Dutching Shield</b>
+              <b>Option 2 · 3-Score Cluster Dutching</b>
               <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/50 font-mono tabular-nums">
                 {{ dutchSplit3.effectiveOdds.toFixed(2) }}x Effective Odds
               </span>
@@ -2249,7 +2249,7 @@
       >
         <b class="inline-flex items-center gap-1.5 text-sm text-fuchsia-300 mb-2">
           <Icon icon="fa6-solid:layer-group" class="w-4 h-4" />
-          <span>By-Market Attribution (ML / 1X2 vs. Shields vs. Totals)</span>
+          <span>By-Market Attribution (ML / 1X2 vs. Double Chance &amp; Handicaps vs. Totals)</span>
         </b>
         <table class="w-full border-collapse text-xs">
           <thead>
@@ -3386,7 +3386,7 @@
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.moneyline }}</div>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-sky-400/40">
-                  <div class="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider mb-1">2. Handicap / Shield</div>
+                  <div class="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider mb-1">2. Double Chance / Handicap</div>
                   <div class="text-xs font-bold text-white leading-snug">{{ analyzerResult.market_recommendations.handicap_shield }}</div>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-950/90 border border-violet-400/40">
@@ -4082,18 +4082,37 @@ function saveComboToMyTickets(title: string, stakeEur: number, combinedOdds: num
 function selectTop90EdgeCombo() {
   const candidates = [...store.visibleBestBets]
     .filter((b: any) => Number(b.edge_score || 0) >= 88 && Number(b.odds || 0) >= 1.12 && Number(b.odds || 0) <= 1.65)
-    .sort((a: any, b: any) => Number(b.edge_score || 0) - Number(a.edge_score || 0) || Number(b.win_prob || 0) - Number(a.win_prob || 0));
-  const chosen: any[] = [];
-  const usedMatches = new Set<string>();
-  for (const c of candidates) {
-    const mKey = String(c.match || '');
-    if (!mKey || usedMatches.has(mKey)) continue;
-    chosen.push(c);
-    usedMatches.add(mKey);
-    if (chosen.length >= 3) break;
+    .sort((a: any, b: any) => {
+      const aFav = String(a.mispricing_drivers || '').includes('Fav ') ? 1 : 0;
+      const bFav = String(b.mispricing_drivers || '').includes('Fav ') ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return Number(b.edge_score || 0) - Number(a.edge_score || 0) || Number(b.win_prob || 0) - Number(a.win_prob || 0);
+    });
+  const within48h = (a: any, b: any): boolean => {
+    const t1 = Date.parse(String(a?.date || ''));
+    const t2 = Date.parse(String(b?.date || ''));
+    if (Number.isNaN(t1) || Number.isNaN(t2)) return true;
+    return Math.abs(t2 - t1) <= 54 * 3600 * 1000;
+  };
+  let bestCluster: any[] = [];
+  for (const anchor of candidates) {
+    const chosen: any[] = [];
+    const usedMatches = new Set<string>();
+    for (const c of candidates) {
+      const mKey = String(c.match || '');
+      if (!mKey || usedMatches.has(mKey) || !within48h(anchor, c)) continue;
+      chosen.push(c);
+      usedMatches.add(mKey);
+      if (chosen.length >= 3) break;
+    }
+    if (chosen.length > bestCluster.length) {
+      bestCluster = chosen;
+      if (bestCluster.length >= 3) break;
+    }
   }
+  const chosen = bestCluster;
   if (!chosen.length) {
-    store.showToast('No 88+/100 Edge Score shields match current filter.');
+    store.showToast('No 88+/100 Edge Score picks match current filter.');
     return;
   }
   store.clearCustomSelection();
@@ -4400,7 +4419,7 @@ const GLOSSARY_SECTIONS = [
       { term: '1X / X2 (DC)', cat: 'Double Chance', desc: '1X = Home Win or Draw; X2 = Away Win or Draw. Wins on 2 of the 3 outcomes.' },
       { term: '1X/X2 & O1.5', cat: 'Football Combo', desc: 'Double Chance + Over 1.5 Goals (74.0% OOS WR). Wins on 1-1, 2-0, 2-1, 3-0, 2-2.' },
       { term: 'Win & O1.5', cat: 'Football Combo', desc: 'Team wins outright AND total goals ≥ 2 (66.7% OOS WR, +7.1% ROI).' },
-      { term: 'Fade Trap', cat: 'Contrarian Edge', desc: 'Backs the underdog (+7.5 / +1.5 PL / 1X-X2) against an overestimated favorite with negative efficiency.' },
+      { term: 'Fade Trap', cat: 'Contrarian Edge', desc: 'Backs the underdog (Handicap +7.5 / 1X-X2 / +1.5) against an overestimated favorite with negative efficiency.' },
       { term: 'DNB', cat: 'Draw No Bet', desc: 'Team wins outright; if the match ends in a draw, 100% of your stake is refunded (Push).' },
       { term: '-1.0 AH', cat: 'Asian Handicap', desc: 'Wins if team wins by ≥2 goals; 100% stake refund (Push) if team wins by exactly 1 goal.' },
       { term: 'BTTS Yes / No', cat: 'Football', desc: 'Both Teams To Score (Yes = both teams score ≥1 goal; No = at least one clean sheet).' },
@@ -4410,13 +4429,13 @@ const GLOSSARY_SECTIONS = [
   {
     title: '2. Sport-Specific Handicaps & Totals',
     items: [
-      { term: '+1.5 Sets', cat: 'Tennis / TT', desc: 'Set Handicap Shield: Player wins the match OR wins at least 1 set (2:3 in Bo5 / 1:2 in Bo3).' },
+      { term: '+1.5 Sets', cat: 'Tennis / TT', desc: 'Set Handicap: Player wins the match OR wins at least 1 set (2:3 in Bo5 / 1:2 in Bo3).' },
       { term: '2:0 Sets', cat: 'Tennis', desc: 'Player wins in straight sets (2 sets to 0).' },
       { term: '-3.5 Games', cat: 'Tennis', desc: 'Total games won minus opponent games won is ≥ 4 (e.g. 6-4, 6-4 = +4 games).' },
       { term: 'TDs / FGs', cat: 'NFL', desc: 'Touchdowns (6 pts + PAT) and Field Goals (3 pts). e.g. Over 3.5 TDs = ≥4 TDs in game; Over 2.5 FGs = ≥3 FGs.' },
-      { term: '-2.5 / +7.5', cat: 'NFL / NBA', desc: 'Point Spread: -2.5 wins if team wins by ≥3 pts; +7.5 Shield wins if team wins OR loses by ≤7 pts.' },
-      { term: '+1.5 PL', cat: 'NHL Hockey', desc: 'Puck Line +1.5: Team wins outright OR loses by 1 goal (incl. OT/Shootout).' },
-      { term: '+1.5 / -1.5 RL', cat: 'Baseball', desc: 'Run Line: +1.5 covers outright win or 1-run loss; -1.5 requires winning by ≥2 runs.' },
+      { term: '-2.5 / +7.5 (7.5:0 / 0:7.5)', cat: 'NFL / NBA', desc: 'Handicap: -2.5 (0:2.5 / 2.5:0) wins by ≥3 pts; +7.5 (7.5:0 / 0:7.5) wins if team wins OR loses by ≤7 pts.' },
+      { term: '1X / X2 or +1.5 (1.5:0 / 0:1.5)', cat: 'NHL Hockey', desc: 'Double Chance 1X/X2 (wins or reaches OT) or Handicap +1.5 (wins or loses by 1 goal).' },
+      { term: '+1.5 / -1.5 (1.5:0 / 0:1.5)', cat: 'Baseball', desc: 'Handicap (incl. extra innings): +1.5 covers outright win or 1-run loss; -1.5 requires winning by ≥2 runs.' },
     ],
   },
   {

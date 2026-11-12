@@ -524,10 +524,10 @@ def _humanize_raw_market_codes(text: str, home: str = "", away: str = "") -> str
         "OVER_2_5": "Over 2.5 Goals",
         "(OVER_1_5)": "Over 1.5 Goals",
         "OVER_1_5": "Over 1.5 Goals",
-        "SET_SHIELD": "+1.5 Sets Shield",
+        "SET_SHIELD": "+1.5 Sets Handicap",
         "STRAIGHT_SETS": "2:0 Straight Sets",
-        "DC_SHIELD": "Double Chance Shield",
-        "DNB_SHIELD": "Draw No Bet Shield",
+        "DC_SHIELD": "Double Chance (1X/X2)",
+        "DNB_SHIELD": "Draw No Bet (DNB)",
         "TOTALS_OVER": "Over Total Goals",
         "TOTALS_UNDER": "Under Total Games",
     }
@@ -540,12 +540,12 @@ def _humanize_raw_market_codes(text: str, home: str = "", away: str = "") -> str
     s = re.sub(r"\(?OVER_POINTS_([0-9.]+)\)?", r"Over \1 Points", s)
     s = re.sub(r"\(?UNDER_POINTS_([0-9.]+)\)?", r"Under \1 Points", s)
     s = s.replace("(UNDER_2_5)", "Under 2.5 Goals").replace("UNDER_2_5", "Under 2.5 Goals")
-    s = s.replace("SPREAD_M2.5_H", f"{home} -2.5 Spread".strip() if home else "-2.5 Spread")
-    s = s.replace("SPREAD_M2.5_A", f"{away} -2.5 Spread".strip() if away else "-2.5 Spread")
-    s = s.replace("SPREAD_P7.5_H", f"{home} +7.5 Shield".strip() if home else "+7.5 Shield")
-    s = s.replace("SPREAD_P7.5_A", f"{away} +7.5 Shield".strip() if away else "+7.5 Shield")
-    s = s.replace("PUCKLINE_P1.5_H", f"{home} +1.5 Puck Line".strip() if home else "+1.5 Puck Line")
-    s = s.replace("PUCKLINE_P1.5_A", f"{away} +1.5 Puck Line".strip() if away else "+1.5 Puck Line")
+    s = s.replace("SPREAD_M2.5_H", f"{home} -2.5 (0:2.5)".strip() if home else "-2.5 (0:2.5)")
+    s = s.replace("SPREAD_M2.5_A", f"{away} -2.5 (2.5:0)".strip() if away else "-2.5 (2.5:0)")
+    s = s.replace("SPREAD_P7.5_H", f"{home} +7.5 (7.5:0)".strip() if home else "+7.5 (7.5:0)")
+    s = s.replace("SPREAD_P7.5_A", f"{away} +7.5 (0:7.5)".strip() if away else "+7.5 (0:7.5)")
+    s = s.replace("PUCKLINE_P1.5_H", f"{home} 1X / +1.5".strip() if home else "1X / +1.5")
+    s = s.replace("PUCKLINE_P1.5_A", f"{away} X2 / +1.5".strip() if away else "X2 / +1.5")
     return " ".join(s.split())
 
 

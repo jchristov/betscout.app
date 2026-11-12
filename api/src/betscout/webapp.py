@@ -1561,22 +1561,22 @@ def _analyze_single_entity(db_path: Path, rec_path: Path, query: str) -> dict[st
         verdict = f"✅ TIER-1 BANKER PROFILE — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Streak {current_streak} · Elo {elo_rating:.0f})"
         verdict_level = "strong_bet"
         best_markets = (
-            f"{entity_name} Moneyline & 2:0 Straight Sets / +1.5 Sets Shield"
+            f"{entity_name} Moneyline & 2:0 Straight Sets / +1.5 Sets Handicap"
             if detected_sport == "tennis"
-            else f"{entity_name} Moneyline / Double Chance Shield & Over Team Totals"
+            else f"{entity_name} Moneyline / Double Chance (1X/X2) & Over Team Totals"
         )
     elif win_rate_last10_pct >= 55.0 and avg_margin >= 0.0:
         verdict = f"⚖️ SOLID CONTENDER PROFILE — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Elo {elo_rating:.0f})"
         verdict_level = "lean_bet"
         best_markets = (
-            f"Prefer {entity_name} +1.5 Sets Shield or selective matchup spots"
+            f"Prefer {entity_name} +1.5 Sets Handicap or selective matchup spots"
             if detected_sport == "tennis"
             else f"Prefer {entity_name} Draw No Bet (DNB) / Double Chance (1X/X2)"
         )
     else:
         verdict = f"⚠️ CAUTION / FADE CHALK — {entity_name} ({win_rate_last10_pct:.0f}% L10 Win Rate · Streak {current_streak})"
         verdict_level = "no_bet"
-        best_markets = f"Avoid backing {entity_name} at short chalk odds; look for opponent handicap shields or Totals"
+        best_markets = f"Avoid backing {entity_name} at short chalk odds; look for opponent Handicap or Totals"
 
     funstats_team_intel: dict[str, Any] | None = None
     if detected_sport == "soccer":
@@ -2174,8 +2174,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             exp_total_pts=exp_pts,
         )
         p_sp75 = 0.852 if fav_prob >= 0.58 else round(min(0.84, fav_prob + 0.18), 3)
+        hcp_nba_fav = "7.5:0" if fav_is_1 else "0:7.5"
         mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +7.5 ({p_sp75*100:.1f}%, Fair @{1.0/p_sp75:.2f})"
+        mkt_2 = f"{fav_name} +7.5 ({hcp_nba_fav}) ({p_sp75*100:.1f}%, Fair @{1.0/p_sp75:.2f})"
         mkt_3 = (
             f"Over {tot_ln_b} Pts (Exp {exp_pts:.1f})"
             if exp_pts >= tot_ln_b or tot_ln_b >= 232.5
@@ -2225,8 +2226,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             rest_for_pick=0.0,
         )
         p_pl15 = round(min(0.88, max(0.80, fav_mkt_prob + 0.22)), 3)
+        dc_nhl_fav = "1X" if fav_is_1 else "X2"
         mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +1.5 PL ({p_pl15*100:.1f}%, Fair @{1.0/p_pl15:.2f})"
+        mkt_2 = f"{fav_name} {dc_nhl_fav} / +1.5 ({p_pl15*100:.1f}%, Fair @{1.0/p_pl15:.2f})"
         mkt_3 = (
             f"Under {tot_ln_nhl} Goals (Exp {exp_goals_nhl:.2f}G · {comb_sot_for or 54.0:.1f} SOG)"
             if exp_goals_nhl <= tot_ln_nhl - 0.30
@@ -2317,8 +2319,9 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             comb_hits_for=comb_sot_for,
         )
         p_rl15 = 0.810 if fav_prob >= 0.56 else round(min(0.84, fav_prob + 0.16), 3)
+        hcp_bb_fav = "1.5:0" if fav_is_1 else "0:1.5"
         mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +1.5 RL ({p_rl15*100:.1f}%, Fair @{1.0/p_rl15:.2f})"
+        mkt_2 = f"{fav_name} +1.5 ({hcp_bb_fav}) ({p_rl15*100:.1f}%, Fair @{1.0/p_rl15:.2f})"
         mkt_3 = (
             f"Under {tot_ln_mlb} Runs (Exp {exp_runs_mlb:.1f})"
             if exp_runs_mlb <= tot_ln_mlb - 0.30

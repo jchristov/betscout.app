@@ -1664,7 +1664,7 @@ def evaluate_nhl_totals_market(
                     "rationale": f"62.5% WR · Exp {exp_total_goals:.1f}g · {combined_shots:.0f} SOG",
                 })
 
-    # 3. +1.5 Puck Line Shield (81.6% OOS WR)
+    # 3. Handicap +1.5 Goals / Double Chance (1X / X2) (81.6% OOS WR)
     if (
         0.55 <= p_mkt <= 0.66
         and p_elo >= (p_mkt - 0.04)
@@ -1676,10 +1676,12 @@ def evaluate_nhl_totals_market(
         o_pl = round(max(1.22, min(1.32, 1.03 / p_pl)), 2)
         ev_pl = round((p_pl * o_pl - 1.0) * 100.0, 2)
         if ev_pl >= 1.0:
+            dc_nhl = "1X" if s_code == "H" else "X2"
+            hcp_nhl = "1.5:0" if s_code == "H" else "0:1.5"
             opportunities.append({
                 "market_type": f"PUCKLINE_P1.5_{s_code}",
-                "market_label": "+1.5 Puck Line",
-                "pick_name": f"{pick_team} +1.5 PL",
+                "market_label": f"Handicap {hcp_nhl} / {dc_nhl}",
+                "pick_name": f"{pick_team} +1.5 / {dc_nhl}",
                 "side": f"PUCKLINE_P1.5_{s_code}",
                 "tier": "set_shield",
                 "win_prob": p_pl,
@@ -1766,10 +1768,11 @@ def evaluate_nba_secondary_markets(
         p_sp = 0.852
         o_sp = 1.24
         ev_sp = round((p_sp * o_sp - 1.0) * 100.0, 2)
+        hcp_nba = "7.5:0" if s_code == "H" else "0:7.5"
         opportunities.append({
             "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": "Spread +7.5",
-            "pick_name": f"{pick_team} +7.5",
+            "market_label": f"Handicap {hcp_nba}",
+            "pick_name": f"{pick_team} +7.5 ({hcp_nba})",
             "side": f"SPREAD_P7.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_sp,
@@ -1890,15 +1893,16 @@ def evaluate_nfl_secondary_markets(
             "rationale": "70.0% WR (84W-36L) · High FG drive volume",
         })
 
-    # 4. -2.5 Field-Goal Alt Spread (90.9% OOS WR, +30.91% ROI — only on moderate favorites 0.58 <= p_mkt <= 0.72 where -2.5 is offered)
+    # 4. Handicap -2.5 (0:2.5 / 2.5:0) (90.9% OOS WR, +30.91% ROI — only on moderate favorites 0.58 <= p_mkt <= 0.72)
     if 0.58 <= p_mkt <= 0.72 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.80 and yards_diff >= 55.0:
         p_m25 = 0.895
         o_m25 = 1.44
         ev_m25 = round((p_m25 * o_m25 - 1.0) * 100.0, 2)
+        hcp_m25 = "0:2.5" if s_code == "H" else "2.5:0"
         opportunities.append({
             "market_type": f"SPREAD_M2.5_{s_code}",
-            "market_label": "Spread -2.5",
-            "pick_name": f"{pick_team} -2.5",
+            "market_label": f"Handicap {hcp_m25}",
+            "pick_name": f"{pick_team} -2.5 ({hcp_m25})",
             "side": f"SPREAD_M2.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_m25,
@@ -1908,22 +1912,23 @@ def evaluate_nfl_secondary_markets(
             "rationale": f"90.9% WR · +{yards_diff:.0f} Yds/Gm · +{ypp_diff:.2f} YPP",
         })
 
-    # 2. +7.5 Touchdown Teaser Shield (87.5% OOS WR, +8.50% ROI)
+    # 5. Handicap +7.5 (7.5:0 / 0:7.5) (87.5% OOS WR, +8.50% ROI)
     if 0.54 <= p_mkt <= 0.72 and p_elo >= (p_mkt - 0.06) and ypp_diff >= 0.50 and yards_diff >= 35.0:
         p_p75 = 0.875
         o_p75 = 1.24
         ev_p75 = round((p_p75 * o_p75 - 1.0) * 100.0, 2)
+        hcp_p75 = "7.5:0" if s_code == "H" else "0:7.5"
         opportunities.append({
             "market_type": f"SPREAD_P7.5_{s_code}",
-            "market_label": "Spread +7.5",
-            "pick_name": f"{pick_team} +7.5",
+            "market_label": f"Handicap {hcp_p75}",
+            "pick_name": f"{pick_team} +7.5 ({hcp_p75})",
             "side": f"SPREAD_P7.5_{s_code}",
             "tier": "set_shield",
             "win_prob": p_p75,
             "min_fair_odds": round(1.0 / p_p75, 2),
             "odds": o_p75,
             "ev_pct": ev_p75,
-            "rationale": "87.5% WR · +7.5 cushion",
+            "rationale": "87.5% WR · +7.5 Handicap",
         })
 
     # 3. High-Yards Attack Over Total Points (62.5% OOS WR, +17.83% ROI)
@@ -1999,7 +2004,7 @@ def evaluate_mlb_secondary_markets(
     pick_team = home if str(side).upper() == "H" else away
     s_code = "H" if str(side).upper() == "H" else "A"
 
-    # 1. +1.5 Run Line Shield (81.0% OOS WR)
+    # 1. Handicap +1.5 Runs (1.5:0 / 0:1.5) (81.0% OOS WR)
     if (
         0.54 <= p_mkt <= 0.74
         and p_elo >= (p_mkt - 0.05)
@@ -2009,10 +2014,11 @@ def evaluate_mlb_secondary_markets(
         p_rl15 = 0.810
         o_rl15 = 1.32
         ev_rl15 = round((p_rl15 * o_rl15 - 1.0) * 100.0, 2)
+        hcp_rl15 = "1.5:0" if s_code == "H" else "0:1.5"
         opportunities.append({
             "market_type": f"RUNLINE_P1.5_{s_code}",
-            "market_label": "+1.5 Run Line",
-            "pick_name": f"{pick_team} +1.5 RL",
+            "market_label": f"Handicap {hcp_rl15}",
+            "pick_name": f"{pick_team} +1.5 ({hcp_rl15})",
             "side": f"PLUS15_{s_code}",
             "tier": "set_shield",
             "win_prob": p_rl15,
@@ -2022,15 +2028,16 @@ def evaluate_mlb_secondary_markets(
             "rationale": f"81.0% WR · +{hits_diff:.1f} hits/gm",
         })
 
-    # 2. -1.5 Run Line Dominance
+    # 2. Handicap -1.5 Runs (0:1.5 / 1.5:0)
     if p_mkt >= 0.65 and p_elo >= 0.60 and hits_diff >= 1.50 and run_diff >= 1.00:
         p_m15 = round(min(0.68, max(0.56, p_mkt - 0.09)), 4)
         o_m15 = round(max(1.75, min(2.15, 1.04 / p_m15)), 2)
         ev_m15 = round((p_m15 * o_m15 - 1.0) * 100.0, 2)
+        hcp_m15 = "0:1.5" if s_code == "H" else "1.5:0"
         opportunities.append({
             "market_type": f"RUNLINE_M1.5_{s_code}",
-            "market_label": "-1.5 Run Line",
-            "pick_name": f"{pick_team} -1.5 RL",
+            "market_label": f"Handicap {hcp_m15}",
+            "pick_name": f"{pick_team} -1.5 ({hcp_m15})",
             "side": f"MINUS15_{s_code}",
             "tier": "straight_sets",
             "win_prob": p_m15,
@@ -2163,7 +2170,7 @@ def evaluate_european_secondary_markets(
             unit_lbl = "Sets" if sp == "table_tennis" else "Legs"
             opportunities.append({
                 "market_type": "SET_HANDICAP_PLUS_1_5",
-                "market_label": f"+1.5 {unit_lbl} Handicap Shield",
+                "market_label": f"Handicap +1.5 {unit_lbl}",
                 "pick_name": f"{pick_name} +1.5 {unit_lbl}",
                 "side": f"PLUS15_{s_code}",
                 "tier": "set_shield",
@@ -2179,10 +2186,11 @@ def evaluate_european_secondary_markets(
             p_rl = round(min(0.86, max(0.76, p_model + 0.14)), 4)
             o_rl = round(max(1.25, min(1.52, 1.03 / p_rl)), 2)
             ev_rl = round((p_rl * o_rl - 1.0) * 100.0, 2)
+            hcp_bb = "1.5:0" if s_code == "H" else "0:1.5"
             opportunities.append({
                 "market_type": f"RUNLINE_P1.5_{s_code}",
-                "market_label": "+1.5 Run Line",
-                "pick_name": f"{pick_name} +1.5 RL",
+                "market_label": f"Handicap {hcp_bb}",
+                "pick_name": f"{pick_team if 'pick_team' in locals() else pick_name} +1.5 ({hcp_bb})",
                 "side": f"PLUS15_{s_code}",
                 "tier": "set_shield",
                 "win_prob": p_rl,
@@ -2209,15 +2217,15 @@ def evaluate_paper_tiger_fade(
     fav_record_str: str = "",
 ) -> dict[str, Any] | None:
     """Evaluate Contrarian 'Fade Overestimated / Paper-Tiger Favorite' (`FADE_TRAP`, `tier = "fade_trap"`) opportunities:
-    1. **🏈 NFL Underdog `+7.5 Shield` (`SPREAD_P7.5`, `83.3%` OOS Win Rate, `30W – 6L`, `+15.0%` ROI; Outright Upset `59.5%` WR, `+38.9%` ROI):**
+    1. **🏈 NFL Underdog Handicap `+7.5` (`7.5:0` / `0:7.5`, `83.3%` OOS Win Rate, `30W – 6L`, `+15.0%` ROI; Outright Upset `59.5%` WR, `+38.9%` ROI):**
        Fires when an NFL favorite (`1.45 <= fav_odds <= 1.92`) has negative rolling Yards-Per-Play (`eff_diff_fav <= -0.25`)
        or negative total yardage differential (`vol_diff_fav <= -15.0`).
-    2. **🏒 NHL Underdog `+1.5 Puck Line` (`PUCKLINE_P1.5`, `72.6%` OOS Win Rate, `69W – 26L`, `+8.9%` ROI):**
+    2. **🏒 NHL Underdog Double Chance `1X / X2` / Handicap `+1.5` (`72.6%` OOS Win Rate, `69W – 26L`, `+8.9%` ROI):**
        Fires when an NHL favorite (`1.50 <= fav_odds <= 1.92`) trails the underdog in rolling Shots on Goal (`vol_diff_fav <= -1.0` or `eff_diff_fav <= -0.008`)
        or is a chronic favorite underperformer (`fav_gap_pp <= -12.0` with `vol_diff_fav < 0.0`).
     3. **⚽ Football Underdog Double Chance (`1X` / `X2`, `60.0%` OOS Win Rate, `51W – 34L`, `+10.3%` ROI):**
        Fires when a 3-way Football favorite (`1.60 <= fav_odds <= 2.08`) is out-shot on target by the underdog (`eff_diff_fav <= -1.0` SoT/gm).
-    4. **🏀 NBA Underdog `+7.5 Shield` (`SPREAD_P7.5`, `+15.3%` Underdog ROI):**
+    4. **🏀 NBA Underdog Handicap `+7.5` (`7.5:0` / `0:7.5`, `+15.3%` Underdog ROI):**
        Fires when a `1.50 <= fav_odds <= 1.90` NBA favorite trails the underdog in FG% (`eff_diff_fav <= -1.2`) and lacks a chronic favorite edge.
     """
     sp = (sport_slug or "").lower().strip()
@@ -2232,10 +2240,11 @@ def evaluate_paper_tiger_fade(
             p_sh = round(min(0.86, max(0.76, 0.80 + 0.025 * abs(min(eff_diff_fav, 0.0)))), 4)
             o_sh = round(max(1.32, min(1.52, dog_odds * 0.58)), 2)
             ev_sh = round((p_sh * o_sh - 1.0) * 100.0, 2)
+            hcp_dog = "7.5:0" if dog_side == "H" else "0:7.5"
             return {
                 "market_type": f"FADE_SPREAD_P7.5_{dog_side}",
-                "market_label": "Fade Trap (+7.5)",
-                "pick_name": f"{dog_team} +7.5 (Fade {fav_team})",
+                "market_label": f"Handicap {hcp_dog}",
+                "pick_name": f"{dog_team} +7.5 ({hcp_dog} · Fade {fav_team})",
                 "side": f"SPREAD_P7.5_{dog_side}",
                 "dog_side": dog_side,
                 "tier": "fade_trap",
@@ -2251,10 +2260,12 @@ def evaluate_paper_tiger_fade(
             p_pl = round(min(0.78, max(0.70, 0.72 + 0.015 * abs(min(vol_diff_fav, 0.0)))), 4)
             o_pl = round(max(1.36, min(1.54, dog_odds * 0.71)), 2)
             ev_pl = round((p_pl * o_pl - 1.0) * 100.0, 2)
+            dc_dog = "1X" if dog_side == "H" else "X2"
+            hcp_dog_nhl = "1.5:0" if dog_side == "H" else "0:1.5"
             return {
                 "market_type": f"FADE_PUCKLINE_P1.5_{dog_side}",
-                "market_label": "Fade Trap (+1.5 PL)",
-                "pick_name": f"{dog_team} +1.5 PL (Fade {fav_team})",
+                "market_label": f"Double Chance {dc_dog} / Hcp {hcp_dog_nhl}",
+                "pick_name": f"{dog_team} {dc_dog} / +1.5 (Fade {fav_team})",
                 "side": f"PUCKLINE_P1.5_{dog_side}",
                 "dog_side": dog_side,
                 "tier": "fade_trap",
@@ -2270,10 +2281,11 @@ def evaluate_paper_tiger_fade(
             p_sh = 0.72
             o_sh = round(max(1.42, min(1.62, dog_odds * 0.72)), 2)
             ev_sh = round((p_sh * o_sh - 1.0) * 100.0, 2)
+            hcp_dog_nba = "7.5:0" if dog_side == "H" else "0:7.5"
             return {
                 "market_type": f"FADE_SPREAD_P7.5_{dog_side}",
-                "market_label": "Fade Trap (+7.5)",
-                "pick_name": f"{dog_team} +7.5 (Fade {fav_team})",
+                "market_label": f"Handicap {hcp_dog_nba}",
+                "pick_name": f"{dog_team} +7.5 ({hcp_dog_nba} · Fade {fav_team})",
                 "side": f"SPREAD_P7.5_{dog_side}",
                 "dog_side": dog_side,
                 "tier": "fade_trap",
@@ -2293,7 +2305,7 @@ def evaluate_paper_tiger_fade(
             if ev_dc >= 2.0:
                 return {
                     "market_type": f"FADE_DC_{dc_code}",
-                    "market_label": f"Fade Trap ({dc_code})",
+                    "market_label": f"Double Chance {dc_code}",
                     "pick_name": f"{dog_team} {dc_code} (Fade {fav_team})",
                     "side": f"DC_{dc_code}",
                     "dog_side": dog_side,

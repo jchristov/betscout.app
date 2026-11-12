@@ -52,10 +52,10 @@ function humanizeCanvasMarketCodes(rawVal?: string | null): string {
     CORNERS_OVER_9_5: 'Over 9.5 Corners',
     '(CARDS_OVER_3_5)': 'Over 3.5 Cards',
     CARDS_OVER_3_5: 'Over 3.5 Cards',
-    SET_SHIELD: '+1.5 Sets Shield',
+    SET_SHIELD: '+1.5 Sets Handicap',
     STRAIGHT_SETS: '2:0 Straight Sets',
-    DC_SHIELD: 'Double Chance Shield',
-    DNB_SHIELD: 'Draw No Bet Shield',
+    DC_SHIELD: 'Double Chance (1X/X2)',
+    DNB_SHIELD: 'Draw No Bet (DNB)',
     TOTALS_OVER: 'Over Total Goals',
     TOTALS_UNDER: 'Under Total Games',
   };
@@ -68,9 +68,12 @@ function humanizeCanvasMarketCodes(rawVal?: string | null): string {
   s = s.replace(/\(?OVER_POINTS_([0-9.]+)\)?/g, 'Over $1 Points');
   s = s.replace(/\(?UNDER_POINTS_([0-9.]+)\)?/g, 'Under $1 Points');
   s = s.replace(/\(UNDER_2_5\)|UNDER_2_5/g, 'Under 2.5 Goals');
-  s = s.replace(/\(?SPREAD_M2\.5_[HA]\)?/g, '-2.5 Spread');
-  s = s.replace(/\(?SPREAD_P7\.5_[HA]\)?/g, '+7.5 Shield');
-  s = s.replace(/\(?PUCKLINE_P1\.5_[HA]\)?/g, '+1.5 Puck Line');
+  s = s.replace(/\(?SPREAD_M2\.5_H\)?/g, '-2.5 (0:2.5)');
+  s = s.replace(/\(?SPREAD_M2\.5_A\)?/g, '-2.5 (2.5:0)');
+  s = s.replace(/\(?SPREAD_P7\.5_H\)?/g, '+7.5 (7.5:0)');
+  s = s.replace(/\(?SPREAD_P7\.5_A\)?/g, '+7.5 (0:7.5)');
+  s = s.replace(/\(?PUCKLINE_P1\.5_H\)?/g, '1X / +1.5');
+  s = s.replace(/\(?PUCKLINE_P1\.5_A\)?/g, 'X2 / +1.5');
   s = s.replace(/\(?GAMES_HCAP_M3\.5_[HA]\)?/g, '-3.5 Games Handicap');
   s = s.replace(/\(?ASIAN_HCAP_M1\.0_[HA]\)?/g, '-1.0 Asian Handicap');
   s = s.replace(/\(UNDER_2_5_SETS\)|UNDER_2_5_SETS/g, 'Under 2.5 Sets');

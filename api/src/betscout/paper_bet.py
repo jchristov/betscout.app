@@ -2837,8 +2837,8 @@ def build_recommended_2leg_doubles(
     _pair_pool(ml_candidates, ml_candidates, "CROSS_SPORT_BANKER", "Cross-Sport Banker ML", 0.48, 1.45, 2.75, limit=3, require_diff_league=True, max_hours_gap=48.0)
     if len([d for d in doubles if d["combo_type"] == "CROSS_SPORT_BANKER"]) == 0:
         _pair_pool(ml_candidates, ml_candidates, "CROSS_SPORT_BANKER", "Cross-Sport Banker ML", 0.48, 1.45, 2.75, limit=2, require_diff_league=True, max_hours_gap=None)
-    # 2. Double-Chance & +1.5 Sets Shield Combos (up to 2, ultra-high hit rate >= 62%)
-    _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double-Chance / +1.5 Sets Shield", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
+    # 2. Double-Chance & +1.5 Handicap Combos (up to 2, ultra-high hit rate >= 62%)
+    _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double Chance & +1.5 Handicap", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
     # 3. Goals & Games O/U Totals Combos (up to 2)
     _pair_pool(totals_candidates, totals_candidates + shield_candidates, "GOALS_GAMES_TOTALS", "Goals & Games O/U Combo", 0.46, 1.55, 2.85, limit=2, require_diff_league=False)
     # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 2, require >= 44% combined probability)
@@ -4608,17 +4608,17 @@ def format_paper_bet_pick_label(home: str, away: str, side: str) -> str:
     if s == "GAMES_HCAP_M3.5_A":
         return f"{away} -3.5 Games"
     if s == "SPREAD_M2.5_H":
-        return f"{home} -2.5 Spread"
+        return f"{home} -2.5 (0:2.5)"
     if s == "SPREAD_M2.5_A":
-        return f"{away} -2.5 Spread"
+        return f"{away} -2.5 (2.5:0)"
     if s == "SPREAD_P7.5_H":
-        return f"{home} +7.5 Shield"
+        return f"{home} +7.5 (7.5:0)"
     if s == "SPREAD_P7.5_A":
-        return f"{away} +7.5 Shield"
+        return f"{away} +7.5 (0:7.5)"
     if s == "PUCKLINE_P1.5_H":
-        return f"{home} +1.5 Puck Line"
+        return f"{home} 1X / +1.5"
     if s == "PUCKLINE_P1.5_A":
-        return f"{away} +1.5 Puck Line"
+        return f"{away} X2 / +1.5"
     if s.startswith("OVER_TDS_"):
         return f"Over {s.replace('OVER_TDS_', '')} TDs"
     if s.startswith("TEAM_TDS_O2.5_"):
@@ -4781,14 +4781,14 @@ def get_paper_ledger_summary(db_path: Path) -> dict[str, Any]:
             "roi_pct": round(float(np.mean(t_pnls)) * 100.0, 1),
         })
 
-    # Market-Type Attribution Breakdown (Moneyline / 1X2 vs Shields vs Over/Under Totals)
+    # Market-Type Attribution Breakdown (Moneyline / 1X2 vs Double Chance & Handicaps vs Over/Under Totals)
     def _mkt_bucket(side_s: str, tier_s: str) -> str:
         su = str(side_s or "").upper()
         tl = str(tier_s or "").lower()
         if su.startswith(("DC_", "DNB_")) or tl in ("dc_shield", "dnb_shield"):
-            return "Double Chance & DNB Shields"
+            return "Double Chance (1X/X2) & DNB"
         if su.startswith(("PLUS15_", "SPREAD_", "PUCKLINE_", "GAMES_HCAP_")) or tl == "set_shield":
-            return "Handicap Shields (+1.5 Sets / PL / Spread)"
+            return "Handicaps (+1.5 / +7.5)"
         if su.startswith(("OVER_", "UNDER_", "SETS20_", "BTTS_", "HT_OVER_", "CORNERS_", "CARDS_")) or tl in ("totals_over", "totals_under", "straight_sets"):
             return "Totals & Exact Sets"
         return "ML & 1X2 Bankers"

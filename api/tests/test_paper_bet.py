@@ -1352,7 +1352,7 @@ def test_per_sport_isolated_gates():
             fav_gap_pp=-20.5,
             fav_record_str="6W-9L",
         )
-        assert nhl_fade is not None and nhl_fade["tier"] == "fade_trap" and "Pittsburgh Penguins +1.5 PL" in nhl_fade["pick_name"]
+        assert nhl_fade is not None and nhl_fade["tier"] == "fade_trap" and "Pittsburgh Penguins X2 / +1.5" in nhl_fade["pick_name"]
 
         soc_sec = evaluate_soccer_secondary_markets(
             home="Bayer Leverkusen",
