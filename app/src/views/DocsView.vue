@@ -218,15 +218,18 @@
                   Maintains separate Elo ratings for <code class="text-sky-300">All Surfaces</code>, <code class="text-sky-300">Outdoor Hard</code>, <code class="text-sky-300">Indoor Hard</code>, <code class="text-sky-300">Clay</code>, and <code class="text-sky-300">Grass</code> alongside <code class="text-sky-300">Game-Win Elo</code>, rolling 6-month win%, 3-set decider win rate, current-tournament court acclimatization, and H2H.
                 </p>
                 <div class="text-slate-400">
-                  <b class="text-amber-300">Set-Score &amp; Turnaround Gates:</b> Computes exact Markov probabilities for <code class="text-slate-200">2:0</code> / <code class="text-slate-200">0:2</code> straight sets, <code class="text-slate-200">2:1</code> / <code class="text-slate-200">1:2</code> deciders, and <code class="text-slate-200">+1.5 Sets</code> shields. Automatically flags or vetoes players with <code class="text-rose-300">&le;24h–38h</code> short turnaround or negative all-level (ATP/WTA/Challenger) Last-5 form divergence.
+                  <b class="text-amber-300">Set-Score &amp; Turnaround Gates:</b> Computes exact Markov probabilities for <code class="text-slate-200">2:0</code> / <code class="text-slate-200">0:2</code> straight sets, <code class="text-slate-200">2:1</code> / <code class="text-slate-200">1:2</code> deciders, and <code class="text-slate-200">+1.5 Sets</code> handicap. Automatically flags or vetoes players with <code class="text-rose-300">&le;22.5h–38h</code> short turnaround or negative all-level (ATP/WTA/Challenger) Last-5 form divergence.
                 </div>
               </div>
 
               <div class="p-4 rounded-xl bg-slate-900/85 border border-slate-700/80">
                 <b class="text-indigo-300 text-sm block mb-1">🤾🏓🎯🏀🏒 European &amp; US Major Sports Gates (Handball, Table Tennis, Darts, NBA, NHL, NFL)</b>
-                <p class="text-slate-300 leading-relaxed">
+                <p class="text-slate-300 leading-relaxed mb-2">
                   Requires multi-factor alignment between Elo, rolling efficiency (FG%, Goalie Save% &amp; Shot Volume, Yards-per-Play), Last-5 form, and direct H2H history (vetoing Darts/Table Tennis favorites who lost their most recent H2H meeting or exceed the sport-specific odds ceiling).
                 </p>
+                <div class="text-slate-400">
+                  <b class="text-sky-300">European Handicap &amp; Double Chance Mapping:</b> All secondary picks use direct European sportsbook notation — <code class="text-slate-200">1X / X2</code> (Double Chance), <code class="text-slate-200">DNB</code> (Draw No Bet), <code class="text-slate-200">+7.5 (7.5:0 / 0:7.5)</code> &amp; <code class="text-slate-200">-2.5 (0:2.5 / 2.5:0)</code> (NFL/NBA Handicap), <code class="text-slate-200">1X / +1.5 (1.5:0)</code> &amp; <code class="text-slate-200">X2 / +1.5 (0:1.5)</code> (NHL Double Chance or Handicap), and <code class="text-slate-200">Over 3.5 TDs / Over 2.5 FGs</code>.
+                </div>
               </div>
             </div>
           </section>

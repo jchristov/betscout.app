@@ -997,7 +997,7 @@ def scan_sportradar_european_sports(
             fav_session_sets_3h: int | None = None
             fav_last_lost_5set: bool = False
             fav_lost_last_h2h: bool = False
-            if sp_slug in ("table_tennis", "darts", "snooker", "handball", "curling") and cand.get("ko_uts"):
+            if sp_slug in ("table_tennis", "darts", "snooker", "handball", "curling", "baseball") and cand.get("ko_uts"):
                 fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
                 dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
                 fav_r3_lx: float | None = None

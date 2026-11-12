@@ -129,6 +129,10 @@ def install_view(db: Path) -> None:
 def adjust_and_normalize_db(db: Path) -> dict[str, int]:
     """Normalize formats and strip any invalid/in-play price sets on the fly across `matches` and `match_details`."""
     conn = sqlite3.connect(db)
+    # 0. Normalize any 20-char ISO kickoff ('YYYY-MM-DDTHH:MM:SSZ') to canonical 17-char 'YYYY-MM-DDTHH:MMZ'
+    conn.execute(
+        "UPDATE matches SET kickoff = substr(kickoff, 1, 16) || 'Z' WHERE length(kickoff) = 20 AND kickoff GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z'"
+    )
     # 1. Trim team names and remove invalid self-matches or empty teams
     conn.execute("UPDATE matches SET home = TRIM(home), away = TRIM(away) WHERE home != TRIM(home) OR away != TRIM(away)")
     conn.execute("DELETE FROM matches WHERE home = away OR TRIM(home) = '' OR TRIM(away) = ''")

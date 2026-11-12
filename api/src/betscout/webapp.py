@@ -2533,7 +2533,7 @@ def _ensure_baseball_db_backfill(db_path: Path) -> int:
                         dt_uts = ((m.get("_dt") or m.get("time") or {}).get("uts")) or 0
                         if not hn or not an or not dt_uts:
                             continue
-                        ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        ko_iso = datetime.fromtimestamp(int(dt_uts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
                         hs, as_ = float(rh), float(ra)
                         if hs == as_:
                             continue
@@ -2680,7 +2680,7 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
 
                 # Automatic Upcoming Slate Refresh: if `recommendations.json` is > 4 hours old,
-                # or has no upcoming picks for today/tomorrow, automatically run a fresh 3-day multi-sport scan!
+                # or has no upcoming picks for today/tomorrow, automatically run a fresh 4-day incremental ingest + multi-sport scan!
                 should_auto_scan = False
                 if not rec_path.exists():
                     should_auto_scan = True
@@ -2700,6 +2700,19 @@ def _start_background_auto_poller(root_dir: Path, interval_sec: int = 90) -> thr
                     except Exception:
                         pass
                 if should_auto_scan:
+                    try:
+                        from .universal_ingest import ingest_universal
+
+                        ingest_universal(
+                            db_path=db_path,
+                            cache_dir=data_dir / "cache",
+                            config_path=root_dir / "ingestion_config.json",
+                            mode="days",
+                            days_back=4,
+                            workers=8,
+                        )
+                    except Exception:
+                        pass
                     scan_upcoming_and_log_paper_bets(db_path=db_path, days_ahead=3, export_json_path=rec_path)
                     generate_dashboard_html(rec_path, db_path, dash_path, min_odds=1.10)
 

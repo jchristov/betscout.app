@@ -826,11 +826,13 @@ def evaluate_european_sport_gate(
             return False, round(p_model, 4), ev_pct
     elif sp == "baseball":
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
-        if best_odds < 1.15 or best_odds > 1.85 or form_diff_fav < 0.20 or fav_loss_streak >= 1:
+        if best_odds < 1.15 or best_odds > 1.50 or form_diff_fav < 0.25 or fav_loss_streak >= 1:
             return False, round(p_model, 4), ev_pct
-        if fav_wr is not None and fav_wr < 0.55:
+        if fav_wr is not None and fav_wr < 0.60:
             return False, round(p_model, 4), ev_pct
-        if (n_form_home + n_form_away) > 0 and n_form_fav < 3:
+        if (n_form_home + n_form_away) > 0 and n_form_fav < 4:
+            return False, round(p_model, 4), ev_pct
+        if recent3_diff_fav is not None and recent3_diff_fav < 0.33:
             return False, round(p_model, 4), ev_pct
     else:
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
@@ -2215,20 +2217,30 @@ def evaluate_paper_tiger_fade(
     vol_diff_fav: float = 0.0,
     fav_gap_pp: float = 0.0,
     fav_record_str: str = "",
+    fav_goal_diff: float | None = None,
+    dog_goal_diff: float | None = None,
+    fav_win_rate_5: float | None = None,
+    dog_win_rate_3: float | None = None,
+    dog_last_margin: float | None = None,
+    league: str = "",
 ) -> dict[str, Any] | None:
     """Evaluate Contrarian 'Fade Overestimated / Paper-Tiger Favorite' (`FADE_TRAP`, `tier = "fade_trap"`) opportunities:
     1. **🏈 NFL Underdog Handicap `+7.5` (`7.5:0` / `0:7.5`, `83.3%` OOS Win Rate, `30W – 6L`, `+15.0%` ROI; Outright Upset `59.5%` WR, `+38.9%` ROI):**
        Fires when an NFL favorite (`1.45 <= fav_odds <= 1.92`) has negative rolling Yards-Per-Play (`eff_diff_fav <= -0.25`)
-       or negative total yardage differential (`vol_diff_fav <= -15.0`).
-    2. **🏒 NHL Underdog Double Chance `1X / X2` / Handicap `+1.5` (`72.6%` OOS Win Rate, `69W – 26L`, `+8.9%` ROI):**
-       Fires when an NHL favorite (`1.50 <= fav_odds <= 1.92`) trails the underdog in rolling Shots on Goal (`vol_diff_fav <= -1.0` or `eff_diff_fav <= -0.008`)
-       or is a chronic favorite underperformer (`fav_gap_pp <= -12.0` with `vol_diff_fav < 0.0`).
-    3. **⚽ Football Underdog Double Chance (`1X` / `X2`, `60.0%` OOS Win Rate, `51W – 34L`, `+10.3%` ROI):**
-       Fires when a 3-way Football favorite (`1.60 <= fav_odds <= 2.08`) is out-shot on target by the underdog (`eff_diff_fav <= -1.0` SoT/gm).
-    4. **🏀 NBA Underdog Handicap `+7.5` (`7.5:0` / `0:7.5`, `+15.3%` Underdog ROI):**
-       Fires when a `1.50 <= fav_odds <= 1.90` NBA favorite trails the underdog in FG% (`eff_diff_fav <= -1.2`) and lacks a chronic favorite edge.
+       or negative total yardage differential (`vol_diff_fav <= -15.0`), provided the underdog is not coming off a `>= 14`-point blowout loss.
+    2. **🏒 NHL Underdog Double Chance `1X / X2` / Handicap `+1.5` (`78.0%` OOS Win Rate, `39W – 11L`):**
+       Fires when an NHL favorite (`1.52 <= fav_odds <= 1.94`) trails in Shots on Goal (`vol_diff_fav <= -1.5`),
+       does not have a dominant goal differential (`fav_goal_diff <= 0.35`) or hot streak (`fav_win_rate_5 <= 0.65`),
+       and the underdog is not on a losing streak (`dog_win_rate_3 >= 0.33`, `dog_last_margin >= -2.0`).
+    3. **⚽ Domestic Club Football Underdog Double Chance (`1X` / `X2`, `60.0%` OOS Win Rate, `51W – 34L`, `+10.3%` ROI):**
+       Fires in domestic club leagues (excludes national-team `uefa.nations` / `fifa.world` and `uefa.wchampions` cross-sport/gender noise)
+       when a 3-way Football favorite (`1.60 <= fav_odds <= 2.08`) is out-shot on target by the underdog (`eff_diff_fav <= -1.0` SoT/gm).
+    4. **🏀 NBA Underdog Handicap `+7.5` (`7.5:0` / `0:7.5`):**
+       Fires when a `1.52 <= fav_odds <= 1.92` NBA favorite trails the underdog in FG% (`eff_diff_fav <= -1.5`) with `fav_gap_pp <= -8.0`
+       AND the underdog is not in a blowout slump (`dog_goal_diff >= -4.0`, `dog_last_margin > -15.0`, `dog_win_rate_3 >= 0.33`).
     """
     sp = (sport_slug or "").lower().strip()
+    lg_low = (league or "").lower().strip()
     f_side = "H" if str(fav_side).upper() == "H" else "A"
     dog_side = "A" if f_side == "H" else "H"
     fav_team = home if f_side == "H" else away
@@ -2236,6 +2248,8 @@ def evaluate_paper_tiger_fade(
     rec_tag = f" · Fav {fav_record_str} ({fav_gap_pp:+.1f}pp)" if fav_record_str and fav_gap_pp <= -5.0 else ""
 
     if sp in ("nfl", "football"):
+        if dog_last_margin is not None and dog_last_margin <= -14.0:
+            return None
         if 1.45 <= fav_odds <= 1.95 and (eff_diff_fav <= -0.25 or vol_diff_fav <= -15.0):
             p_sh = round(min(0.86, max(0.76, 0.80 + 0.025 * abs(min(eff_diff_fav, 0.0)))), 4)
             o_sh = round(max(1.32, min(1.52, dog_odds * 0.58)), 2)
@@ -2256,7 +2270,15 @@ def evaluate_paper_tiger_fade(
             }
 
     if sp in ("nhl", "hockey"):
-        if 1.48 <= fav_odds <= 1.94 and (vol_diff_fav <= -1.0 or (fav_gap_pp <= -10.0 and vol_diff_fav < 0.0)):
+        if fav_goal_diff is not None and fav_goal_diff > 0.35:
+            return None
+        if fav_win_rate_5 is not None and fav_win_rate_5 > 0.65:
+            return None
+        if dog_win_rate_3 is not None and dog_win_rate_3 < 0.33:
+            return None
+        if dog_last_margin is not None and dog_last_margin <= -3.0:
+            return None
+        if 1.48 <= fav_odds <= 1.94 and (vol_diff_fav <= -1.5 or (fav_gap_pp <= -10.0 and vol_diff_fav <= -1.0)):
             p_pl = round(min(0.78, max(0.70, 0.72 + 0.015 * abs(min(vol_diff_fav, 0.0)))), 4)
             o_pl = round(max(1.36, min(1.54, dog_odds * 0.71)), 2)
             ev_pl = round((p_pl * o_pl - 1.0) * 100.0, 2)
@@ -2273,11 +2295,17 @@ def evaluate_paper_tiger_fade(
                 "min_fair_odds": round(1.0 / p_pl, 2),
                 "odds": o_pl,
                 "ev_pct": ev_pl,
-                "rationale": f"72.6% OOS WR · Fade {fav_team} (SOG {vol_diff_fav:+.1f}/gm{rec_tag})",
+                "rationale": f"78.0% OOS WR · Fade {fav_team} (SOG {vol_diff_fav:+.1f}/gm{rec_tag})",
             }
 
     if sp in ("nba", "basketball"):
-        if 1.48 <= fav_odds <= 1.92 and eff_diff_fav <= -1.2 and fav_gap_pp <= -8.0:
+        if (
+            (dog_goal_diff is not None and dog_goal_diff < -4.0)
+            or (dog_last_margin is not None and dog_last_margin <= -15.0)
+            or (dog_win_rate_3 is not None and dog_win_rate_3 < 0.33)
+        ):
+            return None
+        if 1.48 <= fav_odds <= 1.92 and eff_diff_fav <= -1.5 and fav_gap_pp <= -8.0:
             p_sh = 0.72
             o_sh = round(max(1.42, min(1.62, dog_odds * 0.72)), 2)
             ev_sh = round((p_sh * o_sh - 1.0) * 100.0, 2)
@@ -2297,6 +2325,8 @@ def evaluate_paper_tiger_fade(
             }
 
     if sp == "soccer" and draw_odds and draw_odds > 1.5:
+        if lg_low in ("uefa.nations", "fifa.world", "uefa.wchampions"):
+            return None
         if 1.60 <= fav_odds <= 2.08 and eff_diff_fav <= -1.0:
             dc_code = "1X" if dog_side == "H" else "X2"
             o_dc = round(max(1.48, min(2.15, 1.0 / (1.0 / dog_odds + 1.0 / draw_odds) * 0.96)), 2)

@@ -381,11 +381,11 @@ Click **`🔖 Track`** on any combo card or **`+ Save Current €100 Slip`** in 
 
 ## 19. Contrarian "Fade Traps" Filter, Hybrid Combos & Individual Player Props
 
-### A. Market Filter: `Fade Traps` (`fade_trap`)
-Click **`Fade Traps`** in the **Market** filter bar (`All`, `ML / 1X2`, `Shields`, `Totals`, `Fade Traps`, `Secondary`) to isolate contrarian underdog shields where the market favorite (`1.45 <= odds <= 1.95`) has negative underlying boxscore efficiency or a chronic favorite underperformance record:
-- **NFL `+7.5` Fade Trap (`83.3%` OOS WR, `+15.0%` ROI):** Fades NFL favorites with negative Yards-Per-Play (`<= -0.25`) or yardage differential (`<= -15.0 yds/gm`).
-- **NHL `+1.5 PL` Fade Trap (`72.6%` OOS WR, `+8.9%` ROI):** Fades NHL favorites out-shot by `>= 1.0` SOG/gm.
-- **Football `1X / X2` Fade Trap (`60.0%` OOS WR, `+10.3%` ROI):** Fades `1.60–2.08` Football favorites out-shot on target by `>= 1.0` SoT/gm.
+### A. Market Filter: `Fade Traps` (`fade_trap`) & European Sportsbook Market Mapping
+Click **`Fade Traps`** in the **Market** filter bar (`All`, `ML / 1X2`, `Double Chance & Handicap (1X/X2, DNB, +1.5, +7.5)`, `Totals`, `Fade Traps`, `Secondary`) to isolate contrarian underdog handicaps where the market favorite (`1.45 <= odds <= 1.95`) has negative underlying boxscore efficiency or a chronic favorite underperformance record:
+- **NFL `+7.5 (7.5:0 / 0:7.5)` Fade Trap (`83.3%` OOS WR, `+15.0%` ROI):** Fades NFL favorites with negative Yards-Per-Play (`<= -0.25`) or yardage differential (`<= -15.0 yds/gm`). In European handicap notation, `7.5:0 -> 1` backs the Home team `+7.5`, and `0:7.5 -> 2` backs the Away team `+7.5`.
+- **NHL `1X / +1.5` or `X2 / +1.5` Fade Trap (`78.0%` OOS WR):** Fades NHL favorites out-shot by `>= 1.5` SOG/gm when the favorite does not hold a positive goal-differential/win-streak edge and the underdog is not on a losing streak. Maps directly to **Double Chance `1X` / `X2`** (60-minute regulation win or draw/OT) or **Handicap `1.5:0` / `0:1.5`**.
+- **Domestic Club Football `1X / X2` Fade Trap (`60.0%` OOS WR, `+10.3%` ROI):** Fades `1.60–2.08` domestic club favorites out-shot on target by `>= 1.0` SoT/gm.
 
 ### B. High-Conviction Corners, Cards & Hybrid Football Markets
 - **`1X/X2 & O1.5` (`74.0%` OOS WR) & `Win & O1.5` (`66.7%` OOS WR, `+7.1%` ROI):** Combines Double Chance or Match Winner with Over 1.5 Total Goals to boost `1.18–1.45` chalk into the `1.42–1.78` value range.

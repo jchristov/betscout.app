@@ -99,8 +99,11 @@ def _sync_config_watermarks(cfg: dict[str, Any], db_path: Path) -> None:
     conn.close()
 
     by_league = {s["league"]: s for s in cfg.get("sources", [])}
+    non_espn_leagues = {"table_tennis", "handball", "darts", "curling", "mma", "snooker", "baseball"}
     for lg, st in stats.items():
         if lg not in by_league:
+            if lg in non_espn_leagues:
+                continue
             entry = {
                 "sport": st["sport"],
                 "league": lg,
@@ -117,6 +120,7 @@ def _sync_config_watermarks(cfg: dict[str, Any], db_path: Path) -> None:
             "last_ingested_kickoff": st["last_ingested_kickoff"],
             "last_ingested_ymd": st["last_ingested_ymd"],
         })
+    cfg["sources"] = [s for s in cfg.get("sources", []) if s.get("league") not in non_espn_leagues]
     cfg["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -273,7 +277,13 @@ def ingest_universal(
                 new_ingested[lg.key] = 0
                 continue
 
-            boards = list(pool.map(lambda d: client.scoreboard(lg, d), days))
+            def _safe_board(d_ymd: str) -> dict[str, Any]:
+                try:
+                    return client.scoreboard(lg, d_ymd)
+                except Exception:
+                    return {}
+
+            boards = list(pool.map(_safe_board, days))
             new_matches = []
             new_details = []
 

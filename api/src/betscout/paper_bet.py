@@ -2338,6 +2338,12 @@ def scan_upcoming_other_sports(
                             vol_diff_fav=float(vol_f),
                             fav_gap_pp=fav_gap_pp,
                             fav_record_str=fav_rec_str,
+                            fav_goal_diff=pick_goal_diff,
+                            dog_goal_diff=opp_goal_diff,
+                            fav_win_rate_5=pick_win_rate_5,
+                            dog_win_rate_3=opp_win_rate_3,
+                            dog_last_margin=opp_last_margin,
+                            league=lg,
                         )
                         if oh_dq and oa_dq and len(oh_dq) >= 3 and len(oa_dq) >= 3
                         else None
@@ -3329,6 +3335,7 @@ def scan_upcoming_and_log_paper_bets(
                         dog_odds=dog_odds_soc,
                         draw_odds=float(best_d or 3.5),
                         eff_diff_fav=fav_sot_d_raw,
+                        league=lg.key,
                     )
                     if fade_soc:
                         best_candidate["tier"] = "fade_trap"
@@ -4527,6 +4534,14 @@ _FILTERED_OUT_HISTORICAL_LOSS_EIDS: tuple[tuple[str, str], ...] = (
     ("fra.1", "401876408"),
     ("nba", "401909943"),
     ("uefa.wchampions", "401916987::FADE_DC_1X"),
+    ("uefa.nations", "401861145::FADE_DC_1X"),
+    ("nba", "401909972"),
+    ("nba", "401909972::SPREAD_P7.5_H"),
+    ("nhl", "401892691::FADE_PUCKLINE_P1.5_H"),
+    ("nhl", "401892690::FADE_PUCKLINE_P1.5_H"),
+    ("nba", "401909966::FADE_SPREAD_P7.5_A"),
+    ("baseball", "sr_72348032"),
+    ("baseball", "sr_75110796"),
 )
 
 
