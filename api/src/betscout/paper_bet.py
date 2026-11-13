@@ -1335,6 +1335,9 @@ def settle_pending_paper_bets(db_path: Path) -> int:
     for row in to_check:
         lg, raw_eid, side = row["league"], str(row["event_id"]), row["side"]
         eid = raw_eid.split("::", 1)[0]
+        sport_map = {"nba": "basketball", "nhl": "hockey", "nfl": "football", "mlb": "baseball", "atp": "tennis", "wta": "tennis"}
+        sp = sport_map.get(lg.lower(), "soccer")
+        sd: dict[str, Any] = {}
         was_pending = row["status"] == "PENDING"
         m_row = conn.execute(
             "SELECT outcome, home_score, away_score FROM matches WHERE league = ? AND event_id = ? AND outcome IS NOT NULL",
@@ -1790,9 +1793,13 @@ def settle_pending_paper_bets(db_path: Path) -> int:
                 except Exception:
                     continue
             elif side_up in ("CORNERS_OVER_8_5", "CORNERS_OVER_9_5", "CARDS_OVER_3_5") or side_up.startswith("TEAM_CORNERS_O4.5_"):
-                if sp != "soccer" or not sd:
+                if sp != "soccer":
                     continue
-                det_sc = _extract_soccer_details(lg, base_eid, row["kickoff"], sd)
+                if not sd:
+                    sd = _fetch_live_json(f"{BASE}/{sp}/{lg.lower()}/summary?event={eid}") or {}
+                if not sd:
+                    continue
+                det_sc = _extract_soccer_details(lg, eid, row["kickoff"], sd)
                 if side_up == "CORNERS_OVER_8_5":
                     if det_sc[30] is None or det_sc[31] is None:
                         continue

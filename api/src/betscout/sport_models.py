@@ -818,11 +818,12 @@ def evaluate_european_sport_gate(
         # 3. When form sample counts are provided (`n_form_home + n_form_away > 0`) and `best_odds > 1.32`,
         #    require the backed favorite to have at least 1 verified promotion fight (`n_form_fav >= 1`) and `fav_wr >= 0.50`.
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
+        n_form_dog = n_form_away if str(side).upper() == "H" else n_form_home
         if best_odds < 1.20 or best_odds > 1.50 or form_diff_fav < 0.15 or fav_loss_streak >= 1:
             return False, round(p_model, 4), ev_pct
         if fav_wr is not None and fav_wr < 0.50:
             return False, round(p_model, 4), ev_pct
-        if (n_form_home + n_form_away) > 0 and best_odds > 1.32 and (n_form_fav < 1 or fav_wr is None):
+        if (n_form_home + n_form_away) > 0 and (n_form_fav < 2 or n_form_dog < 1 or fav_wr is None):
             return False, round(p_model, 4), ev_pct
     elif sp == "baseball":
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away

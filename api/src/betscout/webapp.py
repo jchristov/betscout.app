@@ -2173,10 +2173,10 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             odds_over=odds_over_live,
             exp_total_pts=exp_pts,
         )
-        p_sp75 = 0.852 if fav_prob >= 0.58 else round(min(0.84, fav_prob + 0.18), 3)
-        hcp_nba_fav = "7.5:0" if fav_is_1 else "0:7.5"
+        p_dog75 = 0.720 if fav_fg_d <= -1.0 else round(min(0.80, max(0.60, (1.0 - fav_prob) + 0.24)), 3)
+        hcp_nba_dog = "0:7.5" if fav_is_1 else "7.5:0"
         mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
-        mkt_2 = f"{fav_name} +7.5 ({hcp_nba_fav}) ({p_sp75*100:.1f}%, Fair @{1.0/p_sp75:.2f})"
+        mkt_2 = f"{dog_name} +7.5 ({hcp_nba_dog}) ({p_dog75*100:.1f}%, Fair @{1.0/p_dog75:.2f})"
         mkt_3 = (
             f"Over {tot_ln_b} Pts (Exp {exp_pts:.1f})"
             if exp_pts >= tot_ln_b or tot_ln_b >= 232.5
@@ -2268,15 +2268,17 @@ def _analyze_live_matchup(db_path: Path, rec_path: Path, query: str) -> dict[str
             comb_yards_allowed=comb_sh_ag,
         )
         p_m25 = 0.895 if (fav_ypp_d >= 0.80 and fav_yds_d >= 55.0) else round(max(0.55, fav_prob - 0.04), 3)
-        p_p75 = 0.875 if fav_prob >= 0.56 else round(min(0.86, fav_prob + 0.18), 3)
+        p_dog75_nfl = 0.833 if fav_ypp_d <= -0.25 else round(min(0.82, max(0.62, (1.0 - fav_prob) + 0.24)), 3)
+        hcp_nfl_fav = "0:2.5" if fav_is_1 else "2.5:0"
+        hcp_nfl_dog = "0:7.5" if fav_is_1 else "7.5:0"
         mkt_1 = f"{fav_name} ML ({fav_prob*100:.1f}%, Fair @{1.0/fav_prob:.2f}" + (f", Book @{float(fav_odds):.2f})" if fav_odds else ")")
         mkt_2 = (
             f"Over 3.5 TDs (85.4% WR) · {fav_name} Over 2.5 TDs (72.7% WR)"
             if fav_mkt_prob > 0.72
             else (
-                f"{fav_name} -2.5 ({p_m25*100:.1f}% WR) · {fav_name} +7.5 ({p_p75*100:.1f}%)"
+                f"{fav_name} -2.5 ({hcp_nfl_fav}) ({p_m25*100:.1f}% WR)"
                 if fav_ypp_d >= 0.80 and fav_yds_d >= 55.0
-                else f"{fav_name} +7.5 ({p_p75*100:.1f}%, Fair @{1.0/p_p75:.2f})"
+                else f"{dog_name} +7.5 ({hcp_nfl_dog}) ({p_dog75_nfl*100:.1f}%, Fair @{1.0/p_dog75_nfl:.2f})"
             )
         )
         mkt_3 = (
