@@ -214,7 +214,7 @@ MCP_TOOLS_CATALOG: list[dict[str, Any]] = [
             "properties": {
                 "match_id": {
                     "type": "integer",
-                    "description": "Numeric Sportradar match ID (e.g. 71945350 for Genoa vs Juventus, 75837638 for Paul vs Darderi). Provide `match_id` OR both `home` and `away`.",
+                    "description": "Numeric match ID (e.g. 71945350 for Genoa vs Juventus, 75837638 for Paul vs Darderi). Provide `match_id` OR both `home` and `away`.",
                 },
                 "home": {
                     "type": "string",
@@ -784,7 +784,7 @@ def execute_mcp_tool(
                         {
                             "type": "text",
                             "text": (
-                                "Could not resolve a numeric `match_id`. Provide either a valid Sportradar `match_id` "
+                                "Could not resolve a numeric `match_id`. Provide either a valid `match_id` "
                                 "(discoverable via `search_daily_fixtures`) or both `home` and `away` team/player names "
                                 "for a scheduled fixture."
                             ),
@@ -1064,8 +1064,8 @@ MCP_RESOURCES_CATALOG: list[dict[str, Any]] = [
     },
     {
         "uri": "betscout://cache/telemetry",
-        "name": "2-Tier Gismo L1/L2 SQLite Cache Telemetry",
-        "description": "Real-time hit/miss, negative-cache, and L2 SQLite persistence metrics for the Sportradar/Tipico Gismo data layer.",
+        "name": "2-Tier L1/L2 SQLite Cache Telemetry",
+        "description": "Real-time hit/miss, negative-cache, and L2 SQLite persistence metrics for the BetScout Quant data layer.",
         "mimeType": "application/json",
     },
 ]

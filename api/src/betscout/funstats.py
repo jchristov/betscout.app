@@ -463,6 +463,8 @@ def _fetch_funstats_fixtures_today() -> list[dict[str, Any]]:
     )
     if not isinstance(data, dict):
         return []
+    if isinstance(data.get("fixtures"), list):
+        return [x for x in data["fixtures"] if isinstance(x, dict)]
     leagues = data.get("leagues") or []
     flat: list[dict[str, Any]] = []
     for lg in leagues:
@@ -1453,17 +1455,20 @@ def lookup_funstats_match_intel(
             }
             if stype in SUPPORTED_MARKET_CONTEXT_STREAKS and length >= 3 and len(enriched) < 2:
                 mc = _http_get_json(
-                    f"{FUNSTATS_BASE_URL}/api/strikes/market-context?strike_type={urllib.parse.quote(stype)}&strike_length={length}",
-                    cache_key=f"funstats:strike_mc:{stype}:{length}",
+                    f"{FUNSTATS_BASE_URL}/api/strikes/market-context?league_id={effective_lid}&strike_type={urllib.parse.quote(stype)}&run_len={length}&fixture_id={fixture_id or 1}",
+                    cache_key=f"funstats:strike_mc:{effective_lid}:{stype}:{length}",
                     ttl_seconds=86400,
                 )
-                if isinstance(mc, dict) and mc.get("supported"):
+                if isinstance(mc, dict) and (mc.get("supported") or mc.get("n") or mc.get("sample_size")):
+                    n_s = _safe_int(mc.get("sample_size") or mc.get("n"))
+                    act_p = _safe_float(mc.get("actual_pct"))
+                    exp_p = _safe_float(mc.get("market_expected_pct"))
                     item["market_context"] = {
-                        "sample_size": _safe_int(mc.get("sample_size")),
-                        "continued_count": _safe_int(mc.get("continued_count")),
-                        "actual_pct": _safe_float(mc.get("actual_pct")),
-                        "market_expected_pct": _safe_float(mc.get("market_expected_pct")),
-                        "edge_vs_market_pp": _safe_float(mc.get("edge_vs_market_pp")),
+                        "sample_size": n_s,
+                        "continued_count": _safe_int(mc.get("continued_count") or mc.get("continued")),
+                        "actual_pct": act_p,
+                        "market_expected_pct": exp_p,
+                        "edge_vs_market_pp": _safe_float(mc.get("edge_vs_market_pp")) or round(act_p - exp_p, 1),
                         "wilson_low_pct": _safe_float(mc.get("wilson_low_pct")),
                         "wilson_high_pct": _safe_float(mc.get("wilson_high_pct")),
                     }
@@ -1508,16 +1513,85 @@ def lookup_funstats_match_intel(
         cache_key=f"funstats:scorelines:{effective_lid}:{season}",
         ttl_seconds=7200,
     )
-    if isinstance(sl_data, dict) and isinstance(sl_data.get("scorelines"), list):
-        for sl in sl_data["scorelines"][:6]:
+    sl_rows = (
+        sl_data.get("scorelines") or sl_data.get("cells")
+        if isinstance(sl_data, dict)
+        else None
+    )
+    if isinstance(sl_rows, list):
+        for sl in sl_rows[:6]:
             if isinstance(sl, dict):
+                hg_sl = _safe_int(sl.get("home_goals") if "home_goals" in sl else sl.get("home"))
+                ag_sl = _safe_int(sl.get("away_goals") if "away_goals" in sl else sl.get("away"))
                 scorelines_top.append(
                     {
-                        "score": f"{_safe_int(sl.get('home_goals'))}:{_safe_int(sl.get('away_goals'))}",
+                        "score": f"{hg_sl}:{ag_sl}",
                         "count": _safe_int(sl.get("count")),
-                        "pct": _safe_float(sl.get("pct") or sl.get("percentage")),
+                        "pct": _safe_float(sl.get("pct") or sl.get("percentage") or sl.get("percent")),
                     }
                 )
+
+    # League macro rates (`/api/leagues/{lid}/per-season-stats`) & Upset Index (`/api/leagues/{lid}/upset-index`)
+    league_macro_stats: dict[str, Any] | None = None
+    pss_raw = _http_get_json(
+        f"{FUNSTATS_BASE_URL}/api/leagues/{effective_lid}/per-season-stats?seasons={season},{season - 1}",
+        cache_key=f"funstats:per_season_stats:{effective_lid}:{season}",
+        ttl_seconds=7200,
+    )
+    if isinstance(pss_raw, list) and pss_raw:
+        first_ps = pss_raw[0] if isinstance(pss_raw[0], dict) else {}
+        st_ps = first_ps.get("stats") if isinstance(first_ps.get("stats"), dict) else first_ps
+        if st_ps:
+            league_macro_stats = {
+                "season": _safe_int(first_ps.get("season"), season),
+                "avg_goals_per_match": _safe_float(st_ps.get("avgGoalsPerMatch")),
+                "home_win_rate_pct": _safe_float(st_ps.get("homeWinRate")),
+                "draw_rate_pct": _safe_float(st_ps.get("drawRate")),
+                "away_win_rate_pct": _safe_float(st_ps.get("awayWinRate")),
+                "over_25_rate_pct": _safe_float(st_ps.get("over25Rate")),
+                "btts_rate_pct": _safe_float(st_ps.get("bttsRate")),
+                "avg_cards_per_match": _safe_float(st_ps.get("avgTotalCardsPerMatch")),
+                "avg_corners_per_match": _safe_float(st_ps.get("avgTotalCornersPerMatch")),
+            }
+
+    recent_upsets: list[dict[str, Any]] = []
+    up_raw = _http_get_json(
+        f"{FUNSTATS_BASE_URL}/api/leagues/{effective_lid}/upset-index?season={season}&locale=en",
+        cache_key=f"funstats:upset_index:{effective_lid}:{season}",
+        ttl_seconds=7200,
+    )
+    up_list = up_raw.get("finished_upsets") or up_raw.get("upsets") if isinstance(up_raw, dict) else None
+    if isinstance(up_list, list):
+        for u in up_list[:4]:
+            if isinstance(u, dict):
+                recent_upsets.append(
+                    {
+                        "date": str(u.get("date") or "")[:10],
+                        "home": u.get("home_team_name") or (u.get("home_team") or {}).get("name"),
+                        "away": u.get("away_team_name") or (u.get("away_team") or {}).get("name"),
+                        "score": f"{_safe_int(u.get('home_goals'))}:{_safe_int(u.get('away_goals'))}",
+                        "winner_odd": _safe_float(u.get("winner_odd") or u.get("upset_odd")),
+                    }
+                )
+
+    # Team profile narrative flags (`dual_life`, `giant_killer`, `blown_leads`, `handicap_minus1_rate`)
+    team_profiles: dict[str, Any] = {}
+    for side_k, tid_val in (("home", home_team_id), ("away", away_team_id)):
+        if tid_val > 0:
+            tp_raw = _http_get_json(
+                f"{FUNSTATS_BASE_URL}/api/teams/{tid_val}/stats?locale=en",
+                cache_key=f"funstats:team_stats:{tid_val}",
+                ttl_seconds=3600,
+            )
+            if isinstance(tp_raw, dict) and tp_raw.get("id"):
+                team_profiles[side_k] = {
+                    "over25_last10_pct": _safe_float(tp_raw.get("over25_last10")),
+                    "btts_last10_pct": _safe_float(tp_raw.get("btts10")),
+                    "first_half_winrate_pct": _safe_float(tp_raw.get("first_half_winrate")),
+                    "handicap_minus1_rate_pct": _safe_float(tp_raw.get("handicap_minus1_rate")),
+                    "handicap_plus1_rate_pct": _safe_float(tp_raw.get("handicap_plus1_rate")),
+                    "traits": tp_raw.get("funstats") if isinstance(tp_raw.get("funstats"), dict) else None,
+                }
 
     # Step 7: Fixture-specific endpoints when `fixture_id > 0`
     market_calibration: dict[str, Any] | None = None
@@ -1531,33 +1605,60 @@ def lookup_funstats_match_intel(
             cache_key=f"funstats:calibration:{fixture_id}",
             ttl_seconds=900,
         )
-        if isinstance(mc_raw, dict) and mc_raw.get("available"):
+        if isinstance(mc_raw, dict) and (mc_raw.get("available") or mc_raw.get("league_bucket") or mc_raw.get("market_home_pct")):
             outcomes_out: list[dict[str, Any]] = []
-            for oc in mc_raw.get("outcomes") or []:
-                if not isinstance(oc, dict):
-                    continue
-                market_pct = _safe_float(oc.get("market_pct"))
-                lg_bucket = oc.get("league") if isinstance(oc.get("league"), dict) else {}
-                all_bucket = oc.get("all_leagues") if isinstance(oc.get("all_leagues"), dict) else {}
-                lg_actual = _safe_float(lg_bucket.get("actual_pct"))
-                all_actual = _safe_float(all_bucket.get("actual_pct"))
-                outcomes_out.append(
-                    {
-                        "outcome": oc.get("outcome"),
-                        "odd": _safe_float(oc.get("odd")),
-                        "market_pct": market_pct,
-                        "bucket_label": lg_bucket.get("bucket_label") or all_bucket.get("bucket_label"),
-                        "league_actual_pct": lg_actual,
-                        "league_sample": _safe_int(lg_bucket.get("sample")),
-                        "league_delta_pp": round(lg_actual - market_pct, 1) if lg_bucket.get("sample") else 0.0,
-                        "global_actual_pct": all_actual,
-                        "global_sample": _safe_int(all_bucket.get("sample")),
-                        "global_delta_pp": round(all_actual - market_pct, 1) if all_bucket.get("sample") else 0.0,
-                    }
-                )
+            if isinstance(mc_raw.get("outcomes"), list) and mc_raw["outcomes"]:
+                for oc in mc_raw["outcomes"]:
+                    if not isinstance(oc, dict):
+                        continue
+                    market_pct = _safe_float(oc.get("market_pct"))
+                    lg_bucket = oc.get("league") if isinstance(oc.get("league"), dict) else {}
+                    all_bucket = oc.get("all_leagues") if isinstance(oc.get("all_leagues"), dict) else {}
+                    lg_actual = _safe_float(lg_bucket.get("actual_pct"))
+                    all_actual = _safe_float(all_bucket.get("actual_pct"))
+                    outcomes_out.append(
+                        {
+                            "outcome": oc.get("outcome"),
+                            "odd": _safe_float(oc.get("odd")),
+                            "market_pct": market_pct,
+                            "bucket_label": lg_bucket.get("bucket_label") or all_bucket.get("bucket_label"),
+                            "league_actual_pct": lg_actual,
+                            "league_sample": _safe_int(lg_bucket.get("sample")),
+                            "league_delta_pp": round(lg_actual - market_pct, 1) if lg_bucket.get("sample") else 0.0,
+                            "global_actual_pct": all_actual,
+                            "global_sample": _safe_int(all_bucket.get("sample")),
+                            "global_delta_pp": round(all_actual - market_pct, 1) if all_bucket.get("sample") else 0.0,
+                        }
+                    )
+            else:
+                # Current flat schema (`league_bucket`, `global_favorites`, `market_home_pct`..)
+                lb = mc_raw.get("league_bucket") if isinstance(mc_raw.get("league_bucket"), dict) else {}
+                gf = mc_raw.get("global_favorites") if isinstance(mc_raw.get("global_favorites"), dict) else {}
+                b_lbl = f"{mc_raw.get('bucket_lower_pct', '')}-{mc_raw.get('bucket_upper_pct', '')}%"
+                lg_n = _safe_int(lb.get("sample_size"))
+                gl_n = _safe_int(gf.get("sample_size"))
+                for oc_key, m_field, a_field in (
+                    ("Home", "market_home_pct", "actual_home_pct"),
+                    ("Draw", "market_draw_pct", "actual_draw_pct"),
+                    ("Away", "market_away_pct", "actual_away_pct"),
+                ):
+                    m_p = _safe_float(lb.get(m_field) or mc_raw.get(m_field))
+                    a_p = _safe_float(lb.get(a_field))
+                    outcomes_out.append(
+                        {
+                            "outcome": oc_key,
+                            "market_pct": m_p,
+                            "bucket_label": b_lbl,
+                            "league_actual_pct": a_p,
+                            "league_sample": lg_n,
+                            "league_delta_pp": round(a_p - m_p, 1) if lg_n else 0.0,
+                            "global_sample": gl_n,
+                        }
+                    )
             market_calibration = {
-                "bookmaker": mc_raw.get("bookmaker"),
                 "outcomes": outcomes_out,
+                "league_favorites": mc_raw.get("league_favorites"),
+                "global_favorites": mc_raw.get("global_favorites"),
             }
 
         mov_raw = _http_get_json(
@@ -1565,26 +1666,29 @@ def lookup_funstats_match_intel(
             cache_key=f"funstats:movement:{fixture_id}",
             ttl_seconds=600,
         )
-        if isinstance(mov_raw, dict) and mov_raw.get("available"):
-            open_1x2 = mov_raw.get("open_1x2") if isinstance(mov_raw.get("open_1x2"), dict) else {}
-            curr_1x2 = mov_raw.get("current_1x2") if isinstance(mov_raw.get("current_1x2"), dict) else {}
+        if isinstance(mov_raw, dict) and (mov_raw.get("available") or mov_raw.get("opening") or mov_raw.get("open_1x2")):
+            raw_open = mov_raw.get("open_1x2") or mov_raw.get("opening") or {}
+            raw_curr = mov_raw.get("current_1x2") or mov_raw.get("current") or {}
+            open_1x2 = {k.lower(): _safe_float(v) for k, v in raw_open.items()} if isinstance(raw_open, dict) else {}
+            curr_1x2 = {k.lower(): _safe_float(v) for k, v in raw_curr.items()} if isinstance(raw_curr, dict) else {}
             deltas: dict[str, float] = {}
             for k in ("home", "draw", "away"):
                 o_val = _safe_float(open_1x2.get(k))
                 c_val = _safe_float(curr_1x2.get(k))
                 if o_val > 0 and c_val > 0:
                     deltas[k] = round(c_val - o_val, 3)
+            pts = mov_raw.get("points") if isinstance(mov_raw.get("points"), list) else []
             odds_movement = {
-                "bookmaker": mov_raw.get("bookmaker"),
                 "open_1x2": open_1x2,
                 "current_1x2": curr_1x2,
                 "delta_1x2": deltas,
-                "first_seen_at": mov_raw.get("first_seen_at"),
-                "updated_at": mov_raw.get("updated_at"),
+                "change_points": _safe_int(mov_raw.get("change_points"), len(pts)),
+                "first_seen_at": mov_raw.get("first_seen_at") or (pts[0].get("recorded_at") if pts else None),
+                "updated_at": mov_raw.get("updated_at") or (pts[-1].get("recorded_at") if pts else None),
             }
 
         sim_raw = _http_get_json(
-            f"{FUNSTATS_BASE_URL}/api/odds/{fixture_id}/similar-recent?limit=5",
+            f"{FUNSTATS_BASE_URL}/api/odds/{fixture_id}/similar-recent?locale=en",
             cache_key=f"funstats:similar:{fixture_id}",
             ttl_seconds=1800,
         )
@@ -1597,12 +1701,8 @@ def lookup_funstats_match_intel(
                             "home": sm.get("home_team_name") or sm.get("home"),
                             "away": sm.get("away_team_name") or sm.get("away"),
                             "score": f"{_safe_int(sm.get('home_goals'))}:{_safe_int(sm.get('away_goals'))}",
-                            "odds_1x2": sm.get("odds_1x2") or {
-                                "home": sm.get("odd_home"),
-                                "draw": sm.get("odd_draw"),
-                                "away": sm.get("odd_away"),
-                            },
-                            "distance": round(_safe_float(sm.get("distance")), 4),
+                            "outcome": sm.get("outcome"),
+                            "market_home_pct": _safe_float(sm.get("market_home_pct")),
                         }
                     )
 
@@ -1612,38 +1712,40 @@ def lookup_funstats_match_intel(
             ttl_seconds=900,
         )
         if isinstance(sec_raw, dict):
-            inj = sec_raw.get("injuries") if isinstance(sec_raw.get("injuries"), dict) else {}
-            pred = sec_raw.get("predictedLineup") if isinstance(sec_raw.get("predictedLineup"), dict) else {}
-            cont = sec_raw.get("lineupContinuity") if isinstance(sec_raw.get("lineupContinuity"), dict) else {}
+            inj_outer = sec_raw.get("injuries") if isinstance(sec_raw.get("injuries"), dict) else {}
+            inj = inj_outer.get("data") if isinstance(inj_outer.get("data"), dict) else inj_outer
+            pred_outer = sec_raw.get("predictedLineup") if isinstance(sec_raw.get("predictedLineup"), dict) else {}
+            pred = pred_outer.get("data") if isinstance(pred_outer.get("data"), dict) else pred_outer
+            cont_outer = sec_raw.get("lineupContinuity") if isinstance(sec_raw.get("lineupContinuity"), dict) else {}
+            cont = cont_outer.get("data") if isinstance(cont_outer.get("data"), dict) else cont_outer
             facts = sec_raw.get("funstatsFacts") if isinstance(sec_raw.get("funstatsFacts"), list) else []
             lineups_and_injuries = {
                 "injuries": {
                     "home": (inj.get("home") or [])[:8] if isinstance(inj.get("home"), list) else [],
                     "away": (inj.get("away") or [])[:8] if isinstance(inj.get("away"), list) else [],
                 },
+                "injuries_applied": pred.get("injuriesApplied") if isinstance(pred.get("injuriesApplied"), dict) else None,
                 "predicted_lineup": {
                     "home_formation": (pred.get("home") or {}).get("formation") if isinstance(pred.get("home"), dict) else None,
                     "away_formation": (pred.get("away") or {}).get("formation") if isinstance(pred.get("away"), dict) else None,
                     "home_starters": [
                         {
                             "name": p.get("name"),
-                            "position": p.get("position"),
-                            "starter_rate_pct": round(_safe_float(p.get("starterRate")) * 100.0, 0)
-                            if _safe_float(p.get("starterRate")) <= 1.0
-                            else round(_safe_float(p.get("starterRate")), 0),
+                            "position": p.get("pos") or p.get("position"),
+                            "is_fill_in": bool(p.get("isFillIn")),
+                            "doubtful": bool(p.get("doubtful")),
                         }
-                        for p in ((pred.get("home") or {}).get("starters") or [])[:11]
+                        for p in (((pred.get("home") or {}).get("players") or (pred.get("home") or {}).get("starters")) or [])[:11]
                         if isinstance(p, dict)
                     ],
                     "away_starters": [
                         {
                             "name": p.get("name"),
-                            "position": p.get("position"),
-                            "starter_rate_pct": round(_safe_float(p.get("starterRate")) * 100.0, 0)
-                            if _safe_float(p.get("starterRate")) <= 1.0
-                            else round(_safe_float(p.get("starterRate")), 0),
+                            "position": p.get("pos") or p.get("position"),
+                            "is_fill_in": bool(p.get("isFillIn")),
+                            "doubtful": bool(p.get("doubtful")),
                         }
-                        for p in ((pred.get("away") or {}).get("starters") or [])[:11]
+                        for p in (((pred.get("away") or {}).get("players") or (pred.get("away") or {}).get("starters")) or [])[:11]
                         if isinstance(p, dict)
                     ],
                 },
@@ -1661,13 +1763,15 @@ def lookup_funstats_match_intel(
 
     if market_calibration and isinstance(market_calibration.get("outcomes"), list):
         for oc in market_calibration["outcomes"]:
-            delta = _safe_float(oc.get("global_delta_pp"))
-            if abs(delta) >= 2.0:
+            delta = _safe_float(oc.get("global_delta_pp") or oc.get("league_delta_pp"))
+            sample_n = _safe_int(oc.get("global_sample") or oc.get("league_sample"))
+            actual_v = _safe_float(oc.get("global_actual_pct") or oc.get("league_actual_pct"))
+            if abs(delta) >= 3.0 and sample_n >= 20:
                 direction = "outperformed" if delta > 0 else "underperformed"
                 key_insights.append(
-                    f"133k-Match Calibration ({oc.get('outcome')}, bucket {oc.get('bucket_label')}): "
-                    f"historical actual {oc.get('global_actual_pct'):.1f}% vs market {oc.get('market_pct'):.1f}% "
-                    f"({delta:+.1f}pp {direction} across {oc.get('global_sample')} matches)"
+                    f"Historical Odds Calibration ({oc.get('outcome')}, bucket {oc.get('bucket_label')}): "
+                    f"actual {actual_v:.1f}% vs market {oc.get('market_pct'):.1f}% "
+                    f"({delta:+.1f}pp {direction} across {sample_n} matches)"
                 )
 
     for side_key in ("home", "away"):
@@ -1725,6 +1829,9 @@ def lookup_funstats_match_intel(
         "streaks": streaks,
         "xg_comparison": xg_comparison,
         "league_top_scorelines": scorelines_top,
+        "league_macro_stats": league_macro_stats,
+        "recent_league_upsets": recent_upsets,
+        "team_profiles": team_profiles,
         "market_calibration": market_calibration,
         "odds_movement": odds_movement,
         "similar_odds_matches": similar_matches,
