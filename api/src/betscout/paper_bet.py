@@ -659,6 +659,13 @@ def scan_upcoming_tennis(
                                 "win_pct": round(t_fav_wr * 100.0, 1),
                                 "gap_pp": round(t_fav_gap, 1),
                             }
+                        dog_fht_rec = fav_hist_t.get(dog_k, [0.0, 0.0, 0.0])
+                        if (
+                            dog_fht_rec[0] >= 20.0
+                            and (dog_fht_rec[1] / dog_fht_rec[0]) >= 0.78
+                            and win_prob < 0.75
+                        ):
+                            continue
                         fav_ss_rate = float(np.mean(ss_win_hist[fav_k])) if len(ss_win_hist[fav_k]) >= 3 else None
                         dog_steal_rate = float(np.mean(set_steal_hist[dog_k])) if len(set_steal_hist[dog_k]) >= 3 else None
                         best_of_sets = 5 if any(gs in t_name.lower() for gs in ("australian open", "roland garros", "french open", "wimbledon", "us open")) and lg == "atp" else 3
@@ -3170,11 +3177,14 @@ def scan_upcoming_and_log_paper_bets(
                     + float(np.mean([x.get("sot_for", 4.0) for x in oa]))
                 )
                 fav_c_for_v = float(np.mean([x.get("corners_for", 5.0) for x in fav_oh])) if fav_oh else None
+                dog_c_for_v = float(np.mean([x.get("corners_for", 4.5) for x in dog_oh])) if dog_oh else None
                 dog_c_ag_v = float(np.mean([x.get("corners_ag", 5.0) for x in dog_oh])) if dog_oh else None
                 comb_c_avg_v = (
                     0.5 * (float(np.mean([x.get("corners_for", 5.0) for x in oh])) + float(np.mean([x.get("corners_ag", 5.0) for x in oa])))
                     + 0.5 * (float(np.mean([x.get("corners_for", 4.5) for x in oa])) + float(np.mean([x.get("corners_ag", 5.0) for x in oh])))
                 )
+                fav_cd_for_v = float(np.mean([x.get("cards_for", 2.0) for x in fav_oh])) if fav_oh else None
+                dog_cd_for_v = float(np.mean([x.get("cards_for", 2.0) for x in dog_oh])) if dog_oh else None
                 comb_cd_avg_v = (
                     float(np.mean([x.get("cards_for", 2.0) for x in oh]))
                     + float(np.mean([x.get("cards_for", 2.0) for x in oa]))
@@ -3210,10 +3220,15 @@ def scan_upcoming_and_log_paper_bets(
                     league=lg.key,
                     deep_stats=deep_stats_cand,
                     fav_corners_for_avg=fav_c_for_v,
+                    dog_corners_for_avg=dog_c_for_v,
                     dog_corners_ag_avg=dog_c_ag_v,
                     comb_corners_avg=comb_c_avg_v,
+                    fav_cards_for_avg=fav_cd_for_v,
+                    dog_cards_for_avg=dog_cd_for_v,
                     comb_cards_avg=comb_cd_avg_v,
                     comb_fouls_avg=comb_fl_avg_v,
+                    n_hist_home=len(raw_oh) if raw_oh is not None else 0,
+                    n_hist_away=len(raw_oa) if raw_oa is not None else 0,
                 )
                 if best_candidate["is_live"]:
                     best_candidate["live_momentum"] = _evaluate_inplay_soccer_momentum(
@@ -3282,10 +3297,13 @@ def scan_upcoming_and_log_paper_bets(
                             # when a Double-Chance / DNB secondary shield is present, suppress the coin-flip 3-way 1X2 row and log only the shield!
                             v_sot_cand = float((best_candidate.get("factors_tanh_z") or {}).get("venue_sot_d") or 0.0)
                             b_odds_cand = float(best_candidate.get("best_odds") or 0.0)
+                            is_nat_comp_cand = lg.key in ("uefa.nations", "fifa.world", "uefa.euro")
+                            draws_z_cand = float((best_candidate.get("factors_tanh_z") or {}).get("recent_draws") or 0.0)
                             suppress_3way_ml = bool(
                                 (
                                     b_odds_cand > 1.85
                                     or (str(best_candidate.get("side")) == "A" and b_odds_cand >= 1.70 and v_sot_cand < -0.35)
+                                    or (is_nat_comp_cand and b_odds_cand >= 1.30 and draws_z_cand < -0.50)
                                 )
                                 and (best_candidate.get("secondary_opportunities") or [])
                             )

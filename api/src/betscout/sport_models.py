@@ -91,12 +91,17 @@ def evaluate_soccer_gate(
     is_uefa = lg.startswith("uefa.") or lg.startswith("fifa.")
     is_secondary_dom = lg in SECONDARY_DOMESTIC_SOCCER_LEAGUES
 
-    # 1e. UEFA Sub-60% Market & Away Indiscipline Veto (e.g. AGF 0-0 Braga @ 2.05, Hapoel Be'er Sheva 0-2 OFI Crete @ 2.10,
-    # Riga FC 1-1 Jablonec @ 2.35 where p_mkt < 0.60 and score < top_15pct; and Lincoln Red Imps 1-0 Hajduk Split where disc_z=-0.95 and draws_z=-0.733):
+    # 1e. UEFA Sub-60% Market, Away Indiscipline & National-Team Low-Block Draw-Trap Veto
+    # (e.g. AGF 0-0 Braga @ 2.05, Hapoel Be'er Sheva 0-2 OFI Crete @ 2.10, Riga FC 1-1 Jablonec @ 2.35 where p_mkt < 0.60 and score < top_15pct;
+    # Lincoln Red Imps 1-0 Hajduk Split where disc_z=-0.95 and draws_z=-0.733; and Slovakia 2-2 Faroe Islands in uefa.nations where
+    # score=0.122 < top_25pct, p_mkt=0.7171 < 0.75, h2h_z=-0.748, and draws_z=-0.886):
+    is_nat_team = lg in ("uefa.nations", "fifa.world", "uefa.euro")
     if is_uefa:
         if p_mkt < 0.60 and score < thresholds.get("top_15pct", 0.2565):
             return "pass"
         if str(side).upper() == "A" and disc_z <= -0.80 and draws_z <= -0.50:
+            return "pass"
+        if is_nat_team and score < thresholds.get("top_25pct", 0.1579) and p_mkt < 0.75 and h2h_z < 0.0 and draws_z < -0.50:
             return "pass"
 
     # 2. Secondary Domestic League Gate (applies to ALL tiers, including top_8pct)
@@ -872,10 +877,15 @@ def evaluate_soccer_secondary_markets(
     league: str = "",
     deep_stats: dict[str, Any] | None = None,
     fav_corners_for_avg: float | None = None,
+    dog_corners_for_avg: float | None = None,
     dog_corners_ag_avg: float | None = None,
     comb_corners_avg: float | None = None,
+    fav_cards_for_avg: float | None = None,
+    dog_cards_for_avg: float | None = None,
     comb_cards_avg: float | None = None,
     comb_fouls_avg: float | None = None,
+    n_hist_home: int = 6,
+    n_hist_away: int = 6,
 ) -> list[dict[str, Any]]:
     """Evaluate out-of-sample validated high-conviction Football secondary markets:
     1. **Double Chance Shield (`1X` / `X2`):**
@@ -977,10 +987,11 @@ def evaluate_soccer_secondary_markets(
     qualifies_dc_tier = (score >= thresholds.get("top_15pct", 0.2565)) or (
         is_uefa_comp and sot_z >= 0.25 and (score >= 0.12 or dom_z >= 0.20)
     )
+    min_ml_for_dc = 1.30 if lg_norm in ("uefa.nations", "fifa.world", "uefa.euro") else 1.48
     if (
         qualifies_dc_tier
-        and 1.48 <= ml_odds <= 2.35
-        and 1.13 <= dc_odds <= 1.45
+        and min_ml_for_dc <= ml_odds <= 2.35
+        and 1.12 <= dc_odds <= 1.45
         and sot_z >= 0.25
         and ev_dc >= 0.5
     ):
@@ -1326,8 +1337,15 @@ def evaluate_soccer_secondary_markets(
                 "rationale": f"84.1% WR · {fav_corners_for_avg:.1f} Corners/gm vs {dog_corners_ag_avg:.1f} Allowed",
             })
 
+    is_nat_team_comp = lg_norm in ("uefa.nations", "fifa.world", "uefa.euro")
+    has_deep_sample = min(int(n_hist_home), int(n_hist_away)) >= 4 and not is_nat_team_comp
     eff_corners_avg = max(float(ds_corners_avg or 0.0), float(comb_corners_avg or 0.0))
-    if eff_corners_avg >= 10.6:
+    bilateral_corners_ok = (
+        dog_corners_for_avg is None
+        or fav_corners_for_avg is None
+        or min(float(fav_corners_for_avg), float(dog_corners_for_avg)) >= 3.8
+    )
+    if (ds_corners_avg >= 10.6 or (has_deep_sample and eff_corners_avg >= 10.8)) and bilateral_corners_ok:
         p_c85 = round(min(0.76, max(0.66, 0.65 + 0.035 * (eff_corners_avg - 10.2))), 4)
         o_c85 = round(max(1.44, min(1.68, 1.035 / p_c85)), 2)
         ev_c85 = round((p_c85 * o_c85 - 1.0) * 100.0, 2)
@@ -1345,7 +1363,11 @@ def evaluate_soccer_secondary_markets(
                 "rationale": f"68.8% WR · Avg {eff_corners_avg:.1f} corners/gm",
             })
 
-    if ds_corners_avg >= 10.4 or ds_corners_ov95_pct >= 62.0 or (comb_corners_avg is not None and comb_corners_avg >= 11.2):
+    if (
+        ds_corners_avg >= 10.4
+        or ds_corners_ov95_pct >= 62.0
+        or (has_deep_sample and comb_corners_avg is not None and comb_corners_avg >= 11.2 and bilateral_corners_ok)
+    ):
         p_c95 = round(min(0.72, max(0.60, (ds_corners_ov95_pct / 100.0) if ds_corners_ov95_pct >= 58.0 else (0.58 + 0.04 * (eff_corners_avg - 9.5)))), 4)
         o_c95 = round(max(1.68, min(1.92, 1.04 / p_c95)), 2)
         ev_c95 = round((p_c95 * o_c95 - 1.0) * 100.0, 2)
@@ -1365,11 +1387,22 @@ def evaluate_soccer_secondary_markets(
 
     disc_z = float(factors_tanh_z.get("discipline", 0.0))
     eff_cards_avg = max(float(ds_cards_avg or 0.0), float(comb_cards_avg or 0.0))
+    bilateral_cards_ok = (
+        fav_cards_for_avg is None
+        or dog_cards_for_avg is None
+        or min(float(fav_cards_for_avg), float(dog_cards_for_avg)) >= 1.8
+    )
     if (
         ds_cards_avg >= 4.4
         or ds_cards_ov35_pct >= 64.0
-        or (disc_z <= -0.55 and p_mkt <= 0.65)
-        or (comb_cards_avg is not None and comb_cards_avg >= 4.6 and (comb_fouls_avg or 25.0) >= 24.5)
+        or (disc_z <= -0.55 and p_mkt <= 0.65 and not is_nat_team_comp)
+        or (
+            has_deep_sample
+            and bilateral_cards_ok
+            and comb_cards_avg is not None
+            and comb_cards_avg >= 4.8
+            and (comb_fouls_avg or 25.0) >= 25.0
+        )
     ):
         p_cd35 = round(min(0.72, max(0.62, (ds_cards_ov35_pct / 100.0) if ds_cards_ov35_pct >= 58.0 else 0.682)), 4)
         o_cd35 = round(max(1.56, min(1.88, 1.04 / p_cd35)), 2)
