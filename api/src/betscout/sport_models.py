@@ -482,6 +482,8 @@ def evaluate_nba_gate(
     if str(side).upper() == "A":
         if rest_for_pick <= 0.0 and (comp_score < 0.25 or p_elo < (p_mkt - 0.03)):
             return False
+        if p_mod < 0.70 and opp_win_rate_3 is not None and opp_win_rate_3 >= 0.99:
+            return False
         if (
             p_mod < 0.72
             and rest_for_pick <= 0.0
@@ -762,7 +764,18 @@ def evaluate_european_sport_gate(
             return False, round(p_model, 4), ev_pct
         if is_tipico and form_diff_fav < 0.10:
             return False, round(p_model, 4), ev_pct
-        if fav_wr is not None and fav_wr < 0.60:
+        if best_odds < 1.20 and (p_mkt < 0.82 or (fav_wr is not None and fav_wr < 0.85)):
+            return False, round(p_model, 4), ev_pct
+        if fav_wr is not None and fav_wr < 0.68:
+            return False, round(p_model, 4), ev_pct
+        if (
+            str(side).upper() == "A"
+            and best_odds >= 1.38
+            and (
+                form_diff_fav < 0.30
+                or (fav_hours_since_last is not None and fav_hours_since_last > 240.0)
+            )
+        ):
             return False, round(p_model, 4), ev_pct
         if fav_loss_streak >= 1 and (
             str(side).upper() == "A"
@@ -816,20 +829,24 @@ def evaluate_european_sport_gate(
         if not is_strong_form_curl:
             return False, round(p_model, 4), ev_pct
     elif sp == "mma":
-        # MMA / Combat Promotion Experience & Momentum Gate (catches Zhou, Jiaqiang 1-0 Usubyan, Mamuka @ 1.46
-        # where Usubyan had 0 tracked fights in the promotion `n_form_fav == 0`, and Djabrailov @ 1.39 coming off a loss):
-        # 1. Require odds in [1.20, 1.50] and form_diff_fav >= 0.15.
-        # 2. Never back a fighter coming off a loss (`fav_loss_streak >= 1`) or with < 50% win rate (`fav_wr < 0.50`).
-        # 3. When form sample counts are provided (`n_form_home + n_form_away > 0`) and `best_odds > 1.32`,
-        #    require the backed favorite to have at least 1 verified promotion fight (`n_form_fav >= 1`) and `fav_wr >= 0.50`.
+        # MMA / Combat Promotion Experience, Form Separation & Momentum Gate:
+        # 1. Require odds in [1.20, 1.50] and form_diff_fav >= 0.30 (>= 0.35 when best_odds >= 1.30 and form counts are present).
+        # 2. Never back a fighter coming off a loss (`fav_loss_streak >= 1`) or with < 65% win rate (`fav_wr < 0.65`).
+        # 3. When form sample counts are provided (`n_form_home + n_form_away > 0`), require both fighters to have
+        #    verified promotion history (`n_form_fav >= 2`, `n_form_dog >= 1`) and `form_diff_fav >= 0.35` at `best_odds >= 1.30`
+        #    (filters out coin-flip veteran fights like Nemkov vs Bilostenniy @ 1.31 where Bilostenniy was 6W-1L and
+        #    Magomedsharipov vs Borics @ 1.42 where form_diff_fav was +0.26).
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
         n_form_dog = n_form_away if str(side).upper() == "H" else n_form_home
-        if best_odds < 1.20 or best_odds > 1.50 or form_diff_fav < 0.15 or fav_loss_streak >= 1:
+        if best_odds < 1.20 or best_odds > 1.50 or form_diff_fav < 0.25 or fav_loss_streak >= 1:
             return False, round(p_model, 4), ev_pct
-        if fav_wr is not None and fav_wr < 0.50:
+        if fav_wr is not None and fav_wr < 0.65:
             return False, round(p_model, 4), ev_pct
-        if (n_form_home + n_form_away) > 0 and (n_form_fav < 2 or n_form_dog < 1 or fav_wr is None):
-            return False, round(p_model, 4), ev_pct
+        if (n_form_home + n_form_away) > 0:
+            if n_form_fav < 2 or n_form_dog < 1 or fav_wr is None:
+                return False, round(p_model, 4), ev_pct
+            if best_odds >= 1.30 and form_diff_fav < 0.35:
+                return False, round(p_model, 4), ev_pct
     elif sp == "baseball":
         n_form_fav = n_form_home if str(side).upper() == "H" else n_form_away
         if best_odds < 1.15 or best_odds > 1.50 or form_diff_fav < 0.25 or fav_loss_streak >= 1:

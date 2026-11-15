@@ -997,7 +997,7 @@ def scan_sportradar_european_sports(
             fav_session_sets_3h: int | None = None
             fav_last_lost_5set: bool = False
             fav_lost_last_h2h: bool = False
-            if sp_slug in ("table_tennis", "darts", "snooker", "handball", "curling", "baseball") and cand.get("ko_uts"):
+            if sp_slug in ("table_tennis", "darts", "snooker", "handball", "curling", "baseball", "mma") and cand.get("ko_uts"):
                 fav_uid = cand.get("h_uid") if cand["side"] == "H" else cand.get("a_uid")
                 dog_uid = cand.get("a_uid") if cand["side"] == "H" else cand.get("h_uid")
                 fav_r3_lx: float | None = None
@@ -1060,12 +1060,22 @@ def scan_sportradar_european_sports(
                                     seen_h2h = True
                                     if my_s < op_s:
                                         fav_lost_last_h2h = True
-                                if (int(cand["ko_uts"]) - m_uts) <= int(3.5 * 3600):
+                                if (int(cand["ko_uts"]) - m_uts) <= int(4.5 * 3600):
                                     sess_sets += (my_s + op_s)
                             fav_loss_streak = max(fav_loss_streak, lx_l_streak)
                             fav_recent_draws = max(fav_recent_draws, lx_draws_5)
                             if lx_r3_n == 3:
                                 fav_r3_lx = lx_r3_wins / 3.0
+                            if len(prior_ms) >= 5:
+                                lx_w6 = sum(
+                                    1.0
+                                    for mx6 in prior_ms[:6]
+                                    if (
+                                        int(((mx6.get("result") or {}).get("home" if (((mx6.get("teams") or {}).get("home") or {}).get("uid") == p_uid) else "away")) or 0)
+                                        > int(((mx6.get("result") or {}).get("away" if (((mx6.get("teams") or {}).get("home") or {}).get("uid") == p_uid) else "home")) or 0)
+                                    )
+                                ) / min(6, len(prior_ms))
+                                fav_wr = min(float(fav_wr or lx_w6), lx_w6)
                             fav_session_sets_3h = sess_sets
                         else:
                             dog_hours_since_last = hrs_gap
