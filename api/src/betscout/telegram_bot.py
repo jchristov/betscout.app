@@ -577,7 +577,7 @@ def send_discord_message(
     }
 
 
-_SETTLEMENT_NOTIFY_LOCK = threading.Lock()
+_SETTLEMENT_NOTIFY_LOCK = threading.RLock()
 
 
 def notify_new_settlements_to_discord(

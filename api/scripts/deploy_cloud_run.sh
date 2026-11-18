@@ -166,10 +166,7 @@ else
     --quiet || true
 fi
 
-echo "🔄 [7/7] Triggering warm post-deploy rescan on ${CR_URL}/api/sync..."
-curl -sS -m 300 -X POST "${CR_URL}/api/sync" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${CRON_SECRET}" \
-  -d '{"rescan":true,"days":4,"min_odds":1.10}' >/dev/null || echo "   ⚠ Post-deploy warm rescan skipped or deferred to Cloud Scheduler."
+echo "🔄 [7/7] Triggering warm post-deploy rescan via Cloud Scheduler (betscout-auto-rescan)..."
+gcloud scheduler jobs run betscout-auto-rescan --project="${PROJECT_ID}" --location="${REGION}" --quiet >/dev/null 2>&1 || echo "   ⚠ Post-deploy warm rescan skipped or deferred to Cloud Scheduler."
 
 echo "✅ Deployment complete! BetScout is live on Firebase Hosting + Cloud Run + 24/7 Cloud Scheduler."

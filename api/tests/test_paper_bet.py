@@ -2001,6 +2001,7 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     db = tmp_path / "dedup.db"
     conn = sqlite3.connect(db)
     conn.executescript(PAPER_SCHEMA)
+    conn.execute("CREATE TABLE IF NOT EXISTS matches (league TEXT, event_id TEXT, home_score REAL, away_score REAL)")
     conn.close()
 
     # 1. Moving totals lines (243.5 -> 242.5 -> 241.5) on the same match must update the single pending row instead of stacking 3 bets
@@ -2112,6 +2113,22 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     assert len(bb_ten) == 1
     assert bb_ten[0]["pick_name"] == "Under 21.5 Games"
     assert bb_ten[0]["odds"] == 1.70
+
+    # 5. Regression test: notify_new_picks_to_discord calling ensure_daily_free_teaser_sent with DISCORD_WEBHOOK_URL_FREE_TEASER set must not self-deadlock on _SETTLEMENT_NOTIFY_LOCK
+    import os
+    from betscout.telegram_bot import notify_new_picks_to_discord
+
+    old_teaser = os.environ.get("DISCORD_WEBHOOK_URL_FREE_TEASER")
+    os.environ["DISCORD_WEBHOOK_URL_FREE_TEASER"] = "https://discord.com/api/webhooks/123/test_teaser"
+    try:
+        res_not = notify_new_picks_to_discord(db, dry_run=True)
+        assert res_not.get("notified_picks_count") == 1
+    finally:
+        if old_teaser is None:
+            os.environ.pop("DISCORD_WEBHOOK_URL_FREE_TEASER", None)
+        else:
+            os.environ["DISCORD_WEBHOOK_URL_FREE_TEASER"] = old_teaser
+
 
 
 
