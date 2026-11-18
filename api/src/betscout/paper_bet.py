@@ -1981,7 +1981,7 @@ def scan_upcoming_other_sports(
         rh = min((dt - last_dt[hk]).days, 10) if hk in last_dt else 4
         ra = min((dt - last_dt[ak]).days, 10) if ak in last_dt else 4
         b2b_adv = (1.0 if ra <= 1 else 0.0) - (1.0 if rh <= 1 else 0.0)
-        rest_adv = (rh - ra) / 3.0 + b2b_adv
+        rest_adv = b2b_adv if (rh >= 2 and ra >= 2) else ((rh - ra) / 3.0 + b2b_adv)
 
         oh_dq, oa_dq = box_hist[hk], box_hist[ak]
         if len(oh_dq) >= 3 and len(oa_dq) >= 3 and r["odds_home"] and r["odds_away"]:
@@ -2131,7 +2131,7 @@ def scan_upcoming_other_sports(
                 rh = min((dt - last_dt[hk]).days, 10) if hk in last_dt else 4
                 ra = min((dt - last_dt[ak]).days, 10) if ak in last_dt else 4
                 b2b_adv = (1.0 if ra <= 1 else 0.0) - (1.0 if rh <= 1 else 0.0)
-                rest_adv = (rh - ra) / 3.0 + b2b_adv
+                rest_adv = b2b_adv if (rh >= 2 and ra >= 2) else ((rh - ra) / 3.0 + b2b_adv)
 
                 oh_dq, oa_dq = box_hist.get(hk), box_hist.get(ak)
                 comp_score = 0.0
@@ -2158,6 +2158,9 @@ def scan_upcoming_other_sports(
                 side = "H" if p_mkt_h >= 0.5 else "A"
                 sgn_pick = 1.0 if side == "H" else -1.0
                 rest_for_pick = sgn_pick * rest_adv
+                pick_rest_days = rh if side == "H" else ra
+                opp_rest_days = ra if side == "H" else rh
+                eff_rest_for_pick = rest_for_pick
                 p_mkt = p_mkt_h if side == "H" else (1.0 - p_mkt_h)
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 if comp_score > 0.0 and p_elo >= 0.54:
@@ -2303,6 +2306,9 @@ def scan_upcoming_other_sports(
                             comb_hits_for=comb_sot_for,
                         )
 
+                eff_opp_last_margin = (
+                    0.0 if (opp_rest_days <= 1 and pick_rest_days >= 2) else opp_last_margin
+                )
                 if not route_major_league_gate(
                     league=lg,
                     p_mod=p_mod,
@@ -2311,7 +2317,7 @@ def scan_upcoming_other_sports(
                     comp_score=comp_score,
                     sot_f=sot_f,
                     vol_f=vol_f,
-                    rest_for_pick=rest_for_pick,
+                    rest_for_pick=eff_rest_for_pick,
                     side=side,
                     odds_pick=odds_pick,
                     min_prob=min_prob,
@@ -2323,7 +2329,7 @@ def scan_upcoming_other_sports(
                     pick_last_margin=pick_last_margin,
                     opp_win_rate_3=opp_win_rate_3,
                     opp_ga_3=opp_ga_3,
-                    opp_last_margin=opp_last_margin,
+                    opp_last_margin=eff_opp_last_margin,
                     opp_goal_diff=opp_goal_diff,
                 ):
                     # When the favorite fails the major-league gate, check if it is an Overestimated / Paper-Tiger Favorite Fade Trap!
@@ -2861,8 +2867,8 @@ def build_recommended_2leg_doubles(
     _pair_pool(shield_candidates, shield_candidates + ml_candidates, "DOUBLE_CHANCE_SHIELD", "Double Chance & +1.5 Handicap", 0.60, 1.38, 2.25, limit=2, require_diff_league=False)
     # 3. Goals & Games O/U Totals Combos (up to 2)
     _pair_pool(totals_candidates, totals_candidates + shield_candidates, "GOALS_GAMES_TOTALS", "Goals & Games O/U Combo", 0.46, 1.55, 2.85, limit=2, require_diff_league=False)
-    # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 2, require >= 44% combined probability)
-    _pair_pool(plus_candidates, shield_candidates + ml_candidates, "STRAIGHT_SETS_SCORE_CLUSTER", "Straight-Sets & Score-Cluster Plus", 0.44, 1.75, 3.20, limit=2, require_diff_league=False)
+    # 4. Straight Sets (2:0) & Score Cluster Value Combos (up to 1, tightened to >= 54% combined probability after live -46.5% ROI audit)
+    _pair_pool(plus_candidates, shield_candidates + ml_candidates, "STRAIGHT_SETS_SCORE_CLUSTER", "Straight-Sets & Score-Cluster Plus", 0.54, 1.75, 2.85, limit=1, require_diff_league=False)
 
     return doubles[:max_doubles]
 
@@ -3644,10 +3650,32 @@ def _upsert_paper_bet(db_path: Path, pick: dict[str, Any], now_iso: str) -> None
         if ep.get("top_exact_score"):
             esc_pred_str = f"{ep['top_exact_score']} ({ep['top_exact_prob']*100:.1f}%) | Cluster {ep['cluster_3_scores']} ({ep['cluster_3_prob']*100:.1f}%)"
 
+    def _canon_sec_family(eid_s: str) -> tuple[str, str | None]:
+        import re
+
+        if "::" not in eid_s:
+            return eid_s, None
+        base_id, mkt_part = eid_s.split("::", 1)
+        fam = re.sub(r"_[0-9]+(?:\.[0-9]+)?_", "_", mkt_part.upper())
+        return base_id, fam
+
+    target_eid = str(pick["event_id"])
     existing = conn.execute(
-        "SELECT logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_bets WHERE league = ? AND event_id = ?",
-        (pick["league"], pick["event_id"]),
+        "SELECT event_id, logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_bets WHERE league = ? AND event_id = ?",
+        (pick["league"], target_eid),
     ).fetchone()
+    if not existing and "::" in target_eid:
+        base_id, fam_key = _canon_sec_family(target_eid)
+        if fam_key:
+            for cand_r in conn.execute(
+                "SELECT event_id, logged_best_odds, logged_primary_odds, open_odds, logged_at FROM paper_bets WHERE league = ? AND event_id LIKE ? AND status = 'PENDING'",
+                (pick["league"], f"{base_id}::%"),
+            ).fetchall():
+                _, cand_fam = _canon_sec_family(str(cand_r["event_id"]))
+                if cand_fam == fam_key:
+                    existing = cand_r
+                    target_eid = str(cand_r["event_id"])
+                    break
 
     cur_close = pick["close_odds"] or pick["best_odds"]
     c_logo = pick.get("competition_logo") or pick.get("comp_logo")
@@ -3683,14 +3711,14 @@ def _upsert_paper_bet(db_path: Path, pick: dict[str, Any], now_iso: str) -> None
                 json.dumps(pick.get("news_signal")),
                 now_iso,
                 pick["league"],
-                pick["event_id"],
+                target_eid,
             ),
         )
         # Also overwrite any stale SofaScore or unverified tennis image URLs with verified ESPN Core v2 / CDN URLs
         if h_logo or a_logo:
             conn.execute(
                 "UPDATE paper_bets SET home_logo = ?, away_logo = ? WHERE league = ? AND event_id = ?",
-                (h_logo, a_logo, pick["league"], pick["event_id"]),
+                (h_logo, a_logo, pick["league"], target_eid),
             )
     else:
         open_o = pick["open_odds"] or pick["best_odds"]

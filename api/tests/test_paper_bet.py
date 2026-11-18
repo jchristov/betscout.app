@@ -1991,4 +1991,128 @@ def test_mma_zero_sample_debut_and_loss_streak_veto_and_edge_score():
     assert parsed_bb["total_line"] == 9.5 and parsed_bb["odds_over"] == 2.00 and parsed_bb["odds_under"] == 1.67
 
 
+def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> None:
+    import sqlite3
+
+    from betscout.dashboard import build_best_bets_summary
+    from betscout.paper_bet import PAPER_SCHEMA, _upsert_paper_bet
+    from betscout.sport_models import evaluate_nba_secondary_markets, evaluate_soccer_gate
+
+    db = tmp_path / "dedup.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(PAPER_SCHEMA)
+    conn.close()
+
+    # 1. Moving totals lines (243.5 -> 242.5 -> 241.5) on the same match must update the single pending row instead of stacking 3 bets
+    for ln, odds_v, ts in (
+        (243.5, 1.95, "2026-11-16T18:00:00Z"),
+        (242.5, 1.89, "2026-11-16T21:00:00Z"),
+        (241.5, 1.88, "2026-11-16T23:00:00Z"),
+    ):
+        _upsert_paper_bet(
+            db,
+            {
+                "league": "nba",
+                "event_id": f"401909995::OVER_{ln}_POINTS",
+                "kickoff": "2026-11-17T00:00:00Z",
+                "home": "Cleveland Cavaliers",
+                "away": "Chicago Bulls",
+                "side": f"OVER_POINTS_{ln}",
+                "tier": "totals_over",
+                "score": 0.645,
+                "p_mkt": 0.645,
+                "open_odds": odds_v,
+                "best_odds": odds_v,
+                "primary_odds": odds_v,
+                "close_odds": odds_v,
+                "synthetic_dc_odds": None,
+                "factors_tanh_z": {"p_model": 0.645},
+            },
+            ts,
+        )
+    c_chk = sqlite3.connect(db)
+    rows = c_chk.execute("SELECT event_id, logged_best_odds, latest_close_odds FROM paper_bets WHERE league = 'nba'").fetchall()
+    c_chk.close()
+    assert len(rows) == 1
+    assert rows[0][0] == "401909995::OVER_243.5_POINTS"
+    assert rows[0][1] == 1.95 and rows[0][2] == 1.88
+
+    # 2. Nosebleed >=240.0 NBA lines are excluded from sharp-pace OVER_POINTS
+    assert (
+        evaluate_nba_secondary_markets(
+            home="Cleveland Cavaliers",
+            away="Chicago Bulls",
+            side="H",
+            p_mkt=0.66,
+            p_elo=0.67,
+            fg_pct_diff=2.0,
+            rest_for_pick=0.0,
+            line_total=243.5,
+            odds_over=1.91,
+            exp_total_pts=231.0,
+        )
+        == []
+    )
+
+    # 3. Low-EV / sub-top_25pct UEFA chalk is rejected rather than leaking into negative-EV uefa_edge
+    thrs = {"top_8pct": 0.355, "top_10pct": 0.3246, "top_15pct": 0.2565, "top_25pct": 0.1579}
+    assert (
+        evaluate_soccer_gate(
+            "uefa.nations",
+            0.0979,
+            thrs,
+            0.6497,
+            -2.1,
+            {"p_mkt": 0.92, "vig_neg": 0.20, "sot_d": 0.55, "discipline": 0.10, "h2h_adv": 0.0, "dom_rebound": 0.10, "recent_draws": -0.20},
+            side="A",
+        )
+        == "pass"
+    )
+
+    # 4. Tennis secondary market (> min_odds) is retained even when primary ML fair odds <= min_odds (e.g. Alcaraz 1.069 ML + Under 21.5 Games @ 1.70)
+    bb_ten = build_best_bets_summary(
+        {
+            "generated_at": "2026-11-18T08:00:00Z",
+            "tennis_picks": [
+                {
+                    "tour": "ATP",
+                    "tournament": "Davis Cup Finals",
+                    "surface": "hard_indoor",
+                    "event_id": "187510",
+                    "kickoff": "2026-11-20T05:00:00Z",
+                    "player_1": "Carlos Alcaraz",
+                    "player_2": "Flavio Cobolli",
+                    "pick": "Carlos Alcaraz",
+                    "side": "H",
+                    "tier": "banker_70pct",
+                    "win_prob": 0.9356,
+                    "min_fair_odds": 1.069,
+                    "target_ev3_odds": 1.101,
+                    "best_odds": None,
+                    "ev_pct": None,
+                    "secondary_opportunities": [
+                        {
+                            "market_type": "UNDER_21.5_GAMES",
+                            "market_label": "Under 21.5 Games",
+                            "pick_name": "Under 21.5 Games",
+                            "side": "UNDER_GAMES_21.5",
+                            "tier": "totals_under",
+                            "win_prob": 0.625,
+                            "min_fair_odds": 1.60,
+                            "odds": 1.70,
+                            "ev_pct": 6.25,
+                            "rationale": "62.5% WR · Straight-sets dominance",
+                        }
+                    ],
+                }
+            ],
+        },
+        min_odds=1.10,
+    )
+    assert len(bb_ten) == 1
+    assert bb_ten[0]["pick_name"] == "Under 21.5 Games"
+    assert bb_ten[0]["odds"] == 1.70
+
+
+
 

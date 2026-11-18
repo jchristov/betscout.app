@@ -138,7 +138,9 @@ def evaluate_soccer_gate(
             if not (dom_z < -0.30 and disc_z < -0.20 and draws_z > 0.35):
                 if p_mkt >= 0.56 and dom_z >= 0.0 and sot_z >= 0.30 and disc_z >= 0.0:
                     return "top_25pct"
-    if is_uefa and sot_z >= 0.45 and p_mkt >= 0.60 and (score >= 0.10 or dom_z > 0.25):
+    if is_uefa and sot_z >= 0.45 and p_mkt >= 0.62 and ev_pct >= 1.5 and score >= thresholds.get("top_25pct", 0.1579) and dom_z >= 0.0:
+        if is_nat_team and str(side).upper() == "A" and (p_mkt < 0.66 or draws_z < 0.0):
+            return "pass"
         return "uefa_edge"
     return "pass"
 
@@ -1775,7 +1777,7 @@ def evaluate_nba_secondary_markets(
     if line_total and float(line_total) >= 195.0 and exp_total_pts is not None:
         lt = float(line_total)
         o_ov = round(float(odds_over) if (odds_over and 1.70 <= float(odds_over) <= 2.15) else 1.91, 2)
-        if lt >= 232.5 and (lt - exp_total_pts) >= 5.0:
+        if 232.5 <= lt <= 239.5 and (lt - exp_total_pts) >= 5.0 and fg_pct_diff > 0.0 and rest_for_pick >= 0.0:
             p_ov = 0.645
             ev_ov = round((p_ov * o_ov - 1.0) * 100.0, 2)
             opportunities.append({

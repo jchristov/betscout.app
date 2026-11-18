@@ -6,9 +6,10 @@ This guide walks through deploying **BetScout (`betscout.app`)** using **Option 
 
 ## 1. What Has Already Been Prepared in the Repository
 
-1. **Production Container (`Dockerfile` + `.dockerignore` + `scripts/cloud_entrypoint.sh`):**
-   - Uses `python:3.12-slim` + `uv` + `curl` + `fonts-dejavu-core` (for 1080×580 Pillow PNG Pick Cards).
-   - Automatically binds to `0.0.0.0:$PORT` in Cloud Run and reads/writes `betscout.db`, `recommendations.json`, and `webapp_settings.json` from `BETSCOUT_DATA_DIR` (`/mnt/data`).
+1. **Production Container (`Dockerfile` + `.dockerignore` + `api/scripts/cloud_entrypoint.sh`):**
+   - Uses `python:3.12-slim` + `uv` + `curl` + `fonts-dejavu-core` + `fonts-noto-color-emoji` (for 1080×580 Pillow PNG Pick Cards).
+   - Keeps active SQLite WAL state on fast local container storage (`BETSCOUT_DATA_DIR=/app/data`) with WAL-checkpointed atomic `.tmp` hydration/flushing to the Cloud Storage FUSE volume (`/mnt/gcs`), deployed with `--no-cpu-throttling` and `--min-instances=0` so active instances never freeze lock-holding threads while idle capacity still scales to zero.
+   - `api/scripts/deploy_cloud_run.sh` preserves existing cloud `betscout.db`, `recommendations.json`, `webapp_settings.json`, `best_bets.json`, `best_bets.csv`, and `dashboard.html` on GCS by default (set `FORCE_DB_UPLOAD=1` or `FORCE_DATA_UPLOAD=1` to overwrite), and triggers a warm post-deploy `/api/sync` rescan automatically.
 2. **Firebase Hosting Config (`firebase.json` + `.firebaserc`):**
    - Configures no-cache headers for `/sw.js` and `/api/stream` (SSE) and proxies all routes (`**`) to the `betscout-app` Cloud Run service in `europe-west3` (Frankfurt).
 3. **Firebase Auth & Cloud Scheduler RBAC (`src/betscout/webapp.py` + `src/betscout/dashboard.py`):**

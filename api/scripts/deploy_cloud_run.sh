@@ -38,7 +38,11 @@ if [ -f "data/betscout.db" ]; then
 fi
 for f in recommendations.json webapp_settings.json best_bets.json best_bets.csv dashboard.html; do
   if [ -f "data/${f}" ]; then
-    gcloud storage cp "data/${f}" "gs://${BUCKET_NAME}/${f}"
+    if [ "${FORCE_DATA_UPLOAD:-${FORCE_DB_UPLOAD:-0}}" = "1" ] || ! gcloud storage ls "gs://${BUCKET_NAME}/${f}" >/dev/null 2>&1; then
+      gcloud storage cp "data/${f}" "gs://${BUCKET_NAME}/${f}"
+    else
+      echo "   ✓ gs://${BUCKET_NAME}/${f} already exists (set FORCE_DATA_UPLOAD=1 to overwrite)"
+    fi
   fi
 done
 
@@ -53,6 +57,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --source="." \
   --execution-environment=gen2 \
   --allow-unauthenticated \
+  --no-cpu-throttling \
   --cpu=2 \
   --memory=2Gi \
   --min-instances=0 \
@@ -160,5 +165,11 @@ else
     --attempt-deadline=900s \
     --quiet || true
 fi
+
+echo "🔄 [7/7] Triggering warm post-deploy rescan on ${CR_URL}/api/sync..."
+curl -sS -m 300 -X POST "${CR_URL}/api/sync" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${CRON_SECRET}" \
+  -d '{"rescan":true,"days":4,"min_odds":1.10}' >/dev/null || echo "   ⚠ Post-deploy warm rescan skipped or deferred to Cloud Scheduler."
 
 echo "✅ Deployment complete! BetScout is live on Firebase Hosting + Cloud Run + 24/7 Cloud Scheduler."

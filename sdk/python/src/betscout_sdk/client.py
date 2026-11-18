@@ -282,6 +282,10 @@ class BetScoutClient:
             if existing and existing[2] is not None and not existing[3]:
                 self._stale_fallbacks += 1
                 return existing[2]
+            if ttl > 0 and self.negative_ttl_sec > 0:
+                self._set_cache_entry(
+                    cache_key, now + min(ttl, self.negative_ttl_sec), None, None, True
+                )
             return None
 
     def fetch_feed(

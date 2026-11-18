@@ -391,6 +391,14 @@ export class BetScoutClient {
           this.staleFallbackHits += 1;
           return existing.doc as BetScoutDocument<T>;
         }
+        if (ttlSec > 0 && this.negativeTtlSec > 0) {
+          this.setCacheEntry(cacheKey, {
+            expiresAtMs: Date.now() + Math.min(ttlSec, this.negativeTtlSec) * 1000,
+            value: null,
+            doc: null,
+            isNegative: true,
+          });
+        }
         return null;
       } finally {
         this.inFlight.delete(cacheKey);
@@ -399,6 +407,14 @@ export class BetScoutClient {
       if (existing && existing.doc && !existing.isNegative) {
         this.staleFallbackHits += 1;
         return existing.doc as BetScoutDocument<T>;
+      }
+      if (ttlSec > 0 && this.negativeTtlSec > 0) {
+        this.setCacheEntry(cacheKey, {
+          expiresAtMs: Date.now() + Math.min(ttlSec, this.negativeTtlSec) * 1000,
+          value: null,
+          doc: null,
+          isNegative: true,
+        });
       }
       return null;
     })();

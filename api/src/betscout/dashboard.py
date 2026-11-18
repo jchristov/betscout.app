@@ -420,10 +420,11 @@ def build_best_bets_summary(
     for p in raw_soccer_picks:
         if "soccer" in dis_set or p.get("action") != "PAPER_BET":
             continue
-        odds_val = float(p.get("best_odds") or 0.0)
-        if odds_val <= min_odds:
-            continue
         if norm_sport not in ("all", "soccer"):
+            continue
+        odds_val = float(p.get("best_odds") or 0.0)
+        has_valid_sec_soc = any(float(s.get("odds") or 0.0) > min_odds for s in (p.get("secondary_opportunities") or [])[:1])
+        if odds_val <= min_odds and not has_valid_sec_soc:
             continue
         lg_label = LEAGUE_LABELS.get(p["league"], p["league"].upper())
         pick_team = p["home"] if p["side"] == "H" else p["away"]
@@ -517,7 +518,7 @@ def build_best_bets_summary(
                 and (p.get("secondary_opportunities") or [])
             )
         )
-        if not suppress_3way:
+        if not suppress_3way and odds_val > min_odds:
             best_bets.append({
                 "date": p["kickoff"],
                 "date_local": _format_local_time(p["kickoff"], time_valid=p.get("time_valid")),
@@ -608,11 +609,12 @@ def build_best_bets_summary(
     for tp in raw_tennis_picks:
         if "tennis" in dis_set or tp.get("win_prob", 0.0) < 0.70:
             continue
+        if norm_sport not in ("all", "tennis"):
+            continue
         live_book = tp.get("best_odds")
         odds_val = float(live_book if live_book else (tp.get("min_fair_odds") or 0.0))
-        if odds_val <= min_odds:
-            continue
-        if norm_sport not in ("all", "tennis"):
+        has_valid_sec_ten = any(float(s.get("odds") or 0.0) > min_odds for s in (tp.get("secondary_opportunities") or [])[:1])
+        if odds_val <= min_odds and not has_valid_sec_ten:
             continue
         ev_str = f", EV {tp['ev_pct']:+.1f}%" if tp.get("ev_pct") is not None else ""
         odds_disp = f"{live_book:.2f} (Fair {tp['min_fair_odds']:.2f}{ev_str})" if live_book else f"≥ {odds_val:.2f} (Target {tp['target_ev3_odds']:.2f})"
@@ -658,44 +660,45 @@ def build_best_bets_summary(
         tp_fav_rel = tp.get("fav_reliability")
         if isinstance(tp_fav_rel, dict) and tp_fav_rel.get("record"):
             t_driver_str += f" · Fav {tp_fav_rel['record']} ({tp_fav_rel['win_pct']}% · {float(tp_fav_rel.get('gap_pp') or 0):+.1f}pp)"
-        best_bets.append({
-            "date": tp["kickoff"],
-            "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
-            "announced_at_local": _format_local_time(str(tp.get("logged_at") or def_ann_iso)) if (tp.get("logged_at") or def_ann_iso) else "",
-            "day_key": _match_day_key(tp["kickoff"]),
-            "time_valid": tp.get("time_valid", True),
-            "sport_cat": "tennis",
-            "sport_icon": _sport_icon("tennis"),
-            "competition": t_comp_lbl,
-            "competition_logo": _resolve_comp_logo(tp["tour"], tp.get("competition_logo")),
-            "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
-            "home": tp["player_1"],
-            "away": tp["player_2"],
-            "home_logo": tp.get("home_logo"),
-            "away_logo": tp.get("away_logo"),
-            "home_flag": tp.get("home_flag"),
-            "away_flag": tp.get("away_flag"),
-            "match": f"{tp['player_1']} vs {tp['player_2']}",
-            "pick_name": tp["pick"],
-            "pick_logo": tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"),
-            "pick_flag": tp.get("home_flag") if tp["pick"] == tp["player_1"] else tp.get("away_flag"),
-            "tier": tp.get("tier") or "banker_70pct",
-            "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
-            "win_prob": round(tp_win, 4),
-            "p_mkt": tp_mkt,
-            "edge_pp": tp_edge_pp,
-            "ev_pct": tp_ev,
-            "edge_score": _compute_edge_score(tp_win, tp_ev, tp_edge_pp, tp.get("tier") or "banker_70pct", tp_fav_rel),
-            "is_mispriced": bool(live_book and tp_ev >= 2.0 and tp_edge_pp >= 2.0),
-            "mispricing_drivers": t_driver_str,
-            "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
-            "exact_score_pick": set_str,
-            "score_cluster_items": t_score_cluster_items,
-            "odds": round(odds_val, 3),
-            "clv_pct": round(tp_clv, 2),
-            "odds_display": odds_disp,
-            "secondary_opportunities": tp.get("secondary_opportunities") or [],
-        })
+        if odds_val > min_odds:
+            best_bets.append({
+                "date": tp["kickoff"],
+                "date_local": _format_local_time(tp["kickoff"], time_valid=tp.get("time_valid")),
+                "announced_at_local": _format_local_time(str(tp.get("logged_at") or def_ann_iso)) if (tp.get("logged_at") or def_ann_iso) else "",
+                "day_key": _match_day_key(tp["kickoff"]),
+                "time_valid": tp.get("time_valid", True),
+                "sport_cat": "tennis",
+                "sport_icon": _sport_icon("tennis"),
+                "competition": t_comp_lbl,
+                "competition_logo": _resolve_comp_logo(tp["tour"], tp.get("competition_logo")),
+                "sport_league": f"Tennis · {tp['tour']} ({tp['surface'].capitalize()})",
+                "home": tp["player_1"],
+                "away": tp["player_2"],
+                "home_logo": tp.get("home_logo"),
+                "away_logo": tp.get("away_logo"),
+                "home_flag": tp.get("home_flag"),
+                "away_flag": tp.get("away_flag"),
+                "match": f"{tp['player_1']} vs {tp['player_2']}",
+                "pick_name": tp["pick"],
+                "pick_logo": tp.get("home_logo") if tp["pick"] == tp["player_1"] else tp.get("away_logo"),
+                "pick_flag": tp.get("home_flag") if tp["pick"] == tp["player_1"] else tp.get("away_flag"),
+                "tier": tp.get("tier") or "banker_70pct",
+                "pick": f"{tp['pick']} (Win {tp['win_prob']*100:.1f}%)",
+                "win_prob": round(tp_win, 4),
+                "p_mkt": tp_mkt,
+                "edge_pp": tp_edge_pp,
+                "ev_pct": tp_ev,
+                "edge_score": _compute_edge_score(tp_win, tp_ev, tp_edge_pp, tp.get("tier") or "banker_70pct", tp_fav_rel),
+                "is_mispriced": bool(live_book and tp_ev >= 2.0 and tp_edge_pp >= 2.0),
+                "mispricing_drivers": t_driver_str,
+                "min_fair_odds": round(float(tp["min_fair_odds"]), 2),
+                "exact_score_pick": set_str,
+                "score_cluster_items": t_score_cluster_items,
+                "odds": round(odds_val, 3),
+                "clv_pct": round(tp_clv, 2),
+                "odds_display": odds_disp,
+                "secondary_opportunities": tp.get("secondary_opportunities") or [],
+            })
         for sec in (tp.get("secondary_opportunities") or [])[:1]:
             sec_odds = float(sec.get("odds") or 0.0)
             if sec_odds <= min_odds:
@@ -745,11 +748,12 @@ def build_best_bets_summary(
             })
 
     for op in raw_other_picks:
-        odds_val = float(op.get("best_odds") or 0.0)
-        if odds_val <= min_odds:
-            continue
         sp_cat = _league_to_sport_cat(op.get("sport") or op.get("league") or "")
         if sp_cat in dis_set or norm_sport not in ("all", sp_cat):
+            continue
+        odds_val = float(op.get("best_odds") or 0.0)
+        has_valid_sec_op = any(float(s.get("odds") or 0.0) > min_odds for s in (op.get("secondary_opportunities") or [])[:2])
+        if odds_val <= min_odds and not has_valid_sec_op:
             continue
         op_win = float(op.get("p_model") or op.get("p_mkt") or 0.5)
         op_mkt = float(op.get("p_mkt") or (1.0 / max(odds_val, 1.05)))
@@ -767,41 +771,42 @@ def build_best_bets_summary(
         )
         if not is_fade_op and isinstance(op_fav_rel, dict) and op_fav_rel.get("record"):
             op_drv += f" · Fav {op_fav_rel['record']} ({op_fav_rel['win_pct']}% · {float(op_fav_rel.get('gap_pp') or 0):+.1f}pp)"
-        best_bets.append({
-            "date": op["kickoff"],
-            "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
-            "announced_at_local": _format_local_time(str(op.get("logged_at") or def_ann_iso)) if (op.get("logged_at") or def_ann_iso) else "",
-            "day_key": _match_day_key(op["kickoff"]),
-            "time_valid": op.get("time_valid", True),
-            "sport_cat": sp_cat,
-            "sport_icon": _sport_icon(sp_cat),
-            "competition": op["league_name"],
-            "competition_logo": _resolve_comp_logo(op["league"], op.get("competition_logo")),
-            "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
-            "home": op["home"],
-            "away": op["away"],
-            "home_logo": op.get("home_logo"),
-            "away_logo": op.get("away_logo"),
-            "match": f"{op['home']} vs {op['away']}",
-            "pick_name": op_pick_name,
-            "pick_logo": op.get("home_logo") if op_logo_side == "H" else op.get("away_logo"),
-            "tier": op.get("tier") or "high_conf",
-            "market_type": str(op.get("market_type") or ""),
-            "pick": f"{op_pick_name} (Win {op['p_model']*100:.1f}%)",
-            "win_prob": round(op_win, 4),
-            "p_mkt": round(op_mkt, 4),
-            "edge_pp": op_edge_pp,
-            "ev_pct": op_ev,
-            "edge_score": _compute_edge_score(op_win, op_ev, op_edge_pp, op.get("tier") or "high_conf", op_fav_rel),
-            "is_mispriced": bool(op_ev >= 2.0 and op_edge_pp >= 2.0),
-            "mispricing_drivers": op_drv,
-            "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
-            "exact_score_pick": "—",
-            "odds": round(odds_val, 3),
-            "clv_pct": round(op_clv, 2),
-            "odds_display": f"{odds_val:.2f} (Fair {1.0/max(op_win,0.05):.2f}, EV {op_ev:+.1f}%)",
-            "secondary_opportunities": op.get("secondary_opportunities") or [],
-        })
+        if odds_val > min_odds:
+            best_bets.append({
+                "date": op["kickoff"],
+                "date_local": _format_local_time(op["kickoff"], time_valid=op.get("time_valid")),
+                "announced_at_local": _format_local_time(str(op.get("logged_at") or def_ann_iso)) if (op.get("logged_at") or def_ann_iso) else "",
+                "day_key": _match_day_key(op["kickoff"]),
+                "time_valid": op.get("time_valid", True),
+                "sport_cat": sp_cat,
+                "sport_icon": _sport_icon(sp_cat),
+                "competition": op["league_name"],
+                "competition_logo": _resolve_comp_logo(op["league"], op.get("competition_logo")),
+                "sport_league": f"{op['sport'].capitalize()} · {op['league_name']}",
+                "home": op["home"],
+                "away": op["away"],
+                "home_logo": op.get("home_logo"),
+                "away_logo": op.get("away_logo"),
+                "match": f"{op['home']} vs {op['away']}",
+                "pick_name": op_pick_name,
+                "pick_logo": op.get("home_logo") if op_logo_side == "H" else op.get("away_logo"),
+                "tier": op.get("tier") or "high_conf",
+                "market_type": str(op.get("market_type") or ""),
+                "pick": f"{op_pick_name} (Win {op['p_model']*100:.1f}%)",
+                "win_prob": round(op_win, 4),
+                "p_mkt": round(op_mkt, 4),
+                "edge_pp": op_edge_pp,
+                "ev_pct": op_ev,
+                "edge_score": _compute_edge_score(op_win, op_ev, op_edge_pp, op.get("tier") or "high_conf", op_fav_rel),
+                "is_mispriced": bool(op_ev >= 2.0 and op_edge_pp >= 2.0),
+                "mispricing_drivers": op_drv,
+                "min_fair_odds": round(1.0 / max(op_win, 0.05), 2),
+                "exact_score_pick": "—",
+                "odds": round(odds_val, 3),
+                "clv_pct": round(op_clv, 2),
+                "odds_display": f"{odds_val:.2f} (Fair {1.0/max(op_win,0.05):.2f}, EV {op_ev:+.1f}%)",
+                "secondary_opportunities": op.get("secondary_opportunities") or [],
+            })
         for sec in (op.get("secondary_opportunities") or [])[:2]:
             sec_odds = float(sec.get("odds") or 0.0)
             if sec_odds <= min_odds:

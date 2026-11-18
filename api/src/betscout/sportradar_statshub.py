@@ -57,11 +57,20 @@ _SQLITE_CACHE_INITIALIZED = False
 
 
 def _get_sqlite_cache_db_path() -> Path | None:
+    import os
+
     try:
-        # Resolve repo-root/data/betscout.db relative to api/src/betscout/sportradar_statshub.py
-        candidate = Path(__file__).resolve().parents[3] / "data" / "betscout.db"
-        if candidate.parent.exists():
-            return candidate
+        env_dir = (os.environ.get("BETSCOUT_DATA_DIR") or "").strip()
+        if env_dir:
+            env_candidate = Path(env_dir) / "betscout.db"
+            if env_candidate.parent.exists():
+                return env_candidate
+        here = Path(__file__).resolve()
+        for depth in (2, 3):
+            if len(here.parents) > depth:
+                candidate = here.parents[depth] / "data" / "betscout.db"
+                if candidate.parent.exists():
+                    return candidate
     except Exception:
         pass
     return None

@@ -61,6 +61,37 @@ _PIPELINE_STATUS: dict[str, Any] = {
     "inplay_alerts_enabled": False,
     "inplay_alert_items": {},
 }
+_SYNC_EXEC_LOCK = threading.Lock()
+
+
+def _atomic_flush_to_gcs(data_dir: Path, db_path: Path) -> None:
+    """Safely checkpoint SQLite WAL and atomically flush updated state files to `/mnt/gcs` via `.tmp` rename."""
+    import os
+    import shutil
+
+    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
+    if not gcs_dir.is_dir():
+        return
+    if db_path.is_file():
+        try:
+            c_ck = sqlite3.connect(db_path, timeout=10.0)
+            c_ck.execute("PRAGMA wal_checkpoint(PASSIVE)")
+            c_ck.close()
+        except Exception:
+            pass
+    for fname in ("recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html", "betscout.db"):
+        src_f = data_dir / fname
+        if src_f.is_file():
+            tmp_dst = gcs_dir / f"{fname}.sync.tmp"
+            final_dst = gcs_dir / fname
+            try:
+                shutil.copy2(src_f, tmp_dst)
+                os.replace(tmp_dst, final_dst)
+            except Exception:
+                try:
+                    tmp_dst.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
 
 from . import load_dotenv as _load_dotenv_once
@@ -3770,6 +3801,13 @@ self.addEventListener('fetch', (event) => {{
                 is_full_pipeline = parsed.path == "/api/pipeline" or bool(body.get("full_pipeline", False))
                 rescan = is_full_pipeline or bool(body.get("rescan", False))
                 min_odds = float(body.get("min_odds") or 1.10)
+                if not _SYNC_EXEC_LOCK.acquire(blocking=False):
+                    snap_busy = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport="all", run_settle=False)
+                    snap_busy["already_running"] = True
+                    snap_busy["newly_settled"] = 0
+                    snap_busy["new_ingested_count"] = 0
+                    self._send_json({"ok": True, **snap_busy})
+                    return
                 new_ingested_count = 0
                 try:
                     _PIPELINE_STATUS["running"] = True
@@ -3935,23 +3973,13 @@ self.addEventListener('fetch', (event) => {{
                         min_odds=min_odds,
                         csv_export_path=best_csv_path,
                         json_export_path=best_json_path,
+                        run_settle=False,
                     )
-                    # Immediately flush updated betscout.db & recommendations.json to /mnt/gcs if mounted on Cloud Run
-                    import os
-                    import shutil
-
-                    gcs_dir = Path(os.environ.get("GCS_MOUNT_DIR") or "/mnt/gcs")
-                    if gcs_dir.is_dir():
-                        for fname in ("betscout.db", "recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
-                            src_f = data_dir / fname
-                            if src_f.is_file():
-                                try:
-                                    shutil.copy2(src_f, gcs_dir / fname)
-                                except Exception:
-                                    pass
+                    _atomic_flush_to_gcs(data_dir, db_path)
                 finally:
                     _PIPELINE_STATUS["running"] = False
                     _PIPELINE_STATUS["step"] = "Idle"
+                    _SYNC_EXEC_LOCK.release()
 
                 snap = _build_live_snapshot(rec_path, db_path, min_odds=min_odds, sport="all", run_settle=False)
                 snap["newly_settled"] = newly_settled
@@ -3995,6 +4023,7 @@ self.addEventListener('fetch', (event) => {{
                         min_odds=1.10,
                         csv_export_path=best_csv_path,
                         json_export_path=best_json_path,
+                        run_settle=False,
                     )
 
                     _PIPELINE_STATUS["step"] = "[3/4] Broadcasting Morning Daily Digest & Free Teaser to Discord & Telegram..."
