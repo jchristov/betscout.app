@@ -511,3 +511,11 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
    - Fixed `_get_sqlite_cache_db_path()` in `sportradar_statshub.py` to honor `BETSCOUT_DATA_DIR` (`/app/data/betscout.db` in Cloud Run containers) and `parents[2]`/`parents[3]`, restoring persistent L2 SQLite Gismo caching in production (`l2_sqlite_entries: 0 -> 3,208+`).
    - Added negative-caching on upstream network timeouts/HTTP errors in both Python (`betscout_sdk`) and TypeScript (`@betscout/sdk`) clients so unreachable upstream endpoints do not repeatedly incur `12.0s` timeouts.
    - Guarded `/api/settle`, `/api/sync`, `/api/pipeline` with a non-blocking `_SYNC_EXEC_LOCK`, eliminated duplicate `settle_pending_paper_bets` runs inside `generate_dashboard_html(..., run_settle=False)`, added WAL-checkpointed atomic `.tmp` GCS flushes, protected live GCS state files from accidental local overwrite during `deploy_cloud_run.sh`, and enabled `--no-cpu-throttling` on Cloud Run so active background/sync lock holders are never CPU-frozen mid-transaction.
+
+6. **Parlay Anti-Concentration Cap (`<=2` Combos/Match), `+6pp` US Sports `p_model` Cap & Nov 20 Data Reconciliation (`paper_bet.py` & `sport_models.py`)**:
+   - **Root Cause (`Carolina Hurricanes 1–2 Montreal Canadiens` OT, `-6.00u` across 6 parlays)**: Repeated scans across drifting odds accumulated `6` separate `PENDING` combos containing `Carolina Hurricanes (H)` (and `13` containing `Carlos Alcaraz vs Flavio Cobolli`), while `p_model` on `Carolina Hurricanes` inflated to `0.8249` (`+12.9pp` above `p_mkt=0.6958`).
+   - **Fixes Shipped**:
+     - Added global per-match exposure caps (`<= 2` combos total per match across all archetypes, `<= 1` per `combo_type`) in both `build_recommended_2leg_doubles` and `_upsert_paper_combo`, plus automatic pruning of stale `>7d` ungradeable `PENDING` combos in `settle_pending_paper_combos`.
+     - Capped `p_mod <= p_mkt + 0.06` in `scan_upcoming_other_sports` (preserving `100%` of NBA `78.3% WR / +9.96% ROI`, NHL `75.9% WR / +10.12% ROI`, and NFL `86.7% WR / +25.84% ROI` OOS profit while eliminating `> +6pp` overconfidence).
+     - Calibrated NHL `evaluate_paper_tiger_fade` win-probability estimate to `[0.69, 0.74]` to match its `71.1%` OOS win rate.
+

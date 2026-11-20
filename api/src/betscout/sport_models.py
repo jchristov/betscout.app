@@ -2284,7 +2284,7 @@ def evaluate_paper_tiger_fade(
         if dog_last_margin is not None and dog_last_margin <= -3.0:
             return None
         if 1.48 <= fav_odds <= 1.94 and (vol_diff_fav <= -1.5 or (fav_gap_pp <= -10.0 and vol_diff_fav <= -1.0)):
-            p_pl = round(min(0.78, max(0.70, 0.72 + 0.015 * abs(min(vol_diff_fav, 0.0)))), 4)
+            p_pl = round(min(0.74, max(0.69, 0.695 + 0.012 * abs(min(vol_diff_fav, 0.0)))), 4)
             o_pl = round(max(1.36, min(1.54, dog_odds * 0.71)), 2)
             ev_pl = round((p_pl * o_pl - 1.0) * 100.0, 2)
             dc_dog = "1X" if dog_side == "H" else "X2"

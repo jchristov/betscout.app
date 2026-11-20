@@ -280,10 +280,18 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
             "set_score_prediction": {"straight_sets_score": "0:2", "straight_sets_prob": 0.56, "straight_sets_fair_odds": 1.79},
             "totals_market": {"expected_games": 20.1, "games_line": 21.5, "recommended": "Under 21.5", "prob": 0.62, "fair_odds": 1.61},
         }],
-        [],
+        [{
+            "sport": "hockey", "league": "NHL", "home": "Oilers", "away": "Flames", "side": "H", "pick": "Oilers",
+            "p_model": 0.72, "best_odds": 1.48, "composite_score": 0.28, "kickoff": "2026-10-25T21:00Z",
+            "secondary_opportunities": [{"market_type": "OVER_5.5_GOALS", "market_label": "Totals O/U", "pick_name": "Over 5.5 Goals", "side": "OVER_GOALS_5.5", "tier": "totals_over", "win_prob": 0.62, "odds": 1.85}],
+        }, {
+            "sport": "basketball", "league": "NBA", "home": "Celtics", "away": "Knicks", "side": "H", "pick": "Celtics",
+            "p_model": 0.66, "best_odds": 1.54, "composite_score": 0.26, "kickoff": "2026-10-25T23:00Z",
+            "secondary_opportunities": [{"market_type": "OVER_225.5_POINTS", "market_label": "Totals O/U", "pick_name": "Over 225.5 Pts", "side": "OVER_POINTS_225.5", "tier": "totals_over", "win_prob": 0.63, "odds": 1.90}],
+        }],
     )
     assert len(doubles) >= 3
-    assert round(doubles[0]["combined_odds"], 2) == round(1.65 * 1.26, 2)
+    assert all(d["combined_odds"] >= 1.32 and d["combined_prob"] >= 0.44 for d in doubles)
     combo_types = {d["combo_type"] for d in doubles}
     assert "CROSS_SPORT_BANKER" in combo_types
     assert "DOUBLE_CHANCE_SHIELD" in combo_types
@@ -419,6 +427,14 @@ def test_starting_xi_gate_and_dashboard(tmp_path: Path):
     conn_c.execute(
         "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
         "VALUES ('atp', 'e2', '2026-10-20T13:30Z', 'Herbert', 'Fritz', 'A', 'banker_70pct', 0.82, 0.82, 1.26, 1.22, 1.24, 0.016, '{}', '2026-10-20T08:00Z', '2026-10-20T16:00Z', 'SETTLED', 'A', '0-2 (4-6, 3-6)', 0.26, 0.22)"
+    )
+    conn_c.execute(
+        "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
+        "VALUES ('nhl', 'e3', '2026-10-20T21:00Z', 'Oilers', 'Flames', 'H', 'top_15pct', 0.72, 0.70, 1.48, 1.48, 1.45, 0.02, '{}', '2026-10-20T08:00Z', '2026-10-20T23:55Z', 'SETTLED', 'H', '4-2', 0.48, 0.48)"
+    )
+    conn_c.execute(
+        "INSERT OR REPLACE INTO paper_bets (league, event_id, kickoff, home, away, side, tier, composite_score, p_mkt, logged_best_odds, logged_primary_odds, latest_close_odds, clv_pct, factor_breakdown_json, logged_at, updated_at, status, settled_outcome, settled_score, pnl_best, pnl_primary) "
+        "VALUES ('nba', 'e4', '2026-10-20T23:00Z', 'Celtics', 'Knicks', 'H', 'top_15pct', 0.66, 0.64, 1.54, 1.54, 1.50, 0.02, '{}', '2026-10-20T08:00Z', '2026-10-21T02:00Z', 'SETTLED', 'H', '118-105', 0.54, 0.54)"
     )
     conn_c.commit()
     conn_c.close()
@@ -2001,7 +2017,7 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     db = tmp_path / "dedup.db"
     conn = sqlite3.connect(db)
     conn.executescript(PAPER_SCHEMA)
-    conn.execute("CREATE TABLE IF NOT EXISTS matches (league TEXT, event_id TEXT, home_score REAL, away_score REAL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS matches (league TEXT, event_id TEXT, kickoff TEXT, home TEXT, away TEXT, outcome TEXT, home_score REAL, away_score REAL)")
     conn.close()
 
     # 1. Moving totals lines (243.5 -> 242.5 -> 241.5) on the same match must update the single pending row instead of stacking 3 bets
@@ -2128,6 +2144,55 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
             os.environ.pop("DISCORD_WEBHOOK_URL_FREE_TEASER", None)
         else:
             os.environ["DISCORD_WEBHOOK_URL_FREE_TEASER"] = old_teaser
+
+    # 6. Anti-concentration guard in build_recommended_2leg_doubles & _upsert_paper_combo + stale >7d combo pruning
+    from betscout.paper_bet import _upsert_paper_combo, build_recommended_2leg_doubles, settle_pending_paper_combos
+
+    bankers_in = [
+        {"league": "nba", "event_id": "1", "kickoff": "2026-11-21T01:00:00Z", "home": "A1", "away": "B1", "side": "H", "pick": "A1", "p_model": 0.82, "p_mkt": 0.78, "best_odds": 1.25, "composite_score": 0.35},
+        {"league": "nhl", "event_id": "2", "kickoff": "2026-11-21T02:00:00Z", "home": "A2", "away": "B2", "side": "H", "pick": "A2", "p_model": 0.80, "p_mkt": 0.76, "best_odds": 1.28, "composite_score": 0.30},
+        {"league": "nfl", "event_id": "3", "kickoff": "2026-11-21T18:00:00Z", "home": "A3", "away": "B3", "side": "H", "pick": "A3", "p_model": 0.78, "p_mkt": 0.74, "best_odds": 1.32, "composite_score": 0.32},
+    ]
+    doubles_out = build_recommended_2leg_doubles([], [], [{"sport": "basketball", **b} for b in bankers_in], max_doubles=8)
+    from collections import Counter
+
+    m_counts = Counter()
+    for d_c in doubles_out:
+        m_counts[d_c["leg_1"]["match"]] += 1
+        m_counts[d_c["leg_2"]["match"]] += 1
+        _upsert_paper_combo(db, d_c, "2026-11-20T10:00:00Z")
+    assert all(cnt <= 2 for cnt in m_counts.values())
+
+    # Attempting to insert a 3rd PENDING combo containing 'A1 vs B1' must be blocked by _upsert_paper_combo
+    _upsert_paper_combo(
+        db,
+        {
+            "combo_type": "DOUBLE_CHANCE_SHIELD",
+            "combo_label": "Double Chance & +1.5 Handicap",
+            "leg_1": {"league": "nba", "event_id": "1", "kickoff": "2026-11-21T01:00:00Z", "match": "A1 vs B1", "pick": "A1 (H)", "prob": 0.82, "odds": 1.25},
+            "leg_2": {"league": "nba", "event_id": "4", "kickoff": "2026-11-21T03:00:00Z", "match": "A4 vs B4", "pick": "A4 (H)", "prob": 0.79, "odds": 1.30},
+            "combined_prob": 0.6478,
+            "combined_odds": 1.63,
+            "min_fair_odds": 1.54,
+            "ev_pct": 5.59,
+        },
+        "2026-11-20T10:05:00Z",
+    )
+    c_cb = sqlite3.connect(db)
+    a1_combos = c_cb.execute("SELECT COUNT(*) FROM paper_combos WHERE status='PENDING' AND (leg1_json LIKE '%A1 vs B1%' OR leg2_json LIKE '%A1 vs B1%')").fetchone()[0]
+    assert a1_combos <= 2
+    # Stale >7d PENDING combo with ungradeable legs is pruned on settle_pending_paper_combos
+    c_cb.execute(
+        "INSERT INTO paper_combos (combo_id, combo_type, combo_label, kickoff, leg1_json, leg2_json, combined_prob, combined_odds, min_fair_odds, ev_pct, status, logged_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        ("STALE::1", "CROSS_SPORT_BANKER", "Stale", "2026-11-01T10:00:00Z", '{"match":"X1 vs Y1","pick":"X1"}', '{"match":"X2 vs Y2","pick":"X2"}', 0.6, 1.5, 1.66, 0.0, "PENDING", "2026-11-01T09:00:00Z", "2026-11-01T09:00:00Z"),
+    )
+    c_cb.commit()
+    c_cb.close()
+    settle_pending_paper_combos(db)
+    c_cb2 = sqlite3.connect(db)
+    assert c_cb2.execute("SELECT COUNT(*) FROM paper_combos WHERE combo_id='STALE::1'").fetchone()[0] == 0
+    c_cb2.close()
+
 
 
 

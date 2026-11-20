@@ -2165,9 +2165,9 @@ def scan_upcoming_other_sports(
                 p_elo = p_elo_h if side == "H" else (1.0 - p_elo_h)
                 if comp_score > 0.0 and p_elo >= 0.54:
                     elo_bonus = 0.12 * (p_elo - 0.55)
-                    p_mod = min(max(p_mkt + 0.08 * comp_score + elo_bonus, 0.05), 0.94)
+                    p_mod = min(max(p_mkt + 0.08 * comp_score + elo_bonus, 0.05), 0.94, p_mkt + 0.06)
                 else:
-                    p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95)
+                    p_mod = min(max(0.75 * p_mkt + 0.15 * p_elo + 0.10 * (0.5 + 0.35 * comp_score), 0.05), 0.95, p_mkt + 0.06)
                 odds_pick = oh if side == "H" else oa
                 pick_dq = oh_dq if side == "H" else oa_dq
                 opp_dq = oa_dq if side == "H" else oh_dq
@@ -2759,6 +2759,8 @@ def build_recommended_2leg_doubles(
                 })
 
     doubles: list[dict[str, Any]] = []
+    global_match_combo_counts: dict[str, int] = defaultdict(int)
+    global_type_match_counts: dict[tuple[str, str], int] = defaultdict(int)
     # High-win-probability, low-line-value Bankers (>=72% Win Prob, odds 1.10..1.55)
     low_odds_bankers = [c for c in ml_candidates if c["prob"] >= 0.72 and 1.10 <= c["odds"] <= 1.55]
     # Proven-Accuracy Favorite Bankers (historical opening-odds accuracy >= 75% & positive calibration edge, or prob >= 0.76)
@@ -2790,14 +2792,18 @@ def build_recommended_2leg_doubles(
         max_hours_gap: float | None = 48.0,
     ) -> None:
         used_in_cat: set[str] = set()
-        pa = sorted(pool_a, key=lambda c: (-float(c.get("fav_win_pct") or 0.0), -c["prob"]))
-        pb = sorted(pool_b, key=lambda c: (-float(c.get("fav_win_pct") or 0.0), -c["prob"]))
+        pa = sorted(pool_a, key=lambda c: (global_match_combo_counts[c["match"]], -float(c.get("fav_win_pct") or 0.0), -c["prob"]))
+        pb = sorted(pool_b, key=lambda c: (global_match_combo_counts[c["match"]], -float(c.get("fav_win_pct") or 0.0), -c["prob"]))
         added = 0
         for c1 in pa:
             if c1["match"] in used_in_cat:
                 continue
+            if global_match_combo_counts[c1["match"]] >= 2 or global_type_match_counts[(combo_type, c1["match"])] >= 1:
+                continue
             for c2 in pb:
                 if c1["match"] == c2["match"] or c2["match"] in used_in_cat:
+                    continue
+                if global_match_combo_counts[c2["match"]] >= 2 or global_type_match_counts[(combo_type, c2["match"])] >= 1:
                     continue
                 if max_hours_gap is not None and not _within_hours(c1.get("kickoff", ""), c2.get("kickoff", ""), max_hours_gap):
                     continue
@@ -2824,6 +2830,10 @@ def build_recommended_2leg_doubles(
                 })
                 used_in_cat.add(c1["match"])
                 used_in_cat.add(c2["match"])
+                global_match_combo_counts[c1["match"]] += 1
+                global_match_combo_counts[c2["match"]] += 1
+                global_type_match_counts[(combo_type, c1["match"])] += 1
+                global_type_match_counts[(combo_type, c2["match"])] += 1
                 added += 1
                 break
             if added >= limit or len(doubles) >= max_doubles:
@@ -4323,6 +4333,28 @@ def _upsert_paper_combo(db_path: Path, combo: dict[str, Any], now_iso: str) -> N
             ),
         )
     else:
+        # Anti-concentration guard: cap each match at <=1 PENDING combo per combo_type and <=2 PENDING combos overall
+        c_type = str(combo.get("combo_type") or "COMBO")
+        m1 = str(l1.get("match") or "").strip()
+        m2 = str(l2.get("match") or "").strip()
+        pend_rows = conn.execute(
+            "SELECT combo_type, leg1_json, leg2_json FROM paper_combos WHERE status = 'PENDING'"
+        ).fetchall()
+        m_tot: dict[str, int] = defaultdict(int)
+        m_type: dict[tuple[str, str], int] = defaultdict(int)
+        for pr in pend_rows:
+            try:
+                pl1 = json.loads(pr[1])
+                pl2 = json.loads(pr[2])
+                for pm_n in (str(pl1.get("match") or "").strip(), str(pl2.get("match") or "").strip()):
+                    if pm_n:
+                        m_tot[pm_n] += 1
+                        m_type[(str(pr[0]), pm_n)] += 1
+            except Exception:
+                continue
+        if any(m and (m_tot[m] >= 2 or m_type[(c_type, m)] >= 1) for m in (m1, m2)):
+            conn.close()
+            return
         conn.execute(
             """
             INSERT INTO paper_combos (
@@ -4511,6 +4543,11 @@ def settle_pending_paper_combos(db_path: Path) -> int:
                 (h1, h2, sc1, sc2, now_iso, r["combo_id"]),
             )
             settled_n += 1
+    stale_combo_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn.execute(
+        "DELETE FROM paper_combos WHERE status = 'PENDING' AND kickoff < ? AND (leg1_hit IS NULL OR leg2_hit IS NULL)",
+        (stale_combo_cutoff,),
+    )
     conn.commit()
     conn.close()
     return settled_n
