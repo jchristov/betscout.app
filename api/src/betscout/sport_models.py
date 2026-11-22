@@ -1657,6 +1657,8 @@ def evaluate_nhl_totals_market(
     sog_diff: float = 0.0,
     vol_diff: float = 0.0,
     rest_for_pick: float = 0.0,
+    max_team_tot_goals: float | None = None,
+    max_team_sog_for: float | None = None,
 ) -> list[dict[str, Any]]:
     """Evaluate out-of-sample validated NHL Secondary Markets (Defense/Goalie Wall Under, High-SOG Attack Over, and +1.5 Puck Line Shield):
     1. **Shot-Suppression & Goalie-Wall Under Total Goals (`UNDER_GOALS`):**
@@ -1674,7 +1676,14 @@ def evaluate_nhl_totals_market(
     s_code = "H" if str(side).upper() == "H" else "A"
 
     # 1. Shot-Suppression & Goalie-Wall Under Total Goals (63.4% OOS WR, +15.71% ROI)
-    if line_total and float(line_total) >= 6.0:
+    #    Exclude track-meet teams averaging >=6.10 total goals/gm AND >=31.0 SOG/gm (e.g. Carolina 7-4 Edmonton).
+    is_track_meet_team = (
+        max_team_tot_goals is not None
+        and max_team_sog_for is not None
+        and float(max_team_tot_goals) >= 6.10
+        and float(max_team_sog_for) >= 31.0
+    )
+    if line_total and float(line_total) >= 6.0 and not is_track_meet_team:
         lt = float(line_total)
         u_diff = lt - exp_total_goals
         sog_ag = float(combined_shots_against) if combined_shots_against is not None else combined_shots

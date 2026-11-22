@@ -2193,6 +2193,52 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     assert c_cb2.execute("SELECT COUNT(*) FROM paper_combos WHERE combo_id='STALE::1'").fetchone()[0] == 0
     c_cb2.close()
 
+    # 7. NHL UNDER_GOALS blocks track-meet teams (>=6.10 tot goals & >=31.0 SOG/gm, e.g. Carolina vs Edmonton 7-4)
+    from betscout.sport_models import evaluate_nhl_totals_market
+
+    nhl_tm = evaluate_nhl_totals_market(
+        "Carolina Hurricanes",
+        "Edmonton Oilers",
+        6.5,
+        1.90,
+        5.50,
+        54.2,
+        odds_under=1.87,
+        combined_shots_against=46.2,
+        max_team_tot_goals=6.33,
+        max_team_sog_for=32.7,
+    )
+    assert not any(m["side"].startswith("UNDER_GOALS_") for m in nhl_tm)
+
+    # 8. _upsert_paper_bet caps non-fade secondary bets at <= 1 PENDING row per (league, base_event_id)
+    for mkt_s, side_s in (("OVER_3.5_TDS", "OVER_TDS_3.5"), ("OVER_2.5_FGS", "OVER_FGS_2.5")):
+        _upsert_paper_bet(
+            db,
+            {
+                "league": "nfl",
+                "event_id": f"401873072::{mkt_s}",
+                "kickoff": "2026-11-22T18:00:00Z",
+                "home": "Detroit Lions",
+                "away": "Tampa Bay Buccaneers",
+                "side": side_s,
+                "tier": "totals_over",
+                "score": 0.85,
+                "p_mkt": 0.85,
+                "open_odds": 1.30,
+                "best_odds": 1.30,
+                "primary_odds": 1.30,
+                "close_odds": 1.30,
+                "synthetic_dc_odds": None,
+                "factors_tanh_z": {"p_model": 0.85},
+            },
+            "2026-11-22T09:00:00Z",
+        )
+    c_sec = sqlite3.connect(db)
+    nfl_secs = c_sec.execute("SELECT event_id FROM paper_bets WHERE league='nfl' AND event_id LIKE '401873072::%' AND status='PENDING'").fetchall()
+    c_sec.close()
+    assert len(nfl_secs) == 1
+
+
 
 
 

@@ -519,3 +519,10 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
      - Capped `p_mod <= p_mkt + 0.06` in `scan_upcoming_other_sports` (preserving `100%` of NBA `78.3% WR / +9.96% ROI`, NHL `75.9% WR / +10.12% ROI`, and NFL `86.7% WR / +25.84% ROI` OOS profit while eliminating `> +6pp` overconfidence).
      - Calibrated NHL `evaluate_paper_tiger_fade` win-probability estimate to `[0.69, 0.74]` to match its `71.1%` OOS win rate.
 
+7. **Nov 22 Data Reconciliation, Soccer T-60m RLM Drift Guard, NHL Track-Meet Under Guard & 1-Secondary-Per-Match Cap (`paper_bet.py` & `sport_models.py`)**:
+   - **Data Reconciliation (`66,710+` matches)**: Synced `data/betscout.db` with production `gs://betscout-ai-data/betscout.db` (`322` settled paper bets, `+94.35u`; `279` settled 2-leg combos, `+45.55u`) and ingested completed Nov 20–21 fixtures.
+   - **Soccer T-60m Adverse RLM Drift Guard (`refresh_t60_starting_xi_gates`)**: Added `VETOED_ADVERSE_RLM_DRIFT` for Football 3-way ML picks (`clv_pct <= -0.06`, or `clv_pct <= -0.05` on heavy `<= 1.30` chalk), catching sharp late drift against favorites (e.g. `Feyenoord Rotterdam 2–3 Excelsior`, `1.182 -> 1.25`, `-5.44%` CLV).
+   - **NHL Track-Meet `UNDER_GOALS` Guard (`evaluate_nhl_totals_market`)**: Blocked NHL `Under` totals when either team averages `>= 6.10` total goals/gm AND `>= 31.0` SOG/gm (catching `Carolina Hurricanes 7–4 Edmonton Oilers` where Carolina averaged `6.33` goals/gm and `32.7` SOG/gm despite Edmonton's low shot volume pulling combined SOG to `54.2`).
+   - **1-Secondary-Bet-Per-Match Cap (`_upsert_paper_bet` & `scan_upcoming_and_log_paper_bets`)**: Aligned US Sports with Soccer/Tennis (`[:1]` secondary) and enforced `<= 1` non-fade secondary `PENDING` row per `(league, base_event_id)` to prevent single matches from accumulating 3–4 correlated bets.
+
+

@@ -2240,6 +2240,14 @@ def scan_upcoming_other_sports(
                     )
                     comb_ga = float(np.mean([x["ga"] for x in oh_dq])) + float(np.mean([x["ga"] for x in oa_dq]))
                     if lg == "nhl":
+                        max_tm_tot = max(
+                            float(np.mean([x["gf"] + x["ga"] for x in oh_dq])),
+                            float(np.mean([x["gf"] + x["ga"] for x in oa_dq])),
+                        )
+                        max_tm_sog = max(
+                            float(np.mean([x.get("sot_for", 28.0) for x in oh_dq])),
+                            float(np.mean([x.get("sot_for", 28.0) for x in oa_dq])),
+                        )
                         sec_opps_us = evaluate_nhl_totals_market(
                             home=home,
                             away=away,
@@ -2255,6 +2263,8 @@ def scan_upcoming_other_sports(
                             sog_diff=sot_f,
                             vol_diff=vol_f,
                             rest_for_pick=rest_for_pick,
+                            max_team_tot_goals=max_tm_tot,
+                            max_team_sog_for=max_tm_sog,
                         )
                     elif lg in ("nba", "wnba", "ncaam", "ncaaw", "nbl", "fiba"):
                         sec_opps_us = evaluate_nba_secondary_markets(
@@ -3515,7 +3525,7 @@ def scan_upcoming_and_log_paper_bets(
                 },
                 now_iso,
             )
-            for sec_opp in (op.get("secondary_opportunities") or [])[:2]:
+            for sec_opp in (op.get("secondary_opportunities") or [])[:1]:
                 sec_o = float(sec_opp.get("odds") or 0.0)
                 if sec_o > 1.12:
                     _upsert_paper_bet(
@@ -3731,6 +3741,16 @@ def _upsert_paper_bet(db_path: Path, pick: dict[str, Any], now_iso: str) -> None
                 (h_logo, a_logo, pick["league"], target_eid),
             )
     else:
+        # Cap non-fade secondary bets at <= 1 PENDING row per (league, base_event_id) to avoid stacking 3-4 correlated bets on one match
+        if "::" in target_eid and str(pick.get("tier") or "").lower() != "fade_trap":
+            base_id_cap = target_eid.split("::", 1)[0]
+            existing_sec = conn.execute(
+                "SELECT event_id FROM paper_bets WHERE league = ? AND event_id LIKE ? AND status = 'PENDING' AND tier != 'fade_trap'",
+                (pick["league"], f"{base_id_cap}::%"),
+            ).fetchone()
+            if existing_sec:
+                conn.close()
+                return
         open_o = pick["open_odds"] or pick["best_odds"]
         # Initial CLV vs opening odds if open_odds is present
         clv_pct = (pick["best_odds"] / cur_close) - 1.0 if cur_close > 1.0 else 0.0
@@ -4117,8 +4137,12 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         pri = _soccer_odds(summary)
         cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or float(r["latest_close_odds"])
         clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
-        if gate.get("vetoed"):
-            v_status = gate["status"]
+        is_rlm_veto = (
+            r["side"] in ("H", "A")
+            and (clv_pct <= -0.06 or (logged_best <= 1.30 and clv_pct <= -0.05))
+        )
+        if gate.get("vetoed") or is_rlm_veto:
+            v_status = "VETOED_ADVERSE_RLM_DRIFT" if (is_rlm_veto and not gate.get("vetoed")) else gate["status"]
             c_del = _open_db(db_path)
             c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()
