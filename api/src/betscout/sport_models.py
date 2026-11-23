@@ -1910,8 +1910,9 @@ def evaluate_nfl_secondary_markets(
             "rationale": f"72.7% WR · +{yards_diff:.0f} Yds/Gm · +{ypp_diff:.2f} YPP",
         })
 
-    # 3. Over 2.5 Field Goals Scored in Match (incl. OT) — 70.0% OOS Win Rate (84W-36L)
-    if 38.5 <= lt_val <= 49.5 and (comb_yards_for is None or comb_yards_for >= 620.0):
+    # 3. Over 2.5 Field Goals Scored in Match (incl. OT) — restricted to medium-scoring drive-stall games
+    #    (excludes high-efficiency TD shootouts with lt_val > 45.5 or comb_ypp_for >= 10.6 where red-zone trips end in TDs, e.g. Lions 31-21 Bucs).
+    if 38.5 <= lt_val <= 45.5 and (comb_yards_for is None or comb_yards_for >= 620.0) and (comb_ypp_for is None or comb_ypp_for < 10.6):
         p_fg25 = 0.700
         o_fg25 = 1.52
         ev_fg25 = round((p_fg25 * o_fg25 - 1.0) * 100.0, 2)
@@ -2340,6 +2341,12 @@ def evaluate_paper_tiger_fade(
 
     if sp == "soccer" and draw_odds and draw_odds > 1.5:
         if lg_low in ("uefa.nations", "fifa.world", "uefa.wchampions"):
+            return None
+        # Do not fade hot favorites winning >=60% of their last 5 or outscoring opponents by >=+0.50 goals/gm
+        # (Post-2025 OOS audit: fading hot favorites went 48.1% WR / -9.65% ROI / -5.21u across n=54, e.g. AC Milan 5-1 Frosinone).
+        if fav_win_rate_5 is not None and fav_win_rate_5 >= 0.60:
+            return None
+        if fav_goal_diff is not None and fav_goal_diff >= 0.50:
             return None
         if 1.60 <= fav_odds <= 2.08 and eff_diff_fav <= -1.0:
             dc_code = "1X" if dog_side == "H" else "X2"

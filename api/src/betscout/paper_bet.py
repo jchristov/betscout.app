@@ -3372,9 +3372,21 @@ def scan_upcoming_and_log_paper_bets(
                     and len(raw_oa) >= 3
                 ):
                     # Check if this non-qualifying Football favorite is an Overestimated / Paper-Tiger Favorite Fade Trap (`FADE_TRAP`, 60.0% OOS WR, +10.3% ROI)
+                    fav_oh_fade = oh if fav_Side_c == "H" else oa
+                    dog_oh_fade = oa if fav_Side_c == "H" else oh
                     fav_sot_d_raw = float(
-                        np.mean([x["sot_d"] for x in (oh if fav_Side_c == "H" else oa)])
-                        - np.mean([x["sot_d"] for x in (oa if fav_Side_c == "H" else oh)])
+                        np.mean([x["sot_d"] for x in fav_oh_fade])
+                        - np.mean([x["sot_d"] for x in dog_oh_fade])
+                    )
+                    fav_wr5_soc = (
+                        float(np.mean([1.0 if float(x.get("gf", 0.0)) > float(x.get("ga", 0.0)) else 0.0 for x in fav_oh_fade[-5:]]))
+                        if len(fav_oh_fade) >= 3 and "gf" in fav_oh_fade[0]
+                        else None
+                    )
+                    fav_gd5_soc = (
+                        float(np.mean([float(x.get("gf", 0.0)) - float(x.get("ga", 0.0)) for x in fav_oh_fade[-5:]]))
+                        if len(fav_oh_fade) >= 3 and "gf" in fav_oh_fade[0]
+                        else None
                     )
                     dog_odds_soc = float((best_a if fav_Side_c == "H" else best_h) or 3.5)
                     fade_soc = evaluate_paper_tiger_fade(
@@ -3386,6 +3398,8 @@ def scan_upcoming_and_log_paper_bets(
                         dog_odds=dog_odds_soc,
                         draw_odds=float(best_d or 3.5),
                         eff_diff_fav=fav_sot_d_raw,
+                        fav_win_rate_5=fav_wr5_soc,
+                        fav_goal_diff=fav_gd5_soc,
                         league=lg.key,
                     )
                     if fade_soc:

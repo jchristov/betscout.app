@@ -525,4 +525,11 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
    - **NHL Track-Meet `UNDER_GOALS` Guard (`evaluate_nhl_totals_market`)**: Blocked NHL `Under` totals when either team averages `>= 6.10` total goals/gm AND `>= 31.0` SOG/gm (catching `Carolina Hurricanes 7–4 Edmonton Oilers` where Carolina averaged `6.33` goals/gm and `32.7` SOG/gm despite Edmonton's low shot volume pulling combined SOG to `54.2`).
    - **1-Secondary-Bet-Per-Match Cap (`_upsert_paper_bet` & `scan_upcoming_and_log_paper_bets`)**: Aligned US Sports with Soccer/Tennis (`[:1]` secondary) and enforced `<= 1` non-fade secondary `PENDING` row per `(league, base_event_id)` to prevent single matches from accumulating 3–4 correlated bets.
 
+8. **Nov 23 Data Reconciliation, Soccer Hot-Favorite Fade Guard (`+5.21u` OOS Swing) & NFL `OVER_2.5_FGS` Shootout Filter (`paper_bet.py` & `sport_models.py`)**:
+   - **Data Reconciliation (`66,850+` matches)**: Synced `data/betscout.db` with production (`334` settled paper bets, `+93.46u`; `284` settled 2-leg combos, `+48.39u`) and ingested completed Nov 22–23 fixtures.
+   - **Soccer `FADE_DC` Hot-Favorite Guard (`evaluate_paper_tiger_fade`)**: Post-2025 OOS backtest (`n = 171`) showed fading hot favorites (`fav_win_rate_5 >= 0.60` or `fav_goal_diff >= 0.50`, e.g. `AC Milan 5–1 Frosinone` where AC Milan was `4W–1D–1L`) went `48.1%` WR / `-9.65%` ROI (`-5.21u` across `n = 54`). Blocking fades against hot favorites flips Soccer `FADE_DC` OOS ROI from **`-1.73%` (`-2.96u`) to `+1.92%` (`+2.25u`)**.
+   - **NFL `OVER_2.5_FGS` TD-Shootout Filter (`evaluate_nfl_secondary_markets`)**: Restricted `OVER_2.5_FGS` (`0W–2L` live) to medium-scoring drive-stall games (`38.5 <= line_total <= 45.5` and `comb_ypp_for < 10.6`), preventing it from firing in TD shootouts like `Detroit Lions 31–21 Tampa Bay Buccaneers`.
+   - **Variance Confirmation (No Overfitting)**: Backtesting tighter NBA/NHL `opp_win_rate_3` thresholds (`0.66` vs `0.67`) *reduced* OOS ROI (`NBA +8.34% -> +4.93%`, `NHL +8.12% -> +6.13%`), confirming `Orlando Magic (A)` and `Tampa Bay Lightning (H)` (`+5.64%` CLV) were normal variance and preserving our proven NBA/NHL gates untouched.
+
+
 

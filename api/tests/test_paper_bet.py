@@ -2238,6 +2238,58 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     c_sec.close()
     assert len(nfl_secs) == 1
 
+    # 9. Soccer FADE_DC blocks fading hot favorites (fav_win_rate_5 >= 0.60 or fav_goal_diff >= 0.50, e.g. AC Milan 5-1 Frosinone)
+    from betscout.sport_models import evaluate_nfl_secondary_markets, evaluate_paper_tiger_fade
+
+    assert (
+        evaluate_paper_tiger_fade(
+            "soccer",
+            "AC Milan",
+            "Frosinone",
+            "H",
+            1.65,
+            4.80,
+            draw_odds=3.90,
+            eff_diff_fav=-2.3,
+            fav_win_rate_5=0.67,
+            fav_goal_diff=0.67,
+            league="ita.1",
+        )
+        is None
+    )
+    assert (
+        evaluate_paper_tiger_fade(
+            "soccer",
+            "Lens",
+            "Toulouse",
+            "H",
+            1.80,
+            4.20,
+            draw_odds=3.60,
+            eff_diff_fav=-1.8,
+            fav_win_rate_5=0.40,
+            fav_goal_diff=-0.20,
+            league="fra.1",
+        )
+        is not None
+    )
+
+    # 10. NFL OVER_2.5_FGS does not fire in high-TD shootouts (comb_ypp_for >= 10.6 or line_total > 45.5)
+    nfl_shootout = evaluate_nfl_secondary_markets(
+        "Detroit Lions",
+        "Tampa Bay Buccaneers",
+        "H",
+        0.72,
+        0.74,
+        1.5,
+        85.0,
+        line_total=48.5,
+        comb_yards_for=710.0,
+        comb_ypp_for=11.2,
+    )
+    assert not any(m["market_type"] == "OVER_2.5_FGS" for m in nfl_shootout)
+
+
 
 
 
