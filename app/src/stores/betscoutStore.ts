@@ -125,6 +125,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
   const customApiKey = ref<string>(safeStorageGet('bs_api_key') || '');
   let firebaseAuthObj: any = null;
   let activeEventSource: EventSource | null = null;
+  let tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  let lastTokenIssuedAtMs = 0;
+  let tokenRefreshInFlight: Promise<boolean> | null = null;
   let listenersBound = false;
 
   function showToast(msg: string) {
@@ -330,6 +333,9 @@ export const useBetscoutStore = defineStore('betscout', () => {
       hydrateFromLocalStorage();
     }
     bindBrowserSyncListeners();
+    if (firebaseAuthObj?.auth?.currentUser && Date.now() - lastTokenIssuedAtMs >= 45 * 60 * 1000) {
+      await refreshFirebaseIdToken(true);
+    }
     try {
       const resp = await fetch('/api/snapshot?min_odds=1.05', {
         headers: getAuthHeaders(false),
@@ -405,13 +411,29 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (listenersBound || typeof window === 'undefined') return;
     listenersBound = true;
 
-    window.addEventListener('online', () => {
+    window.addEventListener('online', async () => {
       isOffline.value = false;
       streamStatus.value = 'connecting';
+      await refreshFirebaseIdToken(false);
       flushOfflineQueue();
       fetchSnapshot();
       connectLiveStream();
     });
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && firebaseAuthObj?.auth?.currentUser) {
+          const ageMs = Date.now() - lastTokenIssuedAtMs;
+          if (ageMs >= 40 * 60 * 1000) {
+            const rotated = await refreshFirebaseIdToken(true);
+            if (rotated) {
+              await fetchSnapshot();
+              connectLiveStream();
+            }
+          }
+        }
+      });
+    }
 
     window.addEventListener('offline', () => {
       isOffline.value = true;
@@ -447,6 +469,30 @@ export const useBetscoutStore = defineStore('betscout', () => {
     }
   }
 
+  async function refreshFirebaseIdToken(forceRefresh = false): Promise<boolean> {
+    const user = firebaseAuthObj?.auth?.currentUser;
+    if (!user) return false;
+    if (tokenRefreshInFlight) return tokenRefreshInFlight;
+    tokenRefreshInFlight = (async () => {
+      try {
+        const freshTok = await user.getIdToken(forceRefresh);
+        if (freshTok) {
+          const changed = freshTok !== firebaseIdToken.value;
+          firebaseIdToken.value = freshTok;
+          lastTokenIssuedAtMs = Date.now();
+          if (typeof document !== 'undefined') {
+            document.cookie = `__session=${encodeURIComponent(freshTok)}; path=/; max-age=3600; SameSite=Lax`;
+          }
+          return changed;
+        }
+      } catch (_) {}
+      return false;
+    })().finally(() => {
+      tokenRefreshInFlight = null;
+    });
+    return tokenRefreshInFlight;
+  }
+
   function connectLiveStream() {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
     if (activeEventSource) {
@@ -459,19 +505,38 @@ export const useBetscoutStore = defineStore('betscout', () => {
     const qs = tok ? `?token=${encodeURIComponent(tok)}` : '';
     const es = new EventSource(`/api/stream${qs}`);
     activeEventSource = es;
-    es.addEventListener('update', (ev: MessageEvent) => {
+    es.addEventListener('update', async (ev: MessageEvent) => {
       streamStatus.value = 'online';
       isOffline.value = false;
       try {
         const snap = JSON.parse(ev.data);
+        // If a signed-in user receives a downgraded 'free' frame (expired 1h Firebase token on SSE reconnect),
+        // ignore the redacted frame, silently force-refresh the ID token, and reconnect the stream.
+        if (snap.role === 'free' && userEmail.value && firebaseAuthObj?.auth?.currentUser) {
+          const rotated = await refreshFirebaseIdToken(true);
+          if (rotated) {
+            await fetchSnapshot();
+            connectLiveStream();
+          }
+          return;
+        }
         if (snap.pipeline_status?.running && snap.pipeline_status?.step) {
           actionProgressText.value = snap.pipeline_status.step;
         }
         applySnapshot(snap, true);
       } catch (_) {}
     });
-    es.onerror = () => {
+    es.onerror = async () => {
       streamStatus.value = isOffline.value ? 'offline' : 'reconnecting';
+      if (!isOffline.value && firebaseAuthObj?.auth?.currentUser) {
+        const ageMs = Date.now() - lastTokenIssuedAtMs;
+        if (ageMs >= 45 * 60 * 1000) {
+          const rotated = await refreshFirebaseIdToken(true);
+          if (rotated) {
+            connectLiveStream();
+          }
+        }
+      }
     };
   }
 
@@ -479,7 +544,7 @@ export const useBetscoutStore = defineStore('betscout', () => {
     if (firebaseAuthObj || !authObj?.enabled || !authObj?.api_key) return;
     try {
       const { initializeApp } = await import('firebase/app');
-      const { getAuth, onAuthStateChanged } = await import('firebase/auth');
+      const { getAuth, onIdTokenChanged } = await import('firebase/auth');
       const fbApp = initializeApp({
         apiKey: authObj.api_key,
         authDomain: authObj.auth_domain || `${authObj.project_id}.firebaseapp.com`,
@@ -487,17 +552,34 @@ export const useBetscoutStore = defineStore('betscout', () => {
       });
       const auth = getAuth(fbApp);
       firebaseAuthObj = { auth };
-      onAuthStateChanged(auth, async (user) => {
+      onIdTokenChanged(auth, async (user) => {
+        if (tokenRefreshTimer) {
+          clearInterval(tokenRefreshTimer);
+          tokenRefreshTimer = null;
+        }
         if (user) {
           userEmail.value = user.email || '';
-          firebaseIdToken.value = await user.getIdToken();
-          document.cookie = `__session=${encodeURIComponent(firebaseIdToken.value)}; path=/; max-age=3600; SameSite=Lax`;
-          await fetchSnapshot();
-          connectLiveStream();
+          const tok = await user.getIdToken();
+          const changed = tok !== firebaseIdToken.value;
+          firebaseIdToken.value = tok;
+          lastTokenIssuedAtMs = Date.now();
+          document.cookie = `__session=${encodeURIComponent(tok)}; path=/; max-age=3600; SameSite=Lax`;
+          // Proactively rotate the 1-hour Firebase ID token every 45 minutes so SSE & API calls never expire
+          tokenRefreshTimer = setInterval(async () => {
+            const rotated = await refreshFirebaseIdToken(true);
+            if (rotated) {
+              connectLiveStream();
+            }
+          }, 45 * 60 * 1000);
+          if (changed || !activeEventSource) {
+            await fetchSnapshot();
+            connectLiveStream();
+          }
         } else {
           document.cookie = '__session=; path=/; max-age=0; SameSite=Lax';
           userEmail.value = '';
           firebaseIdToken.value = '';
+          lastTokenIssuedAtMs = 0;
           await fetchSnapshot();
           connectLiveStream();
         }
