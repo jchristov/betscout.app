@@ -531,5 +531,13 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
    - **NFL `OVER_2.5_FGS` TD-Shootout Filter (`evaluate_nfl_secondary_markets`)**: Restricted `OVER_2.5_FGS` (`0W–2L` live) to medium-scoring drive-stall games (`38.5 <= line_total <= 45.5` and `comb_ypp_for < 10.6`), preventing it from firing in TD shootouts like `Detroit Lions 31–21 Tampa Bay Buccaneers`.
    - **Variance Confirmation (No Overfitting)**: Backtesting tighter NBA/NHL `opp_win_rate_3` thresholds (`0.66` vs `0.67`) *reduced* OOS ROI (`NBA +8.34% -> +4.93%`, `NHL +8.12% -> +6.13%`), confirming `Orlando Magic (A)` and `Tampa Bay Lightning (H)` (`+5.64%` CLV) were normal variance and preserving our proven NBA/NHL gates untouched.
 
+9. **Nov 25 SQLite WAL Backup Hardening, Continuous Cloud Run Ingestion & Secondary CLV Fix (`cloud_entrypoint.sh`, `webapp.py`, `deploy_cloud_run.sh`, `paper_bet.py`)**:
+   - **Root Cause (`database disk image is malformed` + 17-day stale `eng.2` boxscores on Cloud Run)**: Periodic raw `cp` of an actively written WAL SQLite file in `cloud_entrypoint.sh` combined with `--max-instances=3` corrupted a B-tree page on GCS (`Tree 7157`), while `betscout-auto-rescan` (`POST /api/sync`) never ran `ingest_universal`, leaving Nov 24 `eng.2` matches scored on Nov 7 pre-international-break form.
+   - **Fixes Shipped**:
+     - Replaced raw `cp`/`shutil.copy2` of `betscout.db` in both `cloud_entrypoint.sh` and `_atomic_flush_to_gcs()` (`webapp.py`) with online `sqlite3.Connection.backup()` snapshots + atomic `os.replace()` and set `--max-instances=1` in `deploy_cloud_run.sh` (single-writer SQLite safety).
+     - Added throttled 6-hour automatic incremental boxscore ingestion (`ingest_universal`, `days_back=2`) inside `POST /api/sync` (`rescan=true`) so Cloud Run's `matches` & `match_details` stay fresh 24/7.
+     - Fixed `refresh_t60_starting_xi_gates` (`paper_bet.py`) so soccer secondary bets (`DC_1X`, `DNB_H`, `TEAM_CORNERS_O4.5_H`) no longer overwrite `latest_close_odds`/`clv_pct` with away 1X2 odds (`6.50` / `-81.8%` CLV) and map `xi_side` to the backed team correctly.
+
+
 
 

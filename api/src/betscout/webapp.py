@@ -64,8 +64,11 @@ _PIPELINE_STATUS: dict[str, Any] = {
 _SYNC_EXEC_LOCK = threading.Lock()
 
 
+_LAST_AUTO_INGEST_TS: list[float] = [0.0]
+
+
 def _atomic_flush_to_gcs(data_dir: Path, db_path: Path) -> None:
-    """Safely checkpoint SQLite WAL and atomically flush updated state files to `/mnt/gcs` via `.tmp` rename."""
+    """Take a consistent online SQLite backup (`Connection.backup()`) and atomically flush updated state files to `/mnt/gcs`."""
     import os
     import shutil
 
@@ -73,13 +76,30 @@ def _atomic_flush_to_gcs(data_dir: Path, db_path: Path) -> None:
     if not gcs_dir.is_dir():
         return
     if db_path.is_file():
+        local_bak = data_dir / ".betscout.db.backup.tmp"
+        tmp_dst = gcs_dir / "betscout.db.sync.tmp"
+        final_dst = gcs_dir / "betscout.db"
         try:
-            c_ck = sqlite3.connect(db_path, timeout=10.0)
-            c_ck.execute("PRAGMA wal_checkpoint(PASSIVE)")
-            c_ck.close()
+            src_c = sqlite3.connect(db_path, timeout=30.0)
+            dst_c = sqlite3.connect(local_bak)
+            try:
+                src_c.backup(dst_c)
+            finally:
+                dst_c.close()
+                src_c.close()
+            shutil.copy2(local_bak, tmp_dst)
+            os.replace(tmp_dst, final_dst)
         except Exception:
-            pass
-    for fname in ("recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html", "betscout.db"):
+            try:
+                tmp_dst.unlink(missing_ok=True)
+            except Exception:
+                pass
+        finally:
+            try:
+                local_bak.unlink(missing_ok=True)
+            except Exception:
+                pass
+    for fname in ("recommendations.json", "webapp_settings.json", "best_bets.json", "best_bets.csv", "dashboard.html"):
         src_f = data_dir / fname
         if src_f.is_file():
             tmp_dst = gcs_dir / f"{fname}.sync.tmp"
@@ -3826,6 +3846,36 @@ self.addEventListener('fetch', (event) => {{
                         )
                         new_ingested_count = sum(ing_res.get("new_ingested", {}).values())
                     if rescan:
+                        if not is_full_pipeline and (time.time() - _LAST_AUTO_INGEST_TS[0]) >= 6 * 3600:
+                            _PIPELINE_STATUS["step"] = "[1/4] Refreshing completed match boxscores (last 2 days)..."
+                            try:
+                                from .espn import ALL_LEAGUES
+
+                                cfg_p = (
+                                    (root_dir / "ingestion_config.json")
+                                    if (root_dir / "ingestion_config.json").exists()
+                                    else (root_dir / "api" / "ingestion_config.json")
+                                )
+                                active_keys = {
+                                    "eng.1", "esp.1", "ger.1", "ita.1", "fra.1",
+                                    "ned.1", "por.1", "eng.2", "aut.1",
+                                    "uefa.champions", "uefa.europa", "uefa.europa.conf", "uefa.nations",
+                                    "atp", "wta", "nba", "nhl", "nfl",
+                                }
+                                lg_objs_inc = [lg for lg in ALL_LEAGUES if lg.key in active_keys]
+                                ing_inc = ingest_universal(
+                                    db_path=db_path,
+                                    cache_dir=data_dir / "cache",
+                                    config_path=cfg_p,
+                                    leagues=lg_objs_inc,
+                                    mode="days",
+                                    days_back=2,
+                                    workers=6,
+                                )
+                                new_ingested_count += sum((ing_inc.get("new_ingested") or {}).values())
+                                _LAST_AUTO_INGEST_TS[0] = time.time()
+                            except Exception:
+                                pass
                         _PIPELINE_STATUS["step"] = "[2/4] Settling paper bets & scanning upcoming fixtures across all sports..."
                         scan_upcoming_and_log_paper_bets(
                             db_path=db_path,

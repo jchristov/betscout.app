@@ -4145,14 +4145,24 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
         summary = _fetch_live_json(s_url, ttl_sec=30.0)
         if not summary:
             continue
-        gate = evaluate_starting_xi_gate(summary, lg, backed, r["side"], xi_hist)
-        det = _extract_soccer_details(lg, base_eid, r["kickoff"], summary)
-        close_h, close_a = det[7], det[9]
-        pri = _soccer_odds(summary)
-        cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or float(r["latest_close_odds"])
-        clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else float(r["clv_pct"])
+        is_ml_side = str(r["side"] or "").upper() in ("H", "A")
+        xi_side = (
+            "H"
+            if (str(r["side"] or "").upper() in ("H", "DC_1X", "DNB_H") or str(r["side"] or "").upper().endswith("_H"))
+            else "A"
+        )
+        xi_backed = r["home"] if xi_side == "H" else r["away"]
+        gate = evaluate_starting_xi_gate(summary, lg, xi_backed, xi_side, xi_hist)
+        cur_close = float(r["latest_close_odds"])
+        clv_pct = float(r["clv_pct"] or 0.0)
+        if is_ml_side:
+            det = _extract_soccer_details(lg, base_eid, r["kickoff"], summary)
+            close_h, close_a = det[7], det[9]
+            pri = _soccer_odds(summary)
+            cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or cur_close
+            clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else clv_pct
         is_rlm_veto = (
-            r["side"] in ("H", "A")
+            is_ml_side
             and (clv_pct <= -0.06 or (logged_best <= 1.30 and clv_pct <= -0.05))
         )
         if gate.get("vetoed") or is_rlm_veto:

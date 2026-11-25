@@ -61,7 +61,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --cpu=2 \
   --memory=2Gi \
   --min-instances=0 \
-  --max-instances=3 \
+  --max-instances=1 \
   --timeout=900 \
   --add-volume="name=betscout-data,type=cloud-storage,bucket=${BUCKET_NAME}" \
   --add-volume-mount="volume=betscout-data,mount-path=/mnt/gcs" \
