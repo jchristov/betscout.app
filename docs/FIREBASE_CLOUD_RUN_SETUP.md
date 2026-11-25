@@ -18,6 +18,7 @@ This guide walks through deploying **BetScout (`betscout.app`)** using **Option 
    - **Cloud Mode (`FIREBASE_WEB_API_KEY` + `FIREBASE_ADMIN_EMAILS` set):**
      - **Public / Shared Viewers:** Can open `https://betscout.app`, view all live scores, filter picks, inspect H2H modals, use the Smart Bet Slip & Dutching calculators, and save personal browser settings.
      - **Admin (`FIREBASE_ADMIN_EMAILS`):** Clicking **`🔐 Admin Sign In`** in the top-right header signs in with Google via Firebase Auth and attaches `Authorization: Bearer <idToken>` to all administrative `POST` calls (`🔄 Sync & Settle`, `⚡ Rescan Live`, `🚀 Full Pipeline`, `📌 Track Live`, `💬 Share Picks`, and global `⚙️ Settings`).
+     - **Automatic 1-Hour ID Token Rotation (`app/src/stores/betscoutStore.ts`):** Uses `onIdTokenChanged`, a proactive 45-minute `getIdToken(true)` refresh timer, and `visibilitychange` / `online` / SSE reconnect guards so signed-in Admin/Pro sessions never downgrade to `free` (masked picks) after the 60-minute Firebase ID token lifetime.
      - **Cloud Scheduler (`BETSCOUT_CRON_SECRET`):** Allows automated Cloud Scheduler jobs to call `POST /api/settle` and `POST /api/pipeline` using `Authorization: Bearer <BETSCOUT_CRON_SECRET>`.
 4. **Health Check Endpoint (`GET /api/healthz`):**
    - Returns `{"ok": true, "status": "healthy", "db_exists": true, ...}` for Cloud Run startup/liveness probes.
