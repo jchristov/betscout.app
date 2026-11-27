@@ -538,6 +538,13 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
      - Added throttled 6-hour automatic incremental boxscore ingestion (`ingest_universal`, `days_back=2`) inside `POST /api/sync` (`rescan=true`) so Cloud Run's `matches` & `match_details` stay fresh 24/7.
      - Fixed `refresh_t60_starting_xi_gates` (`paper_bet.py`) so soccer secondary bets (`DC_1X`, `DNB_H`, `TEAM_CORNERS_O4.5_H`) no longer overwrite `latest_close_odds`/`clv_pct` with away 1X2 odds (`6.50` / `-81.8%` CLV) and map `xi_side` to the backed team correctly.
 
+10. **Nov 27 Data Reconciliation, UEFA Away `<= -4.0%` Cascading RLM Veto & Automatic `gismo_http_cache` Pruning (`paper_bet.py` & `webapp.py`)**:
+    - **Root Cause (`Lille 2–1 Bayern Munich` `-4.56%` CLV & `Iberia 1999 1–0 Getafe` `-4.98%` CLV, `-4.00u` combined)**: Across all settled live picks, `4/4` (`0W–4L`, `-6.00u`) UEFA/FIFA away favorites with `clv_pct <= -4.0%` lost, and prior T-60m vetoes only deleted the primary ML row without cascading to paired `DC_X2` secondary rows.
+    - **Fixes Shipped**:
+      - Tightened `refresh_t60_starting_xi_gates` (`paper_bet.py`) to trigger `VETOED_ADVERSE_RLM_DRIFT` on UEFA/FIFA away favorites at `clv_pct <= -0.04` and cascade primary ML T-60m vetoes to delete paired secondary rows (`event_id LIKE '{base_eid}::%'`).
+      - Added automatic pruning of expired `gismo_http_cache` rows (`expires_at < now - 3600`) inside `_atomic_flush_to_gcs()` (`webapp.py`) and vacuumed `5,612` expired cache rows from `betscout.db` (`211.7 MB -> 33.9 MB`, `-84%` footprint).
+
+
 
 
 

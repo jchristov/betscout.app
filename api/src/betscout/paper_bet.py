@@ -4161,14 +4161,26 @@ def refresh_t60_starting_xi_gates(db_path: Path) -> list[dict[str, Any]]:
             pri = _soccer_odds(summary)
             cur_close = (close_h if r["side"] == "H" else close_a) or (pri["odds_home"] if r["side"] == "H" else pri["odds_away"]) or cur_close
             clv_pct = (logged_best / float(cur_close)) - 1.0 if float(cur_close) > 1.0 else clv_pct
+        is_uefa_away_rlm = (
+            is_ml_side
+            and lg_l.startswith(("uefa.", "fifa."))
+            and str(r["side"] or "").upper() == "A"
+            and clv_pct <= -0.04
+        )
         is_rlm_veto = (
             is_ml_side
-            and (clv_pct <= -0.06 or (logged_best <= 1.30 and clv_pct <= -0.05))
+            and (clv_pct <= -0.06 or (logged_best <= 1.30 and clv_pct <= -0.05) or is_uefa_away_rlm)
         )
         if gate.get("vetoed") or is_rlm_veto:
             v_status = "VETOED_ADVERSE_RLM_DRIFT" if (is_rlm_veto and not gate.get("vetoed")) else gate["status"]
             c_del = _open_db(db_path)
-            c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
+            if is_ml_side:
+                c_del.execute(
+                    "DELETE FROM paper_bets WHERE league = ? AND (event_id = ? OR event_id LIKE ?) AND status = 'PENDING'",
+                    (lg, eid, f"{base_eid}::%"),
+                )
+            else:
+                c_del.execute("DELETE FROM paper_bets WHERE league = ? AND event_id = ? AND status = 'PENDING'", (lg, eid))
             c_del.commit()
             c_del.close()
             vetoed_alerts.append({

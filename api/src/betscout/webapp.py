@@ -81,6 +81,14 @@ def _atomic_flush_to_gcs(data_dir: Path, db_path: Path) -> None:
         final_dst = gcs_dir / "betscout.db"
         try:
             src_c = sqlite3.connect(db_path, timeout=30.0)
+            try:
+                src_c.execute(
+                    "DELETE FROM gismo_http_cache WHERE expires_at < ?",
+                    (time.time() - 3600.0,),
+                )
+                src_c.commit()
+            except Exception:
+                pass
             dst_c = sqlite3.connect(local_bak)
             try:
                 src_c.backup(dst_c)

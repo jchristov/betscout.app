@@ -2017,7 +2017,7 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     db = tmp_path / "dedup.db"
     conn = sqlite3.connect(db)
     conn.executescript(PAPER_SCHEMA)
-    conn.execute("CREATE TABLE IF NOT EXISTS matches (league TEXT, event_id TEXT, kickoff TEXT, home TEXT, away TEXT, outcome TEXT, home_score REAL, away_score REAL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS matches (league TEXT, sport TEXT, event_id TEXT, kickoff TEXT, home TEXT, away TEXT, outcome TEXT, home_score REAL, away_score REAL)")
     conn.close()
 
     # 1. Moving totals lines (243.5 -> 242.5 -> 241.5) on the same match must update the single pending row instead of stacking 3 bets
@@ -2288,6 +2288,61 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
         comb_ypp_for=11.2,
     )
     assert not any(m["market_type"] == "OVER_2.5_FGS" for m in nfl_shootout)
+
+    # 11. UEFA Away T-60m <= -4.0% RLM drift cascades to delete both ML and paired DC_X2 secondary bet (e.g. Lille vs Bayern / Iberia vs Getafe)
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import patch
+    from betscout.paper_bet import refresh_t60_starting_xi_gates
+
+    ko_t45 = (datetime.now(timezone.utc) + timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for eid_u, side_u, tier_u, o_u in (
+        ("401915377", "A", "top_8pct", 1.57),
+        ("401915377::DC_X2", "DC_X2", "dc_shield", 1.16),
+    ):
+        _upsert_paper_bet(
+            db,
+            {
+                "league": "uefa.champions",
+                "event_id": eid_u,
+                "kickoff": ko_t45,
+                "home": "Lille",
+                "away": "Bayern Munich",
+                "side": side_u,
+                "tier": tier_u,
+                "score": 0.40,
+                "p_mkt": 0.60,
+                "open_odds": o_u,
+                "best_odds": o_u,
+                "primary_odds": o_u,
+                "close_odds": o_u,
+                "synthetic_dc_odds": 1.16,
+                "factors_tanh_z": {"sot_d": 0.8},
+            },
+            "2026-11-25T18:00:00Z",
+        )
+    mock_sum = {
+        "rosters": [],
+        "odds": [
+            {
+                "provider": {"name": "DraftKings"},
+                "bettingOdds": {
+                    "teamOdds": {
+                        "preMatchFullTimeResultHome": {"value": "4/1"},
+                        "preMatchFullTimeResultDraw": {"value": "16/5"},
+                        "preMatchFullTimeResultAway": {"value": "13/20"},
+                    }
+                },
+            }
+        ],
+    }
+    with patch("betscout.paper_bet._fetch_live_json", return_value=mock_sum):
+        vetoed_u = refresh_t60_starting_xi_gates(db)
+    assert any(v["event_id"] == "401915377" and v["status"] == "VETOED_ADVERSE_RLM_DRIFT" for v in vetoed_u)
+    c_u = sqlite3.connect(db)
+    rem_u = c_u.execute("SELECT event_id FROM paper_bets WHERE league='uefa.champions' AND event_id LIKE '401915377%'").fetchall()
+    c_u.close()
+    assert rem_u == []
+
 
 
 
