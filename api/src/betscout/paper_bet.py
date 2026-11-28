@@ -4452,8 +4452,13 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
     raw_side = str(leg.get("side") or "").strip()
     mkt = str(leg.get("market") or "").lower()
     pick_txt = str(leg.get("pick") or "")
-    if raw_side in ("H", "A"):
-        side = raw_side
+    raw_side_u = raw_side.upper()
+    if raw_side_u in ("H", "A"):
+        side = raw_side_u
+    elif raw_side_u.endswith("_H") or raw_side_u == "DC_1X":
+        side = "H"
+    elif raw_side_u.endswith("_A") or raw_side_u == "DC_X2":
+        side = "A"
     elif " vs " in match_name:
         h_part, a_part = [x.strip() for x in match_name.split(" vs ", 1)]
         if a_part and a_part.lower() in pick_txt.lower():
@@ -4510,6 +4515,24 @@ def _grade_single_combo_leg(conn: sqlite3.Connection, leg: dict[str, Any]) -> tu
             parts = head.split("-", 1)
             if parts[0].strip().isdigit() and parts[1].strip().isdigit():
                 hs, as_ = int(parts[0].strip()), int(parts[1].strip())
+
+    if raw_side_u.startswith("PUCKLINE_P1.5_") or ("puckline" in mkt) or ("1x / +1.5" in pick_txt.lower()) or ("x2 / +1.5" in pick_txt.lower()):
+        if hs is not None and as_ is not None:
+            margin_pick = (hs - as_) if side == "H" else (as_ - hs)
+            return (1 if margin_pick >= -1 else 0), score_str
+        return (1 if outcome == side else 0), score_str
+
+    if raw_side_u.startswith("SPREAD_P7.5_") or "+7.5" in mkt or "+7.5" in pick_txt.lower():
+        if hs is not None and as_ is not None:
+            margin_pick = (hs - as_) if side == "H" else (as_ - hs)
+            return (1 if margin_pick >= -7 else 0), score_str
+        return (1 if outcome == side else 0), score_str
+
+    if raw_side_u.startswith("SPREAD_M2.5_") or "-2.5" in mkt or "-2.5" in pick_txt.lower():
+        if hs is not None and as_ is not None:
+            margin_pick = (hs - as_) if side == "H" else (as_ - hs)
+            return (1 if margin_pick >= 3 else 0), score_str
+        return (1 if outcome == side else 0), score_str
 
     if "double chance" in mkt or "(1x)" in pick_txt.lower() or "(x2)" in pick_txt.lower():
         if "1x" in mkt or "(1x)" in pick_txt.lower():

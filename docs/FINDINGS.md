@@ -544,6 +544,12 @@ An end-to-end audit across **`66,476` finished matches**, **`293` settled live p
       - Tightened `refresh_t60_starting_xi_gates` (`paper_bet.py`) to trigger `VETOED_ADVERSE_RLM_DRIFT` on UEFA/FIFA away favorites at `clv_pct <= -0.04` and cascade primary ML T-60m vetoes to delete paired secondary rows (`event_id LIKE '{base_eid}::%'`).
       - Added automatic pruning of expired `gismo_http_cache` rows (`expires_at < now - 3600`) inside `_atomic_flush_to_gcs()` (`webapp.py`) and vacuumed `5,612` expired cache rows from `betscout.db` (`211.7 MB -> 33.9 MB`, `-84%` footprint).
 
+11. **Nov 28 Data Reconciliation, Home-Favorite-Only NHL Fade Gate (`+4.66% -> +8.25%` OOS ROI), Combo Handicap Grader Fix & Auto-VACUUM (`sport_models.py`, `paper_bet.py`, `webapp.py`)**:
+    - **NHL `fade_trap` Home-vs-Road Split (`evaluate_paper_tiger_fade`)**: Full-DB OOS audit (`n = 89` NHL fades) revealed a sharp venue split: fading overestimated **Home** NHL favorites (`f_side == "H"` -> Road Underdog `X2 / +1.5`, `n = 67`) achieved **`73.1%` WR / `+8.25%` ROI (`+5.53u`)**, whereas fading **Road** favorites (`f_side == "A"` -> Home Underdog `1X / +1.5`, `n = 22`, e.g. `Anaheim Ducks 3–5 Los Angeles Kings`) went **`63.6%` WR / `-6.27%` ROI (`-1.38u`)**. Restricting NHL fades to `f_side == "H"` eliminates the `-6.27%` drag.
+    - **Combo Leg Grader Fix (`_grade_single_combo_leg`)**: Fixed grading for `PUCKLINE_P1.5_*`, `SPREAD_P7.5_*`, and `SPREAD_M2.5_*` combo legs (previously fell through to moneyline/name-matching and mis-graded `Anaheim Ducks 3–5 LA Kings` `+1.5` as `WIN` and `Phoenix Suns 102–99 Houston Rockets` `+7.5` as `LOSS`). Reconciled both historical combo records in `paper_combos`.
+    - **Automatic `VACUUM` on High SQLite Freelist (`_atomic_flush_to_gcs`)**: Triggers `VACUUM` whenever `PRAGMA freelist_count >= 5000` after pruning expired `gismo_http_cache` rows so `betscout.db` on GCS stays compact (`~34 MB` vs `222 MB`).
+
+
 
 
 

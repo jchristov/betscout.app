@@ -2343,6 +2343,82 @@ def test_moving_line_dedup_and_nov2026_gate_optimizations(tmp_path: Path) -> Non
     c_u.close()
     assert rem_u == []
 
+    # 12. NHL fade_trap restricts fades to overestimated HOME favorites (f_side == "H") and rejects Road favorites (e.g. Ducks 3-5 Kings)
+    assert (
+        evaluate_paper_tiger_fade(
+            "nhl",
+            "Anaheim Ducks",
+            "Los Angeles Kings",
+            "A",
+            1.65,
+            2.30,
+            vol_diff_fav=-4.5,
+            fav_goal_diff=-0.10,
+            fav_win_rate_5=0.60,
+            dog_win_rate_3=0.33,
+            dog_last_margin=7.0,
+            league="nhl",
+        )
+        is None
+    )
+    assert (
+        evaluate_paper_tiger_fade(
+            "nhl",
+            "Boston Bruins",
+            "Toronto Maple Leafs",
+            "H",
+            1.68,
+            2.25,
+            vol_diff_fav=-4.2,
+            fav_goal_diff=-0.20,
+            fav_win_rate_5=0.40,
+            dog_win_rate_3=0.67,
+            dog_last_margin=2.0,
+            league="nhl",
+        )
+        is not None
+    )
+
+    # 13. _grade_single_combo_leg accurately grades PUCKLINE_P1.5 (loss on 3-5) and SPREAD_P7.5 (win on 102-99)
+    from betscout.paper_bet import _grade_single_combo_leg
+
+    c_gr = sqlite3.connect(db)
+    c_gr.execute(
+        "INSERT OR REPLACE INTO matches (league, sport, event_id, kickoff, home, away, outcome, home_score, away_score) VALUES ('nhl','hockey','401892804','2026-11-27T21:00Z','Anaheim Ducks','Los Angeles Kings','A',3,5)"
+    )
+    c_gr.execute(
+        "INSERT OR REPLACE INTO matches (league, sport, event_id, kickoff, home, away, outcome, home_score, away_score) VALUES ('nba','basketball','401909943','2026-11-08T02:00Z','Phoenix Suns','Houston Rockets','H',102,99)"
+    )
+    c_gr.commit()
+    h_puck, _ = _grade_single_combo_leg(
+        c_gr,
+        {
+            "league": "nhl",
+            "event_id": "401892804::FADE_PUCKLINE_P1.5_H",
+            "kickoff": "2026-11-27T21:00Z",
+            "match": "Anaheim Ducks vs Los Angeles Kings",
+            "side": "PUCKLINE_P1.5_H",
+            "market": "Moneyline",
+            "pick": "Anaheim Ducks 1X / +1.5 (Fade Los Angeles Kings) (PUCKLINE_P1.5_H)",
+        },
+    )
+    h_spr, _ = _grade_single_combo_leg(
+        c_gr,
+        {
+            "league": "nba",
+            "event_id": "401909943::SPREAD_P7.5_A",
+            "kickoff": "2026-11-08T02:00Z",
+            "match": "Phoenix Suns vs Houston Rockets",
+            "side": "SPREAD_P7.5_A",
+            "market": "Spread Shield",
+            "pick": "Houston Rockets +7.5 Spread Shield",
+        },
+    )
+    c_gr.close()
+    assert h_puck == 0
+    assert h_spr == 1
+
+
 
 
 

@@ -2285,6 +2285,11 @@ def evaluate_paper_tiger_fade(
             }
 
     if sp in ("nhl", "hockey"):
+        # Only fade overestimated HOME NHL favorites (`f_side == "H"` -> Road Underdog `X2 / +1.5`):
+        # Full-DB OOS audit shows fading Home favorites is `73.1%` WR / `+8.25%` ROI (`+5.53u`, `n=67`),
+        # whereas fading Road favorites (which already cleared bookmaker road-favorite pricing) is `63.6%` WR / `-6.27%` ROI (`-1.38u`, `n=22`, e.g. Ducks 3-5 Kings).
+        if f_side != "H":
+            return None
         if fav_goal_diff is not None and fav_goal_diff > 0.35:
             return None
         if fav_win_rate_5 is not None and fav_win_rate_5 > 0.65:

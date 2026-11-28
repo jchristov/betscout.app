@@ -87,6 +87,9 @@ def _atomic_flush_to_gcs(data_dir: Path, db_path: Path) -> None:
                     (time.time() - 3600.0,),
                 )
                 src_c.commit()
+                fl_cnt = int((src_c.execute("PRAGMA freelist_count").fetchone() or [0])[0])
+                if fl_cnt >= 5000:
+                    src_c.execute("VACUUM")
             except Exception:
                 pass
             dst_c = sqlite3.connect(local_bak)
